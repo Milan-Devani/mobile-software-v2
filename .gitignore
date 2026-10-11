@@ -1,0 +1,76 @@
+# ==========================================
+# Dependencies
+# ==========================================
+node_modules/
+.pnp
+.pnp.js
+
+# ==========================================
+# Build & Distribution Artifacts
+# ==========================================
+dist/
+dist-ssr/
+build/
+out/
+*.tsbuildinfo
+
+# ==========================================
+# Environment Files
+# Explicitly ALLOWED so full configuration is shared with teammates
+# ==========================================
+!.env
+!.env.*
+!**/.env
+!**/.env.*
+
+# ==========================================
+# Runtime Uploads & Generated Media
+# (Preserves directory structure via .gitkeep while ignoring uploaded files)
+# ==========================================
+server/uploads/*
+!server/uploads/.gitkeep
+
+# ==========================================
+# Logs & Diagnostics
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ==========================================
+# Cache & Temporary Files
+# ==========================================
+.npm/
+.eslintcache
+.stylelintcache
+.parcel-cache
+.vite/
+*.tmp
+*.temp
+
+# ==========================================
+# Operating System & IDE Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
