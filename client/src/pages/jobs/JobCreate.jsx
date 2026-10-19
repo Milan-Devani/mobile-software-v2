@@ -304,7 +304,12 @@ export const JobCreate = () => {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Section 1: Customer Selection */}
-        <Card title="1. Customer Information" subtitle="Select existing customer or register a new one">
+        <Card
+          title="1. Customer Information"
+          subtitle="Select existing customer or register a new one"
+          className="relative z-30"
+          hover={false}
+        >
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1">
@@ -346,45 +351,45 @@ export const JobCreate = () => {
               const sel = customers.find((c) => c.id === selectedId);
               if (!sel) return null;
               return (
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2 mt-2">
+                <div className="p-3.5 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] hover:border-sky-400/40 text-xs space-y-2 mt-2 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">{sel.full_name}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-semibold">
+                      <span className="font-bold text-[var(--spatial-text-title)]">{sel.full_name}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] text-[10px] font-semibold">
                         {sel.user_type || 'End User'} • {sel.gender || 'male'}
                       </span>
                     </div>
-                    <span className="font-mono text-slate-500 text-[11px]">{sel.customer_code}</span>
+                    <span className="font-mono text-sky-400 text-[11px] font-semibold">{sel.customer_code}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 text-[11px]">
                     <div>
-                      <span className="text-slate-500">Primary Phone:</span>
-                      <p className="font-mono font-semibold text-slate-800">{sel.phone || 'N/A'}</p>
+                      <span className="text-[var(--spatial-text-muted)]">Primary Phone:</span>
+                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.phone || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Primary WhatsApp:</span>
-                      <p className="font-mono font-semibold text-slate-800">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
+                      <span className="text-[var(--spatial-text-muted)]">Primary WhatsApp:</span>
+                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-slate-500">Alternate Phone:</span>
-                      <p className="font-mono font-semibold text-slate-800">{sel.alternate_phone || 'None'}</p>
+                      <span className="text-[var(--spatial-text-muted)]">Alternate Phone:</span>
+                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.alternate_phone || 'None'}</p>
                     </div>
-                    <div className="bg-emerald-50 border border-emerald-200/70 p-1.5 rounded-lg">
-                      <span className="text-emerald-700 font-semibold">Alt WhatsApp (In-Repair):</span>
-                      <p className="font-mono font-bold text-emerald-900">
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 p-1.5 rounded-lg">
+                      <span className="text-emerald-400 font-semibold">Alt WhatsApp (In-Repair):</span>
+                      <p className="font-mono font-bold text-emerald-300">
                         {sel.alternate_whatsapp || sel.alternate_phone || 'Not recorded'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200/60 flex-wrap gap-2">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] pt-1 border-t border-[var(--spatial-border)] flex-wrap gap-2">
                     <div>
-                      <span className="text-slate-500">Mail ID:</span> {sel.email || 'None'}
+                      <span>Mail ID:</span> <span className="text-[var(--spatial-text-title)] font-medium">{sel.email || 'None'}</span>
                     </div>
                     {sel.address && (
                       <div className="truncate max-w-sm">
-                        <span className="text-slate-500">Address:</span> {sel.address}
+                        <span>Address:</span> <span className="text-[var(--spatial-text-title)] font-medium">{sel.address}</span>
                       </div>
                     )}
                   </div>
@@ -434,7 +439,12 @@ export const JobCreate = () => {
         </Card>
 
         {/* Section 2: Device Information */}
-        <Card title="2. Device Details" subtitle="Specifications and identification details">
+        <Card
+          title="2. Device Details"
+          subtitle="Specifications and identification details"
+          className="relative z-20"
+          hover={false}
+        >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
@@ -581,16 +591,21 @@ export const JobCreate = () => {
         </Card>
 
         {/* Section 3: Customer Complaint */}
-        <Card title="3. Customer Complaint" subtitle="Record verbatim issue reported by customer">
+        <Card
+          title="3. Customer Complaint"
+          subtitle="Record verbatim issue reported by customer"
+          className="relative z-10"
+          hover={false}
+        >
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Reported Issue / Problem Description *
             </label>
             <textarea
               rows={3}
               placeholder="e.g. Mobile is not charging. Dropped yesterday and screen flickers with horizontal lines."
               {...register('customer_complaint')}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs leading-relaxed focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3.5 py-2.5 spatial-input rounded-xl text-xs leading-relaxed"
             />
             {errors.customer_complaint && (
               <p className="text-[11px] text-rose-500 mt-1">{errors.customer_complaint.message}</p>
@@ -602,11 +617,13 @@ export const JobCreate = () => {
         <Card
           title="4. Inward Condition Checklist (12-Point Inspection)"
           subtitle="Record cosmetic and functional state matching the Service Order & Invoice checklist"
+          className="relative z-[5]"
+          hover={false}
           action={
             <button
               type="button"
               onClick={handleMarkAllFunctional}
-              className="text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md border border-primary-200 hover:bg-primary-100 transition-colors"
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-400/30 hover:bg-sky-500/20 transition-colors"
             >
               ✓ All Functional / Good
             </button>
@@ -621,10 +638,10 @@ export const JobCreate = () => {
               return (
                 <div
                   key={item.key}
-                  className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-2 shadow-xs"
+                  className="p-2.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] hover:border-sky-400/50 hover:-translate-y-0.5 hover:shadow-sm flex items-center justify-between gap-2 transition-all duration-150"
                 >
-                  <span className="text-xs font-medium text-slate-800 leading-snug">{item.label}</span>
-                  <div className="flex items-center rounded-md p-0.5 bg-slate-100 border border-slate-200 shrink-0">
+                  <span className="text-xs font-medium text-[var(--spatial-text-title)] leading-snug">{item.label}</span>
+                  <div className="flex items-center rounded-lg p-0.5 bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shrink-0">
                     <button
                       type="button"
                       onClick={() => handleChecklistToggle(item.key, 'Yes')}
@@ -633,7 +650,7 @@ export const JobCreate = () => {
                           ? item.type === 'working'
                             ? 'bg-emerald-600 text-white shadow-xs'
                             : 'bg-rose-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                          : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                       }`}
                     >
                       Yes
@@ -646,7 +663,7 @@ export const JobCreate = () => {
                           ? item.type === 'working'
                             ? 'bg-rose-600 text-white shadow-xs'
                             : 'bg-emerald-600 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                          : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                       }`}
                     >
                       No
@@ -657,15 +674,15 @@ export const JobCreate = () => {
             })}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--spatial-border)]">
             <div>
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors">
+              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15 transition-all duration-150">
                 <input
                   type="checkbox"
                   {...register('water_damage')}
                   className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
                 />
-                <span className="text-xs font-bold text-rose-700 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4" />
                   Liquid / Water Damage Suspected
                 </span>
@@ -676,14 +693,19 @@ export const JobCreate = () => {
                 type="text"
                 placeholder="Additional intake condition notes (e.g. Minor hairline scratch on rear camera lens)"
                 {...register('condition_notes')}
-                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2.5 spatial-input rounded-xl text-xs"
               />
             </div>
           </div>
         </Card>
 
         {/* Section 5: Accessories Received */}
-        <Card title="5. Accessories Received" subtitle="Items customer handed over with the device">
+        <Card
+          title="5. Accessories Received"
+          subtitle="Items customer handed over with the device"
+          className="relative z-[1]"
+          hover={false}
+        >
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {ACCESSORIES_OPTIONS.map((acc) => {
               const checked = selectedAccessories.includes(acc);
@@ -692,14 +714,14 @@ export const JobCreate = () => {
                   type="button"
                   key={acc}
                   onClick={() => toggleAccessory(acc)}
-                  className={`p-2.5 rounded-lg border text-left text-xs font-medium transition-all flex items-center gap-2 ${
+                  className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all duration-150 flex items-center gap-2 cursor-pointer ${
                     checked
-                      ? 'border-primary-500 bg-primary-50/70 text-primary-900 font-semibold'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'border-sky-400 bg-sky-500/15 text-[var(--spatial-text-title)] font-semibold shadow-xs ring-1 ring-sky-500/30 -translate-y-0.5'
+                      : 'spatial-inner-box hover:border-sky-400/40 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                   }`}
                 >
                   <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                    checked ? 'bg-primary-600 border-primary-600 text-white' : 'border-slate-300'
+                    checked ? 'bg-sky-500 border-sky-500 text-white' : 'border-[var(--spatial-border)]'
                   }`}>
                     {checked && '✓'}
                   </span>

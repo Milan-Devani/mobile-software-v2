@@ -427,10 +427,10 @@ export const Settings = () => {
                         setThemeMode(mode);
                         toast.success(`Color mode switched to ${label}!`);
                       }}
-                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all ${
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all duration-150 cursor-pointer ${
                         isSelected
-                          ? 'border-sky-400 bg-sky-500/15 text-sky-400 ring-2 ring-sky-500/20'
-                          : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] hover:border-[var(--spatial-border-hover)]'
+                          ? 'border-sky-400 bg-sky-500/15 text-sky-400 ring-2 ring-sky-500/20 -translate-y-0.5 shadow-sm'
+                          : 'spatial-inner-box text-[var(--spatial-text-body)] hover:border-sky-400/50'
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -446,7 +446,7 @@ export const Settings = () => {
             </Card>
 
             {/* Animation Preference */}
-            <Card title="Motion & Micro-Interactions" subtitle="Control spring transitions & GPU effects">
+            <Card title="Motion & Micro-Interactions" subtitle="Control spring transitions & GPU effects" hover={false}>
               <div className="grid grid-cols-2 gap-2">
                 {[
                   {
@@ -471,10 +471,10 @@ export const Settings = () => {
                         setAnimations(pref);
                         toast.success(`${label} preference applied!`);
                       }}
-                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      className={`p-3 rounded-xl border text-left flex flex-col justify-between transition-all duration-150 cursor-pointer ${
                         isSelected
-                          ? 'border-sky-400 bg-sky-500/15 text-sky-400 ring-2 ring-sky-500/20'
-                          : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] hover:border-[var(--spatial-border-hover)]'
+                          ? 'border-sky-400 bg-sky-500/15 text-sky-400 ring-2 ring-sky-500/20 -translate-y-0.5 shadow-sm'
+                          : 'spatial-inner-box text-[var(--spatial-text-body)] hover:border-sky-400/50'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1">

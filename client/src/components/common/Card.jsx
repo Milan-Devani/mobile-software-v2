@@ -9,16 +9,21 @@ export const Card = ({
   className = '',
   bodyClassName = 'p-5',
   headerClassName = 'px-5 py-4 border-b border-[var(--spatial-border)]',
-  hover = true,
+  hover = false,
+  overflow = 'visible',
   ...props
 }) => {
+  const isHidden = overflow === 'hidden' || className.includes('overflow-hidden');
+
   return (
     <div
-      className={`spatial-card ${hover ? 'spatial-card-hover' : ''} overflow-hidden ${className}`}
+      className={`spatial-card ${hover ? 'spatial-card-hover' : ''} ${
+        isHidden ? 'overflow-hidden' : 'overflow-visible'
+      } ${className}`}
       {...props}
     >
       {(title || action) && (
-        <div className={`flex items-center justify-between ${headerClassName}`}>
+        <div className={`flex items-center justify-between rounded-t-2xl ${headerClassName}`}>
           <div>
             {title && <h3 className="font-bold text-[var(--spatial-text-title)] text-base tracking-tight">{title}</h3>}
             {subtitle && <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">{subtitle}</p>}

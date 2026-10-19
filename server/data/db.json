@@ -218,6 +218,25 @@
       "notes": "",
       "created_at": "2026-10-19T17:52:07.891Z",
       "updated_at": "2026-10-19T17:52:07.891Z"
+    },
+    {
+      "id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "customer_code": "CUST-0008",
+      "full_name": "demo2",
+      "phone": "8758152507",
+      "email": "milandevani994@gmail.com",
+      "whatsapp_number": "8758152507",
+      "alternate_phone": "",
+      "alternate_whatsapp": "",
+      "gender": "male",
+      "user_type": "Dealer",
+      "address": "",
+      "city": "",
+      "state": "",
+      "postal_code": "",
+      "notes": "",
+      "created_at": "2026-10-19T18:41:43.553Z",
+      "updated_at": "2026-10-19T18:41:43.553Z"
     }
   ],
   "devices": [
@@ -382,6 +401,24 @@
       "cosmetic_condition": "Wear And Tear",
       "created_at": "2026-10-19T17:53:51.970Z",
       "updated_at": "2026-10-19T17:53:51.970Z"
+    },
+    {
+      "id": "91f54d07-0d5d-43e9-bbdc-ad55fd506e31",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "brand": "Apple",
+      "model": "iphone 11 pro max",
+      "color": "white",
+      "storage_capacity": "512",
+      "imei": "789654123963258",
+      "serial_number": "7896545",
+      "passcode": "1478",
+      "operating_system": "iOS",
+      "invoice_date": "",
+      "invoice_number": "",
+      "expiry_date": "",
+      "cosmetic_condition": "Wear And Tear",
+      "created_at": "2026-10-19T18:43:50.928Z",
+      "updated_at": "2026-10-19T18:43:50.928Z"
     }
   ],
   "parts": [],
@@ -523,6 +560,75 @@
       "warranty_days": 90,
       "created_at": "2026-10-19T17:53:51.973Z",
       "updated_at": "2026-10-19T18:00:15.862Z"
+    },
+    {
+      "id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "job_number": "JOB-2026-000004",
+      "shop_id": "a0000000-0000-0000-0000-000000000001",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "device_id": "91f54d07-0d5d-43e9-bbdc-ad55fd506e31",
+      "assigned_technician_id": null,
+      "created_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "status": "DELIVERED",
+      "priority": "NORMAL",
+      "service_type": "Software / Unlocking / Flashing",
+      "customer_complaint": "lang iusse",
+      "device_condition": {
+        "powers_on": true,
+        "power_button": "Working",
+        "volume_buttons": "Working",
+        "screen": "Working",
+        "touch": "Working",
+        "speaker": "Working",
+        "charging_port": "Working",
+        "headphone_jack": "Working",
+        "back_glass": "Intact",
+        "dents": false,
+        "screw_missing": false,
+        "sim_tray_missing": false,
+        "checklist": {
+          "powers_on": "Yes",
+          "power_button": "Yes",
+          "volume_buttons": "Yes",
+          "screen": "Yes",
+          "touch": "Yes",
+          "speaker": "Yes",
+          "charging_port": "Yes",
+          "headphone_jack": "Yes",
+          "back_glass": "No",
+          "dents": "No",
+          "screw_missing": "No",
+          "sim_tray_missing": "No"
+        },
+        "water_damage": true,
+        "notes": ""
+      },
+      "accessories_received": [
+        "SIM Card",
+        "Cable",
+        "Protective Case"
+      ],
+      "subtotal": 200,
+      "discount": 0,
+      "tax_rate": 0,
+      "tax_amount": 0,
+      "total_amount": 200,
+      "paid_amount": 200,
+      "balance_due": 0,
+      "payment_status": "PAID",
+      "customer_tested_device": true,
+      "customer_acceptance_confirmed": true,
+      "customer_signature": null,
+      "delivery_notes": "",
+      "delivered_at": "2026-10-19T18:47:06.401Z",
+      "delivered_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "approval_token": "768e632b-f22d-45f8-9ada-7316f2b0b086",
+      "approval_status": "APPROVED",
+      "approval_decision_at": "2026-10-19T18:46:00.678Z",
+      "rejection_reason": null,
+      "warranty_days": 90,
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:47:06.402Z"
     }
   ],
   "job_status_history": [
@@ -955,6 +1061,116 @@
       "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner.",
       "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-19T18:00:15.862Z"
+    },
+    {
+      "id": "607f9462-8250-406b-9199-cc8b32b0ed29",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": null,
+      "to_status": "RECEIVED",
+      "action_title": "Device Received & Job Sheet Created",
+      "notes": "Device accepted into shop service. Assigned Job #JOB-2026-000004. Customer complaint: \"lang iusse\".",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:43:50.931Z"
+    },
+    {
+      "id": "c11e6634-3f11-4e49-9198-81240a5c37d0",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "RECEIVED",
+      "to_status": "DIAGNOSING",
+      "action_title": "Diagnostic Assessment Started",
+      "notes": "Technician Shop Owner has begun device bench testing and inspection.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:44:30.194Z"
+    },
+    {
+      "id": "5e0c9db5-f0e2-483f-9c23-a8f6dda89ca9",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "DIAGNOSING",
+      "to_status": "DIAGNOSING",
+      "action_title": "Diagnosis Findings Recorded",
+      "notes": "Technician noted: lang iusse... Solution: flashing...",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:44:55.692Z"
+    },
+    {
+      "id": "9ed51245-2c0d-4a81-9de5-97ccedaa5243",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "DIAGNOSING",
+      "to_status": "ESTIMATE_SENT",
+      "action_title": "Repair Estimate Generated & Sent",
+      "notes": "Estimate of $200.00 prepared (Labor: $0.00, Parts: $200.00).",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:45:14.428Z"
+    },
+    {
+      "id": "f8cdba5a-d329-4ed7-899d-2a238699c936",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "ESTIMATE_SENT",
+      "to_status": "APPROVED",
+      "action_title": "Customer Approved Repair Estimate",
+      "notes": "Customer confirmed and approved the repair estimate online.",
+      "performed_by_user_id": null,
+      "created_at": "2026-10-19T18:46:00.679Z"
+    },
+    {
+      "id": "f0f2d60c-ea4f-4962-86d5-137905736da7",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "APPROVED",
+      "to_status": "IN_PROGRESS",
+      "action_title": "Repair In Progress",
+      "notes": "Technician Shop Owner commenced hardware repair and replacement.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:46:14.771Z"
+    },
+    {
+      "id": "ca373c53-a590-4460-98ed-9d906e7446e8",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "IN_PROGRESS",
+      "to_status": "TESTING",
+      "action_title": "Hardware Repair Finished - Testing Required",
+      "notes": "Physical repair work completed by Shop Owner. Device sent to Quality Check testing bench.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:46:18.102Z"
+    },
+    {
+      "id": "c3be31e6-f86f-42ad-a3f6-4c71e861c85e",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "TESTING",
+      "to_status": "TESTING",
+      "action_title": "Quality Testing Checklist Updated",
+      "notes": "Quality inspection updated: 16 PASS, 0 FAIL, 0 NOT TESTED.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:46:22.217Z"
+    },
+    {
+      "id": "bd053fc1-d5db-49fa-936c-be30a5a4449a",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "TESTING",
+      "to_status": "READY_FOR_PICKUP",
+      "action_title": "Device Marked Ready for Customer Pickup",
+      "notes": "All quality checks verified. Device cleaned and packaged for pickup.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:46:22.226Z"
+    },
+    {
+      "id": "7015476a-1f2a-458f-9415-2a3f56405277",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "READY_FOR_PICKUP",
+      "to_status": "READY_FOR_PICKUP",
+      "action_title": "Payment Received: $200.00 (CASH)",
+      "notes": "Recorded by staff. Total paid: $200.00, Remaining balance: $0.00. Ref: N/A",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:46:57.561Z"
+    },
+    {
+      "id": "842c2ccc-584b-4d69-95eb-59aeab168018",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "from_status": "DELIVERED",
+      "to_status": "DELIVERED",
+      "action_title": "Device Delivered to Customer",
+      "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner.",
+      "performed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:47:06.402Z"
     }
   ],
   "diagnoses": [
@@ -993,6 +1209,18 @@
       "internal_technician_notes": "",
       "created_at": "2026-10-19T17:55:28.057Z",
       "updated_at": "2026-10-19T17:55:28.057Z"
+    },
+    {
+      "id": "85583b26-b905-4bb5-8ed5-92a78349df92",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "diagnosed_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "reported_issue": "lang iusse",
+      "technician_findings": "lang iusse",
+      "root_cause": "software bugs",
+      "recommended_solution": "flashing",
+      "internal_technician_notes": "",
+      "created_at": "2026-10-19T18:44:55.689Z",
+      "updated_at": "2026-10-19T18:44:55.689Z"
     }
   ],
   "repair_estimates": [
@@ -1043,6 +1271,22 @@
       "created_by_user_id": "u0000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-19T17:57:21.652Z",
       "updated_at": "2026-10-19T17:58:32.195Z"
+    },
+    {
+      "id": "5e61f18f-7407-41d3-9321-10da350358dc",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "labor_charge": 0,
+      "parts_subtotal": 200,
+      "discount": 0,
+      "tax_rate": 0,
+      "tax_amount": 0,
+      "total_amount": 200,
+      "notes": "",
+      "valid_until": null,
+      "status": "SENT",
+      "created_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-19T18:45:14.427Z",
+      "updated_at": "2026-10-19T18:45:14.427Z"
     }
   ],
   "repair_estimate_items": [
@@ -1089,6 +1333,17 @@
       "total_price": 2000,
       "estimate_id": "c38bf83f-4a0a-45ca-9965-20d0a77c8c86",
       "created_at": "2026-10-19T17:58:32.195Z"
+    },
+    {
+      "id": "1aaa3cb9-2241-4210-afa2-c6f9f3af161e",
+      "part_id": null,
+      "item_name": "flashing",
+      "quantity": 1,
+      "unit_price": 200,
+      "discount": 0,
+      "total_price": 200,
+      "estimate_id": "5e61f18f-7407-41d3-9321-10da350358dc",
+      "created_at": "2026-10-19T18:45:14.427Z"
     }
   ],
   "part_stock_movements": [],
@@ -1670,6 +1925,198 @@
       "tested_at": "2026-10-19T17:59:30.194Z",
       "created_at": "2026-10-19T17:53:51.974Z",
       "updated_at": "2026-10-19T17:59:30.194Z"
+    },
+    {
+      "id": "7fc943e8-13f2-4be1-8b9c-9df6c4329934",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "power_on",
+      "test_label": "Device Powers On",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "79d53717-4807-401b-9175-60183326bab7",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "display",
+      "test_label": "Display & Color Quality",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "77ca1b9a-507d-42be-a0e7-6b30f71a26fd",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "touch",
+      "test_label": "Touchscreen Responsiveness",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "28ce05ea-2af0-445b-a16e-157676be8cb2",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "charging",
+      "test_label": "Charging Port & Current Draw",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "0f8603c1-8a9f-4184-a539-a8f1b704a545",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "camera_rear",
+      "test_label": "Rear Main Camera & Focus",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "30ed57f8-6be2-47db-85c9-735759c1d9d9",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "camera_front",
+      "test_label": "Front Camera",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "8676e8ea-fe82-402f-84e3-30a34dae3882",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "speaker_loud",
+      "test_label": "Loudspeaker / Media Audio",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "40676d40-3c5d-4cb4-b20a-c9deccdef638",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "speaker_ear",
+      "test_label": "Earpiece Speaker",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "36cb58a3-b136-4fd7-91f5-26643afb1b45",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "microphone",
+      "test_label": "Microphone & Noise Cancelling",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "343cb627-8583-4c10-8696-633b2b0e498b",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "wifi",
+      "test_label": "Wi-Fi Connection & Signal",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "b382398f-d069-4558-8be4-d31292b264e1",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "bluetooth",
+      "test_label": "Bluetooth Pairing",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "92432eff-200a-40c0-9b50-c6cbdf4933f9",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "sim_network",
+      "test_label": "SIM Card & Cellular Network",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "7fe7195d-58b6-4687-84ed-4e01e98e14c5",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "biometrics",
+      "test_label": "Fingerprint / Face ID",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "d65e6d3e-a17e-4de2-b206-49930905964e",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "buttons",
+      "test_label": "Physical Buttons (Power/Volume)",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "8d46e121-8c0d-4905-b3b8-1f7195bc50a0",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "battery_health",
+      "test_label": "Battery Health & Charge Hold",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
+    },
+    {
+      "id": "656805b9-654d-4710-835f-3090da6c6d7c",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "test_key": "sensors",
+      "test_label": "Proximity Sensor & Accelerometer",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "tested_at": "2026-10-19T18:46:22.215Z",
+      "created_at": "2026-10-19T18:43:50.931Z",
+      "updated_at": "2026-10-19T18:46:22.215Z"
     }
   ],
   "payments": [
@@ -1742,6 +2189,20 @@
       "notes": "",
       "paid_at": "2026-10-19T17:59:41.724Z",
       "created_at": "2026-10-19T17:59:41.724Z"
+    },
+    {
+      "id": "36bf8111-81e9-4059-ba1d-5473523b1c41",
+      "payment_number": "PAY-2026-00006",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "amount": 200,
+      "payment_method": "CASH",
+      "payment_status": "COMPLETED",
+      "transaction_reference": null,
+      "received_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "notes": "",
+      "paid_at": "2026-10-19T18:46:57.560Z",
+      "created_at": "2026-10-19T18:46:57.560Z"
     }
   ],
   "invoices": [
@@ -1813,6 +2274,29 @@
       "issued_by_user_id": "u0000000-0000-0000-0000-000000000001",
       "issued_at": "2026-10-19T17:59:41.728Z",
       "created_at": "2026-10-19T17:59:41.728Z"
+    },
+    {
+      "id": "7d5edbc8-a9c2-4886-a042-51f0ac9ec969",
+      "invoice_number": "INV-2026-000004",
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "shop_id": "a0000000-0000-0000-0000-000000000001",
+      "subtotal": 200,
+      "labor_amount": 0,
+      "parts_amount": 200,
+      "discount": 0,
+      "tax_rate": 0,
+      "tax_amount": 0,
+      "total_amount": 200,
+      "paid_amount": 200,
+      "balance_due": 0,
+      "payment_status": "PAID",
+      "warranty_period": "90 Days Hardware Warranty",
+      "notes": "Thank you for choosing Mobotech mobile care for your mobile device repair!",
+      "pdf_url": null,
+      "issued_by_user_id": "u0000000-0000-0000-0000-000000000001",
+      "issued_at": "2026-10-19T18:46:57.563Z",
+      "created_at": "2026-10-19T18:46:57.563Z"
     }
   ],
   "invoice_items": [
@@ -1855,6 +2339,16 @@
       "unit_price": 2000,
       "total_price": 2000,
       "created_at": "2026-10-19T18:00:15.863Z"
+    },
+    {
+      "id": "9dc9a4a1-a55a-4800-accc-b40a4b68f8c2",
+      "invoice_id": "7d5edbc8-a9c2-4886-a042-51f0ac9ec969",
+      "item_type": "PART",
+      "item_name": "flashing",
+      "quantity": 1,
+      "unit_price": 200,
+      "total_price": 200,
+      "created_at": "2026-10-19T18:47:06.404Z"
     }
   ],
   "attachments": [],
@@ -3895,6 +4389,282 @@
       "retry_count": 0,
       "sent_at": "2026-10-19T18:00:43.629Z",
       "created_at": "2026-10-19T18:00:43.629Z"
+    },
+    {
+      "id": "decfb8c6-0ead-4a85-a9a7-5b44ca22b96c",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "EMAIL",
+      "message_type": "JOB_CREATED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "messageId": "<202610191843.39611384245@smtp-relay.mailin.fr>",
+        "provider": "BREVO_API"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:43:51.740Z",
+      "created_at": "2026-10-19T18:43:51.740Z"
+    },
+    {
+      "id": "900dcf0a-c54e-40c8-8922-96b7eb7d9c25",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "WHATSAPP",
+      "message_type": "JOB_CREATED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:43:52.041Z"
+    },
+    {
+      "id": "980445e0-143a-4d17-8b95-f53816f9cdaa",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "SMS",
+      "message_type": "JOB_CREATED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:43:52.257Z"
+    },
+    {
+      "id": "9edb750d-f021-4a90-87f0-4781721342fe",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "EMAIL",
+      "message_type": "ESTIMATE_SENT",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "messageId": "<202610191845.95597244480@smtp-relay.mailin.fr>",
+        "provider": "BREVO_API"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:45:15.099Z",
+      "created_at": "2026-10-19T18:45:15.099Z"
+    },
+    {
+      "id": "b342c70d-b6af-427c-a36c-a745b482b55a",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "WHATSAPP",
+      "message_type": "ESTIMATE_SENT",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB0DC1FC3B445BEF002B7"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:45:15.805Z",
+      "created_at": "2026-10-19T18:45:15.805Z"
+    },
+    {
+      "id": "709e4722-f028-477f-aa67-518d9ba634df",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "SMS",
+      "message_type": "ESTIMATE_SENT",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:45:16.066Z"
+    },
+    {
+      "id": "ef16becb-a2cf-4e00-8b44-95dd2e2ecfae",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "EMAIL",
+      "message_type": "READY_FOR_PICKUP",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "messageId": "<202610191846.88237691843@smtp-relay.mailin.fr>",
+        "provider": "BREVO_API"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:46:23.072Z",
+      "created_at": "2026-10-19T18:46:23.072Z"
+    },
+    {
+      "id": "19c2461e-30e7-4f20-92c3-f6e31e728570",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "WHATSAPP",
+      "message_type": "READY_FOR_PICKUP",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB018187B759C04DD525F"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:46:23.085Z",
+      "created_at": "2026-10-19T18:46:23.085Z"
+    },
+    {
+      "id": "d01a17f0-ba77-416c-b3b6-9f2973a5a1bf",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "SMS",
+      "message_type": "READY_FOR_PICKUP",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:46:23.344Z"
+    },
+    {
+      "id": "7970615a-5e6a-48b9-9999-bef8c671e093",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "EMAIL",
+      "message_type": "PAYMENT_RECEIVED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "messageId": "<202610191846.33851080940@smtp-relay.mailin.fr>",
+        "provider": "BREVO_API"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:46:58.454Z",
+      "created_at": "2026-10-19T18:46:58.454Z"
+    },
+    {
+      "id": "78ac5065-c3f0-4cef-a2f7-70d1e3bae2ac",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "WHATSAPP",
+      "message_type": "PAYMENT_RECEIVED",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB0D9C3A6A6FD2B97A421"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:46:58.465Z",
+      "created_at": "2026-10-19T18:46:58.465Z"
+    },
+    {
+      "id": "9069e187-2ea1-4a87-885f-4b27c937cdf1",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "SMS",
+      "message_type": "PAYMENT_RECEIVED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:46:58.701Z"
+    },
+    {
+      "id": "f3f514a2-4cf5-483b-a425-471eb43e3817",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "EMAIL",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "messageId": "<202610191847.42044819220@smtp-relay.mailin.fr>",
+        "provider": "BREVO_API"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:47:07.073Z",
+      "created_at": "2026-10-19T18:47:07.073Z"
+    },
+    {
+      "id": "ebab2266-9a07-4455-b513-39852caeade8",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "WHATSAPP",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB0B65C2BF559580A9340"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-19T18:47:07.083Z",
+      "created_at": "2026-10-19T18:47:07.083Z"
+    },
+    {
+      "id": "be5a8ffb-df0b-4dbd-8709-24d85325213f",
+      "notification_id": null,
+      "job_id": "30ae5c9c-a015-47c5-a884-622284ca683f",
+      "customer_id": "ad8bb942-afae-461b-b863-5e87f06eeec7",
+      "channel": "SMS",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-19T18:47:07.348Z"
     }
   ],
   "settings": [

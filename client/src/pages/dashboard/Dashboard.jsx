@@ -146,7 +146,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Repair Lifecycle Pipeline Grid */}
-      <Card title="Repair Lifecycle Pipeline" subtitle="Click any stage to filter repair jobs">
+      <Card title="Repair Lifecycle Pipeline" subtitle="Click any stage to filter repair jobs" hover={false}>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
           {pipeline.map((p) => {
             const isSelected = statusFilter === p.status;
@@ -154,15 +154,17 @@ export const Dashboard = () => {
               <button
                 key={p.status}
                 onClick={() => setStatusFilter(isSelected ? 'ALL' : p.status)}
-                className={`p-3 rounded-xl border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
                   isSelected
-                    ? 'border-sky-400 bg-sky-500/15 shadow-sm ring-2 ring-sky-500/20'
-                    : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
+                    ? 'border-sky-400 bg-sky-500/20 shadow-md ring-2 ring-sky-500/30 -translate-y-1'
+                    : 'spatial-inner-box hover:border-sky-400/50'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[var(--spatial-text-title)] truncate">{p.label}</span>
-                  <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--spatial-bg-card-hover)] text-sky-400">
+                  <span className="text-[11px] font-bold text-[var(--spatial-text-title)] truncate">
+                    {p.label}
+                  </span>
+                  <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--spatial-bg-card-hover)] text-sky-400 border border-sky-400/20">
                     {p.count}
                   </span>
                 </div>

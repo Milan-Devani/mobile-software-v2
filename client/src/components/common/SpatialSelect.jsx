@@ -17,6 +17,7 @@ export const SpatialSelect = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [placement, setPlacement] = useState('bottom');
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
 
@@ -77,12 +78,46 @@ export const SpatialSelect = ({
     };
   }, [isOpen]);
 
-  // Auto-focus search input when opening
+  // Auto-focus search input when opening & calculate smart placement & elevate parent card stacking context
   useEffect(() => {
-    if (isOpen && isSearchEnabled && searchInputRef.current) {
-      setTimeout(() => {
-        searchInputRef.current?.focus();
-      }, 50);
+    if (isOpen && containerRef.current) {
+      // Viewport space detection
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setPlacement('top');
+      } else {
+        setPlacement('bottom');
+      }
+
+      // Elevate parent card to z-index 50 while open to avoid sibling stacking context issues
+      const parentCard = containerRef.current.closest('.spatial-card');
+      let prevZ = '';
+      let prevPos = '';
+      if (parentCard) {
+        prevZ = parentCard.style.zIndex;
+        prevPos = parentCard.style.position;
+        parentCard.style.zIndex = '50';
+        if (!prevPos || prevPos === 'static') {
+          parentCard.style.position = 'relative';
+        }
+      }
+
+      if (isSearchEnabled && searchInputRef.current) {
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 50);
+      }
+
+      return () => {
+        if (parentCard) {
+          parentCard.style.zIndex = prevZ;
+          if (!prevPos || prevPos === 'static') {
+            parentCard.style.position = prevPos;
+          }
+        }
+      };
     } else if (!isOpen) {
       setSearch('');
     }
@@ -95,7 +130,7 @@ export const SpatialSelect = ({
   };
 
   return (
-    <div className={`relative w-full ${className}`} ref={containerRef}>
+    <div className={`relative w-full ${isOpen ? 'z-50' : 'z-auto'} ${className}`} ref={containerRef}>
       {/* Trigger Button */}
       <button
         type="button"
@@ -135,7 +170,9 @@ export const SpatialSelect = ({
       {/* Floating Spatial Dropdown Panel */}
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 mt-1.5 z-50 spatial-card p-1.5 max-h-72 flex flex-col shadow-2xl border border-[var(--spatial-border)] animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
+          className={`absolute left-0 right-0 ${
+            placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } z-[999] spatial-card p-1.5 max-h-72 flex flex-col shadow-2xl border border-[var(--spatial-border)] animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
           style={{
             boxShadow:
               '0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 20px -3px rgba(56, 189, 248, 0.25)',

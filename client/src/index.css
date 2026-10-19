@@ -243,6 +243,30 @@
   transform: scale(0.99) translateY(0);
 }
 
+/* Spatial Inner Box (for interactive tiles/cards inside a container card) */
+.spatial-inner-box {
+  background-color: var(--spatial-bg-card-subtle);
+  border: 1px solid var(--spatial-border);
+  border-radius: 0.75rem;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 180ms ease,
+              background-color 180ms ease;
+}
+.spatial-inner-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px -4px rgba(0, 0, 0, 0.35), 0 0 14px -2px rgba(56, 189, 248, 0.25);
+  border-color: rgba(56, 189, 248, 0.55);
+  background-color: var(--spatial-bg-card-hover);
+}
+.spatial-inner-box:active {
+  transform: scale(0.98) translateY(0);
+}
+[data-theme="light"] .spatial-inner-box:hover {
+  box-shadow: 0 8px 22px -4px rgba(0, 0, 0, 0.08), 0 0 14px -2px rgba(2, 132, 199, 0.2);
+  border-color: rgba(2, 132, 199, 0.45);
+}
+
 /* Spatial Topbar */
 .spatial-topbar {
   background-color: var(--spatial-topbar-bg);
