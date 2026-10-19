@@ -68,8 +68,8 @@ export const Dashboard = () => {
       {/* Welcome & Primary Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Workshop Operations</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight">Workshop Operations</h2>
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
             Real-time repair lifecycle tracking and revenue metrics
           </p>
         </div>
@@ -87,60 +87,60 @@ export const Dashboard = () => {
       {/* Top Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Active Jobs */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Jobs</span>
-            <div className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center">
+            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Jobs</span>
+            <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center">
               <Wrench className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-2 font-mono">{summary.total_jobs || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            <span className="text-primary-600 font-bold">{summary.today_jobs || 0}</span> new today
+          <p className="text-2xl sm:text-3xl font-extrabold text-[var(--spatial-text-title)] mt-2 font-mono">{summary.total_jobs || 0}</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
+            <span className="text-sky-400 font-bold">{summary.today_jobs || 0}</span> new today
           </div>
         </div>
 
         {/* In Progress */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">In Progress</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">In Progress</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-400/30 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-purple-700 mt-2 font-mono">{summary.in_progress || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            <span className="text-purple-600 font-bold">{summary.testing || 0}</span> in QC testing
+          <p className="text-2xl sm:text-3xl font-extrabold text-purple-400 mt-2 font-mono">{summary.in_progress || 0}</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
+            <span className="text-purple-400 font-bold">{summary.testing || 0}</span> in QC testing
           </div>
         </div>
 
         {/* Ready for Pickup */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ready for Pickup</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Ready for Pickup</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-emerald-700 mt-2 font-mono">{summary.ready_for_pickup || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            <span className="text-emerald-600 font-bold">{summary.completed || 0}</span> completed & delivered
+          <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-2 font-mono">{summary.ready_for_pickup || 0}</p>
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
+            <span className="text-emerald-400 font-bold">{summary.completed || 0}</span> delivered
           </div>
         </div>
 
         {/* Pending Receivables / Balance */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Pending Balance</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Pending Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-400/30 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-rose-600 mt-2 font-mono">
-            ${Number(summary.pending_payments || 0).toFixed(2)}
+          <p className="text-2xl sm:text-3xl font-extrabold text-rose-400 mt-2 font-mono">
+            ₹{Number(summary.pending_payments || 0).toLocaleString()}
           </p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500">
-            Today's revenue: <strong className="text-slate-800">${Number(summary.today_revenue || 0).toFixed(2)}</strong>
+          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
+            Today's revenue: <strong className="text-[var(--spatial-text-title)] font-mono">₹{Number(summary.today_revenue || 0).toLocaleString()}</strong>
           </div>
         </div>
       </div>
@@ -156,13 +156,13 @@ export const Dashboard = () => {
                 onClick={() => setStatusFilter(isSelected ? 'ALL' : p.status)}
                 className={`p-3 rounded-xl border text-left transition-all ${
                   isSelected
-                    ? 'border-primary-500 bg-primary-50/50 shadow-xs ring-2 ring-primary-500/20'
-                    : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
+                    ? 'border-sky-400 bg-sky-500/15 shadow-sm ring-2 ring-sky-500/20'
+                    : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-600 truncate">{p.label}</span>
-                  <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                  <span className="text-[11px] font-bold text-[var(--spatial-text-title)] truncate">{p.label}</span>
+                  <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--spatial-bg-card-hover)] text-sky-400">
                     {p.count}
                   </span>
                 </div>
@@ -182,18 +182,18 @@ export const Dashboard = () => {
         action={
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 placeholder="Filter recent..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg w-40 sm:w-52 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                className="pl-8 pr-3 py-1.5 text-xs spatial-input rounded-xl w-40 sm:w-52"
               />
             </div>
             <button
               onClick={() => navigate('/jobs')}
-              className="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 hover:underline ml-2"
+              className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 hover:underline ml-2"
             >
               <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -216,7 +216,7 @@ export const Dashboard = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
+              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px]">
                 <tr>
                   <th className="px-5 py-3">Job Number</th>
                   <th className="px-5 py-3">Customer</th>
@@ -227,35 +227,35 @@ export const Dashboard = () => {
                   <th className="px-5 py-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[var(--spatial-border)]">
                 {filteredJobs.map((job) => (
                   <tr
                     key={job.id}
                     onClick={() => navigate(`/jobs/${job.id}`)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
                   >
-                    <td className="px-5 py-3.5 font-mono font-bold text-primary-600">
+                    <td className="px-5 py-3.5 font-mono font-bold text-sky-400">
                       {job.job_number}
                     </td>
                     <td className="px-5 py-3.5">
-                      <p className="font-semibold text-slate-900">{job.customer?.full_name}</p>
-                      <p className="text-[11px] text-slate-500">{job.customer?.phone}</p>
+                      <p className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name}</p>
+                      <p className="text-[11px] text-[var(--spatial-text-muted)] font-mono">{job.customer?.phone}</p>
                     </td>
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-slate-800">{job.device?.brand} {job.device?.model}</p>
-                      <p className="text-[11px] text-slate-500 truncate max-w-xs">{job.customer_complaint}</p>
+                      <p className="font-medium text-[var(--spatial-text-title)]">{job.device?.brand} {job.device?.model}</p>
+                      <p className="text-[11px] text-[var(--spatial-text-muted)] truncate max-w-xs">{job.customer_complaint}</p>
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge status={job.status} />
                     </td>
-                    <td className="px-5 py-3.5 text-right font-mono font-medium text-slate-800">
-                      ${Number(job.total_amount || 0).toFixed(2)}
+                    <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)]">
+                      ₹{Number(job.total_amount || 0).toLocaleString()}
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono font-semibold">
                       {job.balance_due > 0 ? (
-                        <span className="text-rose-600">${Number(job.balance_due).toFixed(2)}</span>
+                        <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
                       ) : (
-                        <span className="text-emerald-600">$0.00</span>
+                        <span className="text-emerald-400">₹0</span>
                       )}
                     </td>
                     <td className="px-5 py-3.5 text-center">
@@ -264,7 +264,7 @@ export const Dashboard = () => {
                           e.stopPropagation();
                           navigate(`/jobs/${job.id}`);
                         }}
-                        className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
                         title="View Job Sheet"
                       >
                         <Eye className="w-4 h-4" />

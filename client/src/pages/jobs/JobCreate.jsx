@@ -23,6 +23,7 @@ import { authService } from '../../services/authService';
 import { Card, LoadingSpinner } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { INWARD_CHECKLIST_CONFIG, getDefaultChecklist } from '../../utils/checklistConstants';
 
 const ACCESSORIES_OPTIONS = [
@@ -307,23 +308,24 @@ export const JobCreate = () => {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1">
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                   Customer *
                 </label>
-                <select
-                  {...register('customer_id')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">-- Select Customer --</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.full_name} ({c.phone}) - {c.customer_code || 'CUST'}
-                    </option>
-                  ))}
-                </select>
-                {errors.customer_id && (
-                  <p className="text-[11px] text-rose-500 mt-1">{errors.customer_id.message}</p>
-                )}
+                <SpatialSelect
+                  options={customers.map((c) => ({
+                    value: c.id,
+                    label: c.full_name,
+                    subtitle: c.phone,
+                    badge: c.customer_code || 'CUST',
+                  }))}
+                  value={watch('customer_id')}
+                  onChange={(val) => setValue('customer_id', val, { shouldValidate: true })}
+                  placeholder="-- Select Customer or Search by Name / Phone --"
+                  searchable
+                  searchPlaceholder="Search customer by name, phone, code..."
+                  error={errors.customer_id?.message}
+                />
+                <input type="hidden" {...register('customer_id')} />
               </div>
               <div className="sm:pt-5">
                 <Button
@@ -390,37 +392,42 @@ export const JobCreate = () => {
               );
             })()}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[var(--spatial-border)]">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                   Priority Level
                 </label>
-                <select
-                  {...register('priority')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="LOW">Low</option>
-                  <option value="NORMAL">Normal Standard</option>
-                  <option value="HIGH">High Priority</option>
-                  <option value="URGENT">Urgent / Express Turnaround</option>
-                </select>
+                <SpatialSelect
+                  options={[
+                    { value: 'LOW', label: 'Low Priority' },
+                    { value: 'NORMAL', label: 'Normal Standard' },
+                    { value: 'HIGH', label: 'High Priority' },
+                    { value: 'URGENT', label: 'Urgent / Express Turnaround' },
+                  ]}
+                  value={watch('priority')}
+                  onChange={(val) => setValue('priority', val, { shouldValidate: true })}
+                />
+                <input type="hidden" {...register('priority')} />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                   Assign Technician (Optional)
                 </label>
-                <select
-                  {...register('assigned_technician_id')}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-                >
-                  <option value="">-- Unassigned (Lead tech will claim) --</option>
-                  {technicians.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name} ({t.role_id})
-                    </option>
-                  ))}
-                </select>
+                <SpatialSelect
+                  options={[
+                    { value: '', label: '-- Unassigned (Lead tech will claim) --' },
+                    ...technicians.map((t) => ({
+                      value: t.id,
+                      label: t.full_name,
+                      badge: t.role_id,
+                    })),
+                  ]}
+                  value={watch('assigned_technician_id')}
+                  onChange={(val) => setValue('assigned_technician_id', val, { shouldValidate: true })}
+                  placeholder="-- Select Technician --"
+                />
+                <input type="hidden" {...register('assigned_technician_id')} />
               </div>
             </div>
           </div>
@@ -430,25 +437,27 @@ export const JobCreate = () => {
         <Card title="2. Device Details" subtitle="Specifications and identification details">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Brand *
               </label>
-              <select
-                {...register('device_brand')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
-              >
-                <option value="Apple">Apple</option>
-                <option value="Samsung">Samsung</option>
-                <option value="Google">Google Pixel</option>
-                <option value="Xiaomi">Xiaomi / Redmi</option>
-                <option value="OnePlus">OnePlus</option>
-                <option value="Motorola">Motorola</option>
-                <option value="Oppo">Oppo / Vivo</option>
-                <option value="Other">Other Brand</option>
-              </select>
-              {errors.device_brand && (
-                <p className="text-[11px] text-rose-500 mt-1">{errors.device_brand.message}</p>
-              )}
+              <SpatialSelect
+                options={[
+                  'Apple',
+                  'Samsung',
+                  'Google Pixel',
+                  'Xiaomi / Redmi',
+                  'OnePlus',
+                  'Motorola',
+                  'Oppo / Vivo',
+                  'Realme',
+                  'Other Brand',
+                ]}
+                value={watch('device_brand')}
+                onChange={(val) => setValue('device_brand', val, { shouldValidate: true })}
+                placeholder="-- Select Brand --"
+                error={errors.device_brand?.message}
+              />
+              <input type="hidden" {...register('device_brand')} />
             </div>
 
             <div className="sm:col-span-2">
@@ -530,37 +539,43 @@ export const JobCreate = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Repair Service Type</label>
-              <select
-                {...register('service_type')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="Screen / Display Replacement">Screen / Display Replacement</option>
-                <option value="Battery Replacement">Battery Replacement</option>
-                <option value="Face ID / Camera Repair">Face ID / Camera Repair</option>
-                <option value="Motherboard / Chip-Level Repair">Motherboard / Chip-Level Repair</option>
-                <option value="Charging Port / Audio / Mic">Charging Port / Audio / Mic</option>
-                <option value="Back Glass / Housing Replacement">Back Glass / Housing Replacement</option>
-                <option value="Diagnostic / Bench Inspection">Diagnostic / Bench Inspection</option>
-                <option value="Software / Unlocking / Flashing">Software / Unlocking / Flashing</option>
-                <option value="General Hardware Repair">General Hardware Repair</option>
-              </select>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Repair Service Type</label>
+              <SpatialSelect
+                options={[
+                  'Screen / Display Replacement',
+                  'Battery Replacement',
+                  'Face ID / Camera Repair',
+                  'Motherboard / Chip-Level Repair',
+                  'Charging Port / Audio / Mic',
+                  'Back Glass / Housing Replacement',
+                  'Diagnostic / Bench Inspection',
+                  'Software / Unlocking / Flashing',
+                  'General Hardware Repair',
+                ]}
+                value={watch('service_type')}
+                onChange={(val) => setValue('service_type', val, { shouldValidate: true })}
+                placeholder="-- Select Service Type --"
+              />
+              <input type="hidden" {...register('service_type')} />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Cosmetic Condition</label>
-              <select
-                {...register('device_cosmetic')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="Wear And Tear">Wear And Tear (Normal use)</option>
-                <option value="Mint / Flawless">Mint / Flawless</option>
-                <option value="Minor Scratches on Glass/Frame">Minor Scratches on Glass/Frame</option>
-                <option value="Deep Scratches / Dents">Deep Scratches / Dents</option>
-                <option value="Cracked Screen / Broken Glass">Cracked Screen / Broken Glass</option>
-                <option value="Swollen Battery / Back Lifted">Swollen Battery / Back Lifted</option>
-                <option value="Bent Chassis / Water Contact">Bent Chassis / Water Contact</option>
-              </select>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Cosmetic Condition</label>
+              <SpatialSelect
+                options={[
+                  'Wear And Tear (Normal use)',
+                  'Mint / Flawless',
+                  'Minor Scratches on Glass/Frame',
+                  'Deep Scratches / Dents',
+                  'Cracked Screen / Broken Glass',
+                  'Swollen Battery / Back Lifted',
+                  'Bent Chassis / Water Contact',
+                ]}
+                value={watch('device_cosmetic')}
+                onChange={(val) => setValue('device_cosmetic', val, { shouldValidate: true })}
+                placeholder="-- Select Cosmetic Condition --"
+              />
+              <input type="hidden" {...register('device_cosmetic')} />
             </div>
           </div>
         </Card>

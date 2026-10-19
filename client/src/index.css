@@ -1,13 +1,405 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   SPATIAL UI DESIGN TOKENS
+   Style 1: dark-spatial
+   Style 2: clean-light
+   Style 3: futuristic-glass
+   Modes: dark | light | system
+   ========================================================================== */
+
+:root {
+  /* Default: Dark Spatial */
+  --spatial-bg-app: #080c16;
+  --spatial-bg-gradient: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, rgba(8, 12, 22, 1) 70%);
+  --spatial-bg-card: #0e1526;
+  --spatial-bg-card-hover: #141d33;
+  --spatial-bg-card-subtle: #111a2e;
+  --spatial-border: rgba(255, 255, 255, 0.08);
+  --spatial-border-hover: rgba(56, 189, 248, 0.35);
+  --spatial-border-glow: rgba(56, 189, 248, 0.4);
+  --spatial-text-title: #f8fafc;
+  --spatial-text-body: #cbd5e1;
+  --spatial-text-muted: #94a3b8;
+  --spatial-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  --spatial-shadow-hover: 0 18px 40px -10px rgba(0, 0, 0, 0.75), 0 0 20px -3px rgba(56, 189, 248, 0.2);
+  --spatial-primary: #38bdf8;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  --spatial-sidebar-bg: #060911;
+  --spatial-topbar-bg: rgba(14, 21, 38, 0.88);
+  --spatial-glass-blur: blur(12px);
+  --spatial-input-bg: #090e1a;
+  --spatial-table-header-bg: #090e1a;
+  --spatial-table-row-hover: rgba(56, 189, 248, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   STYLE 1: DARK SPATIAL UI
+   -------------------------------------------------------------------------- */
+[data-spatial-style="dark-spatial"] {
+  --spatial-bg-app: #080c16;
+  --spatial-bg-gradient: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.08) 0%, rgba(8, 12, 22, 1) 70%);
+  --spatial-bg-card: #0e1526;
+  --spatial-bg-card-hover: #141d33;
+  --spatial-bg-card-subtle: #111a2e;
+  --spatial-border: rgba(255, 255, 255, 0.08);
+  --spatial-border-hover: rgba(56, 189, 248, 0.35);
+  --spatial-border-glow: rgba(56, 189, 248, 0.4);
+  --spatial-text-title: #f8fafc;
+  --spatial-text-body: #cbd5e1;
+  --spatial-text-muted: #94a3b8;
+  --spatial-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --spatial-shadow-hover: 0 18px 40px -10px rgba(0, 0, 0, 0.75), 0 0 20px -3px rgba(56, 189, 248, 0.2);
+  --spatial-primary: #38bdf8;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  --spatial-sidebar-bg: #060911;
+  --spatial-topbar-bg: rgba(14, 21, 38, 0.88);
+  --spatial-glass-blur: blur(12px);
+  --spatial-input-bg: #090e1a;
+  --spatial-table-header-bg: #090e1a;
+  --spatial-table-row-hover: rgba(56, 189, 248, 0.04);
+}
+
+[data-spatial-style="dark-spatial"][data-theme="light"] {
+  --spatial-bg-app: #f1f5f9;
+  --spatial-bg-gradient: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --spatial-bg-card: #ffffff;
+  --spatial-bg-card-hover: #ffffff;
+  --spatial-bg-card-subtle: #f8fafc;
+  --spatial-border: rgba(15, 23, 42, 0.09);
+  --spatial-border-hover: rgba(2, 132, 199, 0.4);
+  --spatial-border-glow: rgba(2, 132, 199, 0.25);
+  --spatial-text-title: #090d16;
+  --spatial-text-body: #334155;
+  --spatial-text-muted: #64748b;
+  --spatial-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+  --spatial-shadow-hover: 0 12px 30px -4px rgba(15, 23, 42, 0.12), 0 0 15px -3px rgba(2, 132, 199, 0.15);
+  --spatial-primary: #0284c7;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  --spatial-sidebar-bg: #090d16;
+  --spatial-topbar-bg: rgba(255, 255, 255, 0.92);
+  --spatial-glass-blur: blur(10px);
+  --spatial-input-bg: #f8fafc;
+  --spatial-table-header-bg: #f8fafc;
+  --spatial-table-row-hover: rgba(2, 132, 199, 0.04);
+}
+
+/* --------------------------------------------------------------------------
+   STYLE 2: CLEAN LIGHT SPATIAL UI
+   -------------------------------------------------------------------------- */
+[data-spatial-style="clean-light"] {
+  --spatial-bg-app: #f8fafc;
+  --spatial-bg-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --spatial-bg-card: #ffffff;
+  --spatial-bg-card-hover: #ffffff;
+  --spatial-bg-card-subtle: #f8fafc;
+  --spatial-border: #e2e8f0;
+  --spatial-border-hover: #cbd5e1;
+  --spatial-border-glow: rgba(2, 132, 199, 0.2);
+  --spatial-text-title: #0f172a;
+  --spatial-text-body: #334155;
+  --spatial-text-muted: #64748b;
+  --spatial-shadow: 0 2px 10px -1px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.03);
+  --spatial-shadow-hover: 0 8px 25px -3px rgba(15, 23, 42, 0.08);
+  --spatial-primary: #0284c7;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  --spatial-sidebar-bg: #0f172a;
+  --spatial-topbar-bg: rgba(255, 255, 255, 0.96);
+  --spatial-glass-blur: blur(8px);
+  --spatial-input-bg: #f8fafc;
+  --spatial-table-header-bg: #f8fafc;
+  --spatial-table-row-hover: #f1f5f9;
+}
+
+[data-spatial-style="clean-light"][data-theme="dark"] {
+  --spatial-bg-app: #0f172a;
+  --spatial-bg-gradient: linear-gradient(180deg, #0f172a 0%, #090e17 100%);
+  --spatial-bg-card: #1e293b;
+  --spatial-bg-card-hover: #24334a;
+  --spatial-bg-card-subtle: #172033;
+  --spatial-border: #334155;
+  --spatial-border-hover: #475569;
+  --spatial-border-glow: rgba(56, 189, 248, 0.2);
+  --spatial-text-title: #f8fafc;
+  --spatial-text-body: #cbd5e1;
+  --spatial-text-muted: #94a3b8;
+  --spatial-shadow: 0 4px 15px -2px rgba(0, 0, 0, 0.35);
+  --spatial-shadow-hover: 0 10px 25px -4px rgba(0, 0, 0, 0.5);
+  --spatial-primary: #38bdf8;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  --spatial-sidebar-bg: #090e17;
+  --spatial-topbar-bg: rgba(30, 41, 59, 0.92);
+  --spatial-glass-blur: blur(8px);
+  --spatial-input-bg: #111a2e;
+  --spatial-table-header-bg: #131d33;
+  --spatial-table-row-hover: rgba(255, 255, 255, 0.03);
+}
+
+/* --------------------------------------------------------------------------
+   STYLE 3: FUTURISTIC GLASS SPATIAL UI
+   -------------------------------------------------------------------------- */
+[data-spatial-style="futuristic-glass"] {
+  --spatial-bg-app: #050814;
+  --spatial-bg-gradient: radial-gradient(circle at 50% 10%, rgba(56, 189, 248, 0.12) 0%, rgba(168, 85, 247, 0.06) 40%, #050814 80%);
+  --spatial-bg-card: rgba(14, 21, 38, 0.65);
+  --spatial-bg-card-hover: rgba(20, 31, 56, 0.78);
+  --spatial-bg-card-subtle: rgba(14, 21, 38, 0.45);
+  --spatial-border: rgba(56, 189, 248, 0.2);
+  --spatial-border-hover: rgba(56, 189, 248, 0.5);
+  --spatial-border-glow: rgba(56, 189, 248, 0.55);
+  --spatial-text-title: #ffffff;
+  --spatial-text-body: #e2e8f0;
+  --spatial-text-muted: #94a3b8;
+  --spatial-shadow: 0 12px 35px -5px rgba(0, 0, 0, 0.65), 0 0 15px -3px rgba(56, 189, 248, 0.15);
+  --spatial-shadow-hover: 0 20px 45px -8px rgba(0, 0, 0, 0.75), 0 0 25px -3px rgba(56, 189, 248, 0.35);
+  --spatial-primary: #06b6d4;
+  --spatial-accent-gradient: linear-gradient(135deg, #0891b2 0%, #38bdf8 50%, #a855f7 100%);
+  --spatial-sidebar-bg: rgba(6, 10, 20, 0.75);
+  --spatial-topbar-bg: rgba(10, 16, 32, 0.7);
+  --spatial-glass-blur: blur(18px);
+  --spatial-input-bg: rgba(8, 14, 26, 0.7);
+  --spatial-table-header-bg: rgba(8, 14, 26, 0.6);
+  --spatial-table-row-hover: rgba(56, 189, 248, 0.08);
+}
+
+[data-spatial-style="futuristic-glass"][data-theme="light"] {
+  --spatial-bg-app: #f0f7ff;
+  --spatial-bg-gradient: radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.15) 0%, rgba(240, 247, 255, 1) 70%);
+  --spatial-bg-card: rgba(255, 255, 255, 0.75);
+  --spatial-bg-card-hover: rgba(255, 255, 255, 0.9);
+  --spatial-bg-card-subtle: rgba(255, 255, 255, 0.5);
+  --spatial-border: rgba(2, 132, 199, 0.22);
+  --spatial-border-hover: rgba(2, 132, 199, 0.45);
+  --spatial-border-glow: rgba(2, 132, 199, 0.3);
+  --spatial-text-title: #070e20;
+  --spatial-text-body: #1e293b;
+  --spatial-text-muted: #64748b;
+  --spatial-shadow: 0 10px 30px -5px rgba(2, 132, 199, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  --spatial-shadow-hover: 0 16px 35px -5px rgba(2, 132, 199, 0.16);
+  --spatial-primary: #0284c7;
+  --spatial-accent-gradient: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
+  --spatial-sidebar-bg: rgba(255, 255, 255, 0.85);
+  --spatial-topbar-bg: rgba(255, 255, 255, 0.82);
+  --spatial-glass-blur: blur(16px);
+  --spatial-input-bg: rgba(255, 255, 255, 0.85);
+  --spatial-table-header-bg: rgba(241, 245, 249, 0.8);
+  --spatial-table-row-hover: rgba(2, 132, 199, 0.05);
+}
+
+/* ==========================================================================
+   BASE & SMOOTH TRANSITIONS
+   ========================================================================== */
+
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-900 font-sans antialiased min-h-screen selection:bg-primary-500 selection:text-white;
+    background-color: var(--spatial-bg-app);
+    background-image: var(--spatial-bg-gradient);
+    background-attachment: fixed;
+    color: var(--spatial-text-body);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    transition: background-color 220ms ease, color 220ms ease;
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--spatial-text-title);
+  }
+}
+
+/* ==========================================================================
+   REUSABLE SPATIAL UTILITY CLASSES
+   ========================================================================== */
+
+.spatial-card {
+  background-color: var(--spatial-bg-card);
+  backdrop-filter: var(--spatial-glass-blur);
+  -webkit-backdrop-filter: var(--spatial-glass-blur);
+  border: 1px solid var(--spatial-border);
+  box-shadow: var(--spatial-shadow);
+  border-radius: 1rem;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 180ms ease,
+              background-color 180ms ease;
+}
+
+.spatial-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--spatial-shadow-hover);
+  border-color: var(--spatial-border-hover);
+  background-color: var(--spatial-bg-card-hover);
+}
+
+.spatial-card-interactive {
+  cursor: pointer;
+  user-select: none;
+}
+.spatial-card-interactive:active {
+  transform: scale(0.99) translateY(0);
+}
+
+/* Spatial Topbar */
+.spatial-topbar {
+  background-color: var(--spatial-topbar-bg);
+  backdrop-filter: var(--spatial-glass-blur);
+  -webkit-backdrop-filter: var(--spatial-glass-blur);
+  border-bottom: 1px solid var(--spatial-border);
+  transition: background-color 200ms ease, border-color 200ms ease;
+}
+
+/* Spatial Sidebar */
+.spatial-sidebar {
+  background-color: var(--spatial-sidebar-bg);
+  backdrop-filter: var(--spatial-glass-blur);
+  -webkit-backdrop-filter: var(--spatial-glass-blur);
+  border-right: 1px solid var(--spatial-border);
+  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 200ms ease,
+              border-color 200ms ease;
+}
+
+/* Spatial Inputs */
+.spatial-input {
+  background-color: var(--spatial-input-bg) !important;
+  color: var(--spatial-text-title) !important;
+  border: 1px solid var(--spatial-border) !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.spatial-input:focus {
+  outline: none;
+  border-color: var(--spatial-primary) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2) !important;
+}
+
+/* Universal Spatial Dropdowns / Select */
+html[data-theme="dark"],
+[data-theme="dark"],
+.dark,
+.dark select,
+.dark option {
+  color-scheme: dark !important;
+}
+
+html[data-theme="light"],
+[data-theme="light"],
+.light,
+.light select,
+.light option {
+  color-scheme: light !important;
+}
+
+select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-color: var(--spatial-input-bg) !important;
+  color: var(--spatial-text-title) !important;
+  border: 1px solid var(--spatial-border) !important;
+  border-radius: 0.75rem !important;
+  padding: 0.5rem 2.25rem 0.5rem 0.75rem !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 1rem 1rem !important;
+  cursor: pointer !important;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease !important;
+}
+
+[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230284c7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+select:hover {
+  border-color: var(--spatial-border-hover) !important;
+}
+
+select:focus {
+  outline: none !important;
+  border-color: var(--spatial-primary) !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.25) !important;
+}
+
+select option {
+  background-color: var(--spatial-bg-card) !important;
+  color: var(--spatial-text-title) !important;
+  padding: 8px 12px !important;
+}
+
+select option:checked {
+  background-color: var(--spatial-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Spatial Buttons */
+.spatial-btn-primary {
+  background: var(--spatial-accent-gradient);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 15px -2px rgba(2, 132, 199, 0.35);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 160ms ease,
+              filter 160ms ease;
+}
+.spatial-btn-primary:hover {
+  filter: brightness(1.08);
+  box-shadow: 0 6px 20px -2px rgba(2, 132, 199, 0.5), 0 0 15px -3px rgba(56, 189, 248, 0.3);
+  transform: translateY(-1px);
+}
+.spatial-btn-primary:active {
+  transform: scale(0.97) translateY(0);
+}
+
+.spatial-btn-secondary {
+  background-color: var(--spatial-bg-card-subtle);
+  color: var(--spatial-text-title);
+  border: 1px solid var(--spatial-border);
+  transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 160ms ease,
+              border-color 160ms ease;
+}
+.spatial-btn-secondary:hover {
+  background-color: var(--spatial-bg-card-hover);
+  border-color: var(--spatial-border-hover);
+}
+.spatial-btn-secondary:active {
+  transform: scale(0.97);
+}
+
+/* Spatial Modal */
+.spatial-modal-panel {
+  background-color: var(--spatial-bg-card);
+  backdrop-filter: var(--spatial-glass-blur);
+  -webkit-backdrop-filter: var(--spatial-glass-blur);
+  border: 1px solid var(--spatial-border);
+  box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.8), 0 0 25px -5px rgba(56, 189, 248, 0.25);
+  animation: spatialModalIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes spatialModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Reduced animations preference */
+[data-animations="reduced"] *,
+[data-animations="reduced"] *::before,
+[data-animations="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+  transform: none !important;
 }
 
 /* Custom scrollbars */
@@ -21,7 +413,75 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-slate-300 rounded-full hover:bg-slate-400 transition-colors;
+  background-color: var(--spatial-border);
+  border-radius: 9999px;
+  transition: background-color 150ms ease;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--spatial-border-hover);
+}
+
+/* ==========================================================================
+   GLOBAL DARK MODE THEME ADAPTATION
+   Automatically maps standard utility classes to spatial tokens in Dark mode
+   while leaving Light mode crisp and clean.
+   ========================================================================== */
+
+.dark .bg-white {
+  background-color: var(--spatial-bg-card);
+}
+.dark .bg-slate-50 {
+  background-color: var(--spatial-bg-card-subtle);
+}
+.dark .bg-slate-100 {
+  background-color: var(--spatial-bg-card-hover);
+}
+.dark .border-slate-100,
+.dark .border-slate-200,
+.dark .border-slate-200\/80,
+.dark .border-slate-300 {
+  border-color: var(--spatial-border);
+}
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--spatial-border);
+}
+.dark .text-slate-900,
+.dark .text-slate-800 {
+  color: var(--spatial-text-title);
+}
+.dark .text-slate-700,
+.dark .text-slate-600 {
+  color: var(--spatial-text-body);
+}
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: var(--spatial-text-muted);
+}
+.dark input[type="text"],
+.dark input[type="email"],
+.dark input[type="tel"],
+.dark input[type="password"],
+.dark input[type="number"],
+.dark select,
+.dark textarea {
+  background-color: var(--spatial-input-bg) !important;
+  color: var(--spatial-text-title) !important;
+  border-color: var(--spatial-border) !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--spatial-text-muted) !important;
+}
+.dark table thead {
+  background-color: var(--spatial-table-header-bg);
+  border-color: var(--spatial-border);
+}
+.dark table thead th {
+  color: var(--spatial-text-muted);
+}
+.dark table tbody tr:hover {
+  background-color: var(--spatial-table-row-hover);
 }
 
 /* Print Styles for Job Sheets and Invoices */
@@ -36,7 +496,6 @@
     overflow: visible !important;
   }
   
-  /* When a printable modal is active, completely hide the entire background application */
   body.print-modal-active #root,
   .print-modal-active #root,
   #root.print-hidden-root {

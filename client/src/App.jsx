@@ -5,12 +5,14 @@ import { Toaster } from 'react-hot-toast';
 import { store } from './store';
 import { AppRouter } from './routes/AppRouter';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ThemeProvider } from './context/ThemeContext';
 
 export default function App() {
   return (
     <Provider store={store}>
-      <ErrorBoundary>
-        <BrowserRouter>
+      <ThemeProvider>
+        <ErrorBoundary>
+          <BrowserRouter>
           <Toaster
             position="top-right"
             toastOptions={{
@@ -40,6 +42,7 @@ export default function App() {
           <AppRouter />
         </BrowserRouter>
       </ErrorBoundary>
-    </Provider>
-  );
+    </ThemeProvider>
+  </Provider>
+);
 }

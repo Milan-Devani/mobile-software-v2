@@ -64,7 +64,7 @@ export const JobList = () => {
       const res = await jobService.getJobs(params);
       setJobs(res.jobs || []);
       setTotal(res.total || 0);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load repair jobs');
     } finally {
       setLoading(false);
@@ -126,8 +126,8 @@ export const JobList = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Repair Job Sheets</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight">Repair Job Sheets</h2>
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
             Browse, search, and manage all active and archived service tickets
           </p>
         </div>
@@ -137,19 +137,19 @@ export const JobList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs space-y-3">
+      <div className="spatial-card p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-slate-100 no-scrollbar">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
             const active = currentStatus === tab.key;
             return (
               <button
                 key={tab.key}
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
                   active
-                    ? 'bg-primary-600 text-white shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+                    : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
                 }`}
               >
                 {tab.label}
@@ -161,17 +161,17 @@ export const JobList = () => {
         {/* Search input & Sort */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               placeholder="Search Job #, Customer, Phone, IMEI..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full pl-8 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full pl-8 pr-4 py-1.5 text-xs spatial-input rounded-xl"
             />
           </form>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500">
+          <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
             <span>Sort by:</span>
             <select
               value={`${currentSort}:${currentDir}`}
@@ -182,7 +182,7 @@ export const JobList = () => {
                 params.set('sortDir', sortDir);
                 setSearchParams(params);
               }}
-              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="px-2.5 py-1.5 spatial-input rounded-xl text-xs font-medium"
             >
               <option value="created_at:desc">Newest First</option>
               <option value="created_at:asc">Oldest First</option>
@@ -211,7 +211,7 @@ export const JobList = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
+              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px]">
                 <tr>
                   <th className="px-5 py-3">Job Number</th>
                   <th className="px-5 py-3">Customer</th>
@@ -224,41 +224,41 @@ export const JobList = () => {
                   <th className="px-5 py-3 text-center">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[var(--spatial-border)]">
                 {jobs.map((job) => (
                   <tr
                     key={job.id}
                     onClick={() => navigate(`/jobs/${job.id}`)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                    className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
                   >
-                    <td className="px-5 py-3.5 font-mono font-bold text-primary-600">
+                    <td className="px-5 py-3.5 font-mono font-bold text-sky-400">
                       {job.job_number}
                     </td>
                     <td className="px-5 py-3.5">
-                      <p className="font-semibold text-slate-900">{job.customer?.full_name}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">{job.customer?.phone}</p>
+                      <p className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name}</p>
+                      <p className="text-[11px] text-[var(--spatial-text-muted)] font-mono">{job.customer?.phone}</p>
                     </td>
                     <td className="px-5 py-3.5">
-                      <p className="font-medium text-slate-800">{job.device?.brand} {job.device?.model}</p>
-                      <p className="text-[11px] text-slate-500 font-mono">IMEI: {job.device?.imei || 'N/A'}</p>
+                      <p className="font-medium text-[var(--spatial-text-title)]">{job.device?.brand} {job.device?.model}</p>
+                      <p className="text-[11px] text-[var(--spatial-text-muted)] font-mono">IMEI: {job.device?.imei || 'N/A'}</p>
                     </td>
-                    <td className="px-5 py-3.5 text-slate-600 max-w-xs truncate">
+                    <td className="px-5 py-3.5 text-[var(--spatial-text-body)] max-w-xs truncate">
                       {job.customer_complaint}
                     </td>
                     <td className="px-5 py-3.5">
                       <Badge status={job.status} />
                     </td>
-                    <td className="px-5 py-3.5 text-right font-mono font-medium text-slate-900">
-                      ${Number(job.total_amount || 0).toFixed(2)}
+                    <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)]">
+                      ₹{Number(job.total_amount || 0).toLocaleString()}
                     </td>
                     <td className="px-5 py-3.5 text-right font-mono font-bold">
                       {job.balance_due > 0 ? (
-                        <span className="text-rose-600">${Number(job.balance_due).toFixed(2)}</span>
+                        <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
                       ) : (
-                        <span className="text-emerald-600">$0.00</span>
+                        <span className="text-emerald-400">₹0</span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono">
                       {new Date(job.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-3.5 text-center">
@@ -268,14 +268,14 @@ export const JobList = () => {
                             e.stopPropagation();
                             navigate(`/jobs/${job.id}`);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
                           title="Open Job Sheet"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
                           onClick={(e) => handleDeleteJob(e, job)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                           title="Delete Job Sheet"
                         >
                           <Trash2 className="w-4 h-4" />
