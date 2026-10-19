@@ -26,12 +26,27 @@
 
 /* Print Styles for Job Sheets and Invoices */
 @media print {
-  body {
+  html, body {
     background: #ffffff !important;
     color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
   }
   
-  .no-print {
+  /* When a printable modal is active, completely hide the entire background application */
+  body.print-modal-active #root,
+  .print-modal-active #root,
+  #root.print-hidden-root {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .no-print, header, aside, nav, button {
     display: none !important;
   }
 
@@ -44,8 +59,19 @@
     border-color: #cbd5e1 !important;
   }
 
+  #print-invoice-portal,
+  #print-jobsheet-portal {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
   @page {
-    margin: 1cm;
-    size: auto;
+    margin: 4mm 6mm;
+    size: A4 portrait;
   }
 }

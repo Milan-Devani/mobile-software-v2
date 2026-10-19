@@ -92,6 +92,10 @@ export const createJob = async (req, res, next) => {
         serial_number: device_data.serial_number || '',
         passcode: device_data.passcode || '',
         operating_system: device_data.operating_system || 'iOS',
+        invoice_date: device_data.invoice_date || '',
+        invoice_number: device_data.invoice_number || '',
+        expiry_date: device_data.expiry_date || '',
+        cosmetic_condition: device_data.cosmetic_condition || 'Wear And Tear',
       });
       finalDeviceId = newDevice.id;
     }
@@ -100,12 +104,15 @@ export const createJob = async (req, res, next) => {
       throw new AppError('Device information is required to create a Job Sheet.', 400, 'DEVICE_REQUIRED');
     }
 
+    const { service_type = 'Pending' } = req.body;
+
     const newJob = await db.jobs.create({
       jobData: {
         customer_id,
         device_id: finalDeviceId,
         assigned_technician_id: assigned_technician_id || null,
         priority,
+        service_type,
         customer_complaint: customer_complaint.trim(),
         device_condition: device_condition || {},
         accessories_received: accessories_received || [],
@@ -162,11 +169,69 @@ export const updateJob = async (req, res, next) => {
       throw new AppError(`Cannot edit a job with status "${existing.status}".`, 400, 'JOB_LOCKED');
     }
 
-    const updated = await db.jobs.update(id, req.body);
+    const {
+      customer_complaint,
+      device_data,
+      device_condition,
+      accessories_received,
+      assigned_technician_id,
+      priority,
+      estimated_delivery_date,
+      internal_notes,
+      ...otherUpdates
+    } = req.body;
+
+    // If device details are being updated
+    if (device_data && existing.device_id) {
+      await db.devices.update(existing.device_id, {
+        ...(device_data.brand && { brand: device_data.brand }),
+        ...(device_data.model && { model: device_data.model }),
+        ...(device_data.color !== undefined && { color: device_data.color }),
+        ...(device_data.storage_capacity !== undefined && { storage_capacity: device_data.storage_capacity }),
+        ...(device_data.imei !== undefined && { imei: device_data.imei }),
+        ...(device_data.serial_number !== undefined && { serial_number: device_data.serial_number }),
+        ...(device_data.passcode !== undefined && { passcode: device_data.passcode }),
+        ...(device_data.operating_system !== undefined && { operating_system: device_data.operating_system }),
+      });
+    }
+
+    const updates = {
+      ...otherUpdates,
+      ...(customer_complaint !== undefined && { customer_complaint }),
+      ...(device_condition !== undefined && { device_condition }),
+      ...(accessories_received !== undefined && { accessories_received }),
+      ...(assigned_technician_id !== undefined && { assigned_technician_id }),
+      ...(priority !== undefined && { priority }),
+      ...(estimated_delivery_date !== undefined && { estimated_delivery_date }),
+      ...(internal_notes !== undefined && { internal_notes }),
+    };
+
+    await db.jobs.update(id, updates);
+    const fullJob = await db.jobs.findById(id);
+
     res.json({
       success: true,
-      message: 'Job updated successfully.',
-      data: { job: updated },
+      message: 'Job Sheet updated successfully.',
+      data: { job: fullJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const existing = await db.jobs.findById(id);
+    if (!existing) {
+      throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+    }
+
+    await db.jobs.delete(id);
+
+    res.json({
+      success: true,
+      message: `Job Sheet #${existing.job_number} deleted successfully.`,
     });
   } catch (err) {
     next(err);
@@ -567,7 +632,7 @@ export const markReadyForPickup = async (req, res, next) => {
 export const recordPickup = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { customer_tested_device, customer_acceptance_confirmed, customer_signature, delivery_notes } = req.body;
+    const { customer_tested_device, customer_acceptance_confirmed, customer_signature, delivery_notes, channels = ['EMAIL', 'WHATSAPP', 'SMS'] } = req.body;
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
@@ -605,11 +670,13 @@ export const recordPickup = async (req, res, next) => {
     const updatedJob = await db.jobs.findById(id);
     const customer = await db.customers.findById(updatedJob.customer_id);
 
+    // Automatically send final invoice & receipt via Email (Brevo), WhatsApp, and SMS
     dispatchNotification({
       job: updatedJob,
       customer,
       type: 'INVOICE_GENERATED',
-    }).catch(err => console.error('Invoice notification error:', err));
+      channels,
+    }).catch(err => console.error('Invoice delivery notification error:', err));
 
     res.json({
       success: true,

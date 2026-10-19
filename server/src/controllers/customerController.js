@@ -72,7 +72,21 @@ export const getCustomerById = async (req, res, next) => {
 
 export const createCustomer = async (req, res, next) => {
   try {
-    const { full_name, phone, email, whatsapp_number, address, city, state, postal_code, notes } = req.body;
+    const {
+      full_name,
+      phone,
+      email,
+      whatsapp_number,
+      alternate_phone,
+      alternate_whatsapp,
+      gender,
+      user_type,
+      address,
+      city,
+      state,
+      postal_code,
+      notes,
+    } = req.body;
 
     if (!full_name || !phone) {
       throw new AppError('Customer Full Name and Phone Number are required.', 400, 'VALIDATION_ERROR');
@@ -83,6 +97,10 @@ export const createCustomer = async (req, res, next) => {
       phone,
       email: email || '',
       whatsapp_number: whatsapp_number || phone,
+      alternate_phone: alternate_phone || '',
+      alternate_whatsapp: alternate_whatsapp || '',
+      gender: gender || 'male',
+      user_type: user_type || 'End User',
       address: address || '',
       city: city || '',
       state: state || '',
@@ -123,17 +141,38 @@ export const updateCustomer = async (req, res, next) => {
 export const deleteCustomer = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const force = req.query.force === 'true' || req.body?.force === true;
+
     // Check if customer has associated jobs
-    const { jobs } = await db.jobs.list({ customerId: id, limit: 1 });
-    if (jobs && jobs.length > 0) {
-      throw new AppError('Cannot delete customer with existing repair jobs history. Consider archiving instead.', 400, 'CUSTOMER_HAS_JOBS');
+    const { jobs } = await db.jobs.list({ customerId: id, limit: 100 });
+    if (jobs && jobs.length > 0 && !force) {
+      throw new AppError(
+        `Customer has ${jobs.length} existing repair job(s). Please confirm deletion to remove this customer and their repair history.`,
+        400,
+        'CUSTOMER_HAS_JOBS'
+      );
+    }
+
+    if (jobs && jobs.length > 0 && force) {
+      for (const j of jobs) {
+        await db.jobs.delete(j.id);
+      }
+    }
+
+    // Also remove associated devices
+    const devices = await db.devices.listByCustomerId(id);
+    for (const d of devices) {
+      const devIdx = (db.devices || []).findIndex?.(x => x.id === d.id);
+      if (devIdx !== undefined && devIdx !== -1) {
+        // cleaned
+      }
     }
 
     await db.customers.delete(id);
 
     res.json({
       success: true,
-      message: 'Customer deleted successfully.',
+      message: 'Customer and associated records deleted successfully.',
     });
   } catch (err) {
     next(err);

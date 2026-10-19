@@ -1,4 +1,4 @@
-# TechFix Pro — Mobile Repair Management Web Application
+# Mobotech mobile care — Mobile Repair Management Web Application
 
 A production-ready, full-stack **Mobile Repair Management Web Application** engineered specifically for single-shop mobile repair centers and electronics technicians.
 
@@ -119,7 +119,7 @@ SUPABASE_STORAGE_BUCKET=repair-assets
 
 # Brevo Email Service
 BREVO_API_KEY=
-EMAIL_FROM=TechFix Pro <notifications@techfixpro.com>
+EMAIL_FROM=Mobotech mobile care <notifications@mobotech.com>
 
 # OpenWA WhatsApp Gateway (https://github.com/rmyndharis/OpenWA)
 OPENWA_API_URL=http://localhost:8000

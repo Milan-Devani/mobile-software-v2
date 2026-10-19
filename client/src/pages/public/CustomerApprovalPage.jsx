@@ -94,7 +94,7 @@ export const CustomerApprovalPage = () => {
           <div className="w-12 h-12 bg-primary-600 rounded-xl text-white flex items-center justify-center mx-auto mb-3 shadow-md shadow-primary-500/20">
             <Smartphone className="w-6 h-6" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{shop?.name || 'TechFix Pro Repairs'}</h1>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">{shop?.name || 'Mobotech mobile care'}</h1>
           <p className="text-xs text-slate-500 mt-1">Official Repair Estimate & Authorization Request</p>
           <div className="flex items-center justify-center gap-4 text-xs text-slate-500 mt-3 font-medium">
             <span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 text-primary-600" /> {shop?.phone}</span>
@@ -178,12 +178,14 @@ export const CustomerApprovalPage = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    <tr>
-                      <td className="px-3.5 py-2 font-medium">Diagnostic Labor & Service</td>
-                      <td className="px-3.5 py-2 text-center">1</td>
-                      <td className="px-3.5 py-2 text-right font-mono">${Number(est.labor_charge).toFixed(2)}</td>
-                      <td className="px-3.5 py-2 text-right font-mono font-semibold">${Number(est.labor_charge).toFixed(2)}</td>
-                    </tr>
+                    {Number(est.labor_charge) > 0 && (
+                      <tr>
+                        <td className="px-3.5 py-2 font-medium">Diagnostic Labor & Service</td>
+                        <td className="px-3.5 py-2 text-center">1</td>
+                        <td className="px-3.5 py-2 text-right font-mono">${Number(est.labor_charge).toFixed(2)}</td>
+                        <td className="px-3.5 py-2 text-right font-mono font-semibold">${Number(est.labor_charge).toFixed(2)}</td>
+                      </tr>
+                    )}
                     {(est.items || []).map((it, idx) => (
                       <tr key={idx}>
                         <td className="px-3.5 py-2 font-medium">{it.item_name}</td>

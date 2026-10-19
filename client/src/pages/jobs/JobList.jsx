@@ -9,9 +9,11 @@ import {
   Calendar,
   Phone,
   Smartphone,
-  ArrowUpDown
+  ArrowUpDown,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { jobService } from '../../services/jobService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -92,6 +94,31 @@ export const JobList = () => {
       params.delete('search');
     }
     setSearchParams(params);
+  };
+
+  const handleDeleteJob = (e, job) => {
+    e.stopPropagation();
+    Swal.fire({
+      title: 'Delete this Job Sheet?',
+      text: `Are you sure you want to permanently delete Job #${job.job_number}? All diagnostic records, estimates, tests, invoices, and payments associated with this job will be removed.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Job',
+      cancelButtonText: 'Cancel'
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await jobService.deleteJob(job.id);
+          setJobs((prev) => prev.filter((j) => j.id !== job.id));
+          setTotal((prev) => Math.max(0, prev - 1));
+          toast.success(`Job #${job.job_number} deleted successfully.`);
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete job sheet');
+        }
+      }
+    });
   };
 
   return (
@@ -235,16 +262,25 @@ export const JobList = () => {
                       {new Date(job.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${job.id}`);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Open Job Sheet"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/jobs/${job.id}`);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Open Job Sheet"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteJob(e, job)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Job Sheet"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

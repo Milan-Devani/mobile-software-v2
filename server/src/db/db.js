@@ -370,14 +370,28 @@ export const db = {
             full_name: customer.full_name,
             phone: customer.phone,
             email: customer.email,
-            whatsapp_number: customer.whatsapp_number
+            whatsapp_number: customer.whatsapp_number,
+            alternate_phone: customer.alternate_phone || '',
+            alternate_whatsapp: customer.alternate_whatsapp || '',
+            gender: customer.gender || 'male',
+            user_type: customer.user_type || 'End User',
+            address: customer.address || '',
+            city: customer.city || '',
+            state: customer.state || '',
+            postal_code: customer.postal_code || ''
           },
           device: {
             id: device.id,
             brand: device.brand,
             model: device.model,
             imei: device.imei,
-            color: device.color
+            color: device.color,
+            serial_number: device.serial_number || '',
+            storage_capacity: device.storage_capacity || '',
+            invoice_date: device.invoice_date || '',
+            invoice_number: device.invoice_number || '',
+            expiry_date: device.expiry_date || '',
+            cosmetic_condition: device.cosmetic_condition || ''
           },
           technician: tech ? { id: tech.id, full_name: tech.full_name } : null
         };
@@ -390,6 +404,8 @@ export const db = {
           (j.customer?.full_name && j.customer.full_name.toLowerCase().includes(q)) ||
           (j.customer?.phone && j.customer.phone.includes(q)) ||
           (j.customer?.whatsapp_number && j.customer.whatsapp_number.includes(q)) ||
+          (j.customer?.alternate_phone && j.customer.alternate_phone.includes(q)) ||
+          (j.customer?.alternate_whatsapp && j.customer.alternate_whatsapp.includes(q)) ||
           (j.device?.model && j.device.model.toLowerCase().includes(q)) ||
           (j.device?.imei && j.device.imei.toLowerCase().includes(q)) ||
           (j.customer_complaint && j.customer_complaint.toLowerCase().includes(q))
@@ -468,6 +484,7 @@ export const db = {
         created_by_user_id: userId,
         status: 'RECEIVED',
         priority: jobData.priority || 'NORMAL',
+        service_type: jobData.service_type || 'Pending',
         customer_complaint: jobData.customer_complaint,
         device_condition: jobData.device_condition || {},
         accessories_received: jobData.accessories_received || [],
@@ -557,6 +574,44 @@ export const db = {
       };
       saveLocalDb();
       return localDb.repair_jobs[idx];
+    },
+
+    delete: async (id) => {
+      const idx = (localDb.repair_jobs || []).findIndex(j => j.id === id);
+      if (idx === -1) return false;
+
+      // Remove from repair_jobs
+      localDb.repair_jobs.splice(idx, 1);
+
+      // Clean up related records
+      localDb.repair_tests = (localDb.repair_tests || []).filter(t => t.job_id !== id);
+      localDb.repair_diagnoses = (localDb.repair_diagnoses || []).filter(d => d.job_id !== id);
+      localDb.job_status_history = (localDb.job_status_history || []).filter(h => h.job_id !== id);
+
+      // Remove associated estimate & items
+      const estIdx = (localDb.repair_estimates || []).findIndex(e => e.job_id === id);
+      if (estIdx !== -1) {
+        const estId = localDb.repair_estimates[estIdx].id;
+        localDb.repair_estimate_items = (localDb.repair_estimate_items || []).filter(i => i.estimate_id !== estId);
+        localDb.repair_estimates.splice(estIdx, 1);
+      }
+
+      // Remove associated invoice & items
+      const invIdx = (localDb.invoices || []).findIndex(i => i.job_id === id);
+      if (invIdx !== -1) {
+        const invId = localDb.invoices[invIdx].id;
+        localDb.invoice_items = (localDb.invoice_items || []).filter(i => i.invoice_id !== invId);
+        localDb.invoices.splice(invIdx, 1);
+      }
+
+      // Remove associated payments
+      localDb.payments = (localDb.payments || []).filter(p => p.job_id !== id);
+
+      // Remove associated notifications
+      localDb.notifications = (localDb.notifications || []).filter(n => n.job_id !== id);
+
+      saveLocalDb();
+      return true;
     },
 
     updateStatus: async (id, newStatus, actionTitle, notes, userId) => {
@@ -936,8 +991,12 @@ export const db = {
       const laborAmount = est ? est.labor_charge : 0;
       const partsAmount = est ? est.parts_subtotal : 0;
       const discount = est ? est.discount : (job.discount || 0);
-      const taxRate = est ? est.tax_rate : (job.tax_rate || 8.25);
-      const taxAmount = est ? est.tax_amount : (job.tax_amount || 0);
+      const taxRate = est
+        ? (est.tax_rate !== undefined ? est.tax_rate : 0)
+        : (job.tax_rate !== undefined ? job.tax_rate : 0);
+      const taxAmount = est
+        ? (est.tax_amount !== undefined ? est.tax_amount : 0)
+        : (job.tax_amount !== undefined ? job.tax_amount : 0);
       const totalAmount = job.total_amount;
       const paidAmount = job.paid_amount || 0;
       const balanceDue = Math.max(0, totalAmount - paidAmount);
@@ -975,7 +1034,7 @@ export const db = {
           balance_due: balanceDue,
           payment_status: balanceDue === 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'UNPAID'),
           warranty_period: `${warrantyDays} Days Hardware Warranty`,
-          notes: notes || 'Thank you for choosing TechFix Pro for your mobile device repair!',
+          notes: notes || 'Thank you for choosing Mobotech mobile care for your mobile device repair!',
           pdf_url: null,
           issued_by_user_id: userId,
           issued_at: new Date().toISOString(),

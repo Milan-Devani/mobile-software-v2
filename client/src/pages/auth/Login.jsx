@@ -76,7 +76,7 @@ export const Login = () => {
           <Smartphone className="w-8 h-8" />
         </div>
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-          TechFix Pro Service Hub
+          Mobotech mobile care
         </h2>
         <p className="mt-2 text-xs sm:text-sm text-slate-400">
           Mobile Repair & Workshop Management System

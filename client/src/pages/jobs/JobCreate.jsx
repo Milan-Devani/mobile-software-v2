@@ -23,33 +23,35 @@ import { authService } from '../../services/authService';
 import { Card, LoadingSpinner } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { INWARD_CHECKLIST_CONFIG, getDefaultChecklist } from '../../utils/checklistConstants';
 
 const ACCESSORIES_OPTIONS = [
-  'Original Charger',
-  'USB Cable',
   'SIM Card',
-  'SIM Tray',
-  'SD Memory Card',
-  'Original Box',
-  'Earphones',
+  'Original Charger',
+  'Cable',
   'Protective Case',
 ];
 
 const jobSchema = z.object({
   customer_id: z.string().min(1, 'Please select or create a customer'),
   priority: z.enum(['LOW', 'NORMAL', 'HIGH', 'URGENT']).default('NORMAL'),
+  service_type: z.string().default('Pending'),
   assigned_technician_id: z.string().optional(),
   customer_complaint: z.string().min(5, 'Please enter the customer complaint / issue (at least 5 characters)'),
 
   // Device fields
-  device_brand: z.string().min(1, 'Brand is required (e.g. Apple, Samsung)'),
-  device_model: z.string().min(1, 'Model is required (e.g. iPhone 14 Pro, Galaxy S23)'),
+  device_brand: z.string().min(1, 'Brand is required (e.g. Apple, Samsung, Xiaomi)'),
+  device_model: z.string().min(1, 'Model is required (e.g. Redmi Note 10S, iPhone 14 Pro)'),
   device_color: z.string().optional(),
   device_storage: z.string().optional(),
   device_imei: z.string().optional(),
   device_serial: z.string().optional(),
   device_passcode: z.string().optional(),
-  device_os: z.string().default('iOS'),
+  device_os: z.string().default('Android'),
+  device_invoice_date: z.string().optional(),
+  device_invoice_number: z.string().optional(),
+  device_expiry_date: z.string().optional(),
+  device_cosmetic: z.string().default('Wear And Tear'),
 
   // Condition
   screen_condition: z.string().default('Intact / No cracks'),
@@ -77,6 +79,16 @@ export const JobCreate = () => {
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustEmail, setNewCustEmail] = useState('');
+  const [newCustWhatsapp, setNewCustWhatsapp] = useState('');
+  const [newCustSameAsPhone, setNewCustSameAsPhone] = useState(true);
+  const [newCustAltPhone, setNewCustAltPhone] = useState('');
+  const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState('');
+  const [newCustGender, setNewCustGender] = useState('male');
+  const [newCustUserType, setNewCustUserType] = useState('End User');
+  const [newCustAddress, setNewCustAddress] = useState('');
+  const [newCustCity, setNewCustCity] = useState('');
+  const [newCustState, setNewCustState] = useState('');
+  const [newCustPostalCode, setNewCustPostalCode] = useState('');
 
   const {
     register,
@@ -89,16 +101,21 @@ export const JobCreate = () => {
     defaultValues: {
       customer_id: preselectedCustomerId || '',
       priority: 'NORMAL',
+      service_type: 'Pending',
       assigned_technician_id: '',
       customer_complaint: '',
-      device_brand: 'Apple',
+      device_brand: 'Xiaomi',
       device_model: '',
       device_color: '',
       device_storage: '',
       device_imei: '',
       device_serial: '',
       device_passcode: '',
-      device_os: 'iOS',
+      device_os: 'Android',
+      device_invoice_date: '',
+      device_invoice_number: '',
+      device_expiry_date: '',
+      device_cosmetic: 'Wear And Tear',
       screen_condition: 'Intact / No cracks',
       body_condition: 'Good / Minor wear',
       charging_port_condition: 'Functional',
@@ -133,6 +150,17 @@ export const JobCreate = () => {
     loadInitData();
   }, [preselectedCustomerId, setValue]);
 
+  const [checklist, setChecklist] = useState(getDefaultChecklist());
+
+  const handleChecklistToggle = (key, val) => {
+    setChecklist((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleMarkAllFunctional = () => {
+    setChecklist(getDefaultChecklist());
+    toast.success('Checklist reset to all-functional defaults');
+  };
+
   const toggleAccessory = (acc) => {
     setSelectedAccessories((prev) =>
       prev.includes(acc) ? prev.filter((item) => item !== acc) : [...prev, acc]
@@ -141,23 +169,54 @@ export const JobCreate = () => {
 
   const handleQuickCustomerCreate = async (e) => {
     e.preventDefault();
-    if (!newCustName || !newCustPhone) {
-      toast.error('Name and phone are required');
+    if (!newCustName.trim() || !newCustPhone.trim()) {
+      toast.error('Customer name and primary phone are required');
+      return;
+    }
+    if (!newCustEmail.trim()) {
+      toast.error('Email address (Mail ID) is required');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newCustEmail.trim())) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+    if (!newCustSameAsPhone && (!newCustWhatsapp || !newCustWhatsapp.trim())) {
+      toast.error('Please enter a WhatsApp number or check "WhatsApp number is same as Phone number"');
       return;
     }
     try {
       const created = await customerService.createCustomer({
-        full_name: newCustName,
-        phone: newCustPhone,
-        email: newCustEmail,
+        full_name: newCustName.trim(),
+        phone: newCustPhone.trim(),
+        email: newCustEmail.trim(),
+        whatsapp_number: newCustSameAsPhone ? newCustPhone.trim() : (newCustWhatsapp.trim() || newCustPhone.trim()),
+        alternate_phone: newCustAltPhone,
+        alternate_whatsapp: newCustAltWhatsapp,
+        gender: newCustGender,
+        user_type: newCustUserType,
+        address: newCustAddress,
+        city: newCustCity,
+        state: newCustState,
+        postal_code: newCustPostalCode,
       });
       toast.success(`Customer "${created.full_name}" registered!`);
       setCustomers((prev) => [created, ...prev]);
       setValue('customer_id', created.id);
       setIsNewCustModalOpen(false);
+      // Reset form fields
       setNewCustName('');
       setNewCustPhone('');
       setNewCustEmail('');
+      setNewCustWhatsapp('');
+      setNewCustSameAsPhone(true);
+      setNewCustAltPhone('');
+      setNewCustAltWhatsapp('');
+      setNewCustAddress('');
+      setNewCustCity('');
+      setNewCustState('');
+      setNewCustPostalCode('');
     } catch (err) {
       toast.error(err.message || 'Failed to create customer');
     }
@@ -171,6 +230,7 @@ export const JobCreate = () => {
         customer_id: data.customer_id,
         assigned_technician_id: data.assigned_technician_id || null,
         priority: data.priority,
+        service_type: data.service_type || 'Pending',
         customer_complaint: data.customer_complaint,
         device_data: {
           brand: data.device_brand,
@@ -181,24 +241,37 @@ export const JobCreate = () => {
           serial_number: data.device_serial,
           passcode: data.device_passcode,
           operating_system: data.device_os,
+          invoice_date: data.device_invoice_date,
+          invoice_number: data.device_invoice_number,
+          expiry_date: data.device_expiry_date,
+          cosmetic_condition: data.device_cosmetic,
         },
         device_condition: {
-          screen: data.screen_condition,
-          body: data.body_condition,
-          charging_port: data.charging_port_condition,
-          water_damage: data.water_damage,
-          scratches: data.scratches,
-          cracks: data.cracks,
-          notes: data.condition_notes,
+          ...checklist,
+          checklist,
+          powers_on: checklist.powers_on === 'Yes',
+          power_button: checklist.power_button === 'Yes' ? 'Working' : 'Faulty',
+          volume_buttons: checklist.volume_buttons === 'Yes' ? 'Working' : 'Faulty',
+          screen: checklist.screen === 'Yes' ? 'Working' : 'Broken',
+          touch: checklist.touch === 'Yes' ? 'Working' : 'Faulty',
+          speaker: checklist.speaker === 'Yes' ? 'Working' : 'Faulty',
+          charging_port: checklist.charging_port === 'Yes' ? 'Working' : 'Faulty',
+          headphone_jack: checklist.headphone_jack === 'Yes' ? 'Working' : 'Faulty',
+          back_glass: checklist.back_glass === 'Yes' ? 'Cracked' : 'Intact',
+          dents: checklist.dents === 'Yes',
+          screw_missing: checklist.screw_missing === 'Yes',
+          sim_tray_missing: checklist.sim_tray_missing === 'Yes',
+          water_damage: data.water_damage || false,
+          notes: data.condition_notes || '',
         },
         accessories_received: selectedAccessories,
       };
 
       const createdJob = await jobService.createJob(payload);
-      toast.success(`Job Sheet #${createdJob.job_number} created successfully!`);
+      toast.success(`Service Order #${createdJob.job_number} created successfully!`);
       navigate(`/jobs/${createdJob.id}`);
     } catch (err) {
-      toast.error(err.message || 'Failed to create Job Sheet');
+      toast.error(err.message || 'Failed to create Service Order');
     } finally {
       setIsSubmitting(false);
     }
@@ -264,6 +337,58 @@ export const JobCreate = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Selected Customer Contact Details Preview */}
+            {(() => {
+              const selectedId = watch('customer_id');
+              const sel = customers.find((c) => c.id === selectedId);
+              if (!sel) return null;
+              return (
+                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-slate-900">{sel.full_name}</span>
+                      <span className="px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-semibold">
+                        {sel.user_type || 'End User'} • {sel.gender || 'male'}
+                      </span>
+                    </div>
+                    <span className="font-mono text-slate-500 text-[11px]">{sel.customer_code}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 text-[11px]">
+                    <div>
+                      <span className="text-slate-500">Primary Phone:</span>
+                      <p className="font-mono font-semibold text-slate-800">{sel.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Primary WhatsApp:</span>
+                      <p className="font-mono font-semibold text-slate-800">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Alternate Phone:</span>
+                      <p className="font-mono font-semibold text-slate-800">{sel.alternate_phone || 'None'}</p>
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-200/70 p-1.5 rounded-lg">
+                      <span className="text-emerald-700 font-semibold">Alt WhatsApp (In-Repair):</span>
+                      <p className="font-mono font-bold text-emerald-900">
+                        {sel.alternate_whatsapp || sel.alternate_phone || 'Not recorded'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px] text-slate-600 pt-1 border-t border-slate-200/60 flex-wrap gap-2">
+                    <div>
+                      <span className="text-slate-500">Mail ID:</span> {sel.email || 'None'}
+                    </div>
+                    {sel.address && (
+                      <div className="truncate max-w-sm">
+                        <span className="text-slate-500">Address:</span> {sel.address}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100">
               <div>
@@ -403,6 +528,40 @@ export const JobCreate = () => {
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Repair Service Type</label>
+              <select
+                {...register('service_type')}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-semibold focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              >
+                <option value="Screen / Display Replacement">Screen / Display Replacement</option>
+                <option value="Battery Replacement">Battery Replacement</option>
+                <option value="Face ID / Camera Repair">Face ID / Camera Repair</option>
+                <option value="Motherboard / Chip-Level Repair">Motherboard / Chip-Level Repair</option>
+                <option value="Charging Port / Audio / Mic">Charging Port / Audio / Mic</option>
+                <option value="Back Glass / Housing Replacement">Back Glass / Housing Replacement</option>
+                <option value="Diagnostic / Bench Inspection">Diagnostic / Bench Inspection</option>
+                <option value="Software / Unlocking / Flashing">Software / Unlocking / Flashing</option>
+                <option value="General Hardware Repair">General Hardware Repair</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Cosmetic Condition</label>
+              <select
+                {...register('device_cosmetic')}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              >
+                <option value="Wear And Tear">Wear And Tear (Normal use)</option>
+                <option value="Mint / Flawless">Mint / Flawless</option>
+                <option value="Minor Scratches on Glass/Frame">Minor Scratches on Glass/Frame</option>
+                <option value="Deep Scratches / Dents">Deep Scratches / Dents</option>
+                <option value="Cracked Screen / Broken Glass">Cracked Screen / Broken Glass</option>
+                <option value="Swollen Battery / Back Lifted">Swollen Battery / Back Lifted</option>
+                <option value="Bent Chassis / Water Contact">Bent Chassis / Water Contact</option>
+              </select>
+            </div>
           </div>
         </Card>
 
@@ -424,77 +583,68 @@ export const JobCreate = () => {
           </div>
         </Card>
 
-        {/* Section 4: Device Condition at Intake */}
-        <Card title="4. Physical Condition at Intake" subtitle="Inspect and record existing cosmetic/hardware state">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Screen Condition</label>
-              <select
-                {...register('screen_condition')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="Intact / No cracks">Intact / No cracks</option>
-                <option value="Cracked glass (display works)">Cracked glass (display works)</option>
-                <option value="Cracked OLED / Ink spots / Lines">Cracked OLED / Ink spots / Lines</option>
-                <option value="Completely black / No display">Completely black / No display</option>
-                <option value="Unresponsive touch">Unresponsive touch</option>
-              </select>
-            </div>
+        {/* Section 4: Device Condition Checklist at Intake */}
+        <Card
+          title="4. Inward Condition Checklist (12-Point Inspection)"
+          subtitle="Record cosmetic and functional state matching the Service Order & Invoice checklist"
+          action={
+            <button
+              type="button"
+              onClick={handleMarkAllFunctional}
+              className="text-xs font-semibold text-primary-600 hover:text-primary-700 bg-primary-50 px-2.5 py-1 rounded-md border border-primary-200 hover:bg-primary-100 transition-colors"
+            >
+              ✓ All Functional / Good
+            </button>
+          }
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {INWARD_CHECKLIST_CONFIG.map((item) => {
+              const currentVal = checklist[item.key] || item.defaultVal;
+              const isYes = currentVal === 'Yes';
+              const isNo = currentVal === 'No';
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Body / Frame</label>
-              <select
-                {...register('body_condition')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="Good / Minor wear">Good / Minor wear</option>
-                <option value="Scratched edges">Scratched edges</option>
-                <option value="Dented corners">Dented corners</option>
-                <option value="Bent housing frame">Bent housing frame</option>
-                <option value="Back glass shattered">Back glass shattered</option>
-              </select>
-            </div>
+              return (
+                <div
+                  key={item.key}
+                  className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-2 shadow-xs"
+                >
+                  <span className="text-xs font-medium text-slate-800 leading-snug">{item.label}</span>
+                  <div className="flex items-center rounded-md p-0.5 bg-slate-100 border border-slate-200 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleChecklistToggle(item.key, 'Yes')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                        isYes
+                          ? item.type === 'working'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-rose-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleChecklistToggle(item.key, 'No')}
+                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                        isNo
+                          ? item.type === 'working'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'bg-emerald-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      No
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-200">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Charging Port</label>
-              <select
-                {...register('charging_port_condition')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="Functional">Functional</option>
-                <option value="Loose connection">Loose connection</option>
-                <option value="Damaged / Burn marks">Damaged / Burn marks</option>
-                <option value="Lint / Dust clogged">Lint / Dust clogged</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Existing Scratches</label>
-              <select
-                {...register('scratches')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="None">None (Pristine)</option>
-                <option value="Minor / Light scratches">Minor / Light scratches</option>
-                <option value="Deep scratches">Deep scratches</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Existing Cracks</label>
-              <select
-                {...register('cracks')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="None">None</option>
-                <option value="Front glass cracked">Front glass cracked</option>
-                <option value="Rear glass cracked">Rear glass cracked</option>
-                <option value="Camera lens cracked">Camera lens cracked</option>
-              </select>
-            </div>
-
-            <div className="flex items-center pt-5">
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg border border-slate-200 bg-slate-50 w-full hover:bg-slate-100 transition-colors">
+              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors">
                 <input
                   type="checkbox"
                   {...register('water_damage')}
@@ -505,6 +655,14 @@ export const JobCreate = () => {
                   Liquid / Water Damage Suspected
                 </span>
               </label>
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Additional intake condition notes (e.g. Minor hairline scratch on rear camera lens)"
+                {...register('condition_notes')}
+                className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
             </div>
           </div>
         </Card>
@@ -554,7 +712,7 @@ export const JobCreate = () => {
               icon={FileCheck}
               loading={isSubmitting}
             >
-              Create Job Sheet
+              Create Service Order
             </Button>
           </div>
         </div>
@@ -564,49 +722,211 @@ export const JobCreate = () => {
       <Modal
         isOpen={isNewCustModalOpen}
         onClose={() => setIsNewCustModalOpen(false)}
-        title="Quick Register Customer"
-        subtitle="Quickly add customer to continue creating Job Sheet"
+        title="Register New Customer"
+        subtitle="Record complete contact details & alternate WhatsApp for in-repair communications"
       >
-        <form onSubmit={handleQuickCustomerCreate} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              required
-              placeholder="e.g. John Doe"
-              value={newCustName}
-              onChange={(e) => setNewCustName(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            />
+        <form onSubmit={handleQuickCustomerCreate} className="space-y-3.5">
+          {/* Note Callout */}
+          <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-lg text-[11px] text-amber-900 leading-snug">
+            <strong>⚠️ Important Note:</strong> When the customer submits their phone for repair, their WhatsApp on that device is no longer accessible. Be sure to collect an <strong>Alternate WhatsApp Number</strong> (secondary phone or family member) so they receive status notifications!
           </div>
 
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Phone Number *
-            </label>
-            <input
-              type="tel"
-              required
-              placeholder="+1 (555) 000-0000"
-              value={newCustPhone}
-              onChange={(e) => setNewCustPhone(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Milan Devani"
+                value={newCustName}
+                onChange={(e) => setNewCustName(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Gender & User Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={newCustGender}
+                  onChange={(e) => setNewCustGender(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none capitalize"
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                <select
+                  value={newCustUserType}
+                  onChange={(e) => setNewCustUserType(e.target.value)}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                >
+                  <option value="End User">End User</option>
+                  <option value="Dealer">Dealer</option>
+                  <option value="Corporate">Corporate</option>
+                </select>
+              </div>
+            </div>
           </div>
 
+          {/* Email / Mail ID */}
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Email Address (Optional)
+              Email Address (Mail ID) *
             </label>
             <input
               type="email"
-              placeholder="customer@example.com"
+              required
+              placeholder="e.g. milan@example.com"
               value={newCustEmail}
               onChange={(e) => setNewCustEmail(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
             />
+          </div>
+
+          {/* Primary Phone & Primary WhatsApp */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Primary Phone Number *
+              </label>
+              <input
+                type="tel"
+                required
+                placeholder="e.g. 8758152507"
+                value={newCustPhone}
+                onChange={(e) => {
+                  setNewCustPhone(e.target.value);
+                  if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
+                }}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 select-none">
+                <input
+                  type="checkbox"
+                  checked={newCustSameAsPhone}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setNewCustSameAsPhone(checked);
+                    if (checked) {
+                      setNewCustWhatsapp(newCustPhone);
+                    }
+                  }}
+                  className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                />
+                <span className="font-medium">WhatsApp number is same as Phone number</span>
+              </label>
+            </div>
+
+            {!newCustSameAsPhone && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Primary WhatsApp Number *
+                </label>
+                <input
+                  type="tel"
+                  required={!newCustSameAsPhone}
+                  placeholder="Enter separate WhatsApp number"
+                  value={newCustWhatsapp}
+                  onChange={(e) => setNewCustWhatsapp(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Alternate Phone & Alternate WhatsApp (Crucial Requirement!) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-emerald-300 rounded-xl">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Alternate Phone Number
+              </label>
+              <input
+                type="tel"
+                placeholder="e.g. 8160751302"
+                value={newCustAltPhone}
+                onChange={(e) => {
+                  setNewCustAltPhone(e.target.value);
+                  if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                }}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-emerald-800 uppercase flex items-center gap-1">
+                  <span>Alternate WhatsApp *</span>
+                </label>
+                {newCustAltPhone && (
+                  <button
+                    type="button"
+                    onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
+                    className="text-[10px] text-emerald-700 hover:underline"
+                  >
+                    Same as Alt Phone
+                  </button>
+                )}
+              </div>
+              <input
+                type="tel"
+                placeholder="Active WP number during repair"
+                value={newCustAltWhatsapp}
+                onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-lg text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              />
+              <p className="text-[10px] text-emerald-700 mt-1">
+                Used for instant repair notifications while main phone is in shop
+              </p>
+            </div>
+          </div>
+
+          {/* Address Fields */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              Address (Street / Area)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. PASODARA, SURAT, GUJARAT, 394107"
+              value={newCustAddress}
+              onChange={(e) => setNewCustAddress(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <input
+                type="text"
+                placeholder="City (e.g. Surat)"
+                value={newCustCity}
+                onChange={(e) => setNewCustCity(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="State (e.g. Gujarat)"
+                value={newCustState}
+                onChange={(e) => setNewCustState(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                placeholder="Postal Code"
+                value={newCustPostalCode}
+                onChange={(e) => setNewCustPostalCode(e.target.value)}
+                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -614,7 +934,7 @@ export const JobCreate = () => {
               Cancel
             </Button>
             <Button type="submit" size="sm">
-              Save & Select
+              Save & Select Customer
             </Button>
           </div>
         </form>

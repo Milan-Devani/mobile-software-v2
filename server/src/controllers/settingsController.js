@@ -71,3 +71,23 @@ export const updateNotificationSettings = async (req, res, next) => {
     next(err);
   }
 };
+
+export const testWhatsAppDispatch = async (req, res, next) => {
+  try {
+    const { phone, message } = req.body;
+    const { sendFast2SmsWhatsApp } = await import('../services/fast2smsService.js');
+
+    const result = await sendFast2SmsWhatsApp({
+      phone: phone || '8758152507',
+      message: message || `*Mobotech Mobile Care - Verification*\nHello Milan, Fast2SMS WhatsApp is active and working properly!`,
+    });
+
+    res.json({
+      success: true,
+      message: 'WhatsApp test dispatched successfully.',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};

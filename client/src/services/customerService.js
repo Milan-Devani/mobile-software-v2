@@ -21,8 +21,8 @@ export const customerService = {
     return res.data.customer;
   },
 
-  deleteCustomer: async (id) => {
-    const res = await api.delete(`/customers/${id}`);
-    return res;
+  deleteCustomer: async (id, force = false) => {
+    const res = await api.delete(`/customers/${id}${force ? '?force=true' : ''}`);
+    return res.data;
   },
 };

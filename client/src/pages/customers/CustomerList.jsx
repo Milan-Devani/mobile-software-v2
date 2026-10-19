@@ -12,19 +12,27 @@ import {
   MapPin,
   Eye,
   MessageCircle,
-  FileText
+  FileText,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { customerService } from '../../services/customerService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 
 const customerSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
+  gender: z.string().default('male'),
+  user_type: z.string().default('End User'),
   phone: z.string().min(6, 'Valid phone number required'),
-  email: z.string().email('Valid email required').or(z.literal('')),
   whatsapp_number: z.string().optional(),
+  alternate_phone: z.string().optional(),
+  alternate_whatsapp: z.string().optional(),
+  email: z.string().min(1, 'Email address (Mail ID) is required').email('Valid email address required'),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -38,8 +46,36 @@ export const CustomerList = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [addSameAsPhone, setAddSameAsPhone] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const navigate = useNavigate();
+
+  const handleDeleteCustomer = (e, customer) => {
+    e.stopPropagation();
+    Swal.fire({
+      title: `Delete Customer ${customer.full_name}?`,
+      text: 'Are you sure you want to delete this customer? All their associated repair jobs, quotes, and records will also be permanently deleted.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Customer',
+      cancelButtonText: 'Cancel',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await customerService.deleteCustomer(customer.id, true);
+          setCustomers((prev) => prev.filter((item) => item.id !== customer.id));
+          setTotal((prev) => Math.max(0, prev - 1));
+          toast.success(`Customer "${customer.full_name}" was deleted.`);
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete customer');
+        }
+      }
+    });
+  };
 
   const {
     register,
@@ -50,9 +86,13 @@ export const CustomerList = () => {
     resolver: zodResolver(customerSchema),
     defaultValues: {
       full_name: '',
+      gender: 'male',
+      user_type: 'End User',
       phone: '',
-      email: '',
       whatsapp_number: '',
+      alternate_phone: '',
+      alternate_whatsapp: '',
+      email: '',
       address: '',
       city: '',
       state: '',
@@ -84,10 +124,15 @@ export const CustomerList = () => {
   const onAddSubmit = async (data) => {
     try {
       setIsSubmitting(true);
-      const created = await customerService.createCustomer(data);
+      const payload = {
+        ...data,
+        whatsapp_number: addSameAsPhone ? data.phone : (data.whatsapp_number || data.phone),
+      };
+      const created = await customerService.createCustomer(payload);
       toast.success(`Customer "${created.full_name}" registered!`);
       setIsAddModalOpen(false);
       reset();
+      setAddSameAsPhone(true);
       fetchCustomers();
     } catch (err) {
       toast.error(err.message || 'Failed to create customer');
@@ -163,12 +208,21 @@ export const CustomerList = () => {
                       {c.full_name}
                     </td>
                     <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-slate-700">{c.phone}</span>
-                        {c.whatsapp_number && (
-                          <span className="p-0.5 rounded bg-emerald-50 text-emerald-600" title="WhatsApp available">
-                            <MessageCircle className="w-3.5 h-3.5" />
-                          </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-slate-800 font-medium">{c.phone}</span>
+                          {c.whatsapp_number && (
+                            <span className="p-0.5 rounded bg-emerald-50 text-emerald-600" title="Primary WhatsApp">
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </span>
+                          )}
+                        </div>
+                        {(c.alternate_whatsapp || c.alternate_phone) && (
+                          <div className="text-[10px] text-emerald-700 flex items-center gap-1 font-mono">
+                            <span className="bg-emerald-50 px-1 rounded border border-emerald-200">
+                              Alt WP: {c.alternate_whatsapp || c.alternate_phone}
+                            </span>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -179,16 +233,36 @@ export const CustomerList = () => {
                       {c.city ? `${c.city}${c.state ? `, ${c.state}` : ''}` : '—'}
                     </td>
                     <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/customers/${c.id}`);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="View Customer Profile"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/customers/${c.id}`);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="View Customer Profile"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCustomerForEdit(c);
+                            setIsEditModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                          title="Edit Customer"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteCustomer(e, c)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Customer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -203,55 +277,126 @@ export const CustomerList = () => {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         title="Add New Customer"
-        subtitle="Register customer details for service and job sheets"
+        subtitle="Register customer details & alternate WhatsApp for repair updates"
       >
-        <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Johnathan Davis"
-              {...register('full_name')}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            />
-            {errors.full_name && (
-              <p className="text-[11px] text-rose-500 mt-1">{errors.full_name.message}</p>
-            )}
+        <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-3.5">
+          {/* Note Callout */}
+          <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-lg text-[11px] text-amber-900 leading-snug">
+            <strong>⚠️ Note:</strong> Since customer leaves their phone for repair, make sure to collect an <strong>Alternate WhatsApp Number</strong> so they can receive status alerts while their phone is in the shop.
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Milan Devani"
+                {...register('full_name')}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+              {errors.full_name && (
+                <p className="text-[11px] text-rose-500 mt-1">{errors.full_name.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                Gender & User Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  {...register('gender')}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none capitalize"
+                >
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                <select
+                  {...register('user_type')}
+                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                >
+                  <option value="End User">End User</option>
+                  <option value="Dealer">Dealer</option>
+                  <option value="Corporate">Corporate</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
                 Phone Number *
               </label>
               <input
                 type="tel"
-                placeholder="+1 (555) 000-0000"
+                placeholder="Primary phone number"
                 {...register('phone')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
               />
               {errors.phone && (
                 <p className="text-[11px] text-rose-500 mt-1">{errors.phone.message}</p>
               )}
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 select-none">
+                <input
+                  type="checkbox"
+                  checked={addSameAsPhone}
+                  onChange={(e) => setAddSameAsPhone(e.target.checked)}
+                  className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                />
+                <span className="font-medium">WhatsApp number is same as Phone number</span>
+              </label>
             </div>
+            {!addSameAsPhone && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                  Primary WhatsApp Number *
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Enter separate WhatsApp number"
+                  {...register('whatsapp_number')}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+                {errors.whatsapp_number && (
+                  <p className="text-[11px] text-rose-500 mt-1">{errors.whatsapp_number.message}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Alternate Phone & Alternate WhatsApp */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-emerald-300 rounded-xl">
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                WhatsApp Number
+                Alternate Phone Number
               </label>
               <input
                 type="tel"
-                placeholder="Leave blank if same as phone"
-                {...register('whatsapp_number')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                placeholder="Secondary phone"
+                {...register('alternate_phone')}
+                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-emerald-800 uppercase mb-1">
+                Alternate WhatsApp (In-Repair)
+              </label>
+              <input
+                type="tel"
+                placeholder="Active WP number while phone in shop"
+                {...register('alternate_whatsapp')}
+                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-lg text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Email Address
+              Email Address (Mail ID) *
             </label>
             <input
               type="email"
@@ -326,6 +471,23 @@ export const CustomerList = () => {
           </div>
         </form>
       </Modal>
+
+      {/* Edit Customer Modal */}
+      {isEditModalOpen && selectedCustomerForEdit && (
+        <CustomerEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedCustomerForEdit(null);
+          }}
+          customer={selectedCustomerForEdit}
+          onSave={(updated) => {
+            setCustomers((prev) =>
+              prev.map((item) => (item.id === updated.id ? { ...item, ...updated } : item))
+            );
+          }}
+        />
+      )}
     </div>
   );
 };

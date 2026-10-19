@@ -32,7 +32,7 @@ export const env = {
   EMAIL_PORT: parseInt(process.env.EMAIL_PORT || '587', 10),
   EMAIL_USER: process.env.EMAIL_USER || '',
   EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || '',
-  EMAIL_FROM: process.env.EMAIL_FROM || 'TechFix Pro <notifications@techfixpro.com>',
+  EMAIL_FROM: process.env.EMAIL_FROM || 'Mobotech mobile care <notifications@mobotech.com>',
   
   // OpenWA WhatsApp (https://github.com/rmyndharis/OpenWA)
   OPENWA_API_URL: process.env.OPENWA_API_URL || 'http://localhost:8000',
@@ -44,4 +44,8 @@ export const env = {
   MSG91_FLOW_ID: process.env.MSG91_FLOW_ID || '',
   MSG91_SENDER_ID: process.env.MSG91_SENDER_ID || 'TCHFIX',
   MSG91_TEST_MODE: process.env.MSG91_TEST_MODE === 'true' || !process.env.MSG91_AUTH_KEY,
+
+  // Fast2SMS (WhatsApp & SMS)
+  FAST2SMS_API_KEY: process.env.FAST2SMS_API_KEY || '',
+  FAST2SMS_PHONE_NUMBER_ID: process.env.FAST2SMS_PHONE_NUMBER_ID || '',
 };

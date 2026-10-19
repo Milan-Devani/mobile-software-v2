@@ -105,7 +105,7 @@ export const NextActionBanner = ({
           bg: 'bg-gradient-to-r from-fuchsia-500/10 via-fuchsia-500/5 to-transparent border-fuchsia-200',
           textColor: 'text-fuchsia-900',
           btnClass: 'bg-fuchsia-600 hover:bg-fuchsia-700 text-white',
-          action: onOpenTestingTab,
+          action: onMarkReadyForPickup,
           canPerform: ['admin', 'technician'].includes(userRole),
         };
 

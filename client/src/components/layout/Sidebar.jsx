@@ -74,8 +74,8 @@ export const Sidebar = ({ isOpen, onClose }) => {
               <Smartphone className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="font-bold text-white text-base tracking-tight leading-none">TechFix Pro</h1>
-              <p className="text-[11px] text-primary-400 font-medium mt-1">Repair Management</p>
+              <h1 className="font-bold text-white text-base tracking-tight leading-none">Mobotech</h1>
+              <p className="text-[11px] text-primary-400 font-medium mt-1">mobile care</p>
             </div>
           </div>
         </div>

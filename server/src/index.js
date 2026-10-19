@@ -1,3 +1,4 @@
+// Mobotech mobile care Server - Reloaded db
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -19,6 +20,7 @@ import dashboardRoutes from './routes/dashboardRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import whatsappRoutes from './routes/whatsappRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +90,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 // Catch-all for undefined routes
 app.all('*', (req, res, next) => {
@@ -118,3 +121,4 @@ const startServer = async () => {
 startServer();
 
 export default app;
+

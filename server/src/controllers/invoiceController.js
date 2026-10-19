@@ -1,6 +1,7 @@
 import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
+import { generateInvoicePdfBuffer } from '../services/pdfService.js';
 
 export const getJobInvoice = async (req, res, next) => {
   try {
@@ -83,6 +84,34 @@ export const resendInvoice = async (req, res, next) => {
       message: 'Invoice dispatched through selected channels.',
       data: result,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const downloadInvoicePdf = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    const job = await db.jobs.findById(jobId);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    let invoice = await db.invoices.getByJobId(job.id);
+    if (!invoice) {
+      invoice = await db.invoices.createOrUpdateForJob({
+        jobId: job.id,
+        userId: req.user?.id,
+      });
+    }
+
+    const shop = await db.shops.getProfile();
+    const trackingUrl = `${req.protocol}://${req.get('host')}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
+
+    const pdfBuffer = await generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl });
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Mobotech_Invoice_${job.job_number}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
   } catch (err) {
     next(err);
   }

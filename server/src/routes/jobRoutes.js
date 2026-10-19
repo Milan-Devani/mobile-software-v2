@@ -14,7 +14,8 @@ import {
   saveTests,
   markReadyForPickup,
   recordPickup,
-  cancelJob
+  cancelJob,
+  deleteJob
 } from '../controllers/jobController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -36,6 +37,7 @@ router.get('/', requireAnyRole, getJobs);
 router.get('/:id', requireAnyRole, getJobById);
 router.post('/', requireStaffOrAdmin, createJob);
 router.put('/:id', requireAnyRole, updateJob);
+router.delete('/:id', requireAnyRole, deleteJob);
 
 // Step transitions & actions
 router.post('/:id/start-diagnosis', requireTechnicianOrAdmin, startDiagnosis);

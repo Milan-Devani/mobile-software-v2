@@ -10,7 +10,10 @@ import {
   Save,
   CheckCircle2,
   AlertCircle,
-  Plus
+  Plus,
+  QrCode,
+  Smartphone,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { settingsService } from '../../services/settingsService';
@@ -18,6 +21,7 @@ import { authService } from '../../services/authService';
 import { Card, LoadingSpinner } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { WhatsAppQrModal } from '../../components/common/WhatsAppQrModal';
 
 export const Settings = () => {
   const { user } = useSelector((state) => state.auth);
@@ -34,6 +38,25 @@ export const Settings = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [newUserRole, setNewUserRole] = useState('technician');
 
+  const [showWaModal, setShowWaModal] = useState(false);
+  const [waStatus, setWaStatus] = useState({ isConnected: false });
+
+  const fetchWaStatus = async () => {
+    try {
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${apiBase}/whatsapp/status`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      const data = await res.json();
+      if (data?.success) {
+        setWaStatus(data.data);
+      }
+    } catch (e) {
+      // silent
+    }
+  };
+
   const fetchSettings = async () => {
     try {
       setLoading(true);
@@ -44,6 +67,7 @@ export const Settings = () => {
       setShop(settingsData.shop || {});
       setNotifications(settingsData.notifications || {});
       setUsersList(usersData || []);
+      fetchWaStatus();
     } catch (err) {
       toast.error('Failed to load settings');
     } finally {
@@ -249,7 +273,7 @@ export const Settings = () => {
                   {notifications.brevo_configured ? 'Live API Configured' : 'Dev Simulator Mode'}
                 </span>
               </div>
-              <p className="text-slate-500 text-[11px] mt-0.5">Sender: {notifications.brevo_sender || 'notifications@techfixpro.com'}</p>
+              <p className="text-slate-500 text-[11px] mt-0.5">Sender: {notifications.brevo_sender || 'notifications@mobotech.com'}</p>
             </div>
             <label className="flex items-center gap-2 cursor-pointer">
               <span className="text-[11px] font-semibold text-slate-600">Enabled</span>
@@ -262,28 +286,51 @@ export const Settings = () => {
             </label>
           </div>
 
-          {/* OpenWA WhatsApp */}
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-slate-900">WhatsApp: OpenWA Gateway</span>
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                  notifications.openwa_configured ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+          {/* Baileys WhatsApp Linked Device */}
+          <div className="p-4 bg-white border border-slate-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                  <Smartphone className="w-4 h-4 text-emerald-600" />
+                  WhatsApp: Linked Device (Baileys QR Scanner)
+                </span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  waStatus?.isConnected ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
                 }`}>
-                  {notifications.openwa_configured ? 'Gateway Connected' : 'Dev Simulator Mode'}
+                  {waStatus?.isConnected
+                    ? `Linked: +${waStatus.user?.phone || '8758152507'}`
+                    : 'Not Linked (Click to Scan QR)'}
                 </span>
               </div>
-              <p className="text-slate-500 text-[11px] mt-0.5">Gateway URL: {notifications.openwa_url}</p>
+              <p className="text-slate-500 text-xs mt-1">
+                100% Free (₹0) • Auto-sends invoices & vector PDFs in background directly from your number ({waStatus?.user?.phone ? `+${waStatus.user.phone}` : '8758152507'}) without opening WhatsApp Web.
+              </p>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <span className="text-[11px] font-semibold text-slate-600">Enabled</span>
-              <input
-                type="checkbox"
-                checked={notifications.whatsapp_enabled}
-                onChange={(e) => handleToggleNotification('whatsapp_enabled', e.target.checked)}
-                className="w-4 h-4 text-primary-600 rounded"
-              />
-            </label>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowWaModal(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors ${
+                  waStatus?.isConnected
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
+                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                }`}
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>{waStatus?.isConnected ? 'Manage WhatsApp' : 'Scan QR Code'}</span>
+              </button>
+
+              <label className="flex items-center gap-1.5 cursor-pointer border-l border-slate-200 pl-3">
+                <span className="text-[11px] font-semibold text-slate-600">Enabled</span>
+                <input
+                  type="checkbox"
+                  checked={notifications.whatsapp_enabled}
+                  onChange={(e) => handleToggleNotification('whatsapp_enabled', e.target.checked)}
+                  className="w-4 h-4 text-emerald-600 rounded"
+                />
+              </label>
+            </div>
           </div>
 
           {/* MSG91 SMS */}
@@ -433,6 +480,20 @@ export const Settings = () => {
           </div>
         </form>
       </Modal>
+
+      {/* WhatsApp Linked Device Modal */}
+      <WhatsAppQrModal
+        isOpen={showWaModal}
+        onClose={() => {
+          setShowWaModal(false);
+          fetchWaStatus();
+        }}
+        onConnected={(user) => {
+          setWaStatus({ isConnected: true, user });
+          setShowWaModal(false);
+          toast.success(`WhatsApp linked as +${user?.phone || 'your number'}!`);
+        }}
+      />
     </div>
   );
 };

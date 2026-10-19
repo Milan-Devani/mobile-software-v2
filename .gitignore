@@ -15,13 +15,13 @@ out/
 *.tsbuildinfo
 
 # ==========================================
-# Environment Files
-# Explicitly ALLOWED so full configuration is shared with teammates
+# Environment Files (Keep secrets local & out of Git)
 # ==========================================
-!.env
-!.env.*
-!**/.env
-!**/.env.*
+.env
+.env.*
+*.env
+*.env.*
+server/.env.local_backup
 
 # ==========================================
 # Runtime Uploads & Generated Media
@@ -29,6 +29,13 @@ out/
 # ==========================================
 server/uploads/*
 !server/uploads/.gitkeep
+
+# ==========================================
+# WhatsApp Baileys Authentication & Session Keys
+# (Preserves directory structure via .gitkeep while ignoring session tokens)
+# ==========================================
+server/data/baileys_auth/*
+!server/data/baileys_auth/.gitkeep
 
 # ==========================================
 # Logs & Diagnostics

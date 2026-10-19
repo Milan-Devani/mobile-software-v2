@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
@@ -22,7 +23,8 @@ import {
   History,
   Copy,
   Check,
-  Ban
+  Ban,
+  Pencil
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -31,6 +33,7 @@ import { partsService } from '../../services/partsService';
 import { paymentService } from '../../services/paymentService';
 import { invoiceService } from '../../services/invoiceService';
 import { settingsService } from '../../services/settingsService';
+import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -41,6 +44,8 @@ import { JobTimeline } from '../../components/jobs/JobTimeline';
 import { QualityChecklist } from '../../components/jobs/QualityChecklist';
 import { JobSheetPrintable } from '../../components/print/JobSheetPrintable';
 import { InvoicePrintable } from '../../components/print/InvoicePrintable';
+import { JobEditModal } from '../../components/jobs/JobEditModal';
+import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 
 export const JobDetail = () => {
   const { id } = useParams();
@@ -60,6 +65,8 @@ export const JobDetail = () => {
   const [isPickupModalOpen, setIsPickupModalOpen] = useState(false);
   const [isPrintJobSheetOpen, setIsPrintJobSheetOpen] = useState(false);
   const [isPrintInvoiceOpen, setIsPrintInvoiceOpen] = useState(false);
+  const [isJobEditModalOpen, setIsJobEditModalOpen] = useState(false);
+  const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
 
   // Form states for modals
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -73,10 +80,13 @@ export const JobDetail = () => {
   const [estimateForm, setEstimateForm] = useState({
     labor_charge: 0,
     discount: 0,
-    tax_rate: 8.25,
+    apply_tax: true,
+    tax_rate: 18,
     notes: '',
-    items: [],
+    items: [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
   });
+
+  const currSym = shop?.currency_symbol || '₹';
 
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
@@ -93,6 +103,35 @@ export const JobDetail = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
+  useEffect(() => {
+    if (isPrintInvoiceOpen || isPrintJobSheetOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('print-modal-active');
+    } else {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('print-modal-active');
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('print-modal-active');
+    };
+  }, [isPrintInvoiceOpen, isPrintJobSheetOpen]);
+
+  // Handle Escape key to close printable modals
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsPrintInvoiceOpen(false);
+        setIsPrintJobSheetOpen(false);
+      }
+    };
+    if (isPrintInvoiceOpen || isPrintJobSheetOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPrintInvoiceOpen, isPrintJobSheetOpen]);
 
   const fetchJobData = async () => {
     try {
@@ -123,19 +162,29 @@ export const JobDetail = () => {
       }
 
       if (jobData.estimate) {
+        const loadedItems = (jobData.estimate.items || []).map((i) => ({
+          part_id: i.part_id || null,
+          item_name: i.item_name || '',
+          quantity: i.quantity || 1,
+          unit_price: i.unit_price ?? '',
+          discount: i.discount || 0,
+        }));
+        const existingTaxRate = Number(jobData.estimate.tax_rate !== undefined ? jobData.estimate.tax_rate : 18);
         setEstimateForm({
           labor_charge: jobData.estimate.labor_charge || 0,
           discount: jobData.estimate.discount || 0,
-          tax_rate: jobData.estimate.tax_rate ?? 8.25,
+          apply_tax: existingTaxRate > 0,
+          tax_rate: existingTaxRate > 0 ? existingTaxRate : (shopData?.tax_rate || 18),
           notes: jobData.estimate.notes || '',
-          items: (jobData.estimate.items || []).map((i) => ({
-            part_id: i.part_id,
-            item_name: i.item_name,
-            quantity: i.quantity,
-            unit_price: i.unit_price,
-            discount: i.discount || 0,
-          })),
+          items: loadedItems.length > 0 ? loadedItems : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
         });
+      } else {
+        setEstimateForm((prev) => ({
+          ...prev,
+          apply_tax: true,
+          tax_rate: shopData?.tax_rate || 18,
+          items: prev.items && prev.items.length > 0 ? prev.items : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
+        }));
       }
     } catch (err) {
       toast.error('Failed to load Job Sheet');
@@ -176,16 +225,74 @@ export const JobDetail = () => {
     }
   };
 
+  const handleOpenEstimateModal = () => {
+    setEstimateForm((prev) => ({
+      ...prev,
+      items: prev.items && prev.items.length > 0
+        ? prev.items
+        : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
+    }));
+    setIsEstimateModalOpen(true);
+  };
+
+  const handleAddEstimateItem = () => {
+    setEstimateForm((prev) => ({
+      ...prev,
+      items: [
+        ...(prev.items || []),
+        { item_name: '', quantity: 1, unit_price: '', discount: 0 },
+      ],
+    }));
+  };
+
+  const handleRemoveEstimateItem = (index) => {
+    setEstimateForm((prev) => {
+      const items = [...(prev.items || [])];
+      items.splice(index, 1);
+      return {
+        ...prev,
+        items: items.length > 0 ? items : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
+      };
+    });
+  };
+
+  const handleUpdateEstimateItem = (index, field, value) => {
+    setEstimateForm((prev) => {
+      const items = [...(prev.items || [])];
+      items[index] = { ...items[index], [field]: value };
+      return { ...prev, items };
+    });
+  };
+
   const handleSaveEstimate = async (e) => {
     e.preventDefault();
     try {
       setIsSaving(true);
+      // Clean and filter valid items (either has text or price > 0)
+      const validItems = estimateForm.items
+        .filter((i) => (i.item_name && i.item_name.trim() !== '') || (parseFloat(i.unit_price) > 0))
+        .map((i) => ({
+          part_id: i.part_id || null,
+          item_name: i.item_name?.trim() || 'Repair Component / Service',
+          quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
+          unit_price: Math.max(0, parseFloat(i.unit_price) || 0),
+          discount: Math.max(0, parseFloat(i.discount) || 0),
+        }));
+
+      const effectiveTaxRate = estimateForm.apply_tax
+        ? Math.max(0, parseFloat(estimateForm.tax_rate) || 0)
+        : 0;
+
       const res = await jobService.saveEstimate(job.id, {
-        ...estimateForm,
+        labor_charge: parseFloat(estimateForm.labor_charge) || 0,
+        discount: parseFloat(estimateForm.discount) || 0,
+        tax_rate: effectiveTaxRate,
+        notes: estimateForm.notes || '',
+        items: validItems,
         send_notification: true,
       });
       setJob(res.job);
-      toast.success(`Estimate saved and customer notified!`);
+      toast.success('Repair estimate saved and sent to customer!');
       setIsEstimateModalOpen(false);
     } catch (err) {
       toast.error(err.message);
@@ -242,11 +349,21 @@ export const JobDetail = () => {
 
   const handleMarkReadyForPickup = async () => {
     try {
+      setIsSaving(true);
+      // Ensure all tests are passed if completing QC inspection directly
+      if (job.tests && job.tests.some((t) => t.result !== 'PASS')) {
+        const allPass = (job.tests || []).map((t) => ({ ...t, result: 'PASS' }));
+        await jobService.saveTests(job.id, allPass).catch(() => {});
+      }
       const updated = await jobService.markReadyForPickup(job.id);
       setJob((prev) => ({ ...prev, ...updated }));
-      toast.success('Device marked Ready for Pickup! Customer notified via Email, WhatsApp & SMS.');
+      toast.success('QC Inspection completed! Device marked Ready for Pickup.');
+      // If user was on testing tab, advance to payments; if already on payments, remain on payments!
+      setActiveTab((prev) => (prev === 'testing' ? 'payments' : prev));
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || 'Failed to complete QC inspection');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -256,7 +373,7 @@ export const JobDetail = () => {
       setIsSaving(true);
       const updated = await jobService.recordPickup(job.id, pickupForm);
       setJob((prev) => ({ ...prev, ...updated }));
-      toast.success('Device successfully delivered to customer!');
+      toast.success('Device delivered & final invoice sent to customer!');
       setIsPickupModalOpen(false);
     } catch (err) {
       toast.error(err.message);
@@ -321,6 +438,29 @@ export const JobDetail = () => {
     });
   };
 
+  const handleDeleteJob = async () => {
+    const result = await Swal.fire({
+      title: 'Delete this Job Sheet?',
+      text: `Are you sure you want to permanently delete Job #${job.job_number}? All diagnostic records, estimates, tests, invoices, and payments associated with this job will be removed.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Job',
+      cancelButtonText: 'Cancel'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await jobService.deleteJob(job.id);
+        toast.success(`Job #${job.job_number} was successfully deleted.`);
+        navigate('/jobs');
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete job sheet');
+      }
+    }
+  };
+
   const handleCopyApprovalLink = () => {
     const link = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token}`;
     navigator.clipboard.writeText(link);
@@ -337,7 +477,7 @@ export const JobDetail = () => {
   const accessories = job.accessories_received || [];
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${isPrintInvoiceOpen || isPrintJobSheetOpen ? 'print:hidden' : ''}`}>
       {/* Top Bar Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -372,10 +512,19 @@ export const JobDetail = () => {
           <Button
             variant="outline"
             size="sm"
+            icon={Pencil}
+            onClick={() => setIsJobEditModalOpen(true)}
+          >
+            Edit Job Sheet
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             icon={Printer}
             onClick={() => setIsPrintJobSheetOpen(true)}
           >
-            Job Sheet
+            Service Order Sheet
           </Button>
 
           <Button
@@ -409,6 +558,17 @@ export const JobDetail = () => {
               Cancel
             </Button>
           )}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            icon={Trash2}
+            onClick={handleDeleteJob}
+            title="Permanently Delete Job Sheet"
+          >
+            Delete
+          </Button>
         </div>
       </div>
 
@@ -417,7 +577,7 @@ export const JobDetail = () => {
         job={job}
         userRole={user?.role_id}
         onStartDiagnosis={handleStartDiagnosis}
-        onOpenEstimateModal={() => setIsEstimateModalOpen(true)}
+        onOpenEstimateModal={handleOpenEstimateModal}
         onStartRepair={handleStartRepair}
         onCompleteRepair={handleCompleteRepair}
         onOpenTestingTab={() => setActiveTab('testing')}
@@ -458,20 +618,40 @@ export const JobDetail = () => {
             <Card
               title="Customer Details"
               action={
-                <button
-                  onClick={() => navigate(`/customers/${job.customer?.id}`)}
-                  className="text-xs text-primary-600 font-semibold hover:underline flex items-center gap-1"
-                >
-                  <span>Profile</span>
-                  <ExternalLink className="w-3 h-3" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setIsEditCustomerModalOpen(true)}
+                    className="text-xs text-primary-600 font-semibold hover:underline flex items-center gap-1"
+                  >
+                    <Pencil className="w-3 h-3" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => navigate(`/customers/${job.customer?.id}`)}
+                    className="text-xs text-slate-500 hover:text-slate-800 font-semibold hover:underline flex items-center gap-1"
+                  >
+                    <span>Profile</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </button>
+                </div>
               }
             >
-              <div className="space-y-2.5 text-xs">
-                <p><span className="text-slate-500">Full Name:</span> <strong className="text-slate-900">{job.customer?.full_name}</strong></p>
-                <p><span className="text-slate-500">Phone:</span> <span className="font-mono">{job.customer?.phone}</span></p>
-                <p><span className="text-slate-500">WhatsApp:</span> <span className="font-mono">{job.customer?.whatsapp_number || job.customer?.phone}</span></p>
-                {job.customer?.email && <p><span className="text-slate-500">Email:</span> {job.customer.email}</p>}
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <p><span className="text-slate-500">Full Name:</span> <strong className="text-slate-900">{job.customer?.full_name}</strong></p>
+                  <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                    {job.customer?.user_type || 'End User'} • {job.customer?.gender || 'male'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+                  <p><span className="text-slate-500">Phone:</span> <span className="font-mono font-medium">{job.customer?.phone}</span></p>
+                  <p><span className="text-slate-500">WhatsApp:</span> <span className="font-mono">{job.customer?.whatsapp_number || job.customer?.phone}</span></p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 p-2 bg-emerald-50/70 border border-emerald-200/60 rounded-lg">
+                  <p><span className="text-slate-500">Alt Phone:</span> <span className="font-mono font-semibold text-slate-800">{job.customer?.alternate_phone || 'None'}</span></p>
+                  <p><span className="text-emerald-700 font-semibold">Alt WP (In-Repair):</span> <span className="font-mono font-bold text-emerald-900">{job.customer?.alternate_whatsapp || job.customer?.alternate_phone || 'None'}</span></p>
+                </div>
+                {job.customer?.email && <p><span className="text-slate-500">Mail ID:</span> {job.customer.email}</p>}
                 {job.customer?.address && <p><span className="text-slate-500">Address:</span> {job.customer.address}</p>}
               </div>
             </Card>
@@ -497,15 +677,50 @@ export const JobDetail = () => {
 
           {/* Intake Condition & Accessories */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card title="Intake Physical Condition">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <p><span className="text-slate-500">Screen:</span> <strong>{cond.screen || 'Intact'}</strong></p>
-                <p><span className="text-slate-500">Body:</span> <strong>{cond.body || 'Good'}</strong></p>
-                <p><span className="text-slate-500">Scratches:</span> <strong>{cond.scratches || 'Minor'}</strong></p>
-                <p><span className="text-slate-500">Cracks:</span> <strong>{cond.cracks || 'None'}</strong></p>
-                <p><span className="text-slate-500">Charging Port:</span> <strong>{cond.charging_port || 'Normal'}</strong></p>
-                <p><span className="text-slate-500">Liquid Damage:</span> <strong className={cond.water_damage ? 'text-rose-600' : 'text-emerald-600'}>{cond.water_damage ? 'YES' : 'NO'}</strong></p>
+            <Card
+              title="Inward Inspection Checklist (12-Point)"
+              action={
+                <button
+                  onClick={() => setIsEditJobModalOpen(true)}
+                  className="text-xs text-primary-600 font-semibold hover:underline flex items-center gap-1"
+                >
+                  <Pencil className="w-3 h-3" />
+                  <span>Edit Checklist</span>
+                </button>
+              }
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {INWARD_CHECKLIST_CONFIG.map((item) => {
+                  const val = resolveChecklistValue(item.key, cond);
+                  const isPositive = (item.type === 'working' && val === 'Yes') || (item.type === 'damage' && val === 'No');
+
+                  return (
+                    <div key={item.key} className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
+                      <span className="text-slate-600 text-[11px]">{item.label}</span>
+                      <span
+                        className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded ${
+                          isPositive
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {val}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+              <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Liquid / Water Damage Suspected:</span>
+                <span className={`font-bold px-2 py-0.5 rounded text-[11px] ${cond.water_damage ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'}`}>
+                  {cond.water_damage ? 'YES (Detected)' : 'NO'}
+                </span>
+              </div>
+              {cond.notes && (
+                <p className="mt-2 text-[11px] text-slate-500 italic bg-slate-50 p-2 rounded">
+                  Notes: {cond.notes}
+                </p>
+              )}
             </Card>
 
             <Card title="Accessories Handed Over">
@@ -583,7 +798,7 @@ export const JobDetail = () => {
           subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
           action={
             ['admin', 'technician'].includes(user?.role_id) && (
-              <Button size="sm" onClick={() => setIsEstimateModalOpen(true)}>
+              <Button size="sm" onClick={handleOpenEstimateModal}>
                 {job.estimate ? 'Update Estimate' : 'Create Estimate'}
               </Button>
             )
@@ -636,27 +851,29 @@ export const JobDetail = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    <tr className="bg-white">
-                      <td className="px-4 py-2.5 font-medium text-slate-900">
-                        Diagnostic Bench Labor & Technical Service Fee
-                      </td>
-                      <td className="px-4 py-2.5 text-center">1</td>
-                      <td className="px-4 py-2.5 text-right font-mono">${Number(job.estimate.labor_charge).toFixed(2)}</td>
-                      <td className="px-4 py-2.5 text-right font-mono">$0.00</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                        ${Number(job.estimate.labor_charge).toFixed(2)}
-                      </td>
-                    </tr>
+                    {Number(job.estimate.labor_charge) > 0 && (
+                      <tr className="bg-white">
+                        <td className="px-4 py-2.5 font-medium text-slate-900">
+                          Diagnostic Bench Labor & Technical Service Fee
+                        </td>
+                        <td className="px-4 py-2.5 text-center">1</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{currSym}0.00</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
+                          {currSym}{Number(job.estimate.labor_charge).toFixed(2)}
+                        </td>
+                      </tr>
+                    )}
                     {(job.estimate.items || []).map((item, index) => (
                       <tr key={index} className="bg-white">
                         <td className="px-4 py-2.5 font-medium text-slate-900">{item.item_name}</td>
                         <td className="px-4 py-2.5 text-center">{item.quantity}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">${Number(item.unit_price).toFixed(2)}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(item.unit_price).toFixed(2)}</td>
                         <td className="px-4 py-2.5 text-right font-mono text-emerald-600">
-                          {item.discount > 0 ? `-$${Number(item.discount).toFixed(2)}` : '$0.00'}
+                          {item.discount > 0 ? `-${currSym}${Number(item.discount).toFixed(2)}` : `${currSym}0.00`}
                         </td>
                         <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                          ${Number(item.total_price).toFixed(2)}
+                          {currSym}{Number(item.total_price).toFixed(2)}
                         </td>
                       </tr>
                     ))}
@@ -669,25 +886,31 @@ export const JobDetail = () => {
                 <div className="w-72 space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
                   <div className="flex justify-between text-slate-600">
                     <span>Parts Subtotal:</span>
-                    <span className="font-mono">${Number(job.estimate.parts_subtotal).toFixed(2)}</span>
+                    <span className="font-mono">{currSym}{Number(job.estimate.parts_subtotal).toFixed(2)}</span>
                   </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>Labor Charge:</span>
-                    <span className="font-mono">${Number(job.estimate.labor_charge).toFixed(2)}</span>
-                  </div>
+                  {Number(job.estimate.labor_charge) > 0 && (
+                    <div className="flex justify-between text-slate-600">
+                      <span>Labor Charge:</span>
+                      <span className="font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</span>
+                    </div>
+                  )}
                   {job.estimate.discount > 0 && (
                     <div className="flex justify-between text-emerald-600">
                       <span>Discount:</span>
-                      <span className="font-mono">-${Number(job.estimate.discount).toFixed(2)}</span>
+                      <span className="font-mono">-{currSym}{Number(job.estimate.discount).toFixed(2)}</span>
                     </div>
                   )}
                   <div className="flex justify-between text-slate-600">
-                    <span>Tax ({job.estimate.tax_rate}%):</span>
-                    <span className="font-mono">${Number(job.estimate.tax_amount).toFixed(2)}</span>
+                    <span>{Number(job.estimate.tax_rate || 0) > 0 ? `GST / Tax (${job.estimate.tax_rate}%):` : 'GST / Tax:'}</span>
+                    <span className="font-mono">
+                      {Number(job.estimate.tax_rate || 0) > 0
+                        ? `${currSym}${Number(job.estimate.tax_amount).toFixed(2)}`
+                        : 'Nil / Exempt (₹0.00)'}
+                    </span>
                   </div>
                   <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-200">
                     <span>Estimated Total:</span>
-                    <span className="font-mono">${Number(job.estimate.total_amount).toFixed(2)}</span>
+                    <span className="font-mono">{currSym}{Number(job.estimate.total_amount).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
@@ -698,7 +921,7 @@ export const JobDetail = () => {
               title="No estimate prepared"
               description="Calculate labor fees and required components to generate customer repair quotation."
               actionLabel="Create Estimate"
-              onAction={() => setIsEstimateModalOpen(true)}
+              onAction={handleOpenEstimateModal}
             />
           )}
         </Card>
@@ -879,135 +1102,360 @@ export const JobDetail = () => {
         isOpen={isEstimateModalOpen}
         onClose={() => setIsEstimateModalOpen(false)}
         title="Prepare Repair Estimate"
-        subtitle="Specify diagnostic labor fee and select replacement components"
-        maxWidth="max-w-2xl"
+        subtitle="Write required parts or repair details and applicable discounts"
+        maxWidth="max-w-3xl"
       >
-        <form onSubmit={handleSaveEstimate} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Labor & Bench Charge ($)
+        <form onSubmit={handleSaveEstimate} className="space-y-5">
+          {/* Discount Card */}
+          <div className="p-4 bg-slate-50/70 rounded-xl border border-slate-200">
+            <div className="max-w-md">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Discount ({currSym})
               </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={estimateForm.labor_charge}
-                onChange={(e) => setEstimateForm({ ...estimateForm, labor_charge: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Discount ($)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={estimateForm.discount}
-                onChange={(e) => setEstimateForm({ ...estimateForm, discount: parseFloat(e.target.value) || 0 })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none font-mono"
-              />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">
+                  {currSym}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={estimateForm.discount}
+                  onChange={(e) => setEstimateForm({ ...estimateForm, discount: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-7 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-mono text-slate-900 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none"
+                />
+              </div>
+              <p className="text-[11px] text-slate-400 mt-1">Promotional or customer loyalty discount</p>
             </div>
           </div>
 
-          {/* Add Part from Catalog */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="block text-xs font-semibold text-slate-700 uppercase">
-                Replacement Parts Required
-              </label>
-              <select
-                onChange={(e) => {
-                  const partId = e.target.value;
-                  if (!partId) return;
-                  const selectedPart = availableParts.find((p) => p.id === partId);
-                  if (selectedPart) {
-                    setEstimateForm({
-                      ...estimateForm,
-                      items: [
-                        ...estimateForm.items,
-                        {
-                          part_id: selectedPart.id,
-                          item_name: selectedPart.name,
-                          quantity: 1,
-                          unit_price: selectedPart.selling_price,
-                          discount: 0,
-                        },
-                      ],
-                    });
-                  }
-                  e.target.value = '';
-                }}
-                className="px-2.5 py-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-lg focus:outline-none"
-              >
-                <option value="">+ Add Part from Inventory...</option>
-                {availableParts.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} (${Number(p.selling_price).toFixed(2)}) - Stock: {p.stock_quantity}
-                  </option>
-                ))}
-              </select>
+          {/* GST / Tax Toggle & Rate Control */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={estimateForm.apply_tax}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setEstimateForm({
+                        ...estimateForm,
+                        apply_tax: checked,
+                        tax_rate: checked ? (parseFloat(estimateForm.tax_rate) > 0 ? estimateForm.tax_rate : 18) : 0,
+                      });
+                    }}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                </label>
+                <div>
+                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wide block">
+                    {estimateForm.apply_tax ? 'GST / Tax is Applied (ON)' : 'GST / Tax is Disabled (OFF)'}
+                  </span>
+                  <p className="text-[11px] text-slate-500">
+                    {estimateForm.apply_tax
+                      ? 'Tax will be computed and itemized on the quotation and final invoice'
+                      : 'Tax exempt / Nil. Customer will only pay subtotal without additional GST'}
+                  </p>
+                </div>
+              </div>
+
+              {estimateForm.apply_tax && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-3 py-1.5 shadow-2xs">
+                    <span className="text-xs font-semibold text-slate-600">GST Rate:</span>
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="100"
+                      value={estimateForm.tax_rate}
+                      onChange={(e) => setEstimateForm({ ...estimateForm, tax_rate: e.target.value })}
+                      className="w-12 text-xs font-mono font-bold text-slate-900 focus:outline-none text-right"
+                    />
+                    <span className="text-xs font-bold text-slate-700">%</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* List of items */}
-            {estimateForm.items.length === 0 ? (
-              <p className="text-slate-400 italic text-xs py-3 text-center bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                No parts added yet. Select a part from inventory or service fees only.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {estimateForm.items.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                    <span className="flex-1 font-medium text-slate-800">{item.item_name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-500">Qty:</span>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10) || 1;
-                          const newItems = [...estimateForm.items];
-                          newItems[idx].quantity = val;
-                          setEstimateForm({ ...estimateForm, items: newItems });
-                        }}
-                        className="w-14 px-2 py-1 bg-white border border-slate-200 rounded font-mono text-center"
-                      />
-                      <span className="text-slate-500">Price:</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={item.unit_price}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          const newItems = [...estimateForm.items];
-                          newItems[idx].unit_price = val;
-                          setEstimateForm({ ...estimateForm, items: newItems });
-                        }}
-                        className="w-20 px-2 py-1 bg-white border border-slate-200 rounded font-mono text-right"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEstimateForm({
-                            ...estimateForm,
-                            items: estimateForm.items.filter((_, i) => i !== idx),
-                          });
-                        }}
-                        className="p-1 text-slate-400 hover:text-rose-600 rounded"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+            {estimateForm.apply_tax && (
+              <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200">
+                <span className="text-[10px] text-slate-500 font-semibold uppercase">Presets:</span>
+                {[5, 12, 18, 28].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    onClick={() => setEstimateForm({ ...estimateForm, tax_rate: rate })}
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors ${
+                      Number(estimateForm.tax_rate) === rate
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    {rate}% GST
+                  </button>
                 ))}
               </div>
             )}
           </div>
 
+          {/* Parts & Repair Details List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Parts & Repair Details
+                </label>
+                <span className="px-2 py-0.5 text-[11px] font-semibold bg-primary-100 text-primary-700 rounded-full">
+                  {(estimateForm.items || []).length} {(estimateForm.items || []).length === 1 ? 'item' : 'items'}
+                </span>
+              </div>
+
+              {availableParts.length > 0 && (
+                <select
+                  onChange={(e) => {
+                    const partId = e.target.value;
+                    if (!partId) return;
+                    const selected = availableParts.find((p) => p.id === partId);
+                    if (selected) {
+                      setEstimateForm((prev) => {
+                        const items = [...(prev.items || [])];
+                        const lastIdx = items.length - 1;
+                        if (lastIdx >= 0 && !items[lastIdx].item_name && (!items[lastIdx].unit_price || items[lastIdx].unit_price === '')) {
+                          items[lastIdx] = {
+                            part_id: selected.id,
+                            item_name: selected.name,
+                            quantity: 1,
+                            unit_price: selected.selling_price,
+                            discount: 0,
+                          };
+                          return { ...prev, items };
+                        } else {
+                          return {
+                            ...prev,
+                            items: [
+                              ...items,
+                              {
+                                part_id: selected.id,
+                                item_name: selected.name,
+                                quantity: 1,
+                                unit_price: selected.selling_price,
+                                discount: 0,
+                              },
+                            ],
+                          };
+                        }
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                  className="text-xs px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg transition-colors focus:outline-none"
+                >
+                  <option value="">+ From Inventory...</option>
+                  {availableParts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({currSym}{Number(p.selling_price).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            {/* Column Headers for larger screens */}
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 bg-slate-100/80 rounded-lg text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+              <div className="col-span-6">Part or Repair Description</div>
+              <div className="col-span-2 text-center">Qty</div>
+              <div className="col-span-2 text-right">Price ({currSym})</div>
+              <div className="col-span-2 text-right pr-6">Total</div>
+            </div>
+
+            {/* Field Rows */}
+            <div className="space-y-2">
+              {(estimateForm.items || []).map((item, idx) => {
+                const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+                const price = Math.max(0, parseFloat(item.unit_price) || 0);
+                const lineTotal = qty * price;
+
+                return (
+                  <div
+                    key={idx}
+                    className="p-3 sm:p-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-sm"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                      {/* Part or Repair Details Input */}
+                      <div className="sm:col-span-6">
+                        <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                          Part / Repair Details
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Original Display Combo, Battery, Charging IC..."
+                          value={item.item_name || ''}
+                          onChange={(e) => handleUpdateEstimateItem(idx, 'item_name', e.target.value)}
+                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none font-medium"
+                          autoFocus={idx === (estimateForm.items.length - 1) && idx > 0}
+                        />
+                      </div>
+
+                      {/* Quantity */}
+                      <div className="grid grid-cols-3 sm:contents gap-2 items-center">
+                        <div className="sm:col-span-2">
+                          <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                            Qty
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateEstimateItem(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
+                            className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                          />
+                        </div>
+
+                        {/* Price */}
+                        <div className="sm:col-span-2">
+                          <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                            Price ({currSym})
+                          </label>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">
+                              {currSym}
+                            </span>
+                            <input
+                              type="number"
+                              step="any"
+                              min="0"
+                              placeholder="0.00"
+                              value={item.unit_price}
+                              onChange={(e) => handleUpdateEstimateItem(idx, 'unit_price', e.target.value)}
+                              className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-right text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Total & Remove */}
+                        <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1.5">
+                          <div className="sm:hidden">
+                            <span className="text-[11px] font-semibold text-slate-600 block">Total</span>
+                            <span className="font-mono text-xs font-bold text-slate-900">
+                              {currSym}{lineTotal.toFixed(2)}
+                            </span>
+                          </div>
+
+                          <span className="hidden sm:inline font-mono text-xs font-bold text-slate-900 min-w-[65px] text-right">
+                            {currSym}{lineTotal.toFixed(2)}
+                          </span>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveEstimateItem(idx)}
+                            title="Remove this item"
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* + Add Another Part or Repair Detail Button */}
+              <button
+                type="button"
+                onClick={handleAddEstimateItem}
+                className="w-full py-2.5 px-3 bg-white hover:bg-primary-50/60 text-primary-600 hover:text-primary-700 border-2 border-dashed border-primary-200 hover:border-primary-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm group"
+              >
+                <div className="w-5 h-5 rounded-full bg-primary-100 group-hover:bg-primary-200 text-primary-700 flex items-center justify-center transition-colors">
+                  <Plus className="w-3.5 h-3.5" />
+                </div>
+                <span>+ Add Another Part or Repair Detail</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Optional Notes */}
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Estimate Notes & Terms (Optional)
+            </label>
+            <textarea
+              rows="2"
+              value={estimateForm.notes || ''}
+              onChange={(e) => setEstimateForm({ ...estimateForm, notes: e.target.value })}
+              placeholder="e.g. Quotation valid for 7 days. 90-day warranty on replaced parts."
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Live Summary Card */}
+          {(() => {
+            const partsTotal = (estimateForm.items || []).reduce((acc, item) => {
+              const q = Math.max(1, parseInt(item.quantity, 10) || 1);
+              const p = Math.max(0, parseFloat(item.unit_price) || 0);
+              return acc + (q * p);
+            }, 0);
+            const labor = Math.max(0, parseFloat(estimateForm.labor_charge) || 0);
+            const discount = Math.max(0, parseFloat(estimateForm.discount) || 0);
+            const subtotal = Math.max(0, partsTotal + labor - discount);
+            const taxRate = estimateForm.apply_tax ? Math.max(0, parseFloat(estimateForm.tax_rate) || 0) : 0;
+            const taxAmount = (subtotal * taxRate) / 100;
+            const grandTotal = subtotal + taxAmount;
+
+            return (
+              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-xl shadow-md border border-slate-700">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3 pb-3 border-b border-slate-700/60">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Labor Charge</span>
+                    <span className="font-mono text-sm font-semibold text-slate-100">
+                      {currSym}{labor.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">
+                      Parts & Repairs ({(estimateForm.items || []).filter(i => i.item_name || i.unit_price).length})
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-slate-100">
+                      {currSym}{partsTotal.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Discount</span>
+                    <span className="font-mono text-sm font-semibold text-emerald-400">
+                      {discount > 0 ? `-${currSym}${discount.toFixed(2)}` : `${currSym}0.00`}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">
+                      {taxRate > 0 ? `GST / Tax (${taxRate}%)` : 'GST / Tax'}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-slate-300">
+                      {taxRate > 0 ? `${currSym}${taxAmount.toFixed(2)}` : 'Nil (0%)'}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-xs uppercase tracking-wider font-semibold text-slate-300">
+                      Total Estimated Amount
+                    </span>
+                    <p className="text-[11px] text-slate-400">Total payable by customer upon repair approval</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-bold font-mono text-emerald-400">
+                      {currSym}{grandTotal.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Modal Actions */}
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <Button variant="outline" size="sm" onClick={() => setIsEstimateModalOpen(false)}>
               Cancel
@@ -1154,6 +1602,16 @@ export const JobDetail = () => {
             />
           </div>
 
+          <div className="p-3 bg-sky-50 border border-sky-200/80 rounded-xl text-xs text-sky-900 flex items-start gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-semibold block">Automatic Invoice & Receipt Dispatch</span>
+              <p className="text-[11px] text-sky-700 leading-normal">
+                Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery.
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <Button variant="outline" size="sm" onClick={() => setIsPickupModalOpen(false)}>
               Cancel
@@ -1165,40 +1623,120 @@ export const JobDetail = () => {
               loading={isSaving}
               disabled={job.balance_due > 0 || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
             >
-              Complete Delivery
+              Complete Delivery & Send Invoice
             </Button>
           </div>
         </form>
       </Modal>
 
-      {/* Printable Job Sheet Modal */}
-      {isPrintJobSheetOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsPrintJobSheetOpen(false)}
-              className="no-print absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-            >
-              ✕ Close
-            </button>
-            <JobSheetPrintable job={job} shop={shop} />
+      {/* Printable Job Sheet Modal Portal */}
+      {isPrintJobSheetOpen && createPortal(
+        <div id="print-jobsheet-portal" className="print-modal-portal fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static">
+          {/* Click outside backdrop */}
+          <div
+            className="fixed inset-0 bg-transparent no-print cursor-pointer"
+            onClick={() => setIsPrintJobSheetOpen(false)}
+          />
+
+          <div
+            className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div className="no-print flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white">
+                  <Printer className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">Mobotech Mobile Care — Service Order Sheet</h3>
+                  <p className="text-[11px] text-slate-400">Ref: {job.job_number} • Print-Ready Intake Document</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPrintJobSheetOpen(false)}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
+              >
+                <span>✕ Close</span>
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white">
+              <JobSheetPrintable job={job} shop={shop} />
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {/* Printable Invoice Modal */}
-      {isPrintInvoiceOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full p-6 relative max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setIsPrintInvoiceOpen(false)}
-              className="no-print absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
-            >
-              ✕ Close
-            </button>
-            <InvoicePrintable invoice={job.invoice || { invoice_number: `INV-PREVIEW` }} job={job} shop={shop} />
+      {/* Printable Invoice Modal Portal */}
+      {isPrintInvoiceOpen && createPortal(
+        <div id="print-invoice-portal" className="print-modal-portal fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static">
+          {/* Click outside backdrop */}
+          <div
+            className="fixed inset-0 bg-transparent no-print cursor-pointer"
+            onClick={() => setIsPrintInvoiceOpen(false)}
+          />
+
+          <div
+            className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div className="no-print flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center text-white">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">Mobotech Mobile Care — Official Tax Invoice & Service Record</h3>
+                  <p className="text-[11px] text-slate-400">Job: {job.job_number} • Invoice: {job.invoice?.invoice_number || 'INV-FINAL'}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPrintInvoiceOpen(false)}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
+              >
+                <span>✕ Close</span>
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white">
+              <InvoicePrintable invoice={job.invoice || { invoice_number: `INV-PREVIEW` }} job={job} shop={shop} />
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Job Sheet Modal */}
+      {isJobEditModalOpen && (
+        <JobEditModal
+          isOpen={isJobEditModalOpen}
+          onClose={() => setIsJobEditModalOpen(false)}
+          job={job}
+          onSave={(updatedJob) => {
+            setJob((prev) => ({ ...prev, ...updatedJob }));
+            fetchJobData();
+          }}
+        />
+      )}
+
+      {/* Edit Customer Modal */}
+      {isEditCustomerModalOpen && (
+        <CustomerEditModal
+          isOpen={isEditCustomerModalOpen}
+          onClose={() => setIsEditCustomerModalOpen(false)}
+          customer={job.customer}
+          onSave={(updatedCustomer) => {
+            setJob((prev) => ({
+              ...prev,
+              customer: { ...prev.customer, ...updatedCustomer },
+            }));
+          }}
+        />
       )}
     </div>
   );

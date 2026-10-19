@@ -17,6 +17,6 @@ router.get('/', requireAnyRole, getCustomers);
 router.get('/:id', requireAnyRole, getCustomerById);
 router.post('/', requireAnyRole, createCustomer);
 router.put('/:id', requireAnyRole, updateCustomer);
-router.delete('/:id', requireAdmin, deleteCustomer);
+router.delete('/:id', requireAnyRole, deleteCustomer);
 
 export default router;

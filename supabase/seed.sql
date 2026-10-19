@@ -10,32 +10,32 @@ INSERT INTO shops (
     id, name, tagline, phone, email, address, city, state, postal_code, tax_number, website, currency, currency_symbol, warranty_terms
 ) VALUES (
     'a0000000-0000-0000-0000-000000000001',
-    'TechFix Pro Repairs',
+    'Mobotech mobile care',
     'Expert Smartphone & Tablet Service Center',
-    '+1 (555) 789-0123',
-    'support@techfixpro.com',
-    '742 Evergreen Terrace, Suite 12',
-    'Springfield',
-    'OR',
-    '97477',
-    'TX-98745612',
-    'https://techfixpro.example.com',
-    'USD',
-    '$',
+    '080000 24439',
+    'support@mobotech.com',
+    'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar',
+    'Surat',
+    'Gujarat',
+    '395006',
+    '24ABCDE1234F1Z5',
+    'https://mobotechcare.com',
+    'INR',
+    '₹',
     '90 days warranty on replaced screens & genuine components. Liquid damage voids warranty.'
 ) ON CONFLICT (id) DO NOTHING;
 
 -- 2. System Settings
 INSERT INTO settings (key, value, description) VALUES
 ('shop_profile', '{
-    "shop_name": "TechFix Pro Repairs",
-    "phone": "+1 (555) 789-0123",
-    "email": "support@techfixpro.com",
-    "address": "742 Evergreen Terrace, Suite 12, Springfield, OR 97477",
-    "tax_number": "TX-98745612",
-    "currency": "USD",
-    "currency_symbol": "$",
-    "default_tax_rate": 8.25,
+    "shop_name": "Mobotech mobile care",
+    "phone": "080000 24439",
+    "email": "support@mobotech.com",
+    "address": "Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006",
+    "tax_number": "24ABCDE1234F1Z5",
+    "currency": "INR",
+    "currency_symbol": "₹",
+    "default_tax_rate": 18,
     "default_warranty_days": 90
 }'::jsonb, 'General shop information'),
 ('notification_config', '{

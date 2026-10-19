@@ -9,6 +9,7 @@ export const Modal = ({
   children,
   maxWidth = 'max-w-xl',
   footer,
+  bodyClassName = 'py-4 max-h-[75vh] overflow-y-auto pr-1',
 }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -55,7 +56,7 @@ export const Modal = ({
             </button>
           </div>
 
-          <div className="py-4 max-h-[75vh] overflow-y-auto">
+          <div className={bodyClassName}>
             {children}
           </div>
 

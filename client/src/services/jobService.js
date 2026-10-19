@@ -77,6 +77,11 @@ export const jobService = {
     return res.data.job;
   },
 
+  deleteJob: async (id) => {
+    const res = await api.delete(`/jobs/${id}`);
+    return res.data;
+  },
+
   uploadFile: async (formData) => {
     const res = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
