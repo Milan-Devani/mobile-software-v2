@@ -159,8 +159,14 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const items = invoice?.items || job?.estimate?.items || job?.estimate_items || [];
   const payments = job?.payments || [];
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [isSendingWa, setIsSendingWa] = useState(false);
+  const [showWaModal, setShowWaModal] = useState(false);
+  const [waStatus, setWaStatus] = useState({ isConnected: false });
+
   // Generate QR Code on mount
   useEffect(() => {
+    if (!job) return;
     const trackingUrl = `${window.location.origin}/repair/${job?.job_number || 'INV'}/approval?token=${job?.approval_token || ''}`;
     QRCode.toDataURL(trackingUrl, {
       width: 100,
@@ -174,13 +180,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       .catch((err) => console.error('QR code generation failed:', err));
   }, [job]);
 
-  if (!job) return null;
-
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [isSendingWa, setIsSendingWa] = useState(false);
-  const [showWaModal, setShowWaModal] = useState(false);
-  const [waStatus, setWaStatus] = useState({ isConnected: false });
-
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
     const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -191,6 +190,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       })
       .catch(() => {});
   }, []);
+
+  if (!job) return null;
 
   const handlePrint = () => {
     window.print();
