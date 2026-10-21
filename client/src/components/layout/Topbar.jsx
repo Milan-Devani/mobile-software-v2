@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Menu,
@@ -12,8 +12,10 @@ import {
   ChevronDown,
   Check,
   Palette,
+  X,
 } from 'lucide-react';
 import { setSearchQuery } from '../../store/jobSlice';
+import { useDebounce } from '../../hooks/useDebounce';
 import { useTheme, SPATIAL_STYLES, THEME_MODES } from '../../context/ThemeContext';
 
 export const Topbar = ({ onToggleSidebar }) => {
@@ -22,6 +24,7 @@ export const Topbar = ({ onToggleSidebar }) => {
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
 
   const styleMenuRef = useRef(null);
@@ -49,11 +52,37 @@ export const Topbar = ({ onToggleSidebar }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const debouncedSearch = useDebounce(searchInput, 500);
+
+  // When debounced search updates while user is on /jobs page
+  useEffect(() => {
+    if (location.pathname === '/jobs') {
+      const trimmed = debouncedSearch.trim();
+      const currentQuery = new URLSearchParams(location.search).get('search') || '';
+      if (trimmed !== currentQuery) {
+        dispatch(setSearchQuery(trimmed));
+        const params = new URLSearchParams(location.search);
+        if (trimmed) {
+          params.set('search', trimmed);
+        } else {
+          params.delete('search');
+        }
+        params.set('page', '1');
+        navigate(`/jobs?${params.toString()}`);
+      }
+    }
+  }, [debouncedSearch]);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    if (searchInput.trim()) {
-      dispatch(setSearchQuery(searchInput.trim()));
-      navigate(`/jobs?search=${encodeURIComponent(searchInput.trim())}`);
+    const trimmed = searchInput.trim();
+    dispatch(setSearchQuery(trimmed));
+    if (trimmed) {
+      navigate(`/jobs?search=${encodeURIComponent(trimmed)}`);
+    } else if (location.pathname === '/jobs') {
+      const params = new URLSearchParams(location.search);
+      params.delete('search');
+      navigate(`/jobs?${params.toString()}`);
     }
   };
 
@@ -69,7 +98,7 @@ export const Topbar = ({ onToggleSidebar }) => {
       <div className="flex items-center gap-3 flex-1 max-w-xl">
         <button
           onClick={onToggleSidebar}
-          className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl lg:hidden transition-colors"
+          className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl lg:hidden transition-colors cursor-pointer"
           aria-label="Toggle menu"
         >
           <Menu className="w-5 h-5" />
@@ -79,11 +108,30 @@ export const Topbar = ({ onToggleSidebar }) => {
           <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search Job #, Customer, Phone, IMEI..."
+            placeholder="Search Job #, Customer, Phone, IMEI (500ms debounce)..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-9 pr-4 py-1.5 spatial-input rounded-xl text-xs placeholder:text-[var(--spatial-text-muted)]"
+            className="w-full pl-9 pr-8 py-1.5 spatial-input rounded-xl text-xs placeholder:text-[var(--spatial-text-muted)]"
           />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchInput('');
+                dispatch(setSearchQuery(''));
+                if (location.pathname === '/jobs') {
+                  const params = new URLSearchParams(location.search);
+                  params.delete('search');
+                  params.set('page', '1');
+                  navigate(`/jobs?${params.toString()}`);
+                }
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+              title="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </form>
       </div>
 
@@ -103,7 +151,7 @@ export const Topbar = ({ onToggleSidebar }) => {
           </button>
 
           {styleMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 spatial-card p-1.5 z-50 shadow-xl border border-[var(--spatial-border)] animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-56 spatial-dropdown-panel bg-white dark:bg-slate-900 p-1.5 z-50 shadow-xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-150">
               <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] border-b border-[var(--spatial-border)] mb-1">
                 Spatial UI Design Styles
               </div>
@@ -154,7 +202,7 @@ export const Topbar = ({ onToggleSidebar }) => {
           </button>
 
           {themeMenuOpen && (
-            <div className="absolute right-0 mt-2 w-40 spatial-card p-1.5 z-50 shadow-xl border border-[var(--spatial-border)]">
+            <div className="absolute right-0 mt-2 w-40 spatial-dropdown-panel bg-white dark:bg-slate-900 p-1.5 z-50 shadow-xl border border-slate-200 dark:border-slate-700">
               <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] border-b border-[var(--spatial-border)] mb-1">
                 Color Mode
               </div>

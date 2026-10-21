@@ -478,7 +478,7 @@ export const JobCreate = () => {
                 type="text"
                 placeholder="e.g. iPhone 14 Pro / Galaxy S23 Ultra"
                 {...register('device_model')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
               {errors.device_model && (
                 <p className="text-[11px] text-rose-500 mt-1">{errors.device_model.message}</p>
@@ -486,30 +486,30 @@ export const JobCreate = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Color</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Color</label>
               <input
                 type="text"
                 placeholder="e.g. Space Black, Midnight"
                 {...register('device_color')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Storage</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Storage</label>
               <input
                 type="text"
                 placeholder="e.g. 128GB, 256GB"
                 {...register('device_storage')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Operating System</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Operating System</label>
               <select
                 {...register('device_os')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               >
                 <option value="iOS">iOS</option>
                 <option value="Android">Android</option>
@@ -519,32 +519,32 @@ export const JobCreate = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">IMEI Number</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">IMEI Number</label>
               <input
                 type="text"
                 placeholder="15-digit IMEI"
                 {...register('device_imei')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Serial Number</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Serial Number</label>
               <input
                 type="text"
                 placeholder="Serial Number"
                 {...register('device_serial')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Passcode / PIN</label>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Passcode / PIN</label>
               <input
                 type="text"
                 placeholder="For technician testing"
                 {...register('device_passcode')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
@@ -770,7 +770,7 @@ export const JobCreate = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                 Full Name *
               </label>
               <input
@@ -779,19 +779,19 @@ export const JobCreate = () => {
                 placeholder="e.g. Milan Devani"
                 value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                 Gender & User Type
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <select
                   value={newCustGender}
                   onChange={(e) => setNewCustGender(e.target.value)}
-                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none capitalize"
+                  className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 capitalize transition-all shadow-xs"
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -800,7 +800,7 @@ export const JobCreate = () => {
                 <select
                   value={newCustUserType}
                   onChange={(e) => setNewCustUserType(e.target.value)}
-                  className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
                 >
                   <option value="End User">End User</option>
                   <option value="Dealer">Dealer</option>
@@ -812,7 +812,7 @@ export const JobCreate = () => {
 
           {/* Email / Mail ID */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
               Email Address (Mail ID) *
             </label>
             <input
@@ -821,14 +821,14 @@ export const JobCreate = () => {
               placeholder="e.g. milan@example.com"
               value={newCustEmail}
               onChange={(e) => setNewCustEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
             />
           </div>
 
           {/* Primary Phone & Primary WhatsApp */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                 Primary Phone Number *
               </label>
               <input
@@ -840,9 +840,9 @@ export const JobCreate = () => {
                   setNewCustPhone(e.target.value);
                   if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
                 }}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
-              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 select-none">
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300 select-none">
                 <input
                   type="checkbox"
                   checked={newCustSameAsPhone}
@@ -861,7 +861,7 @@ export const JobCreate = () => {
 
             {!newCustSameAsPhone && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                   Primary WhatsApp Number *
                 </label>
                 <input
@@ -870,16 +870,16 @@ export const JobCreate = () => {
                   placeholder="Enter separate WhatsApp number"
                   value={newCustWhatsapp}
                   onChange={(e) => setNewCustWhatsapp(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
                 />
               </div>
             )}
           </div>
 
           {/* Alternate Phone & Alternate WhatsApp (Crucial Requirement!) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-50 border border-emerald-300 rounded-xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/50 border border-emerald-300 dark:border-emerald-600/50 rounded-xl">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
                 Alternate Phone Number
               </label>
               <input
@@ -890,20 +890,20 @@ export const JobCreate = () => {
                   setNewCustAltPhone(e.target.value);
                   if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
                 }}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-emerald-800 uppercase flex items-center gap-1">
+                <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase flex items-center gap-1">
                   <span>Alternate WhatsApp *</span>
                 </label>
                 {newCustAltPhone && (
                   <button
                     type="button"
                     onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
-                    className="text-[10px] text-emerald-700 hover:underline"
+                    className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline"
                   >
                     Same as Alt Phone
                   </button>
@@ -914,9 +914,9 @@ export const JobCreate = () => {
                 placeholder="Active WP number during repair"
                 value={newCustAltWhatsapp}
                 onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-lg text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-emerald-400 dark:border-emerald-500/60 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-xs"
               />
-              <p className="text-[10px] text-emerald-700 mt-1">
+              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1">
                 Used for instant repair notifications while main phone is in shop
               </p>
             </div>
@@ -924,7 +924,7 @@ export const JobCreate = () => {
 
           {/* Address Fields */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
               Address (Street / Area)
             </label>
             <input
@@ -932,7 +932,7 @@ export const JobCreate = () => {
               placeholder="e.g. PASODARA, SURAT, GUJARAT, 394107"
               value={newCustAddress}
               onChange={(e) => setNewCustAddress(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
             />
           </div>
 
@@ -943,7 +943,7 @@ export const JobCreate = () => {
                 placeholder="City (e.g. Surat)"
                 value={newCustCity}
                 onChange={(e) => setNewCustCity(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
             <div>
@@ -952,7 +952,7 @@ export const JobCreate = () => {
                 placeholder="State (e.g. Gujarat)"
                 value={newCustState}
                 onChange={(e) => setNewCustState(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
             <div>
@@ -961,7 +961,7 @@ export const JobCreate = () => {
                 placeholder="Postal Code"
                 value={newCustPostalCode}
                 onChange={(e) => setNewCustPostalCode(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
               />
             </div>
           </div>

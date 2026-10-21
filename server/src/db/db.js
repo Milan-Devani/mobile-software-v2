@@ -17,7 +17,6 @@ let localDb = null;
 export const initDb = async () => {
   if (isSupabaseConfigured()) {
     console.log('✅ Supabase PostgreSQL is connected as primary database.');
-    return;
   }
 
   if (!fs.existsSync(DATA_DIR)) {
@@ -51,10 +50,24 @@ const saveLocalDb = () => {
   }
 };
 
-// Next Job Number generator: format JOB-YYYY-000001
+export const parseWarrantyDays = (val) => {
+  if (val === undefined || val === null || val === '') return -1;
+  if (typeof val === 'number') return val;
+  const str = String(val).toLowerCase().trim();
+  if (str === 'no warranty' || str === 'none' || str === 'no' || str === '0') return 0;
+  const match = str.match(/(\d+)\s*(d|day|m|month|y|year)?/i);
+  if (!match) return -1;
+  const num = parseInt(match[1], 10);
+  const unit = (match[2] || '').toLowerCase();
+  if (unit.startsWith('y')) return num * 365;
+  if (unit.startsWith('m')) return num * 30;
+  return num;
+};
+
+// Next Job Number generator: format mobo-YYYY-0001
 export const generateNextJobNumber = async () => {
   const currentYear = new Date().getFullYear();
-  const prefix = `JOB-${currentYear}-`;
+  const prefix = `mobo-${currentYear}-`;
 
   if (isSupabaseConfigured()) {
     const supabase = getSupabase();
@@ -68,9 +81,9 @@ export const generateNextJobNumber = async () => {
     if (data && data.length > 0) {
       const lastNumberStr = data[0].job_number.replace(prefix, '');
       const lastSeq = parseInt(lastNumberStr, 10) || 0;
-      return `${prefix}${String(lastSeq + 1).padStart(6, '0')}`;
+      return `${prefix}${String(lastSeq + 1).padStart(4, '0')}`;
     }
-    return `${prefix}000001`;
+    return `${prefix}0001`;
   }
 
   // Local engine
@@ -79,7 +92,7 @@ export const generateNextJobNumber = async () => {
     .filter(num => num && num.startsWith(prefix));
 
   if (existingNumbers.length === 0) {
-    return `${prefix}000001`;
+    return `${prefix}0001`;
   }
 
   let highestSeq = 0;
@@ -88,7 +101,7 @@ export const generateNextJobNumber = async () => {
     if (seq > highestSeq) highestSeq = seq;
   }
 
-  return `${prefix}${String(highestSeq + 1).padStart(6, '0')}`;
+  return `${prefix}${String(highestSeq + 1).padStart(4, '0')}`;
 };
 
 // Next Invoice Number generator: format INV-YYYY-000001
@@ -174,6 +187,25 @@ export const db = {
       saveLocalDb();
       const { password_hash, ...safe } = newUser;
       return safe;
+    },
+    delete: async (id, currentUserId) => {
+      if (id === currentUserId) {
+        throw new Error('You cannot delete your own active account.');
+      }
+      const idx = (localDb.users || []).findIndex(u => u.id === id);
+      if (idx === -1) return false;
+      localDb.users.splice(idx, 1);
+      saveLocalDb();
+      return true;
+    },
+    bulkDelete: async (ids, currentUserId) => {
+      const validIds = (ids || []).filter(id => id !== currentUserId);
+      if (validIds.length === 0) return 0;
+      const initialCount = (localDb.users || []).length;
+      localDb.users = (localDb.users || []).filter(u => !validIds.includes(u.id));
+      const deletedCount = initialCount - (localDb.users || []).length;
+      saveLocalDb();
+      return deletedCount;
     }
   },
 
@@ -243,10 +275,33 @@ export const db = {
       return (localDb.customers || []).find(c => c.id === id) || null;
     },
     create: async (customerData) => {
-      const codeSeq = ((localDb?.customers?.length || 0) + 1);
+      let nextSeq = 1;
+      if (isSupabaseConfigured()) {
+        const { data } = await getSupabase()
+          .from('customers')
+          .select('customer_code')
+          .like('customer_code', 'CUST-%')
+          .order('customer_code', { ascending: false })
+          .limit(1);
+        if (data && data.length > 0 && data[0].customer_code) {
+          const num = parseInt(data[0].customer_code.replace('CUST-', ''), 10) || 0;
+          nextSeq = num + 1;
+        }
+      } else {
+        const existingCodes = (localDb.customers || [])
+          .map(c => c.customer_code)
+          .filter(code => code && code.startsWith('CUST-'));
+        let highest = 0;
+        for (const code of existingCodes) {
+          const num = parseInt(code.replace('CUST-', ''), 10) || 0;
+          if (num > highest) highest = num;
+        }
+        nextSeq = highest + 1;
+      }
+
       const newCustomer = {
         id: uuidv4(),
-        customer_code: `CUST-${String(codeSeq).padStart(4, '0')}`,
+        customer_code: `CUST-${String(nextSeq).padStart(4, '0')}`,
         ...customerData,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -254,6 +309,7 @@ export const db = {
       if (isSupabaseConfigured()) {
         const { data, error } = await getSupabase().from('customers').insert(newCustomer).select().single();
         if (error) throw error;
+        if (localDb && localDb.customers) localDb.customers.push(data || newCustomer);
         return data;
       }
       localDb.customers.push(newCustomer);
@@ -288,6 +344,26 @@ export const db = {
       localDb.customers.splice(idx, 1);
       saveLocalDb();
       return true;
+    },
+    bulkDelete: async (ids = [], force = false) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        if (force) {
+          // Remove associated jobs
+          const customerJobs = (localDb.repair_jobs || []).filter(j => j.customer_id === id);
+          for (const cj of customerJobs) {
+            await db.jobs.delete(cj.id);
+          }
+        }
+        const idx = (localDb.customers || []).findIndex(c => c.id === id);
+        if (idx !== -1) {
+          localDb.customers.splice(idx, 1);
+          count++;
+        }
+      }
+      saveLocalDb();
+      return count;
     }
   },
 
@@ -311,12 +387,15 @@ export const db = {
       const newDevice = {
         id: uuidv4(),
         ...deviceData,
+        invoice_date: deviceData.invoice_date || null,
+        expiry_date: deviceData.expiry_date || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       if (isSupabaseConfigured()) {
         const { data, error } = await getSupabase().from('devices').insert(newDevice).select().single();
         if (error) throw error;
+        if (localDb && localDb.devices) localDb.devices.push(data || newDevice);
         return data;
       }
       localDb.devices.push(newDevice);
@@ -363,8 +442,30 @@ export const db = {
         const customer = (localDb.customers || []).find(c => c.id === j.customer_id) || {};
         const device = (localDb.devices || []).find(d => d.id === j.device_id) || {};
         const tech = (localDb.users || []).find(u => u.id === j.assigned_technician_id) || null;
+
+        // Dynamic warranty days calculation based on estimate items
+        let effectiveWarrantyDays = j.warranty_days !== undefined ? j.warranty_days : 90;
+        const est = (localDb.repair_estimates || []).find(e => e.job_id === j.id);
+        if (est) {
+          const estItems = (localDb.repair_estimate_items || []).filter(i => i.estimate_id === est.id);
+          const warranties = estItems
+            .map(it => it.warranty)
+            .filter(w => w !== undefined && w !== null && String(w).trim() !== '');
+          if (warranties.length > 0) {
+            let maxDays = -1;
+            for (const w of warranties) {
+              const d = parseWarrantyDays(w);
+              if (d > maxDays) maxDays = d;
+            }
+            if (maxDays >= 0) {
+              effectiveWarrantyDays = maxDays;
+            }
+          }
+        }
+
         return {
           ...j,
+          warranty_days: effectiveWarrantyDays,
           customer: {
             id: customer.id,
             full_name: customer.full_name,
@@ -429,7 +530,7 @@ export const db = {
     },
 
     findById: async (id) => {
-      const job = (localDb.repair_jobs || []).find(j => j.id === id || j.job_number === id);
+      const job = (localDb.repair_jobs || []).find(j => j.id === id || j.job_number === id || j.approval_token === id);
       if (!job) return null;
 
       const customer = (localDb.customers || []).find(c => c.id === job.customer_id) || null;
@@ -490,12 +591,16 @@ export const db = {
         accessories_received: jobData.accessories_received || [],
         subtotal: 0.00,
         discount: 0.00,
+        discount_type: 'AMOUNT',
+        discount_value: 0.00,
         tax_rate: 8.25,
         tax_amount: 0.00,
         total_amount: 0.00,
         paid_amount: 0.00,
         balance_due: 0.00,
         payment_status: 'UNPAID',
+        is_warranty_claim: false,
+        reopen_count: 0,
         customer_tested_device: false,
         customer_acceptance_confirmed: false,
         customer_signature: null,
@@ -635,6 +740,27 @@ export const db = {
 
       saveLocalDb();
       return localDb.repair_jobs[idx];
+    },
+
+    bulkDelete: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        const deleted = await db.jobs.delete(id);
+        if (deleted) count++;
+      }
+      return count;
+    },
+
+    bulkUpdateStatus: async ({ ids = [], status, actionTitle, notes, userId }) => {
+      if (!Array.isArray(ids) || ids.length === 0 || !status) return [];
+      const updatedList = [];
+      const defaultTitle = actionTitle || `Bulk Status Update to ${status}`;
+      for (const id of ids) {
+        const updated = await db.jobs.updateStatus(id, status, defaultTitle, notes || 'Updated via batch bulk action.', userId);
+        if (updated) updatedList.push(updated);
+      }
+      return updatedList;
     }
   },
 
@@ -681,7 +807,7 @@ export const db = {
       const items = (localDb.repair_estimate_items || []).filter(i => i.estimate_id === est.id);
       return { ...est, items };
     },
-    save: async ({ jobId, laborCharge = 0, items = [], discount = 0, taxRate = 8.25, notes = '', validUntil, userId }) => {
+    save: async ({ jobId, laborCharge = 0, items = [], discount = 0, taxRate = 8.25, notes = '', validUntil, userId, discountType = 'AMOUNT', discountValue = null }) => {
       // Server-side calculation of financial amounts
       let partsSubtotal = 0;
       const processedItems = items.map(item => {
@@ -694,6 +820,7 @@ export const db = {
           id: item.id || uuidv4(),
           part_id: item.part_id || null,
           item_name: item.item_name || 'Replacement Part',
+          warranty: item.warranty || item.warranty_period || '',
           quantity: qty,
           unit_price: unitPrice,
           discount: itemDiscount,
@@ -702,10 +829,24 @@ export const db = {
       });
 
       const parsedLabor = Math.max(0, parseFloat(laborCharge) || 0);
-      const parsedDiscount = Math.max(0, parseFloat(discount) || 0);
-      const parsedTaxRate = Math.max(0, parseFloat(taxRate) || 0);
+      const isPercentage = String(discountType).toUpperCase() === 'PERCENTAGE';
+      const baseTotal = partsSubtotal + parsedLabor;
 
-      const subtotalBeforeTax = Math.max(0, (partsSubtotal + parsedLabor) - parsedDiscount);
+      let parsedDiscount = 0;
+      let finalDiscountValue = 0;
+
+      if (isPercentage) {
+        const rawPercent = Math.max(0, Math.min(100, parseFloat(discountValue !== null && discountValue !== undefined ? discountValue : discount) || 0));
+        parsedDiscount = parseFloat(((baseTotal * rawPercent) / 100).toFixed(2));
+        finalDiscountValue = rawPercent;
+      } else {
+        const rawAmount = Math.max(0, parseFloat(discountValue !== null && discountValue !== undefined ? discountValue : discount) || 0);
+        parsedDiscount = Math.min(baseTotal, rawAmount);
+        finalDiscountValue = rawAmount;
+      }
+
+      const parsedTaxRate = Math.max(0, parseFloat(taxRate) || 0);
+      const subtotalBeforeTax = Math.max(0, baseTotal - parsedDiscount);
       const taxAmount = parseFloat(((subtotalBeforeTax * parsedTaxRate) / 100).toFixed(2));
       const grandTotal = parseFloat((subtotalBeforeTax + taxAmount).toFixed(2));
 
@@ -714,6 +855,8 @@ export const db = {
         est.labor_charge = parsedLabor;
         est.parts_subtotal = parseFloat(partsSubtotal.toFixed(2));
         est.discount = parsedDiscount;
+        est.discount_type = isPercentage ? 'PERCENTAGE' : 'AMOUNT';
+        est.discount_value = finalDiscountValue;
         est.tax_rate = parsedTaxRate;
         est.tax_amount = taxAmount;
         est.total_amount = grandTotal;
@@ -729,6 +872,8 @@ export const db = {
           labor_charge: parsedLabor,
           parts_subtotal: parseFloat(partsSubtotal.toFixed(2)),
           discount: parsedDiscount,
+          discount_type: isPercentage ? 'PERCENTAGE' : 'AMOUNT',
+          discount_value: finalDiscountValue,
           tax_rate: parsedTaxRate,
           tax_amount: taxAmount,
           total_amount: grandTotal,
@@ -753,23 +898,51 @@ export const db = {
       // Update cached totals on the repair_job record
       const jobIdx = (localDb.repair_jobs || []).findIndex(j => j.id === jobId);
       if (jobIdx !== -1) {
-        localDb.repair_jobs[jobIdx].subtotal = parseFloat((partsSubtotal + parsedLabor).toFixed(2));
+        localDb.repair_jobs[jobIdx].subtotal = parseFloat(baseTotal.toFixed(2));
         localDb.repair_jobs[jobIdx].discount = parsedDiscount;
+        localDb.repair_jobs[jobIdx].discount_type = isPercentage ? 'PERCENTAGE' : 'AMOUNT';
+        localDb.repair_jobs[jobIdx].discount_value = finalDiscountValue;
         localDb.repair_jobs[jobIdx].tax_rate = parsedTaxRate;
         localDb.repair_jobs[jobIdx].tax_amount = taxAmount;
         localDb.repair_jobs[jobIdx].total_amount = grandTotal;
         localDb.repair_jobs[jobIdx].balance_due = Math.max(0, grandTotal - (localDb.repair_jobs[jobIdx].paid_amount || 0));
+
+        // Dynamically compute and save warranty_days from items
+        let maxItemWarranty = -1;
+        for (const item of processedItems) {
+          if (item.warranty !== undefined && item.warranty !== null && String(item.warranty).trim() !== '') {
+            const d = parseWarrantyDays(item.warranty);
+            if (d > maxItemWarranty) maxItemWarranty = d;
+          }
+        }
+        if (maxItemWarranty >= 0) {
+          localDb.repair_jobs[jobIdx].warranty_days = maxItemWarranty;
+        }
+
         localDb.repair_jobs[jobIdx].updated_at = new Date().toISOString();
       }
 
       saveLocalDb();
       return { ...est, items: processedItems };
+    },
+    updateDiscount: async ({ jobId, discount, discountType, discountValue, taxAmount, totalAmount }) => {
+      const est = (localDb.repair_estimates || []).find(e => e.job_id === jobId);
+      if (est) {
+        est.discount = discount;
+        est.discount_type = discountType;
+        est.discount_value = discountValue;
+        if (taxAmount !== undefined) est.tax_amount = taxAmount;
+        if (totalAmount !== undefined) est.total_amount = totalAmount;
+        est.updated_at = new Date().toISOString();
+        saveLocalDb();
+      }
+      return est;
     }
   },
 
   // PARTS & INVENTORY
   parts: {
-    list: async ({ category, search, lowStockOnly = false } = {}) => {
+    list: async ({ category, search, lowStockOnly = false, limit = 50, offset = 0 } = {}) => {
       let parts = [...(localDb.parts || [])];
       if (category) {
         parts = parts.filter(p => p.category === category);
@@ -787,7 +960,9 @@ export const db = {
         parts = parts.filter(p => p.stock_quantity <= p.minimum_stock);
       }
       parts.sort((a, b) => a.name.localeCompare(b.name));
-      return parts;
+      const total = parts.length;
+      const sliced = limit ? parts.slice(offset, offset + limit) : parts;
+      return { parts: sliced, total };
     },
     findById: async (id) => {
       return (localDb.parts || []).find(p => p.id === id) || null;
@@ -866,6 +1041,19 @@ export const db = {
       localDb.parts.splice(idx, 1);
       saveLocalDb();
       return true;
+    },
+    bulkDelete: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        const idx = (localDb.parts || []).findIndex(p => p.id === id);
+        if (idx !== -1) {
+          localDb.parts.splice(idx, 1);
+          count++;
+        }
+      }
+      saveLocalDb();
+      return count;
     }
   },
 
@@ -966,6 +1154,97 @@ export const db = {
 
       saveLocalDb();
       return { payment, job };
+    },
+    list: async ({ search = '', method = 'ALL', limit = 50, offset = 0 } = {}) => {
+      let payments = [...(localDb.payments || [])];
+      let populated = payments.map(p => {
+        const job = (localDb.repair_jobs || []).find(j => j.id === p.job_id) || {};
+        const customer = (localDb.customers || []).find(c => c.id === (p.customer_id || job.customer_id)) || {};
+        const device = (localDb.devices || []).find(d => d.id === job.device_id) || {};
+        return {
+          ...p,
+          job_number: job.job_number || 'N/A',
+          customer_name: customer.full_name || 'Walk-in Customer',
+          customer_phone: customer.phone || '',
+          device_model: device.brand ? `${device.brand} ${device.model || ''}`.trim() : 'Device',
+        };
+      });
+
+      if (method && method !== 'ALL') {
+        populated = populated.filter(p => p.payment_method === method);
+      }
+
+      if (search) {
+        const q = search.toLowerCase();
+        populated = populated.filter(p =>
+          (p.payment_number && p.payment_number.toLowerCase().includes(q)) ||
+          (p.job_number && p.job_number.toLowerCase().includes(q)) ||
+          (p.customer_name && p.customer_name.toLowerCase().includes(q)) ||
+          (p.device_model && p.device_model.toLowerCase().includes(q)) ||
+          (p.transaction_reference && p.transaction_reference.toLowerCase().includes(q))
+        );
+      }
+
+      populated.sort((a, b) => new Date(b.paid_at || b.created_at) - new Date(a.paid_at || a.created_at));
+      const total = populated.length;
+      const totalAmount = populated.reduce((acc, p) => acc + Number(p.amount || 0), 0);
+      const cashTotal = populated.filter(p => p.payment_method === 'CASH').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+      const cardTotal = populated.filter(p => p.payment_method === 'CARD').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+      const upiTotal = populated.filter(p => p.payment_method === 'UPI').reduce((acc, p) => acc + Number(p.amount || 0), 0);
+      const sliced = limit ? populated.slice(offset, offset + limit) : populated;
+      return { payments: sliced, total, stats: { totalAmount, cashTotal, cardTotal, upiTotal } };
+    },
+    delete: async (id) => {
+      const idx = (localDb.payments || []).findIndex(p => p.id === id);
+      if (idx === -1) return false;
+      const payment = localDb.payments[idx];
+      const jobId = payment.job_id;
+
+      localDb.payments.splice(idx, 1);
+
+      // Recalculate job balance
+      const job = (localDb.repair_jobs || []).find(j => j.id === jobId);
+      if (job) {
+        const remaining = (localDb.payments || []).filter(p => p.job_id === jobId);
+        const totalPaid = remaining.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+        job.paid_amount = parseFloat(totalPaid.toFixed(2));
+        job.balance_due = Math.max(0, parseFloat((job.total_amount - totalPaid).toFixed(2)));
+        job.payment_status = job.balance_due === 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+        job.updated_at = new Date().toISOString();
+      }
+
+      saveLocalDb();
+      return true;
+    },
+    bulkDelete: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      const affectedJobIds = new Set();
+      for (const id of ids) {
+        const idx = (localDb.payments || []).findIndex(p => p.id === id);
+        if (idx !== -1) {
+          const jobId = localDb.payments[idx].job_id;
+          if (jobId) affectedJobIds.add(jobId);
+          localDb.payments.splice(idx, 1);
+          count++;
+        }
+      }
+
+      // Recalculate each affected job
+      for (const jobId of affectedJobIds) {
+        const job = (localDb.repair_jobs || []).find(j => j.id === jobId);
+        if (job) {
+          const remaining = (localDb.payments || []).filter(p => p.job_id === jobId);
+          const totalPaid = remaining.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+          job.paid_amount = parseFloat(totalPaid.toFixed(2));
+          job.balance_due = Math.max(0, parseFloat((job.total_amount - totalPaid).toFixed(2)));
+          job.payment_status = job.balance_due === 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+          job.updated_at = new Date().toISOString();
+        }
+      }
+
+      saveLocalDb();
+      return count;
     }
   },
 
@@ -991,6 +1270,8 @@ export const db = {
       const laborAmount = est ? est.labor_charge : 0;
       const partsAmount = est ? est.parts_subtotal : 0;
       const discount = est ? est.discount : (job.discount || 0);
+      const discountType = est?.discount_type || job.discount_type || 'AMOUNT';
+      const discountValue = est?.discount_value !== undefined ? est.discount_value : (job.discount_value !== undefined ? job.discount_value : discount);
       const taxRate = est
         ? (est.tax_rate !== undefined ? est.tax_rate : 0)
         : (job.tax_rate !== undefined ? job.tax_rate : 0);
@@ -1006,6 +1287,8 @@ export const db = {
         invoice.labor_amount = laborAmount;
         invoice.parts_amount = partsAmount;
         invoice.discount = discount;
+        invoice.discount_type = discountType;
+        invoice.discount_value = discountValue;
         invoice.tax_rate = taxRate;
         invoice.tax_amount = taxAmount;
         invoice.total_amount = totalAmount;
@@ -1027,6 +1310,8 @@ export const db = {
           labor_amount: laborAmount,
           parts_amount: partsAmount,
           discount,
+          discount_type: discountType,
+          discount_value: discountValue,
           tax_rate: taxRate,
           tax_amount: taxAmount,
           total_amount: totalAmount,
@@ -1066,6 +1351,7 @@ export const db = {
           invoice_id: invoice.id,
           item_type: 'PART',
           item_name: ei.item_name,
+          warranty: ei.warranty || '',
           quantity: ei.quantity,
           unit_price: ei.unit_price,
           total_price: ei.total_price,
@@ -1104,13 +1390,46 @@ export const db = {
       saveLocalDb();
       return logEntry;
     },
-    getLogs: async ({ jobId, limit = 50 } = {}) => {
+    getLogs: async ({ jobId, channel, search, limit = 50, offset = 0 } = {}) => {
       let logs = [...(localDb.notification_logs || [])];
       if (jobId) {
         logs = logs.filter(l => l.job_id === jobId);
       }
+      if (channel && channel !== 'ALL') {
+        logs = logs.filter(l => l.channel === channel);
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        logs = logs.filter(l =>
+          (l.recipient && l.recipient.toLowerCase().includes(q)) ||
+          (l.message_type && l.message_type.toLowerCase().includes(q)) ||
+          (l.provider && l.provider.toLowerCase().includes(q))
+        );
+      }
       logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-      return logs.slice(0, limit);
+      const total = logs.length;
+      const sliced = limit ? logs.slice(offset, offset + limit) : logs;
+      return { logs: sliced, total };
+    },
+    delete: async (id) => {
+      const idx = (localDb.notification_logs || []).findIndex(l => l.id === id);
+      if (idx === -1) return false;
+      localDb.notification_logs.splice(idx, 1);
+      saveLocalDb();
+      return true;
+    },
+    bulkDelete: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        const idx = (localDb.notification_logs || []).findIndex(l => l.id === id);
+        if (idx !== -1) {
+          localDb.notification_logs.splice(idx, 1);
+          count++;
+        }
+      }
+      saveLocalDb();
+      return count;
     }
   },
 
@@ -1161,6 +1480,150 @@ export const db = {
       }
       saveLocalDb();
       return setting;
+    }
+  },
+
+  // BACKUP LOGS
+  backup_logs: {
+    create: async ({ backup_type = 'MANUAL', status = 'RUNNING', created_by_user_id = null, filename = null }) => {
+      const log = {
+        id: uuidv4(),
+        backup_type,
+        status,
+        filename,
+        drive_file_id: null,
+        drive_folder_id: null,
+        file_size_bytes: null,
+        checksum_md5: null,
+        duration_ms: null,
+        error_message: null,
+        created_by_user_id,
+        started_at: new Date().toISOString(),
+        completed_at: null,
+      };
+
+      if (!localDb.backup_logs) localDb.backup_logs = [];
+      localDb.backup_logs.unshift(log);
+      saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase().from('backup_logs').insert(log).select().single();
+          if (!error && data) return data;
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs insert fallback to local:', err.message);
+        }
+      }
+
+      return log;
+    },
+
+    update: async (id, updates) => {
+      if (!localDb.backup_logs) localDb.backup_logs = [];
+      const idx = localDb.backup_logs.findIndex(b => b.id === id);
+      if (idx !== -1) {
+        localDb.backup_logs[idx] = { ...localDb.backup_logs[idx], ...updates };
+        saveLocalDb();
+      }
+
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase()
+            .from('backup_logs')
+            .update(updates)
+            .eq('id', id)
+            .select()
+            .single();
+          if (!error && data) return data;
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs update fallback to local:', err.message);
+        }
+      }
+
+      return idx !== -1 ? localDb.backup_logs[idx] : null;
+    },
+
+    findById: async (id) => {
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase().from('backup_logs').select('*').eq('id', id).single();
+          if (!error && data) return data;
+        } catch (err) {
+          // fallback
+        }
+      }
+      return (localDb.backup_logs || []).find(b => b.id === id) || null;
+    },
+
+    list: async ({ limit = 30, offset = 0 } = {}) => {
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, count, error } = await getSupabase()
+            .from('backup_logs')
+            .select('*', { count: 'exact' })
+            .order('started_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+          if (!error && data) {
+            return { backups: data, total: count || data.length };
+          }
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs list fallback to local:', err.message);
+        }
+      }
+
+      const all = [...(localDb.backup_logs || [])].sort(
+        (a, b) => new Date(b.started_at) - new Date(a.started_at)
+      );
+      return {
+        backups: all.slice(offset, offset + limit),
+        total: all.length,
+      };
+    },
+
+    getLatest: async () => {
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase()
+            .from('backup_logs')
+            .select('*')
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .single();
+          if (!error && data) return data;
+        } catch (err) {
+          // fallback
+        }
+      }
+
+      const all = (localDb.backup_logs || []).sort(
+        (a, b) => new Date(b.started_at) - new Date(a.started_at)
+      );
+      return all[0] || null;
+    },
+
+    getRunningJob: async () => {
+      // 30 minute stale threshold
+      const staleThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase()
+            .from('backup_logs')
+            .select('*')
+            .in('status', ['RUNNING', 'QUEUED'])
+            .gt('started_at', staleThreshold)
+            .order('started_at', { ascending: false })
+            .limit(1);
+          if (!error && data && data.length > 0) return data[0];
+        } catch (err) {
+          // fallback
+        }
+      }
+
+      const running = (localDb.backup_logs || []).find(
+        b => ['RUNNING', 'QUEUED'].includes(b.status) && b.started_at > staleThreshold
+      );
+      return running || null;
     }
   }
 };

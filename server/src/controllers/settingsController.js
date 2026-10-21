@@ -13,7 +13,8 @@ export const getSettings = async (req, res, next) => {
       sms_enabled: notificationConfig?.sms_enabled ?? true,
       whatsapp_enabled: notificationConfig?.whatsapp_enabled ?? true,
       brevo_configured: Boolean(env.BREVO_API_KEY || env.EMAIL_USER),
-      brevo_sender: env.EMAIL_FROM,
+      brevo_sender: notificationConfig?.sender_email || env.EMAIL_FROM,
+      sender_email: notificationConfig?.sender_email || env.EMAIL_FROM,
       openwa_configured: Boolean(env.OPENWA_API_KEY || (env.OPENWA_API_URL && env.OPENWA_API_URL !== 'http://localhost:8000')),
       openwa_url: env.OPENWA_API_URL,
       msg91_configured: Boolean(env.MSG91_AUTH_KEY),
@@ -48,8 +49,10 @@ export const updateShopProfile = async (req, res, next) => {
 
 export const updateNotificationSettings = async (req, res, next) => {
   try {
-    const { email_enabled, sms_enabled, whatsapp_enabled } = req.body;
+    const { email_enabled, sms_enabled, whatsapp_enabled, sender_email, sender_name, brevo_sender } = req.body;
     const current = (await db.settings.get('notification_config')) || {};
+
+    const newSenderEmail = sender_email !== undefined ? sender_email : (brevo_sender !== undefined ? brevo_sender : current.sender_email);
 
     const updated = await db.settings.set(
       'notification_config',
@@ -58,6 +61,8 @@ export const updateNotificationSettings = async (req, res, next) => {
         email_enabled: email_enabled !== undefined ? email_enabled : current.email_enabled,
         sms_enabled: sms_enabled !== undefined ? sms_enabled : current.sms_enabled,
         whatsapp_enabled: whatsapp_enabled !== undefined ? whatsapp_enabled : current.whatsapp_enabled,
+        sender_email: newSenderEmail !== undefined ? newSenderEmail : current.sender_email,
+        sender_name: sender_name !== undefined ? sender_name : current.sender_name,
       },
       'Notification toggles'
     );
@@ -65,7 +70,10 @@ export const updateNotificationSettings = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Notification settings updated.',
-      data: { settings: updated },
+      data: {
+        settings: updated,
+        sender_email: updated.sender_email || env.EMAIL_FROM,
+      },
     });
   } catch (err) {
     next(err);

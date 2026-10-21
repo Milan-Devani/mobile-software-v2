@@ -7,9 +7,9 @@ export const createInitialSeedData = async () => {
   const staffPasswordHash = await bcrypt.hash('Staff@123456', 10);
 
   const shopId = 'a0000000-0000-0000-0000-000000000001';
-  const adminId = 'u0000000-0000-0000-0000-000000000001';
-  const techId = 'u0000000-0000-0000-0000-000000000002';
-  const staffId = 'u0000000-0000-0000-0000-000000000003';
+  const adminId = '10000000-0000-0000-0000-000000000001';
+  const techId = '10000000-0000-0000-0000-000000000002';
+  const staffId = '10000000-0000-0000-0000-000000000003';
 
   return {
     shops: [
@@ -53,7 +53,7 @@ export const createInitialSeedData = async () => {
         updated_at: new Date().toISOString()
       },
       {
-        id: 'u0000000-0000-0000-0000-000000000004',
+        id: '10000000-0000-0000-0000-000000000004',
         role_id: 'admin',
         full_name: 'Shop Owner (Legacy)',
         email: 'admin@fixitrepair.com',

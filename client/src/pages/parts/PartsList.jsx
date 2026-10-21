@@ -11,15 +11,19 @@ import {
   Edit2,
   Trash2,
   Layers,
-  TrendingDown
+  TrendingDown,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { useDebounce } from '../../hooks/useDebounce';
 import { partsService } from '../../services/partsService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const partSchema = z.object({
   name: z.string().min(2, 'Part name is required'),
@@ -35,10 +39,15 @@ const partSchema = z.object({
 
 export const PartsList = () => {
   const [parts, setParts] = useState([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
   const [categoryFilter, setCategoryFilter] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -68,16 +77,20 @@ export const PartsList = () => {
     },
   });
 
-  const fetchParts = async () => {
+  const fetchParts = async (pageNum = page, sizeNum = pageSize) => {
     try {
       setLoading(true);
       const res = await partsService.getParts({
-        search,
+        search: debouncedSearch,
         category: categoryFilter,
         lowStockOnly: lowStockOnly ? 'true' : undefined,
+        limit: sizeNum,
+        offset: (pageNum - 1) * sizeNum,
       });
-      setParts(res || []);
-    } catch (err) {
+      const items = res.parts || res || [];
+      setParts(items);
+      setTotal(res.total ?? (Array.isArray(res) ? res.length : items.length));
+    } catch {
       toast.error('Failed to load parts inventory');
     } finally {
       setLoading(false);
@@ -85,11 +98,49 @@ export const PartsList = () => {
   };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchParts();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, categoryFilter, lowStockOnly]);
+    fetchParts(page, pageSize);
+  }, [debouncedSearch, categoryFilter, lowStockOnly, page, pageSize]);
+
+  const toggleSelectAll = () => {
+    const pageIds = parts.map((p) => p.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(selectedIds.filter((id) => !pageIds.includes(id)));
+    } else {
+      const merged = Array.from(new Set([...selectedIds, ...pageIds]));
+      setSelectedIds(merged);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    Swal.fire({
+      title: `Delete ${selectedIds.length} Part(s)?`,
+      text: 'Are you sure you want to remove the selected parts from the catalog?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete (${selectedIds.length}) Parts`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await partsService.bulkDeleteParts(selectedIds);
+          toast.success(res.message || `Deleted ${selectedIds.length} parts`);
+          setSelectedIds([]);
+          fetchParts(page, pageSize);
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete parts');
+        }
+      }
+    });
+  };
 
   const onAddSubmit = async (data) => {
     try {
@@ -180,11 +231,27 @@ export const PartsList = () => {
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search part name, code, model..."
+              placeholder="Search part name, code, model (500ms debounce)..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <select
@@ -215,8 +282,20 @@ export const PartsList = () => {
         </div>
       </div>
 
+      {/* Bulk Action Bar (when rows are selected) */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        onBulkDelete={handleBulkDelete}
+        deleteLabel={`Delete (${selectedIds.length})`}
+      />
+
       {/* Parts Table */}
-      <Card title={`Inventory Catalog (${parts.length})`} bodyClassName="p-0">
+      <Card
+        title={`Inventory Catalog (${total})`}
+        subtitle={`Showing page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`}
+        bodyClassName="p-0"
+      >
         {loading ? (
           <LoadingSpinner label="Fetching inventory parts..." />
         ) : parts.length === 0 ? (
@@ -228,72 +307,118 @@ export const PartsList = () => {
             onAction={() => setIsAddModalOpen(true)}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
-                <tr>
-                  <th className="px-5 py-3">Code</th>
-                  <th className="px-5 py-3">Part Name</th>
-                  <th className="px-5 py-3">Category</th>
-                  <th className="px-5 py-3">Compatible Models</th>
-                  <th className="px-5 py-3 text-right">Cost</th>
-                  <th className="px-5 py-3 text-right">Price</th>
-                  <th className="px-5 py-3 text-center">Stock</th>
-                  <th className="px-5 py-3 text-center">Status</th>
-                  <th className="px-5 py-3 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {parts.map((p) => {
-                  const isLow = p.stock_quantity <= p.minimum_stock;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="px-5 py-3.5 font-mono font-bold text-slate-600">{p.part_code}</td>
-                      <td className="px-5 py-3.5 font-semibold text-slate-900">
-                        {p.name}
-                        {p.part_number && <span className="block text-[11px] font-mono text-slate-400 font-normal">{p.part_number}</span>}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-600">{p.category}</td>
-                      <td className="px-5 py-3.5 text-slate-500 max-w-xs truncate">{p.compatible_models || '—'}</td>
-                      <td className="px-5 py-3.5 text-right font-mono text-slate-500">${Number(p.purchase_cost).toFixed(2)}</td>
-                      <td className="px-5 py-3.5 text-right font-mono font-bold text-slate-900">${Number(p.selling_price).toFixed(2)}</td>
-                      <td className="px-5 py-3.5 text-center font-mono font-bold">
-                        <span className={`px-2 py-0.5 rounded-full text-xs ${
-                          p.stock_quantity === 0
-                            ? 'bg-rose-100 text-rose-800'
-                            : isLow
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-emerald-50 text-emerald-800'
-                        }`}>
-                          {p.stock_quantity}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <Badge status={p.stock_quantity > 0 ? (isLow ? 'LOW_STOCK' : 'ACTIVE') : 'OUT_OF_STOCK'} size="sm" />
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <button
-                            onClick={() => handleOpenAdjust(p)}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded text-[11px] transition-colors"
-                            title="Restock or adjust quantity"
-                          >
-                            Adjust
-                          </button>
-                          <button
-                            onClick={() => handleDeletePart(p)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors"
-                            title="Delete part"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div>
+            <div className="overflow-x-auto table-scrollbar w-full pb-2">
+              <table className="w-full text-left text-xs min-w-[1100px]">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <tr>
+                    <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={parts.length > 0 && parts.every((p) => selectedIds.includes(p.id))}
+                        onChange={toggleSelectAll}
+                        aria-label="Select all on this page"
+                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                      />
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">Code</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Part Name</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Category</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Compatible Models</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Cost</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Price</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">Stock</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--spatial-border)]">
+                  {parts.map((p) => {
+                    const isLow = p.stock_quantity <= p.minimum_stock;
+                    const isSelected = selectedIds.includes(p.id);
+                    return (
+                      <tr
+                        key={p.id}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors ${
+                          isSelected ? 'bg-sky-500/10' : ''
+                        }`}
+                      >
+                        <td
+                          className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(p.id)}
+                            aria-label={`Select part ${p.name}`}
+                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                          />
+                        </td>
+                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">{p.part_code}</td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-semibold text-[var(--spatial-text-title)]">{p.name}</span>
+                            {p.part_number && (
+                              <span className="text-[11px] font-mono text-[var(--spatial-text-muted)] font-normal">({p.part_number})</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-body)] whitespace-nowrap">{p.category}</td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap max-w-xs truncate" title={p.compatible_models}>{p.compatible_models || '—'}</td>
+                        <td className="px-5 py-3.5 text-right font-mono text-[var(--spatial-text-muted)] whitespace-nowrap">₹{Number(p.purchase_cost).toFixed(2)}</td>
+                        <td className="px-5 py-3.5 text-right font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">₹{Number(p.selling_price).toFixed(2)}</td>
+                        <td className="px-5 py-3.5 text-center font-mono font-bold whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            p.stock_quantity === 0
+                              ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                              : isLow
+                              ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                              : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                          }`}>
+                            {p.stock_quantity}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                          <Badge status={p.stock_quantity > 0 ? (isLow ? 'LOW_STOCK' : 'ACTIVE') : 'OUT_OF_STOCK'} size="sm" />
+                        </td>
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => handleOpenAdjust(p)}
+                              className="px-2 py-1 bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] font-medium rounded-lg text-[11px] transition-colors"
+                              title="Restock or adjust quantity"
+                            >
+                              Adjust
+                            </button>
+                            <button
+                              onClick={() => handleDeletePart(p)}
+                              className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Delete part"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <SpatialPagination
+              currentPage={page}
+              pageSize={pageSize}
+              totalItems={total}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              pageSizeOptions={[10, 15, 20]}
+            />
           </div>
         )}
       </Card>

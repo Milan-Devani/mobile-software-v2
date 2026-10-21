@@ -22,9 +22,14 @@ import {
   Layers,
   CheckCircle2,
   Sliders,
+  Trash2,
+  X,
+  Edit2,
+  LogOut,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { useDebounce } from '../../hooks/useDebounce';
 import { settingsService } from '../../services/settingsService';
 import { authService } from '../../services/authService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
@@ -32,6 +37,8 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { WhatsAppQrModal } from '../../components/common/WhatsAppQrModal';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { BulkActionBar } from '../../components/common/BulkActionBar';
 import {
   useTheme,
   SPATIAL_STYLES,
@@ -50,7 +57,12 @@ export const Settings = () => {
 
   // User search & filter
   const [userSearch, setUserSearch] = useState('');
+  const debouncedUserSearch = useDebounce(userSearch, 500);
   const [roleFilter, setRoleFilter] = useState('ALL');
+  const [userPage, setUserPage] = useState(1);
+  const [userPageSize, setUserPageSize] = useState(10);
+  const [userSelectedIds, setUserSelectedIds] = useState([]);
+  const [isBulkDeletingUsers, setIsBulkDeletingUsers] = useState(false);
 
   // New user modal
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
@@ -60,9 +72,15 @@ export const Settings = () => {
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState('technician');
 
-  // WhatsApp Modal
+  // WhatsApp Modal & Unlink state
   const [showWaModal, setShowWaModal] = useState(false);
   const [waStatus, setWaStatus] = useState({ isConnected: false });
+  const [isUnlinkingWa, setIsUnlinkingWa] = useState(false);
+
+  // Custom Sender Email state
+  const [isEditingSenderEmail, setIsEditingSenderEmail] = useState(false);
+  const [senderEmailInput, setSenderEmailInput] = useState('');
+  const [isSavingSenderEmail, setIsSavingSenderEmail] = useState(false);
 
   // Theme Context
   const {
@@ -138,10 +156,87 @@ export const Settings = () => {
         email_enabled: channelKey === 'email_enabled' ? value : notifications.email_enabled,
         sms_enabled: channelKey === 'sms_enabled' ? value : notifications.sms_enabled,
         whatsapp_enabled: channelKey === 'whatsapp_enabled' ? value : notifications.whatsapp_enabled,
+        sender_email: notifications.sender_email || notifications.brevo_sender,
       });
       toast.success('Notification preference updated.');
     } catch {
       toast.error('Failed to update notification setting');
+    }
+  };
+
+  const handleSaveSenderEmail = async (e) => {
+    e?.preventDefault();
+    const trimmed = senderEmailInput.trim();
+    if (!trimmed) {
+      toast.error('Please enter an email address');
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    try {
+      setIsSavingSenderEmail(true);
+      await settingsService.updateNotifications({
+        email_enabled: notifications.email_enabled,
+        sms_enabled: notifications.sms_enabled,
+        whatsapp_enabled: notifications.whatsapp_enabled,
+        sender_email: trimmed,
+        brevo_sender: trimmed,
+      });
+      setNotifications((prev) => ({
+        ...prev,
+        sender_email: trimmed,
+        brevo_sender: trimmed,
+      }));
+      toast.success('Sender email updated successfully');
+      setIsEditingSenderEmail(false);
+    } catch (err) {
+      toast.error(err.message || 'Failed to update sender email');
+    } finally {
+      setIsSavingSenderEmail(false);
+    }
+  };
+
+  const handleUnlinkWhatsApp = async () => {
+    const result = await Swal.fire({
+      title: 'Unlink WhatsApp Device?',
+      text: 'Are you sure you want to unlink your connected WhatsApp session? Automated messages will stop until reconnected.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: 'Yes, Unlink Device',
+      cancelButtonText: 'Cancel',
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      setIsUnlinkingWa(true);
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${apiBase}/whatsapp/disconnect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      const data = await res.json();
+      if (data?.success) {
+        toast.success('WhatsApp session unlinked successfully');
+        setWaStatus({ isConnected: false });
+        await fetchWaStatus();
+      } else {
+        toast.error(data?.message || 'Failed to disconnect WhatsApp');
+      }
+    } catch {
+      toast.error('Failed to unlink WhatsApp device');
+    } finally {
+      setIsUnlinkingWa(false);
     }
   };
 
@@ -188,16 +283,109 @@ export const Settings = () => {
     });
   };
 
+  // User Deletion Handlers
+  const handleDeleteUser = async (u) => {
+    if (u.id === user?.id) {
+      toast.error('You cannot delete your own account.');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: 'Delete Staff Member?',
+      text: `Are you sure you want to remove "${u.full_name || u.email}"? This action cannot be undone.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete',
+      cancelButtonText: 'Cancel',
+      background: 'var(--spatial-card-bg, #0f172a)',
+      color: 'var(--spatial-text-title, #f8fafc)',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        await authService.deleteUser(u.id);
+        toast.success(`User ${u.full_name || u.email} deleted`);
+        setUserSelectedIds((prev) => prev.filter((id) => id !== u.id));
+        fetchSettings();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete user');
+      }
+    }
+  };
+
+  const handleBulkDeleteUsers = async () => {
+    const validIds = userSelectedIds.filter((id) => id !== user?.id);
+    if (validIds.length === 0) {
+      toast.error('Cannot delete your own active account.');
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: `Delete ${validIds.length} Staff Member(s)?`,
+      text: 'Are you sure you want to remove the selected staff accounts? This action cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#e11d48',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Delete ${validIds.length} Users`,
+      cancelButtonText: 'Cancel',
+      background: 'var(--spatial-card-bg, #0f172a)',
+      color: 'var(--spatial-text-title, #f8fafc)',
+    });
+
+    if (result.isConfirmed) {
+      try {
+        setIsBulkDeletingUsers(true);
+        const res = await authService.bulkDeleteUsers(validIds);
+        toast.success(res.message || `Deleted ${validIds.length} users`);
+        setUserSelectedIds([]);
+        fetchSettings();
+      } catch (err) {
+        toast.error(err.message || 'Failed to delete selected users');
+      } finally {
+        setIsBulkDeletingUsers(false);
+      }
+    }
+  };
+
   // Filter users list
   const filteredUsers = usersList.filter((u) => {
     const matchesSearch =
-      !userSearch ||
-      u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(userSearch.toLowerCase()) ||
-      u.phone?.toLowerCase().includes(userSearch.toLowerCase());
+      !debouncedUserSearch ||
+      u.full_name?.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
+      u.email?.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
+      u.phone?.toLowerCase().includes(debouncedUserSearch.toLowerCase());
     const matchesRole = roleFilter === 'ALL' || u.role_id === roleFilter;
     return matchesSearch && matchesRole;
   });
+
+  const paginatedUsers = filteredUsers.slice(
+    (userPage - 1) * userPageSize,
+    userPage * userPageSize
+  );
+  const totalUserPages = Math.ceil(filteredUsers.length / userPageSize) || 1;
+
+  const isAllCurrentPageUsersSelected =
+    paginatedUsers.length > 0 &&
+    paginatedUsers.every((u) => userSelectedIds.includes(u.id));
+
+  const handleSelectAllUsers = (e) => {
+    if (e.target.checked) {
+      const pageIds = paginatedUsers.map((u) => u.id);
+      setUserSelectedIds(Array.from(new Set([...userSelectedIds, ...pageIds])));
+    } else {
+      const pageIdSet = new Set(paginatedUsers.map((u) => u.id));
+      setUserSelectedIds(userSelectedIds.filter((id) => !pageIdSet.has(id)));
+    }
+  };
+
+  const handleToggleUser = (id) => {
+    setUserSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   if (loading) {
     return <LoadingSpinner label="Loading workshop settings & spatial preferences..." />;
@@ -634,17 +822,39 @@ export const Settings = () => {
                 <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Search staff by name, email, phone..."
+                  placeholder="Search staff by name, email, phone (500ms debounce)..."
                   value={userSearch}
-                  onChange={(e) => setUserSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 spatial-input rounded-xl text-xs"
+                  onChange={(e) => {
+                    setUserSearch(e.target.value);
+                    setUserPage(1);
+                    setUserSelectedIds([]);
+                  }}
+                  className="w-full pl-8 pr-8 py-1.5 spatial-input rounded-xl text-xs"
                 />
+                {userSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUserSearch('');
+                      setUserPage(1);
+                      setUserSelectedIds([]);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
                 <select
                   value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value);
+                    setUserPage(1);
+                    setUserSelectedIds([]);
+                  }}
                   className="px-3 py-1.5 spatial-input rounded-xl text-xs font-medium"
                 >
                   <option value="ALL">All Roles ({usersList.length})</option>
@@ -674,90 +884,177 @@ export const Settings = () => {
               <>
                 {/* 1. Mobile Cards (< 768px) */}
                 <div className="grid grid-cols-1 gap-3 md:hidden">
-                  {filteredUsers.map((u) => (
-                    <div
-                      key={u.id}
-                      className="p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] space-y-2.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-9 h-9 rounded-full bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 font-bold text-xs uppercase">
-                            {u.full_name ? u.full_name.charAt(0) : 'U'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-xs text-[var(--spatial-text-title)]">{u.full_name}</p>
-                            <Badge status={u.role_id} size="sm" />
-                          </div>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-400/20">
-                          Active
-                        </span>
-                      </div>
-
-                      <div className="pt-2 border-t border-[var(--spatial-border)] space-y-1 text-xs text-[var(--spatial-text-muted)]">
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-                          <span className="truncate font-mono">{u.email}</span>
-                        </div>
-                        {u.phone && (
-                          <div className="flex items-center gap-2">
-                            <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                            <span className="font-mono">{u.phone}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 2. Desktop Table (>= 768px) */}
-                <div className="hidden md:block overflow-x-auto rounded-xl border border-[var(--spatial-border)]">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px]">
-                      <tr>
-                        <th className="px-5 py-3">Team Member</th>
-                        <th className="px-5 py-3">Role</th>
-                        <th className="px-5 py-3">Email Address</th>
-                        <th className="px-5 py-3">Phone</th>
-                        <th className="px-5 py-3 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[var(--spatial-border)]">
-                      {filteredUsers.map((u) => (
-                        <tr
-                          key={u.id}
-                          className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors"
-                        >
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 font-bold text-xs uppercase shrink-0">
-                                {u.full_name ? u.full_name.charAt(0) : 'U'}
-                              </div>
-                              <span className="font-bold text-[var(--spatial-text-title)]">{u.full_name}</span>
+                  {paginatedUsers.map((u) => {
+                    const isSelected = userSelectedIds.includes(u.id);
+                    return (
+                      <div
+                        key={u.id}
+                        className={`p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] space-y-2.5 transition-colors ${
+                          isSelected ? 'bg-sky-500/10 border-sky-500/40' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => handleToggleUser(u.id)}
+                              className="rounded border-[var(--spatial-border)] text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                            />
+                            <div className="w-9 h-9 rounded-full bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 font-bold text-xs uppercase">
+                              {u.full_name ? u.full_name.charAt(0) : 'U'}
                             </div>
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <Badge status={u.role_id} size="sm" />
-                          </td>
-                          <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-body)]">
-                            {u.email}
-                          </td>
-                          <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-muted)]">
-                            {u.phone || '—'}
-                          </td>
-                          <td className="px-5 py-3.5 text-center">
+                            <div>
+                              <p className="font-bold text-xs text-[var(--spatial-text-title)]">{u.full_name}</p>
+                              <Badge status={u.role_id} size="sm" />
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-400/20">
                               Active
                             </span>
-                          </td>
-                        </tr>
-                      ))}
+                            {user?.role_id === 'admin' && u.id !== user?.id && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteUser(u)}
+                                className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                                title="Delete Staff Member"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-[var(--spatial-border)] space-y-1 text-xs text-[var(--spatial-text-muted)]">
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                            <span className="truncate font-mono">{u.email}</span>
+                          </div>
+                          {u.phone && (
+                            <div className="flex items-center gap-2">
+                              <Phone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <span className="font-mono">{u.phone}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 2. Desktop Table (>= 768px) */}
+                <div className="hidden md:block overflow-x-auto table-scrollbar rounded-xl border border-[var(--spatial-border)] pb-1">
+                  <table className="w-full text-left text-xs min-w-[850px]">
+                    <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                      <tr>
+                        <th className="px-4 py-3 w-10 text-center whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={isAllCurrentPageUsersSelected}
+                            onChange={handleSelectAllUsers}
+                            className="rounded border-[var(--spatial-border)] text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                            title="Select all on this page"
+                          />
+                        </th>
+                        <th className="px-5 py-3 whitespace-nowrap">Team Member</th>
+                        <th className="px-5 py-3 whitespace-nowrap">Role</th>
+                        <th className="px-5 py-3 whitespace-nowrap">Email Address</th>
+                        <th className="px-5 py-3 whitespace-nowrap">Phone</th>
+                        <th className="px-5 py-3 text-center whitespace-nowrap">Status</th>
+                        <th className="px-5 py-3 text-center whitespace-nowrap">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--spatial-border)]">
+                      {paginatedUsers.map((u) => {
+                        const isSelected = userSelectedIds.includes(u.id);
+                        return (
+                          <tr
+                            key={u.id}
+                            className={`transition-colors ${
+                              isSelected
+                                ? 'bg-sky-500/10'
+                                : 'hover:bg-[var(--spatial-bg-card-subtle)]'
+                            }`}
+                          >
+                            <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => handleToggleUser(u.id)}
+                                className="rounded border-[var(--spatial-border)] text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                              />
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-2.5 whitespace-nowrap">
+                                <div className="w-8 h-8 rounded-full bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 font-bold text-xs uppercase shrink-0">
+                                  {u.full_name ? u.full_name.charAt(0) : 'U'}
+                                </div>
+                                <span className="font-bold text-[var(--spatial-text-title)]">{u.full_name}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <Badge status={u.role_id} size="sm" />
+                            </td>
+                            <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-body)] whitespace-nowrap">
+                              {u.email}
+                            </td>
+                            <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-muted)] whitespace-nowrap">
+                              {u.phone || '—'}
+                            </td>
+                            <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-400/20 whitespace-nowrap">
+                                Active
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                              {user?.role_id === 'admin' && u.id !== user?.id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteUser(u)}
+                                  className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-[var(--spatial-text-muted)] font-mono">
+                                  {u.id === user?.id ? 'You' : '—'}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Spatial Pagination */}
+                <SpatialPagination
+                  currentPage={userPage}
+                  totalPages={totalUserPages}
+                  totalItems={filteredUsers.length}
+                  pageSize={userPageSize}
+                  pageSizeOptions={[10, 15, 20, 50]}
+                  onPageChange={setUserPage}
+                  onPageSizeChange={(newSize) => {
+                    setUserPageSize(newSize);
+                    setUserPage(1);
+                  }}
+                />
               </>
             )}
           </Card>
+
+          {/* Bulk Action Bar for Users */}
+          <BulkActionBar
+            selectedCount={userSelectedIds.length}
+            onClear={() => setUserSelectedIds([])}
+            onDelete={handleBulkDeleteUsers}
+            isDeleting={isBulkDeletingUsers}
+            itemLabel="staff member"
+          />
         </div>
       )}
 
@@ -767,16 +1064,16 @@ export const Settings = () => {
       {activeTab === 'notifications' && (
         <Card
           title="Notification Dispatchers"
-          subtitle="Customer notification pipelines (Brevo Email, Baileys WhatsApp, MSG91 SMS)"
+          subtitle="Customer notification pipelines (Email, WhatsApp, SMS)"
         >
           <div className="space-y-4 text-xs">
-            {/* Baileys WhatsApp Linked Device */}
+            {/* WhatsApp Linked Device */}
             <div className="p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-[var(--spatial-text-title)] flex items-center gap-1.5">
                     <Smartphone className="w-4 h-4 text-emerald-400" />
-                    WhatsApp: Linked Device (Baileys QR Scanner)
+                    WhatsApp: Linked Device
                   </span>
                   <span
                     className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
@@ -791,15 +1088,15 @@ export const Settings = () => {
                   </span>
                 </div>
                 <p className="text-[var(--spatial-text-muted)] text-xs mt-1">
-                  100% Free (₹0) • Auto-sends delivery invoices & vector PDFs in background directly from your linked device without opening WhatsApp Web.
+                  Auto-sends delivery invoices & vector PDFs in background directly from your linked device without opening WhatsApp Web.
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <button
                   type="button"
                   onClick={() => setShowWaModal(true)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer ${
                     waStatus?.isConnected
                       ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 hover:bg-emerald-500/25'
                       : 'spatial-btn-primary'
@@ -808,6 +1105,23 @@ export const Settings = () => {
                   <QrCode className="w-3.5 h-3.5" />
                   <span>{waStatus?.isConnected ? 'Manage WhatsApp' : 'Scan QR Code'}</span>
                 </button>
+
+                {waStatus?.isConnected && (
+                  <button
+                    type="button"
+                    onClick={handleUnlinkWhatsApp}
+                    disabled={isUnlinkingWa}
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-rose-500/30 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 disabled:opacity-50 transition-colors cursor-pointer"
+                    title="Unlink WhatsApp device"
+                  >
+                    {isUnlinkingWa ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <LogOut className="w-3.5 h-3.5" />
+                    )}
+                    <span>Unlink</span>
+                  </button>
+                )}
 
                 <label className="flex items-center gap-1.5 cursor-pointer border-l border-[var(--spatial-border)] pl-3">
                   <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)]">Enabled</span>
@@ -821,11 +1135,14 @@ export const Settings = () => {
               </div>
             </div>
 
-            {/* Brevo Email */}
-            <div className="p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[var(--spatial-text-title)]">Email: Brevo (Sendinblue)</span>
+            {/* Email Notifications */}
+            <div className="p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-[var(--spatial-text-title)] flex items-center gap-1.5">
+                    <Mail className="w-4 h-4 text-sky-400" />
+                    Email Notifications
+                  </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       notifications.brevo_configured
@@ -833,14 +1150,69 @@ export const Settings = () => {
                         : 'bg-amber-500/10 text-amber-400'
                     }`}
                   >
-                    {notifications.brevo_configured ? 'Live API Configured' : 'Dev Simulator Mode'}
+                    {notifications.brevo_configured ? 'Active' : 'Dev Simulator Mode'}
                   </span>
                 </div>
-                <p className="text-[var(--spatial-text-muted)] text-[11px] mt-0.5">
-                  Sender: {notifications.brevo_sender || 'notifications@mobotech.com'}
-                </p>
+
+                {!isEditingSenderEmail ? (
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    <p className="text-[var(--spatial-text-muted)] text-[11px]">
+                      Sender:{' '}
+                      <span className="font-mono font-medium text-[var(--spatial-text-title)]">
+                        {notifications.sender_email || notifications.brevo_sender || 'notifications@mobotech.com'}
+                      </span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSenderEmailInput(notifications.sender_email || notifications.brevo_sender || '');
+                        setIsEditingSenderEmail(true);
+                      }}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-sky-400 hover:text-sky-300 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                      title="Change sender email"
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      <span>Change Email</span>
+                    </button>
+                  </div>
+                ) : (
+                  <form onSubmit={handleSaveSenderEmail} className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="email"
+                        required
+                        value={senderEmailInput}
+                        onChange={(e) => setSenderEmailInput(e.target.value)}
+                        placeholder="e.g. notifications@yourdomain.com"
+                        className="pl-8 pr-3 py-1 text-xs bg-[var(--spatial-card-subtle)] border border-[var(--spatial-border)] rounded-lg text-[var(--spatial-text-title)] focus:outline-none focus:ring-1 focus:ring-sky-500 w-64 font-mono"
+                        autoFocus
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isSavingSenderEmail}
+                      className="px-3 py-1 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      {isSavingSenderEmail ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Check className="w-3 h-3" />
+                      )}
+                      <span>Save</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingSenderEmail(false)}
+                      className="px-2.5 py-1 text-xs text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-body)] rounded-lg hover:bg-slate-500/10 transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </form>
+                )}
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
+
+              <label className="flex items-center gap-2 cursor-pointer self-start sm:self-center">
                 <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)]">Enabled</span>
                 <input
                   type="checkbox"
@@ -851,11 +1223,14 @@ export const Settings = () => {
               </label>
             </div>
 
-            {/* MSG91 SMS */}
+            {/* SMS Notifications */}
             <div className="p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-[var(--spatial-text-title)]">SMS: MSG91 Free Trial / Flow</span>
+                  <span className="font-bold text-[var(--spatial-text-title)] flex items-center gap-1.5">
+                    <Phone className="w-4 h-4 text-amber-400" />
+                    SMS Notifications
+                  </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                       notifications.msg91_configured
@@ -863,7 +1238,7 @@ export const Settings = () => {
                         : 'bg-amber-500/10 text-amber-400'
                     }`}
                   >
-                    {notifications.msg91_configured ? 'Live API Configured' : 'Dev Simulator Mode'}
+                    {notifications.msg91_configured ? 'Active' : 'Dev Simulator Mode'}
                   </span>
                 </div>
                 <p className="text-[var(--spatial-text-muted)] text-[11px] mt-0.5">

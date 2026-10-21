@@ -25,4 +25,9 @@ export const customerService = {
     const res = await api.delete(`/customers/${id}${force ? '?force=true' : ''}`);
     return res.data;
   },
+
+  bulkDeleteCustomers: async (ids, force = false) => {
+    const res = await api.post('/customers/bulk-delete', { ids, force });
+    return res.data;
+  },
 };

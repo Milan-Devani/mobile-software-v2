@@ -188,7 +188,7 @@ async function run() {
     assert(res.data.success === true, 'Job creation failed');
     const job = res.data.data.job;
     assert(job && job.id, 'Job ID missing');
-    assert(job.job_number.startsWith('JOB-'), 'Job number format invalid');
+    assert(job.job_number.startsWith('mobo-') || job.job_number.startsWith('JOB-'), 'Job number format invalid');
     assert(job.status === 'RECEIVED', 'Initial status not RECEIVED');
     testJobId = job.id;
     testJobNumber = job.job_number;

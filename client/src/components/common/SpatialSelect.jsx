@@ -172,10 +172,11 @@ export const SpatialSelect = ({
         <div
           className={`absolute left-0 right-0 ${
             placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          } z-[999] spatial-card p-1.5 max-h-72 flex flex-col shadow-2xl border border-[var(--spatial-border)] animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
+          } z-[9999] spatial-dropdown-panel bg-white dark:bg-slate-900 p-1.5 max-h-72 flex flex-col shadow-2xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
           style={{
+            backgroundColor: 'var(--spatial-bg-dropdown, #ffffff)',
             boxShadow:
-              '0 20px 45px -10px rgba(0, 0, 0, 0.7), 0 0 20px -3px rgba(56, 189, 248, 0.25)',
+              '0 20px 45px -10px rgba(0, 0, 0, 0.4), 0 4px 15px rgba(0, 0, 0, 0.1)',
           }}
         >
           {/* Optional Search Bar */}

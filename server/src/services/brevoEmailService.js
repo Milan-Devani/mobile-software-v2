@@ -1,6 +1,7 @@
 import axios from 'axios';
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
+import { db } from '../db/db.js';
 
 let transporter = null;
 
@@ -27,20 +28,24 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
 
   let lastError = null;
 
+  // Retrieve custom sender email from notification config if configured
+  const notificationConfig = await db.settings.get('notification_config').catch(() => null);
+  const activeEmailFrom = notificationConfig?.sender_email || env.EMAIL_FROM;
+
   // 1. Try Brevo REST API v3 if BREVO_API_KEY is provided
   if (env.BREVO_API_KEY) {
     try {
-      let senderName = 'Mobotech mobile care';
-      let senderEmail = 'onlylaptop994@gmail.com';
-      if (env.EMAIL_FROM) {
-        if (env.EMAIL_FROM.includes('<')) {
-          const match = env.EMAIL_FROM.match(/^(.*?)\s*<([^>]+)>/);
+      let senderName = 'MoboTech Mobile Care';
+      let senderEmail = 'milandevani.mobotech@gmail.com';
+      if (activeEmailFrom) {
+        if (activeEmailFrom.includes('<')) {
+          const match = activeEmailFrom.match(/^(.*?)\s*<([^>]+)>/);
           if (match) {
             senderName = match[1]?.trim() || senderName;
             senderEmail = match[2]?.trim() || senderEmail;
           }
         } else {
-          senderEmail = env.EMAIL_FROM.trim();
+          senderEmail = activeEmailFrom.trim();
         }
       }
 
@@ -98,7 +103,7 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
         : undefined;
 
       const info = await smtpTransport.sendMail({
-        from: env.EMAIL_FROM,
+        from: activeEmailFrom || env.EMAIL_FROM,
         to: `"${toName || toEmail}" <${toEmail}>`,
         subject,
         text: textContent || subject,

@@ -911,6 +911,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       <tr>
                         <th className="p-1 border-r border-black w-8 text-center text-black">#</th>
                         <th className="p-1 border-r border-black text-black">Item / Service Description</th>
+                        <th className="p-1 border-r border-black text-center w-24 text-black">Warranty</th>
                         <th className="p-1 border-r border-black text-center w-20 text-black">Type</th>
                         <th className="p-1 border-r border-black text-center w-12 text-black">Qty</th>
                         <th className="p-1 border-r border-black text-right w-20 text-black">Unit Rate ({currencySymbol})</th>
@@ -922,6 +923,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                         <tr key={idx}>
                           <td className="p-1 border-r border-black text-center font-mono font-bold text-black">{idx + 1}</td>
                           <td className="p-1 border-r border-black font-semibold text-black">{it.item_name}</td>
+                          <td className="p-1 border-r border-black text-center font-semibold text-black">
+                            {it.warranty || invoice?.warranty_period || '—'}
+                          </td>
                           <td className="p-1 border-r border-black text-center font-mono font-bold text-black">{it.item_type || 'PART'}</td>
                           <td className="p-1 border-r border-black text-center font-mono font-bold text-black">{it.quantity || 1}</td>
                           <td className="p-1 border-r border-black text-right font-mono font-bold text-black">{Number(it.unit_price).toFixed(2)}</td>
@@ -953,7 +957,13 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       </div>
                       {Number(invoice?.discount || 0) > 0 && (
                         <div className="flex justify-between text-black font-bold">
-                          <span>Discount Applied:</span>
+                          <span>
+                            Discount Applied
+                            {invoice?.discount_type === 'PERCENTAGE' && invoice?.discount_value
+                              ? ` (${invoice.discount_value}%)`
+                              : ''}
+                            :
+                          </span>
                           <span>-{currencySymbol}{Number(invoice.discount).toFixed(2)}</span>
                         </div>
                       )}

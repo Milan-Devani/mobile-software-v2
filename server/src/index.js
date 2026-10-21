@@ -1,4 +1,4 @@
-// Mobotech mobile care Server - Reloaded db
+// Mobotech mobile care Server - Supabase Connected
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -21,6 +21,7 @@ import settingsRoutes from './routes/settingsRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
+import backupRoutes from './routes/backupRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -69,6 +70,15 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // Rate limiting on API routes
 app.use('/api', apiRateLimiter);
 
+// Root Health check (for external cron services, uptime monitors, and Render health checks)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Backend is running',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({
@@ -91,6 +101,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
+app.use('/api/backups', backupRoutes);
 
 // Catch-all for undefined routes
 app.all('*', (req, res, next) => {

@@ -92,9 +92,9 @@ export const createJob = async (req, res, next) => {
         serial_number: device_data.serial_number || '',
         passcode: device_data.passcode || '',
         operating_system: device_data.operating_system || 'iOS',
-        invoice_date: device_data.invoice_date || '',
+        invoice_date: device_data.invoice_date || null,
         invoice_number: device_data.invoice_number || '',
-        expiry_date: device_data.expiry_date || '',
+        expiry_date: device_data.expiry_date || null,
         cosmetic_condition: device_data.cosmetic_condition || 'Wear And Tear',
       });
       finalDeviceId = newDevice.id;
@@ -206,6 +206,17 @@ export const updateJob = async (req, res, next) => {
       ...(internal_notes !== undefined && { internal_notes }),
     };
 
+    if (req.body.status && req.body.status !== existing.status) {
+      updates.status = req.body.status;
+      await db.jobs.updateStatus(
+        id,
+        req.body.status,
+        `Status Changed to ${req.body.status} (Job Sheet Edit)`,
+        req.body.status_notes || `Status modified from ${existing.status} to ${req.body.status} by ${req.user.full_name || 'Staff'}.`,
+        req.user.id
+      );
+    }
+
     await db.jobs.update(id, updates);
     const fullJob = await db.jobs.findById(id);
 
@@ -232,6 +243,51 @@ export const deleteJob = async (req, res, next) => {
     res.json({
       success: true,
       message: `Job Sheet #${existing.job_number} deleted successfully.`,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkDeleteJobs = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No job IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
+    }
+    const count = await db.jobs.bulkDelete(ids);
+    res.json({
+      success: true,
+      message: `Successfully deleted ${count} job(s).`,
+      data: { count },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkUpdateJobStatus = async (req, res, next) => {
+  try {
+    const { ids, status, notes } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No job IDs provided for bulk update.', 400, 'IDS_REQUIRED');
+    }
+    if (!status) {
+      throw new AppError('Status is required for bulk update.', 400, 'STATUS_REQUIRED');
+    }
+
+    const updated = await db.jobs.bulkUpdateStatus({
+      ids,
+      status,
+      actionTitle: `Bulk Status Update to ${status}`,
+      notes: notes || `Batch updated by staff ${req.user?.full_name || 'Staff'}.`,
+      userId: req.user?.id,
+    });
+
+    res.json({
+      success: true,
+      message: `Updated status to ${status} for ${updated.length} job(s).`,
+      data: { count: updated.length, updated },
     });
   } catch (err) {
     next(err);
@@ -311,7 +367,17 @@ export const saveDiagnosis = async (req, res, next) => {
 export const saveEstimate = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { labor_charge, items, discount, tax_rate, notes, valid_until, send_notification = true } = req.body;
+    const {
+      labor_charge,
+      items,
+      discount,
+      discount_type = 'AMOUNT',
+      discount_value = 0,
+      tax_rate,
+      notes,
+      valid_until,
+      send_notification = true
+    } = req.body;
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
@@ -325,20 +391,49 @@ export const saveEstimate = async (req, res, next) => {
       laborCharge: labor_charge || 0,
       items: items || [],
       discount: discount || 0,
+      discountType: discount_type,
+      discountValue: discount_value !== undefined ? discount_value : (discount || 0),
       taxRate: tax_rate !== undefined ? tax_rate : 8.25,
       notes: notes || '',
       validUntil: valid_until,
       userId: req.user.id,
     });
 
-    // Move status to ESTIMATE_SENT (or AWAITING_APPROVAL)
-    await db.jobs.updateStatus(
-      id,
-      'ESTIMATE_SENT',
-      'Repair Estimate Generated & Sent',
-      `Estimate of $${estimate.total_amount.toFixed(2)} prepared (Labor: $${estimate.labor_charge.toFixed(2)}, Parts: $${estimate.parts_subtotal.toFixed(2)}).`,
-      req.user.id
-    );
+    const isFreeWarranty = estimate.total_amount === 0 || (job.is_warranty_claim && (job.warranty_same_issue || job.warranty_free_rework));
+
+    if (isFreeWarranty) {
+      await db.jobs.update(id, {
+        approval_status: 'APPROVED',
+        approval_decision_at: new Date().toISOString(),
+        approval_notes: 'Covered under warranty - Pre-authorized free rework',
+        warranty_same_issue: true,
+        warranty_free_rework: true,
+        balance_due: 0.00,
+        total_amount: 0.00,
+      });
+
+      await db.jobs.updateStatus(
+        id,
+        ['DIAGNOSING', 'RECEIVED', 'ESTIMATE_SENT'].includes(job.status) ? 'APPROVED' : job.status,
+        'Free Warranty Rework Authorized',
+        'Total amount is ₹0.00 (covered under warranty). Customer authorization pre-approved.',
+        req.user.id
+      );
+    } else {
+      await db.jobs.update(id, {
+        approval_status: 'PENDING',
+        warranty_same_issue: false,
+      });
+
+      // Move status to ESTIMATE_SENT (or AWAITING_APPROVAL)
+      await db.jobs.updateStatus(
+        id,
+        'ESTIMATE_SENT',
+        'Repair Estimate Generated & Sent',
+        `Estimate of $${estimate.total_amount.toFixed(2)} prepared (Labor: $${estimate.labor_charge.toFixed(2)}, Parts: $${estimate.parts_subtotal.toFixed(2)}).`,
+        req.user.id
+      );
+    }
 
     const updatedJob = await db.jobs.findById(id);
     const customer = await db.customers.findById(updatedJob.customer_id);
@@ -347,13 +442,15 @@ export const saveEstimate = async (req, res, next) => {
       dispatchNotification({
         job: updatedJob,
         customer,
-        type: 'ESTIMATE_SENT',
+        type: isFreeWarranty ? 'JOB_REOPENED' : 'ESTIMATE_SENT',
       }).catch(err => console.error('Estimate notification error:', err));
     }
 
     res.json({
       success: true,
-      message: `Estimate of $${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
+      message: isFreeWarranty
+        ? 'Free warranty rework estimate confirmed (₹0 balance, pre-approved).'
+        : `Estimate of $${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
       data: { estimate, job: updatedJob },
     });
   } catch (err) {
@@ -397,10 +494,13 @@ export const publicGetApprovalDetails = async (req, res, next) => {
         labor_charge: job.estimate.labor_charge,
         parts_subtotal: job.estimate.parts_subtotal,
         discount: job.estimate.discount,
+        discount_type: job.estimate.discount_type || 'AMOUNT',
+        discount_value: job.estimate.discount_value !== undefined ? job.estimate.discount_value : job.estimate.discount,
         tax_amount: job.estimate.tax_amount,
         total_amount: job.estimate.total_amount,
         items: (job.estimate.items || []).map(i => ({
           item_name: i.item_name,
+          warranty: i.warranty || '',
           quantity: i.quantity,
           unit_price: i.unit_price,
           total_price: i.total_price
@@ -477,27 +577,30 @@ export const startRepair = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (job.status !== 'APPROVED') {
+    const isFreeWarranty = job.is_warranty_claim && (job.warranty_same_issue || job.warranty_free_rework || (job.approval_status === 'APPROVED' && Number(job.balance_due || 0) === 0));
+    if (job.status !== 'APPROVED' && !(isFreeWarranty && ['DIAGNOSING', 'RECEIVED', 'APPROVED', 'ESTIMATE_SENT', 'AWAITING_APPROVAL'].includes(job.status))) {
       throw new AppError(`Cannot start repair when status is "${job.status}". Estimate must be APPROVED by customer first.`, 400, 'APPROVAL_REQUIRED');
     }
 
-    // Deduct stock for parts attached to the estimate
-    const estimate = await db.estimates.getByJobId(id);
-    if (estimate && Array.isArray(estimate.items)) {
-      for (const item of estimate.items) {
-        if (item.part_id) {
-          try {
-            await db.parts.adjustStock({
-              partId: item.part_id,
-              quantityChange: -item.quantity,
-              movementType: 'JOB_USAGE',
-              referenceNumber: job.job_number,
-              notes: `Component used for Job #${job.job_number} repair`,
-              jobId: job.id,
-              userId: req.user.id,
-            });
-          } catch (stockErr) {
-            console.warn(`Stock deduction warning for part ${item.part_id}:`, stockErr.message);
+    // Deduct stock for parts attached to the estimate (only for new/chargeable repairs, skip duplicate deduction on same-issue warranty rework)
+    if (!isFreeWarranty || !job.warranty_same_issue) {
+      const estimate = await db.estimates.getByJobId(id);
+      if (estimate && Array.isArray(estimate.items)) {
+        for (const item of estimate.items) {
+          if (item.part_id) {
+            try {
+              await db.parts.adjustStock({
+                partId: item.part_id,
+                quantityChange: -item.quantity,
+                movementType: 'JOB_USAGE',
+                referenceNumber: job.job_number,
+                notes: `Component used for Job #${job.job_number} repair`,
+                jobId: job.id,
+                userId: req.user.id,
+              });
+            } catch (stockErr) {
+              console.warn(`Stock deduction warning for part ${item.part_id}:`, stockErr.message);
+            }
           }
         }
       }
@@ -506,8 +609,10 @@ export const startRepair = async (req, res, next) => {
     await db.jobs.updateStatus(
       id,
       'IN_PROGRESS',
-      'Repair In Progress',
-      `Technician ${req.user.full_name} commenced hardware repair and replacement.`,
+      isFreeWarranty ? 'Warranty Repair In Progress (Free Rework)' : 'Repair In Progress',
+      isFreeWarranty
+        ? `Technician ${req.user.full_name} commenced warranty rework on workbench (Covered under warranty - ₹0 balance).`
+        : `Technician ${req.user.full_name} commenced hardware repair and replacement.`,
       req.user.id
     );
 
@@ -641,8 +746,9 @@ export const recordPickup = async (req, res, next) => {
       throw new AppError('Customer device testing and confirmation are required before handover.', 400, 'CUSTOMER_CONFIRMATION_REQUIRED');
     }
 
-    // Check payment balance
-    if (job.balance_due > 0) {
+    // Check payment balance (waived for free warranty rework)
+    const isFreeWarranty = job.warranty_same_issue || job.warranty_free_rework || (job.is_warranty_claim && (Number(job.balance_due) === 0 || Number(job.total_amount) === 0));
+    if (!isFreeWarranty && job.balance_due > 0) {
       throw new AppError(`Outstanding balance of $${job.balance_due.toFixed(2)} must be settled before delivering device.`, 400, 'PAYMENT_PENDING');
     }
 
@@ -676,6 +782,7 @@ export const recordPickup = async (req, res, next) => {
       customer,
       type: 'INVOICE_GENERATED',
       channels,
+      metadata: { isWarrantyHandover: isFreeWarranty },
     }).catch(err => console.error('Invoice delivery notification error:', err));
 
     res.json({
@@ -718,3 +825,357 @@ export const cancelJob = async (req, res, next) => {
     next(err);
   }
 };
+
+export const reopenJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      reason = 'Warranty issue reported by customer',
+      target_status = 'DIAGNOSING',
+      notes = '',
+      claim_type = 'SAME_ISSUE', // 'SAME_ISSUE' or 'NEW_ISSUE'
+    } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const allowedStatuses = ['DELIVERED', 'CANCELLED', 'REJECTED'];
+    if (!allowedStatuses.includes(job.status)) {
+      throw new AppError(
+        `Cannot reopen job with current status "${job.status}". Only delivered, cancelled, or rejected jobs can be reopened.`,
+        400,
+        'INVALID_REOPEN_STATUS'
+      );
+    }
+
+    const validTargets = ['DIAGNOSING', 'IN_PROGRESS', 'RECEIVED', 'TESTING'];
+    const finalTargetStatus = validTargets.includes(target_status) ? target_status : 'DIAGNOSING';
+    const isWarrantyClaim = job.status === 'DELIVERED';
+    const isSameIssue = isWarrantyClaim && (claim_type === 'SAME_ISSUE');
+    const reopenCount = (job.reopen_count || 0) + 1;
+
+    const updatePayload = {
+      status: finalTargetStatus,
+      reopened_at: new Date().toISOString(),
+      reopened_by_user_id: req.user.id,
+      reopen_count: reopenCount,
+      is_warranty_claim: isWarrantyClaim,
+      warranty_claim_type: isSameIssue ? 'SAME_ISSUE' : (isWarrantyClaim ? 'NEW_ISSUE' : 'REGULAR'),
+      warranty_same_issue: isSameIssue,
+      warranty_free_rework: isSameIssue,
+      last_warranty_issue: reason || 'Customer returned under warranty',
+      reopen_notes: notes || '',
+      customer_tested_device: false,
+      customer_acceptance_confirmed: false,
+      customer_signature: null,
+      previous_delivered_at: job.delivered_at || null,
+      delivered_at: null,
+    };
+
+    if (isSameIssue) {
+      // 1. Same issue: Customer approval is pre-authorized, no approval required
+      updatePayload.approval_status = 'APPROVED';
+      updatePayload.approval_decision_at = new Date().toISOString();
+      updatePayload.approval_notes = 'Pre-approved under warranty: Free rework for same issue';
+      // 2. No payment required: rework cost is ₹0
+      updatePayload.previous_total_amount = job.total_amount;
+      updatePayload.previous_balance_due = job.balance_due;
+      updatePayload.total_amount = 0.00;
+      updatePayload.balance_due = 0.00;
+      updatePayload.payment_status = 'PAID';
+    } else if (isWarrantyClaim) {
+      updatePayload.approval_status = 'PENDING';
+      updatePayload.warranty_same_issue = false;
+    }
+
+    await db.jobs.update(id, updatePayload);
+
+    const statusTitle = isSameIssue
+      ? `Job Reopened (Free Warranty Claim #${reopenCount})`
+      : isWarrantyClaim
+      ? `Job Reopened (Warranty Claim #${reopenCount} - Chargeable)`
+      : `Job Reopened (${finalTargetStatus})`;
+
+    const statusNotes = `Reason: ${reason || 'Customer reported issue under warranty period'}. Moved to ${finalTargetStatus}. Staff: ${req.user.full_name || req.user.email}.${isSameIssue ? ' Covered under warranty: ₹0 balance, no approval needed.' : ''}${notes ? ` Staff notes: ${notes}` : ''}`;
+
+    await db.jobs.updateStatus(
+      id,
+      finalTargetStatus,
+      statusTitle,
+      statusNotes,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    try {
+      const customer = await db.customers.findById(updatedJob.customer_id);
+      dispatchNotification({
+        job: updatedJob,
+        customer,
+        type: 'JOB_REOPENED',
+      }).catch((notifyErr) => console.warn('Reopen notification ignored:', notifyErr.message));
+    } catch (notifyErr) {
+      console.warn('Reopen notification error:', notifyErr.message);
+    }
+
+    res.json({
+      success: true,
+      message: isSameIssue
+        ? `Job #${job.job_number} reopened under Warranty Claim! Free rework authorized (₹0 balance, pre-approved). Stage set to ${finalTargetStatus}.`
+        : isWarrantyClaim
+        ? `Job #${job.job_number} reopened under Warranty Claim! Stage set to ${finalTargetStatus}.`
+        : `Job #${job.job_number} successfully reopened! Stage set to ${finalTargetStatus}.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const authorizeWarrantyRework = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { is_same_issue = true, notes = 'Free warranty rework authorized by shop' } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const updatePayload = {
+      is_warranty_claim: true,
+      warranty_same_issue: is_same_issue,
+      warranty_free_rework: is_same_issue,
+      warranty_claim_type: is_same_issue ? 'SAME_ISSUE' : 'NEW_ISSUE',
+      reopen_notes: notes || job.reopen_notes,
+    };
+
+    if (is_same_issue) {
+      updatePayload.approval_status = 'APPROVED';
+      updatePayload.approval_decision_at = new Date().toISOString();
+      updatePayload.approval_notes = 'Pre-authorized under warranty: Free rework for same issue';
+      updatePayload.previous_total_amount = job.previous_total_amount || job.total_amount;
+      updatePayload.previous_balance_due = job.previous_balance_due || job.balance_due;
+      updatePayload.total_amount = 0.00;
+      updatePayload.balance_due = 0.00;
+      updatePayload.payment_status = 'PAID';
+    } else {
+      updatePayload.approval_status = 'PENDING';
+    }
+
+    await db.jobs.update(id, updatePayload);
+
+    await db.jobs.updateStatus(
+      id,
+      job.status,
+      is_same_issue ? 'Warranty Rework Authorized (Free - Same Issue)' : 'Warranty Settings Updated',
+      `Shop staff ${req.user.full_name}: ${notes}. ${is_same_issue ? 'Pre-authorized under warranty. No customer approval or payment required (₹0 balance due).' : 'New issue: requires customer approval.'}`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+    res.json({
+      success: true,
+      message: is_same_issue
+        ? `Job #${job.job_number} authorized as Free Warranty Rework! Customer approval and payment set to ₹0.`
+        : `Job #${job.job_number} warranty status updated.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateJobStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, notes, send_notification = false } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const validStatuses = [
+      'RECEIVED',
+      'DIAGNOSING',
+      'ESTIMATE_SENT',
+      'APPROVED',
+      'REJECTED',
+      'IN_PROGRESS',
+      'TESTING',
+      'READY_FOR_PICKUP',
+      'DELIVERED',
+      'CANCELLED',
+    ];
+
+    if (!status || !validStatuses.includes(status)) {
+      throw new AppError(
+        `Invalid status "${status}". Allowed values: ${validStatuses.join(', ')}`,
+        400,
+        'INVALID_STATUS'
+      );
+    }
+
+    if (status === job.status) {
+      return res.json({
+        success: true,
+        message: `Job #${job.job_number} is already in ${status} status.`,
+        data: { job },
+      });
+    }
+
+    const actionTitle = `Status Changed to ${status} (Owner Override)`;
+    const actionNotes = notes?.trim()
+      ? `Status changed from ${job.status} to ${status}. Notes: ${notes.trim()} (Staff: ${req.user.full_name || 'Owner'}).`
+      : `Status changed from ${job.status} to ${status} by ${req.user.full_name || 'Shop Owner'}.`;
+
+    const jobUpdates = {};
+
+    if (status === 'DELIVERED') {
+      jobUpdates.delivered_at = new Date().toISOString();
+      jobUpdates.delivered_by_user_id = req.user.id;
+      jobUpdates.customer_tested_device = true;
+      jobUpdates.customer_acceptance_confirmed = true;
+    } else if (['RECEIVED', 'DIAGNOSING', 'APPROVED', 'IN_PROGRESS', 'TESTING'].includes(status)) {
+      if (job.status === 'DELIVERED') {
+        jobUpdates.customer_acceptance_confirmed = false;
+        jobUpdates.delivered_at = null;
+      }
+    }
+
+    if (Object.keys(jobUpdates).length > 0) {
+      await db.jobs.update(id, jobUpdates);
+    }
+
+    await db.jobs.updateStatus(
+      id,
+      status,
+      actionTitle,
+      actionNotes,
+      req.user.id
+    );
+
+    if (status === 'DELIVERED') {
+      await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id }).catch(() => {});
+    }
+
+    const updatedJob = await db.jobs.findById(id);
+
+    if (send_notification) {
+      try {
+        const customer = await db.customers.findById(updatedJob.customer_id);
+        const notificationType = status === 'DELIVERED'
+          ? 'INVOICE_GENERATED'
+          : status === 'READY_FOR_PICKUP'
+          ? 'READY_FOR_PICKUP'
+          : 'STATUS_UPDATE';
+
+        dispatchNotification({
+          job: updatedJob,
+          customer,
+          type: notificationType,
+        }).catch((notifyErr) => console.warn('Status notification error:', notifyErr.message));
+      } catch (err) {
+        console.warn('Customer notification failed:', err.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Job #${job.job_number} status successfully updated to ${status}.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const applyDiscount = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { discount_type = 'AMOUNT', discount_value = 0, notes = '' } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const isPercentage = String(discount_type).toUpperCase() === 'PERCENTAGE';
+    const numValue = Math.max(0, parseFloat(discount_value) || 0);
+
+    const estimate = await db.estimates.getByJobId(id);
+    let baseSubtotal = 0;
+    const taxRate = job.tax_rate !== undefined ? job.tax_rate : (estimate?.tax_rate || 0);
+
+    if (estimate && ((estimate.parts_subtotal || 0) > 0 || (estimate.labor_charge || 0) > 0)) {
+      baseSubtotal = (estimate.parts_subtotal || 0) + (estimate.labor_charge || 0);
+    } else if (job.subtotal > 0) {
+      baseSubtotal = job.subtotal;
+    } else {
+      baseSubtotal = Math.max(0, (job.total_amount || 0) + (job.discount || 0));
+    }
+
+    let parsedDiscount = 0;
+    let finalDiscountValue = 0;
+
+    if (isPercentage) {
+      const clampedPercent = Math.min(100, numValue);
+      parsedDiscount = parseFloat(((baseSubtotal * clampedPercent) / 100).toFixed(2));
+      finalDiscountValue = clampedPercent;
+    } else {
+      parsedDiscount = Math.min(baseSubtotal, numValue);
+      finalDiscountValue = numValue;
+    }
+
+    const subtotalAfterDiscount = Math.max(0, baseSubtotal - parsedDiscount);
+    const taxAmount = parseFloat(((subtotalAfterDiscount * (taxRate || 0)) / 100).toFixed(2));
+    const newTotal = parseFloat((subtotalAfterDiscount + taxAmount).toFixed(2));
+    const paidAmount = job.paid_amount || 0;
+    const newBalanceDue = Math.max(0, parseFloat((newTotal - paidAmount).toFixed(2)));
+
+    // Update job
+    await db.jobs.update(id, {
+      discount: parsedDiscount,
+      discount_type: isPercentage ? 'PERCENTAGE' : 'AMOUNT',
+      discount_value: finalDiscountValue,
+      subtotal: parseFloat(baseSubtotal.toFixed(2)),
+      tax_amount: taxAmount,
+      total_amount: newTotal,
+      balance_due: newBalanceDue,
+      payment_status: newBalanceDue === 0 && paidAmount > 0 ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'UNPAID'),
+    });
+
+    // Update estimate if exists
+    if (estimate) {
+      await db.estimates.updateDiscount({
+        jobId: id,
+        discount: parsedDiscount,
+        discountType: isPercentage ? 'PERCENTAGE' : 'AMOUNT',
+        discountValue: finalDiscountValue,
+        taxAmount,
+        totalAmount: newTotal,
+      });
+    }
+
+    // Refresh invoice
+    await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id }).catch(() => {});
+
+    // Log history
+    await db.jobs.updateStatus(
+      id,
+      job.status,
+      'Discount Applied',
+      `Discount updated: ${isPercentage ? `${finalDiscountValue}%` : `₹${finalDiscountValue.toFixed(2)}`} applied. New Total: ₹${newTotal.toFixed(2)}, Balance Due: ₹${newBalanceDue.toFixed(2)}.${notes ? ` (${notes})` : ''}`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: `Discount successfully applied. New total: ₹${newTotal.toFixed(2)}.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+

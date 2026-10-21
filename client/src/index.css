@@ -35,6 +35,7 @@
   --spatial-input-bg: #090e1a;
   --spatial-table-header-bg: #090e1a;
   --spatial-table-row-hover: rgba(56, 189, 248, 0.04);
+  --spatial-bg-dropdown: #0e1526;
 }
 
 /* --------------------------------------------------------------------------
@@ -62,6 +63,7 @@
   --spatial-input-bg: #090e1a;
   --spatial-table-header-bg: #090e1a;
   --spatial-table-row-hover: rgba(56, 189, 248, 0.04);
+  --spatial-bg-dropdown: #0e1526;
 }
 
 [data-spatial-style="dark-spatial"][data-theme="light"] {
@@ -70,7 +72,7 @@
   --spatial-bg-card: #ffffff;
   --spatial-bg-card-hover: #ffffff;
   --spatial-bg-card-subtle: #f8fafc;
-  --spatial-border: rgba(15, 23, 42, 0.09);
+  --spatial-border: rgba(15, 23, 42, 0.16);
   --spatial-border-hover: rgba(2, 132, 199, 0.4);
   --spatial-border-glow: rgba(2, 132, 199, 0.25);
   --spatial-text-title: #090d16;
@@ -86,6 +88,7 @@
   --spatial-input-bg: #f8fafc;
   --spatial-table-header-bg: #f8fafc;
   --spatial-table-row-hover: rgba(2, 132, 199, 0.04);
+  --spatial-bg-dropdown: #ffffff;
 }
 
 /* --------------------------------------------------------------------------
@@ -97,7 +100,7 @@
   --spatial-bg-card: #ffffff;
   --spatial-bg-card-hover: #ffffff;
   --spatial-bg-card-subtle: #f8fafc;
-  --spatial-border: #e2e8f0;
+  --spatial-border: #cbd5e1;
   --spatial-border-hover: #cbd5e1;
   --spatial-border-glow: rgba(2, 132, 199, 0.2);
   --spatial-text-title: #0f172a;
@@ -113,6 +116,7 @@
   --spatial-input-bg: #f8fafc;
   --spatial-table-header-bg: #f8fafc;
   --spatial-table-row-hover: #f1f5f9;
+  --spatial-bg-dropdown: #ffffff;
 }
 
 [data-spatial-style="clean-light"][data-theme="dark"] {
@@ -137,6 +141,7 @@
   --spatial-input-bg: #111a2e;
   --spatial-table-header-bg: #131d33;
   --spatial-table-row-hover: rgba(255, 255, 255, 0.03);
+  --spatial-bg-dropdown: #1e293b;
 }
 
 /* --------------------------------------------------------------------------
@@ -164,6 +169,7 @@
   --spatial-input-bg: rgba(8, 14, 26, 0.7);
   --spatial-table-header-bg: rgba(8, 14, 26, 0.6);
   --spatial-table-row-hover: rgba(56, 189, 248, 0.08);
+  --spatial-bg-dropdown: #0b1120;
 }
 
 [data-spatial-style="futuristic-glass"][data-theme="light"] {
@@ -188,6 +194,7 @@
   --spatial-input-bg: rgba(255, 255, 255, 0.85);
   --spatial-table-header-bg: rgba(241, 245, 249, 0.8);
   --spatial-table-row-hover: rgba(2, 132, 199, 0.05);
+  --spatial-bg-dropdown: #ffffff;
 }
 
 /* ==========================================================================
@@ -243,6 +250,36 @@
   transform: scale(0.99) translateY(0);
 }
 
+/* Spatial Dropdown Panel (100% Solid, Fully Opaque Background - Never Transparent) */
+.spatial-dropdown-panel {
+  background-color: var(--spatial-bg-dropdown, #ffffff) !important;
+  opacity: 1 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: 1px solid var(--spatial-border);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.5), 0 0 1px 1px rgba(0, 0, 0, 0.08);
+  border-radius: 0.875rem;
+}
+
+[data-theme="light"] .spatial-dropdown-panel,
+[data-spatial-style="clean-light"] .spatial-dropdown-panel {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 20px 35px -8px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* Global Select & Option styling */
+select {
+  background-color: var(--spatial-input-bg);
+  color: var(--spatial-text-title);
+}
+
+select option {
+  background-color: var(--spatial-bg-dropdown, #ffffff);
+  color: var(--spatial-text-title);
+  padding: 6px 12px;
+}
+
 /* Spatial Inner Box (for interactive tiles/cards inside a container card) */
 .spatial-inner-box {
   background-color: var(--spatial-bg-card-subtle);
@@ -284,7 +321,16 @@
   border-right: 1px solid var(--spatial-border);
   transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
               background-color 200ms ease,
-              border-color 200ms ease;
+              border-color 200ms ease,
+              opacity 200ms ease,
+              visibility 200ms ease;
+}
+
+body.modal-open .spatial-sidebar {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  transform: translateX(-100%) !important;
 }
 
 /* Spatial Inputs */
@@ -445,6 +491,103 @@ select option:checked {
   background-color: var(--spatial-border-hover);
 }
 
+/* Explicit Horizontal Table Scrollbar with high contrast and smooth handling */
+.table-scrollbar {
+  overflow-x: auto !important;
+  overflow-y: hidden;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.45) rgba(0, 0, 0, 0.25);
+}
+
+.table-scrollbar::-webkit-scrollbar {
+  height: 8px !important;
+}
+
+.table-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.35);
+  border-radius: 9999px;
+  margin: 0 4px;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.45);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background-color 150ms ease;
+}
+
+.table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--spatial-primary, #38bdf8);
+}
+
+[data-theme="light"] .table-scrollbar {
+  scrollbar-color: rgba(2, 132, 199, 0.45) rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .table-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .table-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(2, 132, 199, 0.45);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme="light"] .table-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0284c7;
+}
+
+/* Modal Vertical Scrollbar with high visibility, smooth scrolling, and custom spatial thumb */
+.modal-scrollbar {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.7) rgba(0, 0, 0, 0.2);
+  scrollbar-gutter: stable;
+}
+
+.modal-scrollbar::-webkit-scrollbar {
+  width: 8px !important;
+  display: block !important;
+}
+
+.modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 9999px;
+  margin: 4px 0;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.7);
+  border-radius: 9999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  transition: background-color 150ms ease;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--spatial-primary, #38bdf8);
+}
+
+[data-theme="light"] .modal-scrollbar {
+  scrollbar-color: rgba(2, 132, 199, 0.65) rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .modal-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .modal-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(2, 132, 199, 0.65);
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="light"] .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #0284c7;
+}
+
 /* ==========================================================================
    GLOBAL DARK MODE THEME ADAPTATION
    Automatically maps standard utility classes to spatial tokens in Dark mode
@@ -506,6 +649,47 @@ select option:checked {
 }
 .dark table tbody tr:hover {
   background-color: var(--spatial-table-row-hover);
+}
+
+/* ==========================================================================
+   UNIVERSAL FORM CONTROLS: CRISP OUTLINES & NEVER-CLIPPED FOCUS RINGS
+   ========================================================================== */
+input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):not([type="range"]),
+select,
+textarea {
+  box-sizing: border-box;
+}
+
+/* Ensure focus outline / ring is crisp and never cut off by overflow */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+}
+
+/* Upgrade faint slate-200 borders on form inputs to crisp, visible borders */
+input.border-slate-200,
+select.border-slate-200,
+textarea.border-slate-200 {
+  border-color: #cbd5e1 !important;
+}
+
+[data-theme="dark"] input.border-slate-200,
+[data-theme="dark"] select.border-slate-200,
+[data-theme="dark"] textarea.border-slate-200 {
+  border-color: #334155 !important;
+}
+
+/* Crisp 2px focus ring that never clips or renders subpixel invisible */
+input.focus\:ring-1:focus,
+input.focus\:ring-primary-500:focus,
+select.focus\:ring-1:focus,
+select.focus\:ring-primary-500:focus,
+textarea.focus\:ring-1:focus,
+textarea.focus\:ring-primary-500:focus {
+  outline: none !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25) !important;
 }
 
 /* Print Styles for Job Sheets and Invoices */

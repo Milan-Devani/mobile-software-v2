@@ -5,9 +5,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Load .env from server directory or root directory
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+// Load .env from server directory or root directory with override
+dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
+dotenv.config({ path: path.resolve(__dirname, '../../../.env'), override: true });
 
 export const env = {
   PORT: process.env.PORT || 5000,
@@ -48,4 +48,20 @@ export const env = {
   // Fast2SMS (WhatsApp & SMS)
   FAST2SMS_API_KEY: process.env.FAST2SMS_API_KEY || '',
   FAST2SMS_PHONE_NUMBER_ID: process.env.FAST2SMS_PHONE_NUMBER_ID || '',
+
+  // Database Connection URL (Direct/Pooler PostgreSQL for pg_dump/psql)
+  DATABASE_URL: process.env.DATABASE_URL || '',
+
+  // Google Drive Backup (OAuth 2.0)
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+  GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || '',
+  GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
+
+  // Backup Security & Retention
+  BACKUP_ENCRYPTION_KEY: process.env.BACKUP_ENCRYPTION_KEY || '',
+  BACKUP_RETENTION_DAYS: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
+  BACKUP_TEMP_DIR: process.env.BACKUP_TEMP_DIR || '',
+  BACKUP_TIMEOUT_MS: parseInt(process.env.BACKUP_TIMEOUT_MS || '300000', 10),
+  BACKUP_SCHEDULE: process.env.BACKUP_SCHEDULE || '0 2 * * *',
 };

@@ -114,3 +114,39 @@ export const createUser = async (req, res, next) => {
     next(err);
   }
 };
+
+export const deleteUser = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (id === req.user.id) {
+      throw new AppError('You cannot delete your own active account.', 400, 'CANNOT_DELETE_SELF');
+    }
+    const deleted = await db.users.delete(id, req.user.id);
+    if (!deleted) {
+      throw new AppError('User not found.', 404, 'USER_NOT_FOUND');
+    }
+    res.json({
+      success: true,
+      message: 'User account removed successfully.',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkDeleteUsers = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No user IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
+    }
+    const count = await db.users.bulkDelete(ids, req.user.id);
+    res.json({
+      success: true,
+      message: `Successfully removed ${count} user account(s).`,
+      data: { count },
+    });
+  } catch (err) {
+    next(err);
+  }
+};

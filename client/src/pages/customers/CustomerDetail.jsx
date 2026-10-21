@@ -25,6 +25,7 @@ import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
 
 export const CustomerDetail = () => {
   const { id } = useParams();
@@ -32,6 +33,8 @@ export const CustomerDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [jobPage, setJobPage] = useState(1);
+  const [jobPageSize, setJobPageSize] = useState(10);
 
   const handleDeleteCustomer = () => {
     Swal.fire({
@@ -299,71 +302,90 @@ export const CustomerDetail = () => {
             onAction={() => navigate(`/jobs/new?customer_id=${customer.id}`)}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px]">
-                <tr>
-                  <th className="px-5 py-3">Job Number</th>
-                  <th className="px-5 py-3">Device & Model</th>
-                  <th className="px-5 py-3">Reported Issue</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Estimate</th>
-                  <th className="px-5 py-3 text-right">Paid</th>
-                  <th className="px-5 py-3 text-right">Balance</th>
-                  <th className="px-5 py-3">Date</th>
-                  <th className="px-5 py-3 text-center">View</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {jobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    onClick={() => navigate(`/jobs/${job.id}`)}
-                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
-                  >
-                    <td className="px-5 py-3.5 font-mono font-bold text-primary-600">
-                      {job.job_number}
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-slate-900">
-                      {job.device?.brand} {job.device?.model}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-600 max-w-xs truncate">
-                      {job.customer_complaint}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <Badge status={job.status} />
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono text-slate-700">
-                      ${Number(job.total_amount || 0).toFixed(2)}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono text-emerald-600 font-semibold">
-                      ${Number(job.paid_amount || 0).toFixed(2)}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono font-bold">
-                      {job.balance_due > 0 ? (
-                        <span className="text-rose-600">${Number(job.balance_due).toFixed(2)}</span>
-                      ) : (
-                        <span className="text-slate-400">$0.00</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-slate-500">
-                      {new Date(job.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${job.id}`);
-                        }}
-                        className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
+          <div>
+            <div className="overflow-x-auto table-scrollbar w-full pb-2">
+              <table className="w-full text-left text-xs min-w-[950px]">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <tr>
+                    <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Reported Issue</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Estimate</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Paid</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Balance</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Date</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">View</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {jobs
+                    .slice((jobPage - 1) * jobPageSize, jobPage * jobPageSize)
+                    .map((job) => (
+                      <tr
+                        key={job.id}
+                        onClick={() => navigate(`/jobs/${job.id}`)}
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                      >
+                        <td className="px-5 py-3.5 font-mono font-bold text-primary-600 whitespace-nowrap">
+                          {job.job_number}
+                        </td>
+                        <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">
+                          {job.device?.brand} {job.device?.model}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-600 max-w-xs truncate whitespace-nowrap" title={job.customer_complaint}>
+                          {job.customer_complaint || '—'}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <Badge status={job.status} />
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                          ₹{Number(job.total_amount || 0).toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono text-emerald-600 font-semibold whitespace-nowrap">
+                          ₹{Number(job.paid_amount || 0).toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono font-bold whitespace-nowrap">
+                          {job.balance_due > 0 ? (
+                            <span className="text-rose-600">₹{Number(job.balance_due).toLocaleString()}</span>
+                          ) : (
+                            <span className="text-slate-400">₹0</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                          {new Date(job.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/jobs/${job.id}`);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+
+            {jobs.length > 0 && (
+              <SpatialPagination
+                currentPage={jobPage}
+                totalPages={Math.ceil(jobs.length / jobPageSize) || 1}
+                totalItems={jobs.length}
+                pageSize={jobPageSize}
+                pageSizeOptions={[10, 15, 20, 50]}
+                onPageChange={setJobPage}
+                onPageSizeChange={(newSize) => {
+                  setJobPageSize(newSize);
+                  setJobPage(1);
+                }}
+              />
+            )}
           </div>
         )}
       </Card>

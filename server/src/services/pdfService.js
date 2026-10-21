@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
+import { execSync } from 'child_process';
 import QRCode from 'qrcode';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
 
@@ -55,11 +56,17 @@ function generateBarcodeSvg(val, height = 20, align = 'right') {
 
 function findBrowserBinary() {
   const candidatePaths = [
+    process.env.CHROME_BIN,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
     'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-  ];
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+  ].filter(Boolean);
   for (const p of candidatePaths) {
     if (fs.existsSync(p)) return p;
   }
@@ -352,12 +359,13 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width:30px; text-align:center;">#</th>
+              <th style="width:25px; text-align:center;">#</th>
               <th>Item / Service Description</th>
-              <th style="width:65px; text-align:center;">Type</th>
-              <th style="width:45px; text-align:center;">Qty</th>
-              <th style="width:85px; text-align:right;">Unit Rate (₹)</th>
-              <th style="width:90px; text-align:right;">Total (₹)</th>
+              <th style="width:80px; text-align:center;">Warranty</th>
+              <th style="width:55px; text-align:center;">Type</th>
+              <th style="width:35px; text-align:center;">Qty</th>
+              <th style="width:80px; text-align:right;">Unit Rate (₹)</th>
+              <th style="width:85px; text-align:right;">Total (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -365,6 +373,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               <tr>
                 <td style="text-align:center; font-family:monospace;">${idx + 1}</td>
                 <td><b>${it.item_name}</b></td>
+                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${it.warranty || invoice?.warranty_period || '—'}</td>
                 <td style="text-align:center; font-family:monospace;">${it.item_type || 'PART'}</td>
                 <td style="text-align:center; font-family:monospace;">${it.quantity || 1}</td>
                 <td style="text-align:right; font-family:monospace;">${Number(it.unit_price).toFixed(2)}</td>
@@ -374,6 +383,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               <tr>
                 <td style="text-align:center;">1</td>
                 <td><b>Standard Diagnostic / Service Fee</b></td>
+                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per items')}</td>
                 <td style="text-align:center;">SERVICE</td>
                 <td style="text-align:center;">1</td>
                 <td style="text-align:right;">${Number(job.total_amount || 0).toFixed(2)}</td>
@@ -388,11 +398,11 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           <div style="line-height:1.35;">
             <div>Payment Status: <b>${job.payment_status || 'SETTLED'}</b></div>
             <div>Paid Via: ${paidViaSummary}</div>
-            <div>Warranty Coverage: <b>${invoice?.warranty_period || '90 Days Hardware Warranty'}</b></div>
+            <div>Warranty Coverage: <b>${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per line items')}</b></div>
           </div>
           <div style="width:230px; font-family:monospace; font-size:11.5px; line-height:1.3;">
             <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><b>₹${Number(invoice?.subtotal || job.subtotal || 0).toFixed(2)}</b></div>
-            ${Number(invoice?.discount || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Discount Applied:</span><b>-₹${Number(invoice.discount).toFixed(2)}</b></div>` : ''}
+            ${Number(invoice?.discount || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Discount Applied${invoice?.discount_type === 'PERCENTAGE' && invoice?.discount_value ? ` (${invoice.discount_value}%)` : ''}:</span><b>-₹${Number(invoice.discount).toFixed(2)}</b></div>` : ''}
             ${Number(invoice?.tax_amount || 0) > 0 || Number(invoice?.tax_rate || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>GST / Tax (${invoice?.tax_rate ?? 18}%):</span><b>₹${Number(invoice?.tax_amount || 0).toFixed(2)}</b></div>` : `<div style="display:flex; justify-content:space-between; color:#666;"><span>GST / Tax:</span><b>Nil (₹0.00)</b></div>`}
             <div style="display:flex; justify-content:space-between; border-top:1px solid #000; padding-top:2px; font-weight:900; font-size:12.5px;"><span>Total Invoice Amount:</span><span>₹${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}</span></div>
             <div style="display:flex; justify-content:space-between; font-weight:700;"><span>Amount Paid:</span><span>₹${Number(invoice?.paid_amount || job.paid_amount || 0).toFixed(2)}</span></div>

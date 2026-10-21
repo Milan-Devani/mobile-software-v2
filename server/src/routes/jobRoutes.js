@@ -15,7 +15,13 @@ import {
   markReadyForPickup,
   recordPickup,
   cancelJob,
-  deleteJob
+  reopenJob,
+  authorizeWarrantyRework,
+  updateJobStatus,
+  deleteJob,
+  bulkDeleteJobs,
+  bulkUpdateJobStatus,
+  applyDiscount
 } from '../controllers/jobController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -34,6 +40,8 @@ router.post('/public/approval/:tokenOrJobNumber', publicSubmitApproval);
 router.use(authenticateToken);
 
 router.get('/', requireAnyRole, getJobs);
+router.post('/bulk-delete', requireAnyRole, bulkDeleteJobs);
+router.post('/bulk-status', requireAnyRole, bulkUpdateJobStatus);
 router.get('/:id', requireAnyRole, getJobById);
 router.post('/', requireStaffOrAdmin, createJob);
 router.put('/:id', requireAnyRole, updateJob);
@@ -49,5 +57,10 @@ router.post('/:id/testing', requireTechnicianOrAdmin, saveTests);
 router.post('/:id/ready-for-pickup', requireTechnicianOrAdmin, markReadyForPickup);
 router.post('/:id/pickup', requireStaffOrAdmin, recordPickup);
 router.post('/:id/cancel', requireStaffOrAdmin, cancelJob);
+router.post('/:id/reopen', requireStaffOrAdmin, reopenJob);
+router.post('/:id/warranty-authorize', requireStaffOrAdmin, authorizeWarrantyRework);
+router.post('/:id/status', requireStaffOrAdmin, updateJobStatus);
+router.put('/:id/status', requireStaffOrAdmin, updateJobStatus);
+router.post('/:id/discount', requireStaffOrAdmin, applyDiscount);
 
 export default router;

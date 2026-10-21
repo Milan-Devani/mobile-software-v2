@@ -77,8 +77,33 @@ export const jobService = {
     return res.data.job;
   },
 
+  reopenJob: async (id, data = {}) => {
+    const res = await api.post(`/jobs/${id}/reopen`, data);
+    return res.data;
+  },
+
+  authorizeWarrantyRework: async (id, data = {}) => {
+    const res = await api.post(`/jobs/${id}/warranty-authorize`, data);
+    return res.data;
+  },
+
+  updateJobStatus: async (id, data = {}) => {
+    const res = await api.post(`/jobs/${id}/status`, data);
+    return res.data;
+  },
+
   deleteJob: async (id) => {
     const res = await api.delete(`/jobs/${id}`);
+    return res.data;
+  },
+
+  bulkDeleteJobs: async (ids) => {
+    const res = await api.post('/jobs/bulk-delete', { ids });
+    return res.data;
+  },
+
+  bulkUpdateStatus: async (ids, status, notes = '') => {
+    const res = await api.post('/jobs/bulk-status', { ids, status, notes });
     return res.data;
   },
 

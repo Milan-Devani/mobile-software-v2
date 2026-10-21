@@ -85,7 +85,7 @@ export const dispatchNotification = async ({
           <p>We have completed diagnosis of your <strong>${job.device?.brand || ''} ${job.device?.model || 'Device'}</strong> (Job #${job.job_number}).</p>
           <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 15px 0;">
             <p style="margin: 0 0 8px 0;"><strong>Estimated Total:</strong> <span style="font-size: 20px; color: #0f172a; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</span></p>
-            <p style="margin: 0; color: #64748b; font-size: 13px;">Includes diagnostic labor, genuine replacement parts, and 90-day warranty.</p>
+            <p style="margin: 0; color: #64748b; font-size: 13px;">Includes diagnostic labor and genuine replacement parts.</p>
           </div>
           <div style="text-align: center; margin: 25px 0;">
             <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Review & Approve Repair Online</a>
@@ -122,43 +122,78 @@ export const dispatchNotification = async ({
       `;
       break;
 
-    case 'INVOICE_GENERATED':
-      subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
-      plainMessage = `Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. Warranty: ${job.warranty_days || 90} Days Hardware Warranty. View: ${approvalUrl}. ${shopName}`;
-      emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-          <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
-          <p style="color: #16a34a; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Tax Invoice & Delivery Receipt</p>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
-          <p>Thank you for choosing ${shopName}. Your device has been delivered and service payment finalized.</p>
-          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-            <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Total Amount:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #16a34a;">${currSym}${Number(job.paid_amount || job.total_amount).toFixed(2)}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Warranty Coverage:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.warranty_days || 90} Days Hardware Warranty</td></tr>
-          </table>
-          <p style="font-size: 13px; color: #475569; margin: 15px 0;">
-            📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> Please keep this receipt for warranty claims.
-          </p>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
+    case 'INVOICE_GENERATED': {
+      const isWarranty = Boolean(
+        job.is_warranty_claim ||
+        job.warranty_same_issue ||
+        job.warranty_free_rework ||
+        metadata.isWarrantyHandover
+      );
+      if (isWarranty) {
+        subject = `[${shopName}] Warranty Handover & Service Receipt - Job #${job.job_number}`;
+        plainMessage = `Dear ${customer.full_name}, your warranty rework for ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
+        emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #059669; margin-bottom: 4px;">${shopName}</h2>
+            <p style="color: #059669; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Warranty Handover & Service Receipt (100% Free Rework)</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+            <p>Dear <strong>${customer.full_name}</strong>,</p>
+            <p>Your device rework has been completed and handed over to you under warranty coverage.</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+              <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Warranty Claim:</td><td style="padding: 6px; font-weight: bold; color: #059669;">Claim #${job.reopen_count || 1} (Covered Under Warranty)</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Rework Cost:</td><td style="padding: 6px; font-weight: bold; color: #059669;">${currSym}0.00 (100% Free Rework)</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Balance Due:</td><td style="padding: 6px; font-weight: bold;">${currSym}0.00</td></tr>
+            </table>
+            <p style="font-size: 13px; color: #475569; margin: 15px 0;">
+              📎 <strong>Official Warranty Service Invoice PDF is attached to this email.</strong> Please keep this receipt for your records.
+            </p>
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${approvalUrl}" style="background-color: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+            <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
           </div>
-          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
-        </div>
-      `;
+        `;
+      } else {
+        subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
+        plainMessage = `Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. View: ${approvalUrl}. ${shopName}`;
+        emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
+            <p style="color: #16a34a; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Tax Invoice & Delivery Receipt</p>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+            <p>Dear <strong>${customer.full_name}</strong>,</p>
+            <p>Thank you for choosing ${shopName}. Your device has been delivered and service payment finalized.</p>
+            <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+              <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Total Amount:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #16a34a;">${currSym}${Number(job.paid_amount || job.total_amount).toFixed(2)}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
+            </table>
+            <p style="font-size: 13px; color: #475569; margin: 15px 0;">
+              📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> Please keep this receipt for warranty claims.
+            </p>
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
+            </div>
+            <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+            <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
+          </div>
+        `;
+      }
       break;
+    }
 
     case 'PAYMENT_RECEIVED':
-      subject = `[${shopName}] Payment Receipt & Invoice - Job #${job.job_number}`;
-      plainMessage = `Thank you ${customer.full_name}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. Warranty: ${job.warranty_days || 90} Days. ${shopName}`;
+      subject = `[${shopName}] Payment Receipt - Job #${job.job_number}`;
+      plainMessage = `Thank you ${customer.full_name}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. ${shopName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
-          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Payment Receipt & Warranty Confirmation</p>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Payment Receipt Confirmation</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p>Dear <strong>${customer.full_name}</strong>,</p>
           <p>We have successfully recorded your payment for Job #${job.job_number}.</p>
@@ -167,11 +202,36 @@ export const dispatchNotification = async ({
             <tr><td style="padding: 6px; color: #64748b;">Payment Method:</td><td style="padding: 6px; font-weight: bold;">${metadata.paymentMethod || 'CASH'}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #10b981;">${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Warranty Coverage:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.warranty_days || 90} Days Hardware Warranty</td></tr>
           </table>
-          <p style="font-size: 13px; color: #475569;">Thank you for your business! Please keep this receipt for warranty claims.</p>
+          <p style="font-size: 13px; color: #475569;">Thank you for your business!</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
+        </div>
+      `;
+      break;
+
+    case 'JOB_REOPENED':
+      subject = `[${shopName}] Warranty Claim / Repair Reopened - Job #${job.job_number}`;
+      plainMessage = `Hello ${customer.full_name}, your repair Job #${job.job_number} for ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
+      emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #d97706; margin-bottom: 4px;">${shopName}</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Warranty Claim & Service Reopened</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>Your repair order <strong>Job #${job.job_number}</strong> has been reopened under warranty service.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Reported Warranty Issue:</td><td style="padding: 6px; font-weight: bold; color: #d97706;">${job.last_warranty_issue || 'Warranty claim'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Current Stage:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
+          </table>
+          <p style="font-size: 14px; color: #475569;">Our technicians will inspect and address this issue under your warranty policy.</p>
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${approvalUrl}" style="background-color: #d97706; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Status</a>
+          </div>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
         </div>
       `;
       break;

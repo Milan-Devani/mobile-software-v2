@@ -38,4 +38,14 @@ export const authService = {
     const res = await api.post('/auth/users', userData);
     return res.data.user;
   },
+
+  deleteUser: async (id) => {
+    const res = await api.delete(`/auth/users/${id}`);
+    return res.data;
+  },
+
+  bulkDeleteUsers: async (ids) => {
+    const res = await api.post('/auth/users/bulk-delete', { ids });
+    return res.data;
+  },
 };

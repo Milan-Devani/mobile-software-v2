@@ -1,0 +1,26 @@
+# ==============================================================================
+# RENDER CRON JOB / BACKUP WORKER DOCKERFILE
+# Includes Node.js runtime and native postgresql-client (pg_dump & psql)
+# ==============================================================================
+
+FROM node:20-alpine
+
+# Install postgresql-client for native logical pg_dump / psql utilities, plus ca-certificates
+RUN apk add --no-cache postgresql-client ca-certificates tzdata
+
+WORKDIR /app
+
+# Copy dependency manifests
+COPY package*.json ./
+
+# Install production dependencies
+RUN npm ci --only=production
+
+# Copy application source code
+COPY . .
+
+# Ensure backup scripts are executable
+RUN chmod +x src/scripts/runScheduledBackup.js src/scripts/restoreBackup.js
+
+# Default command executed when Render Cron Job triggers
+CMD ["node", "src/scripts/runScheduledBackup.js"]

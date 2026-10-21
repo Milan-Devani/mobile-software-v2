@@ -3,7 +3,13 @@ import api from './api';
 export const partsService = {
   getParts: async (params = {}) => {
     const res = await api.get('/parts', { params });
-    return res.data.parts;
+    if (res.data && res.data.parts) {
+      const partsArr = res.data.parts;
+      partsArr.total = res.data.total ?? partsArr.length;
+      partsArr.parts = partsArr;
+      return partsArr;
+    }
+    return res.data;
   },
 
   getPartById: async (id) => {
@@ -28,6 +34,11 @@ export const partsService = {
 
   deletePart: async (id) => {
     const res = await api.delete(`/parts/${id}`);
-    return res;
+    return res.data;
+  },
+
+  bulkDeleteParts: async (ids) => {
+    const res = await api.post('/parts/bulk-delete', { ids });
+    return res.data;
   },
 };

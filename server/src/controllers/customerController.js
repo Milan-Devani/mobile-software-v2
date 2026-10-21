@@ -178,3 +178,22 @@ export const deleteCustomer = async (req, res, next) => {
     next(err);
   }
 };
+
+export const bulkDeleteCustomers = async (req, res, next) => {
+  try {
+    const { ids, force = false } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No customer IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
+    }
+
+    const count = await db.customers.bulkDelete(ids, force);
+    res.json({
+      success: true,
+      message: `Successfully deleted ${count} customer(s).`,
+      data: { count },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+

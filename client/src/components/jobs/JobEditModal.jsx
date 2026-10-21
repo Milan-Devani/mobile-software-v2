@@ -10,6 +10,7 @@ import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/chec
 export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
   const [formData, setFormData] = useState({
     customer_complaint: '',
+    status: 'RECEIVED',
     priority: 'NORMAL',
     estimated_delivery_date: '',
     assigned_technician_id: '',
@@ -46,6 +47,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
       const dev = job.device || {};
       setFormData({
         customer_complaint: job.customer_complaint || '',
+        status: job.status || 'RECEIVED',
         priority: job.priority || 'NORMAL',
         estimated_delivery_date: job.estimated_delivery_date ? job.estimated_delivery_date.split('T')[0] : '',
         assigned_technician_id: job.assigned_technician_id || '',
@@ -386,8 +388,30 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
           </div>
         </div>
 
-        {/* Technician & Priority Assignment */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* Status, Technician & Priority Assignment */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              Job Status (Owner)
+            </label>
+            <select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              className="w-full px-3 py-2 bg-white border border-primary-200 rounded-lg text-xs font-bold text-primary-700 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            >
+              <option value="RECEIVED">Received</option>
+              <option value="DIAGNOSING">Diagnosing</option>
+              <option value="ESTIMATE_SENT">Estimate Sent</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Estimate Rejected</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="TESTING">Testing</option>
+              <option value="READY_FOR_PICKUP">Ready for Pickup</option>
+              <option value="DELIVERED">Delivered</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
               Assigned Technician

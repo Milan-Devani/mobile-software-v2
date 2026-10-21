@@ -196,7 +196,14 @@ export function getBaileysStatus() {
 export async function logoutBaileys() {
   try {
     if (sock) {
-      await sock.logout();
+      try {
+        await sock.logout();
+      } catch (e) {
+        console.warn('Sock logout notice:', e.message);
+      }
+      try {
+        sock.end();
+      } catch {}
     }
   } catch (err) {
     console.warn('Warning during Baileys logout:', err.message);
@@ -205,15 +212,19 @@ export async function logoutBaileys() {
     currentStatus = 'DISCONNECTED';
     currentQrDataUrl = null;
     connectedUser = null;
-    isInitializing = false;
+    initPromise = null;
 
     try {
       if (fs.existsSync(AUTH_DIR)) {
-        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
-        fs.mkdirSync(AUTH_DIR, { recursive: true });
+        const entries = fs.readdirSync(AUTH_DIR);
+        for (const entry of entries) {
+          try {
+            fs.rmSync(path.join(AUTH_DIR, entry), { recursive: true, force: true });
+          } catch {}
+        }
       }
     } catch (e) {
-      console.error('Error clearing auth dir:', e);
+      console.warn('Notice clearing auth dir:', e.message);
     }
   }
 

@@ -13,19 +13,29 @@ import {
   Filter,
   Calendar,
   Eye,
+  Trash2,
+  Edit3,
   Layers,
   Sparkles
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { dashboardService } from '../../services/dashboardService';
+import { jobService } from '../../services/jobService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const navigate = useNavigate();
 
   const fetchStats = async () => {
@@ -62,6 +72,113 @@ export const Dashboard = () => {
       job.customer_complaint?.toLowerCase().includes(search.toLowerCase());
     return matchesStatus && matchesSearch;
   });
+
+  const totalItems = filteredJobs.length;
+  const paginatedJobs = filteredJobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const isPageAllSelected =
+    paginatedJobs.length > 0 && paginatedJobs.every((j) => selectedIds.includes(j.id));
+
+  const toggleSelectAll = () => {
+    const pageIds = paginatedJobs.map((j) => j.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(selectedIds.filter((id) => !pageIds.includes(id)));
+    } else {
+      const merged = Array.from(new Set([...selectedIds, ...pageIds]));
+      setSelectedIds(merged);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSingleDelete = (job) => {
+    Swal.fire({
+      title: `Delete Job Sheet #${job.job_number}?`,
+      text: 'This will delete the job, diagnostics, invoice, and all associated service history.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete Job',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await jobService.deleteJob(job.id);
+          toast.success(`Job #${job.job_number} deleted successfully`);
+          setSelectedIds((prev) => prev.filter((id) => id !== job.id));
+          fetchStats();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete job');
+        }
+      }
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    Swal.fire({
+      title: `Delete ${selectedIds.length} Job Sheet(s)?`,
+      text: 'All selected repair jobs, diagnostics, estimates, and invoices will be permanently deleted.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete (${selectedIds.length}) Jobs`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await jobService.bulkDeleteJobs(selectedIds);
+          toast.success(res.message || `Deleted ${selectedIds.length} jobs`);
+          setSelectedIds([]);
+          fetchStats();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete jobs');
+        }
+      }
+    });
+  };
+
+  const handleBulkStatusUpdate = () => {
+    if (selectedIds.length === 0) return;
+    Swal.fire({
+      title: `Update Status for ${selectedIds.length} Jobs`,
+      input: 'select',
+      inputOptions: {
+        RECEIVED: 'Received / Intake',
+        DIAGNOSING: 'Diagnosing',
+        ESTIMATE_SENT: 'Estimate Sent',
+        APPROVED: 'Approved',
+        IN_PROGRESS: 'In Progress / Repairing',
+        TESTING: 'QC Testing',
+        READY_FOR_PICKUP: 'Ready for Pickup',
+        DELIVERED: 'Delivered / Completed',
+        CANCELLED: 'Cancelled',
+      },
+      inputPlaceholder: 'Select new lifecycle status',
+      showCancelButton: true,
+      confirmButtonText: 'Apply Status Update',
+      confirmButtonColor: '#0284c7',
+      cancelButtonColor: '#64748b',
+      inputValidator: (value) => {
+        if (!value) return 'Please choose a status';
+      },
+    }).then(async (result) => {
+      if (result.isConfirmed && result.value) {
+        try {
+          const res = await jobService.bulkUpdateStatus(selectedIds, result.value);
+          toast.success(res.message || `Updated status for ${selectedIds.length} jobs`);
+          setSelectedIds([]);
+          fetchStats();
+        } catch (err) {
+          toast.error(err.message || 'Failed to update job status');
+        }
+      }
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -177,10 +294,20 @@ export const Dashboard = () => {
         </div>
       </Card>
 
+      {/* Bulk Action Bar (when rows are selected) */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        onBulkUpdate={handleBulkStatusUpdate}
+        updateLabel="Change Status"
+        onBulkDelete={handleBulkDelete}
+        deleteLabel={`Delete (${selectedIds.length})`}
+      />
+
       {/* Recent Jobs Table */}
       <Card
         title="Recent Repair Jobs"
-        subtitle={`Showing ${filteredJobs.length} jobs`}
+        subtitle={`Showing ${paginatedJobs.length} of ${filteredJobs.length} jobs`}
         action={
           <div className="flex items-center gap-2">
             <div className="relative">
@@ -189,7 +316,10 @@ export const Dashboard = () => {
                 type="text"
                 placeholder="Filter recent..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="pl-8 pr-3 py-1.5 text-xs spatial-input rounded-xl w-40 sm:w-52"
               />
             </div>
@@ -213,69 +343,127 @@ export const Dashboard = () => {
             onAction={() => {
               setSearch('');
               setStatusFilter('ALL');
+              setCurrentPage(1);
             }}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px]">
-                <tr>
-                  <th className="px-5 py-3">Job Number</th>
-                  <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Device & Issue</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Estimate / Total</th>
-                  <th className="px-5 py-3 text-right">Balance</th>
-                  <th className="px-5 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--spatial-border)]">
-                {filteredJobs.map((job) => (
-                  <tr
-                    key={job.id}
-                    onClick={() => navigate(`/jobs/${job.id}`)}
-                    className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                  >
-                    <td className="px-5 py-3.5 font-mono font-bold text-sky-400">
-                      {job.job_number}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name}</p>
-                      <p className="text-[11px] text-[var(--spatial-text-muted)] font-mono">{job.customer?.phone}</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="font-medium text-[var(--spatial-text-title)]">{job.device?.brand} {job.device?.model}</p>
-                      <p className="text-[11px] text-[var(--spatial-text-muted)] truncate max-w-xs">{job.customer_complaint}</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <Badge status={job.status} />
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)]">
-                      ₹{Number(job.total_amount || 0).toLocaleString()}
-                    </td>
-                    <td className="px-5 py-3.5 text-right font-mono font-semibold">
-                      {job.balance_due > 0 ? (
-                        <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
-                      ) : (
-                        <span className="text-emerald-400">₹0</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/jobs/${job.id}`);
-                        }}
-                        className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
-                        title="View Job Sheet"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    </td>
+          <div>
+            <div className="overflow-x-auto table-scrollbar w-full pb-2">
+              <table className="w-full text-left text-xs min-w-[1100px]">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <tr>
+                    <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={isPageAllSelected}
+                        onChange={toggleSelectAll}
+                        aria-label="Select all on this page"
+                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                      />
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Customer</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Device & Issue</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Estimate / Total</th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">Balance</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--spatial-border)]">
+                  {paginatedJobs.map((job) => {
+                    const isSelected = selectedIds.includes(job.id);
+                    return (
+                      <tr
+                        key={job.id}
+                        onClick={() => navigate(`/jobs/${job.id}`)}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
+                          isSelected ? 'bg-sky-500/10' : ''
+                        }`}
+                      >
+                        <td
+                          className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(job.id)}
+                            aria-label={`Select job ${job.job_number}`}
+                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                          />
+                        </td>
+                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
+                          {job.job_number}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name || 'Walk-in'}</span>
+                            {job.customer?.phone && (
+                              <span className="text-[11px] text-[var(--spatial-text-muted)] font-mono">({job.customer.phone})</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="font-medium text-[var(--spatial-text-title)]">{job.device?.brand} {job.device?.model}</span>
+                            {job.customer_complaint && (
+                              <span className="text-[11px] text-[var(--spatial-text-muted)] max-w-xs truncate" title={job.customer_complaint}>
+                                • {job.customer_complaint}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <Badge status={job.status} />
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)] whitespace-nowrap">
+                          ₹{Number(job.total_amount || 0).toLocaleString()}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono font-semibold whitespace-nowrap">
+                          {job.balance_due > 0 ? (
+                            <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
+                          ) : (
+                            <span className="text-emerald-400">₹0</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => navigate(`/jobs/${job.id}`)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              title="View Job Sheet"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleSingleDelete(job)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Delete Job"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <SpatialPagination
+              currentPage={currentPage}
+              pageSize={pageSize}
+              totalItems={totalItems}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setCurrentPage(1);
+              }}
+              pageSizeOptions={[10, 15, 20]}
+            />
           </div>
         )}
       </Card>

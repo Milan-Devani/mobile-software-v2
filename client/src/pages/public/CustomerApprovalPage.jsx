@@ -167,20 +167,22 @@ export const CustomerApprovalPage = () => {
           {est && (
             <div className="pt-4 border-t border-slate-100 space-y-3">
               <h4 className="font-bold text-slate-900 uppercase text-[11px]">Cost Breakdown</h4>
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px]">
+              <div className="border border-slate-200 rounded-xl overflow-x-auto table-scrollbar pb-1">
+                <table className="w-full text-left text-xs min-w-[420px] whitespace-nowrap">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[10px] whitespace-nowrap">
                     <tr>
-                      <th className="px-3.5 py-2">Item / Service</th>
-                      <th className="px-3.5 py-2 text-center">Qty</th>
-                      <th className="px-3.5 py-2 text-right">Price</th>
-                      <th className="px-3.5 py-2 text-right">Total</th>
+                      <th className="px-3.5 py-2 whitespace-nowrap">Item / Service</th>
+                      <th className="px-3.5 py-2 text-center whitespace-nowrap">Warranty</th>
+                      <th className="px-3.5 py-2 text-center whitespace-nowrap">Qty</th>
+                      <th className="px-3.5 py-2 text-right whitespace-nowrap">Price</th>
+                      <th className="px-3.5 py-2 text-right whitespace-nowrap">Total</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {Number(est.labor_charge) > 0 && (
                       <tr>
                         <td className="px-3.5 py-2 font-medium">Diagnostic Labor & Service</td>
+                        <td className="px-3.5 py-2 text-center text-slate-400 text-[10px]">—</td>
                         <td className="px-3.5 py-2 text-center">1</td>
                         <td className="px-3.5 py-2 text-right font-mono">${Number(est.labor_charge).toFixed(2)}</td>
                         <td className="px-3.5 py-2 text-right font-mono font-semibold">${Number(est.labor_charge).toFixed(2)}</td>
@@ -189,6 +191,15 @@ export const CustomerApprovalPage = () => {
                     {(est.items || []).map((it, idx) => (
                       <tr key={idx}>
                         <td className="px-3.5 py-2 font-medium">{it.item_name}</td>
+                        <td className="px-3.5 py-2 text-center">
+                          {it.warranty ? (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                              {it.warranty}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">—</span>
+                          )}
+                        </td>
                         <td className="px-3.5 py-2 text-center">{it.quantity}</td>
                         <td className="px-3.5 py-2 text-right font-mono">${Number(it.unit_price).toFixed(2)}</td>
                         <td className="px-3.5 py-2 text-right font-mono font-semibold">${Number(it.total_price).toFixed(2)}</td>
@@ -197,6 +208,16 @@ export const CustomerApprovalPage = () => {
                   </tbody>
                 </table>
               </div>
+
+              {Number(est.discount || 0) > 0 && (
+                <div className="flex justify-between items-center text-xs text-emerald-700 font-semibold px-1">
+                  <span>
+                    Discount Applied
+                    {est.discount_type === 'PERCENTAGE' && est.discount_value ? ` (${est.discount_value}%)` : ''}:
+                  </span>
+                  <span className="font-mono">-${Number(est.discount).toFixed(2)}</span>
+                </div>
+              )}
 
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                 <div>

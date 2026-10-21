@@ -34,9 +34,17 @@ export class ErrorBoundary extends React.Component {
               <AlertTriangle className="w-8 h-8" />
             </div>
             <h2 className="text-2xl font-bold text-slate-900 mb-2">Something went wrong</h2>
-            <p className="text-slate-600 mb-6 text-sm">
-              An unexpected error occurred while rendering this page. Our team has been notified.
+            <p className="text-slate-600 mb-4 text-sm">
+              An unexpected error occurred while rendering this page.
             </p>
+            {this.state.error && (
+              <div className="text-left bg-rose-50 border border-rose-200 rounded-xl p-3.5 my-4 font-mono text-xs text-rose-800 overflow-x-auto max-h-52">
+                <div className="font-bold mb-1">{this.state.error.message || String(this.state.error)}</div>
+                {this.state.error.stack && (
+                  <div className="text-[10px] text-rose-600 opacity-80 whitespace-pre-wrap">{this.state.error.stack}</div>
+                )}
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={this.handleReset}

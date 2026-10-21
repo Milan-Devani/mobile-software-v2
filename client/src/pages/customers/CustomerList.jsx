@@ -14,15 +14,19 @@ import {
   MessageCircle,
   FileText,
   Pencil,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { useDebounce } from '../../hooks/useDebounce';
 import { customerService } from '../../services/customerService';
 import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const customerSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -45,6 +49,10 @@ export const CustomerList = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 500);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addSameAsPhone, setAddSameAsPhone] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -101,13 +109,17 @@ export const CustomerList = () => {
     },
   });
 
-  const fetchCustomers = async (query = '') => {
+  const fetchCustomers = async (query = debouncedSearch, pageNum = page, sizeNum = pageSize) => {
     try {
       setLoading(true);
-      const res = await customerService.getCustomers({ search: query, limit: 100 });
+      const res = await customerService.getCustomers({
+        search: query,
+        limit: sizeNum,
+        offset: (pageNum - 1) * sizeNum,
+      });
       setCustomers(res.customers || []);
       setTotal(res.total || 0);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load customers');
     } finally {
       setLoading(false);
@@ -115,11 +127,49 @@ export const CustomerList = () => {
   };
 
   useEffect(() => {
-    const delayDebounce = setTimeout(() => {
-      fetchCustomers(search);
-    }, 300);
-    return () => clearTimeout(delayDebounce);
-  }, [search]);
+    fetchCustomers(debouncedSearch, page, pageSize);
+  }, [debouncedSearch, page, pageSize]);
+
+  const toggleSelectAll = () => {
+    const pageIds = customers.map((c) => c.id);
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    if (allSelected) {
+      setSelectedIds(selectedIds.filter((id) => !pageIds.includes(id)));
+    } else {
+      const merged = Array.from(new Set([...selectedIds, ...pageIds]));
+      setSelectedIds(merged);
+    }
+  };
+
+  const toggleSelectRow = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    Swal.fire({
+      title: `Delete ${selectedIds.length} Customer(s)?`,
+      text: 'Are you sure you want to delete the selected customers? Their associated repair jobs and records will also be removed.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete (${selectedIds.length}) Customers`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await customerService.bulkDeleteCustomers(selectedIds, true);
+          toast.success(res.message || `Deleted ${selectedIds.length} customers`);
+          setSelectedIds([]);
+          fetchCustomers(search, page, pageSize);
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete customers');
+        }
+      }
+    });
+  };
 
   const onAddSubmit = async (data) => {
     try {
@@ -155,18 +205,43 @@ export const CustomerList = () => {
         </Button>
       </div>
 
+      {/* Bulk Action Bar (when rows are selected) */}
+      <BulkActionBar
+        selectedCount={selectedIds.length}
+        onClearSelection={() => setSelectedIds([])}
+        onBulkDelete={handleBulkDelete}
+        deleteLabel={`Delete (${selectedIds.length})`}
+      />
+
       <Card
         title={`All Customers (${total})`}
+        subtitle={`Showing page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`}
         action={
           <div className="relative">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search name, phone, email..."
+              placeholder="Search name, phone, email (500ms debounce)..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 text-xs spatial-input rounded-xl w-48 sm:w-64"
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="pl-8 pr-7 py-1.5 text-xs spatial-input rounded-xl w-52 sm:w-72"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setPage(1);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         }
         bodyClassName="p-0"
@@ -182,92 +257,125 @@ export const CustomerList = () => {
             onAction={() => setIsAddModalOpen(true)}
           />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px]">
-                <tr>
-                  <th className="px-5 py-3">Code</th>
-                  <th className="px-5 py-3">Customer Name</th>
-                  <th className="px-5 py-3">Phone & WhatsApp</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Location</th>
-                  <th className="px-5 py-3 text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--spatial-border)]">
-                {customers.map((c) => (
-                  <tr
-                    key={c.id}
-                    onClick={() => navigate(`/customers/${c.id}`)}
-                    className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                  >
-                    <td className="px-5 py-3.5 font-mono font-bold text-sky-400">
-                      {c.customer_code || 'CUST'}
-                    </td>
-                    <td className="px-5 py-3.5 font-semibold text-[var(--spatial-text-title)]">
-                      {c.full_name}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <div className="flex flex-col gap-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-[var(--spatial-text-title)] font-medium">{c.phone}</span>
-                          {c.whatsapp_number && (
-                            <span className="p-0.5 rounded bg-emerald-500/10 text-emerald-400" title="Primary WhatsApp">
-                              <MessageCircle className="w-3.5 h-3.5" />
-                            </span>
-                          )}
-                        </div>
-                        {(c.alternate_whatsapp || c.alternate_phone) && (
-                          <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
-                            <span className="bg-emerald-500/10 px-1 rounded border border-emerald-400/20">
-                              Alt WP: {c.alternate_whatsapp || c.alternate_phone}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-mono">
-                      {c.email || '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-[var(--spatial-text-muted)]">
-                      {c.city ? `${c.city}${c.state ? `, ${c.state}` : ''}` : '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/customers/${c.id}`);
-                          }}
-                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
-                          title="View Customer Profile"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedCustomerForEdit(c);
-                            setIsEditModalOpen(true);
-                          }}
-                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
-                          title="Edit Customer"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => handleDeleteCustomer(e, c)}
-                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                          title="Delete Customer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+          <div>
+            <div className="overflow-x-auto table-scrollbar w-full pb-2">
+              <table className="w-full text-left text-xs min-w-[1000px]">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <tr>
+                    <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={customers.length > 0 && customers.every((c) => selectedIds.includes(c.id))}
+                        onChange={toggleSelectAll}
+                        aria-label="Select all on this page"
+                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                      />
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">Code</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Customer Name</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Phone & WhatsApp</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Email</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Location</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--spatial-border)]">
+                  {customers.map((c) => {
+                    const isSelected = selectedIds.includes(c.id);
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/customers/${c.id}`)}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
+                          isSelected ? 'bg-sky-500/10' : ''
+                        }`}
+                      >
+                        <td
+                          className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectRow(c.id)}
+                            aria-label={`Select customer ${c.full_name}`}
+                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                          />
+                        </td>
+                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
+                          {c.customer_code || 'CUST'}
+                        </td>
+                        <td className="px-5 py-3.5 font-semibold text-[var(--spatial-text-title)] whitespace-nowrap">
+                          {c.full_name}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-2 whitespace-nowrap">
+                            <span className="font-mono text-[var(--spatial-text-title)] font-medium">{c.phone}</span>
+                            {c.whatsapp_number && (
+                              <span className="p-0.5 rounded bg-emerald-500/10 text-emerald-400" title="Primary WhatsApp">
+                                <MessageCircle className="w-3.5 h-3.5" />
+                              </span>
+                            )}
+                            {(c.alternate_whatsapp || c.alternate_phone) && (
+                              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-400/20 whitespace-nowrap">
+                                Alt: {c.alternate_whatsapp || c.alternate_phone}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-mono whitespace-nowrap">
+                          {c.email || '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap">
+                          {c.city ? `${c.city}${c.state ? `, ${c.state}` : ''}` : '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              onClick={() => navigate(`/customers/${c.id}`)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              title="View Customer Profile"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedCustomerForEdit(c);
+                                setIsEditModalOpen(true);
+                              }}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                              title="Edit Customer"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => handleDeleteCustomer(e, c)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              title="Delete Customer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <SpatialPagination
+              currentPage={page}
+              pageSize={pageSize}
+              totalItems={total}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              pageSizeOptions={[10, 15, 20]}
+            />
           </div>
         )}
       </Card>

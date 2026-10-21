@@ -8,7 +8,9 @@ import {
   Sparkles,
   ShoppingBag,
   Send,
-  Play
+  Play,
+  RotateCcw,
+  SlidersHorizontal
 } from 'lucide-react';
 import { Badge } from '../common/Badge';
 
@@ -22,6 +24,8 @@ export const NextActionBanner = ({
   onMarkReadyForPickup,
   onOpenPickupModal,
   onOpenPaymentModal,
+  onReopenJob,
+  onChangeStatus,
   userRole,
 }) => {
   if (!job) return null;
@@ -71,9 +75,12 @@ export const NextActionBanner = ({
         };
 
       case 'APPROVED':
+        const isWarrantyApproved = job.is_warranty_claim && (job.warranty_same_issue || Number(job.balance_due || 0) === 0);
         return {
-          title: 'Estimate Approved by Customer',
-          instruction: 'Customer authorized the repair. Move device to workbench and begin parts replacement.',
+          title: isWarrantyApproved ? 'Warranty Claim Authorized (Free Rework)' : 'Estimate Approved by Customer',
+          instruction: isWarrantyApproved
+            ? 'Covered under warranty. Pre-authorized free rework — no customer approval or payment needed. Move to workbench and begin repair.'
+            : 'Customer authorized the repair. Move device to workbench and begin parts replacement.',
           buttonLabel: 'Start Repair (In Progress)',
           icon: Play,
           bg: 'bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200',
@@ -110,10 +117,15 @@ export const NextActionBanner = ({
         };
 
       case 'READY_FOR_PICKUP':
+        const isFreeWarranty = job.is_warranty_claim && (job.warranty_same_issue || job.warranty_free_rework || Number(job.balance_due || 0) === 0);
         return {
-          title: 'Device Ready for Customer Pickup',
-          instruction: `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance ($${Number(job.balance_due || 0).toFixed(2)}).`,
-          buttonLabel: 'Process Customer Pickup',
+          title: isFreeWarranty
+            ? 'Device Ready for Customer Pickup (Warranty Rework Complete)'
+            : 'Device Ready for Customer Pickup',
+          instruction: isFreeWarranty
+            ? 'Customer notified. Quality checks passed. Free rework covered under warranty (No payment required).'
+            : `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance ($${Number(job.balance_due || 0).toFixed(2)}).`,
+          buttonLabel: isFreeWarranty ? 'Process Warranty Handover' : 'Process Customer Pickup',
           icon: ShoppingBag,
           bg: 'bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-200',
           textColor: 'text-emerald-900',
@@ -124,15 +136,19 @@ export const NextActionBanner = ({
 
       case 'DELIVERED':
         return {
-          title: 'Repair Completed & Device Delivered',
-          instruction: 'Device handed over to customer. Warranty is active. Invoice receipt dispatched.',
-          buttonLabel: null,
-          icon: Sparkles,
-          bg: 'bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border-teal-200',
+          title: job.is_warranty_claim
+            ? `Device Delivered (Warranty Claim #${job.reopen_count || 1} Active)`
+            : 'Repair Completed & Device Delivered',
+          instruction: job.is_warranty_claim
+            ? `Device was previously delivered and reopened under warranty (${job.last_warranty_issue || 'Warranty issue'}).`
+            : 'Device handed over to customer. Warranty is active. If customer faces any issue during warranty, click below to reopen this job.',
+          buttonLabel: 'Reopen Job (Warranty Claim)',
+          icon: RotateCcw,
+          bg: 'bg-gradient-to-r from-teal-500/10 via-amber-500/5 to-transparent border-teal-200',
           textColor: 'text-teal-900',
-          btnClass: '',
-          action: null,
-          canPerform: false,
+          btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
+          action: onReopenJob,
+          canPerform: true,
         };
 
       case 'REJECTED':
@@ -151,14 +167,14 @@ export const NextActionBanner = ({
       case 'CANCELLED':
         return {
           title: 'Job Sheet Cancelled',
-          instruction: 'This repair job was cancelled and closed.',
-          buttonLabel: null,
-          icon: AlertCircle,
+          instruction: 'This repair job was cancelled and closed. You can reopen it if service is requested again.',
+          buttonLabel: 'Reopen Repair Job',
+          icon: RotateCcw,
           bg: 'bg-slate-100 border-slate-300',
           textColor: 'text-slate-800',
-          btnClass: '',
-          action: null,
-          canPerform: false,
+          btnClass: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm',
+          action: onReopenJob,
+          canPerform: true,
         };
 
       default:
@@ -181,6 +197,17 @@ export const NextActionBanner = ({
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">CURRENT STATUS:</span>
             <Badge status={status} size="sm" />
+            {['admin', 'staff'].includes(userRole) && onChangeStatus && (
+              <button
+                type="button"
+                onClick={onChangeStatus}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white dark:bg-slate-900 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950/60 transition-colors shadow-2xs"
+                title="Shop Owner: Change Job Status"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+                <span>Change Status</span>
+              </button>
+            )}
           </div>
           <h4 className={`text-base font-bold ${config.textColor} tracking-tight`}>{config.title}</h4>
           <p className="text-xs text-slate-600 mt-0.5 max-w-2xl">{config.instruction}</p>
