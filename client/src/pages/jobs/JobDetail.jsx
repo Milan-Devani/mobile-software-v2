@@ -1595,32 +1595,32 @@ export const JobDetail = () => {
       >
         <form onSubmit={handleSaveEstimate} className="space-y-5">
           {/* Discount Card with Radio Option (Fixed Amount vs Percentage) */}
-          <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200 dark:border-slate-700/60">
+          <div className="p-4 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
                 Discount Mode
               </label>
               {/* Radio options: Amount vs Percentage */}
-              <div className="inline-flex items-center gap-4 bg-white dark:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold">
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors">
+              <div className="inline-flex items-center gap-4 bg-[var(--spatial-input-bg)] px-3 py-1.5 rounded-lg border border-[var(--spatial-border)] text-xs font-semibold">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--spatial-text-body)] hover:text-sky-500 transition-colors">
                   <input
                     type="radio"
                     name="discount_mode"
                     value="AMOUNT"
                     checked={estimateForm.discount_type === 'AMOUNT'}
                     onChange={() => setEstimateForm((prev) => ({ ...prev, discount_type: 'AMOUNT' }))}
-                    className="w-4 h-4 text-primary-600 border-slate-300 focus:ring-primary-500 cursor-pointer"
+                    className="w-4 h-4 text-sky-500 border-[var(--spatial-border)] focus:ring-sky-500 cursor-pointer"
                   />
                   <span>Amount ({currSym})</span>
                 </label>
-                <label className="inline-flex items-center gap-1.5 cursor-pointer text-slate-700 dark:text-slate-200 hover:text-primary-600 transition-colors">
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[var(--spatial-text-body)] hover:text-sky-500 transition-colors">
                   <input
                     type="radio"
                     name="discount_mode"
                     value="PERCENTAGE"
                     checked={estimateForm.discount_type === 'PERCENTAGE'}
                     onChange={() => setEstimateForm((prev) => ({ ...prev, discount_type: 'PERCENTAGE' }))}
-                    className="w-4 h-4 text-primary-600 border-slate-300 focus:ring-primary-500 cursor-pointer"
+                    className="w-4 h-4 text-sky-500 border-[var(--spatial-border)] focus:ring-sky-500 cursor-pointer"
                   />
                   <span>Percentage (%)</span>
                 </label>
@@ -1630,11 +1630,11 @@ export const JobDetail = () => {
             <div className="max-w-md">
               <div className="relative">
                 {estimateForm.discount_type === 'AMOUNT' ? (
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)] font-mono text-sm">
                     {currSym}
                   </span>
                 ) : (
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-sm font-bold">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)] font-mono text-sm font-bold">
                     %
                   </span>
                 )}
@@ -1652,13 +1652,13 @@ export const JobDetail = () => {
                       discount_value: rawVal,
                     }));
                   }}
-                  className={`w-full py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none ${estimateForm.discount_type === 'AMOUNT' ? 'pl-7 pr-3' : 'pl-3 pr-8'
+                  className={`w-full py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none ${estimateForm.discount_type === 'AMOUNT' ? 'pl-7 pr-3' : 'pl-3 pr-8'
                     }`}
                 />
               </div>
 
               {/* Informative helper text with live calculation preview */}
-              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-1.5">
+              <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
                 <span>
                   {estimateForm.discount_type === 'PERCENTAGE'
                     ? 'Promotional or loyalty percentage discount'
@@ -1687,7 +1687,7 @@ export const JobDetail = () => {
           </div>
 
           {/* GST / Tax Toggle & Rate Control */}
-          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-xl space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -1704,13 +1704,13 @@ export const JobDetail = () => {
                     }}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+                  <div className="w-11 h-6 bg-[var(--spatial-border)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
                 </label>
                 <div>
-                  <span className="text-xs font-bold text-slate-900 uppercase tracking-wide block">
+                  <span className="text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wide block">
                     {estimateForm.apply_tax ? 'GST / Tax is Applied (ON)' : 'GST / Tax is Disabled (OFF)'}
                   </span>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-[var(--spatial-text-muted)]">
                     {estimateForm.apply_tax
                       ? 'Tax will be computed and itemized on the quotation and final invoice'
                       : 'Tax exempt / Nil. Customer will only pay subtotal without additional GST'}
@@ -1720,8 +1720,8 @@ export const JobDetail = () => {
 
               {estimateForm.apply_tax && (
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-lg px-3 py-1.5 shadow-2xs">
-                    <span className="text-xs font-semibold text-slate-600">GST Rate:</span>
+                  <div className="flex items-center gap-1.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg px-3 py-1.5 shadow-2xs">
+                    <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">GST Rate:</span>
                     <input
                       type="number"
                       step="0.5"
@@ -1729,17 +1729,17 @@ export const JobDetail = () => {
                       max="100"
                       value={estimateForm.tax_rate}
                       onChange={(e) => setEstimateForm({ ...estimateForm, tax_rate: e.target.value })}
-                      className="w-12 text-xs font-mono font-bold text-slate-900 focus:outline-none text-right"
+                      className="w-12 text-xs font-mono font-bold text-[var(--spatial-text-title)] bg-transparent focus:outline-none text-right"
                     />
-                    <span className="text-xs font-bold text-slate-700">%</span>
+                    <span className="text-xs font-bold text-[var(--spatial-text-title)]">%</span>
                   </div>
                 </div>
               )}
             </div>
 
             {estimateForm.apply_tax && (
-              <div className="flex items-center gap-1.5 pt-2 border-t border-slate-200">
-                <span className="text-[10px] text-slate-500 font-semibold uppercase">Presets:</span>
+              <div className="flex items-center gap-1.5 pt-2 border-t border-[var(--spatial-border)]">
+                <span className="text-[10px] text-[var(--spatial-text-muted)] font-semibold uppercase">Presets:</span>
                 {[5, 12, 18, 28].map((rate) => (
                   <button
                     key={rate}
@@ -1747,7 +1747,7 @@ export const JobDetail = () => {
                     onClick={() => setEstimateForm({ ...estimateForm, tax_rate: rate })}
                     className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors ${Number(estimateForm.tax_rate) === rate
                         ? 'bg-emerald-600 text-white shadow-2xs'
-                        : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'
+                        : 'bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
                       }`}
                   >
                     {rate}% GST
@@ -1761,10 +1761,10 @@ export const JobDetail = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                <label className="text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
                   Parts & Repair Details
                 </label>
-                <span className="px-2 py-0.5 text-[11px] font-semibold bg-primary-100 text-primary-700 rounded-full">
+                <span className="px-2 py-0.5 text-[11px] font-semibold bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 rounded-full">
                   {(estimateForm.items || []).length} {(estimateForm.items || []).length === 1 ? 'item' : 'items'}
                 </span>
               </div>
@@ -1809,7 +1809,7 @@ export const JobDetail = () => {
                     }
                     e.target.value = '';
                   }}
-                  className="text-xs px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-lg transition-colors focus:outline-none"
+                  className="text-xs px-2.5 py-1 bg-[var(--spatial-input-bg)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)] rounded-lg transition-colors focus:outline-none"
                 >
                   <option value="">+ From Inventory...</option>
                   {availableParts.map((p) => (
@@ -1822,7 +1822,7 @@ export const JobDetail = () => {
             </div>
 
             {/* Column Headers for larger screens */}
-            <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 bg-slate-100/80 rounded-lg text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+            <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 bg-[var(--spatial-table-header-bg)] rounded-lg text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider border border-[var(--spatial-border)]">
               <div className="col-span-5">Part or Repair Description</div>
               <div className="col-span-3">Warranty</div>
               <div className="col-span-2 text-right">Price ({currSym})</div>
@@ -1839,12 +1839,12 @@ export const JobDetail = () => {
                 return (
                   <div
                     key={idx}
-                    className="p-3 sm:p-2 bg-slate-50/70 hover:bg-slate-50 border border-slate-200 rounded-xl transition-all shadow-sm"
+                    className="p-3 sm:p-2.5 bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] rounded-xl transition-all shadow-sm"
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                       {/* Part or Repair Details Input */}
                       <div className="sm:col-span-5">
-                        <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Part / Repair Details
                         </label>
                         <input
@@ -1852,14 +1852,14 @@ export const JobDetail = () => {
                           placeholder="e.g. Original Display Combo, Battery, IC..."
                           value={item.item_name || ''}
                           onChange={(e) => handleUpdateEstimateItem(idx, 'item_name', e.target.value)}
-                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none font-medium"
+                          className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-medium"
                           autoFocus={idx === (estimateForm.items.length - 1) && idx > 0}
                         />
                       </div>
 
                       {/* Warranty Period Input */}
                       <div className="sm:col-span-3">
-                        <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Warranty Period
                         </label>
                         <div className="relative">
@@ -1869,7 +1869,7 @@ export const JobDetail = () => {
                             list={`warranty-presets-${idx}`}
                             value={item.warranty || ''}
                             onChange={(e) => handleUpdateEstimateItem(idx, 'warranty', e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none font-medium"
+                            className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-medium"
                           />
                           <datalist id={`warranty-presets-${idx}`}>
                             <option value="30 Days" />
@@ -1885,11 +1885,11 @@ export const JobDetail = () => {
 
                       {/* Price */}
                       <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Price ({currSym})
                         </label>
                         <div className="relative">
-                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)] text-xs font-mono">
                             {currSym}
                           </span>
                           <input
@@ -1899,7 +1899,7 @@ export const JobDetail = () => {
                             placeholder="0.00"
                             value={item.unit_price}
                             onChange={(e) => handleUpdateEstimateItem(idx, 'unit_price', e.target.value)}
-                            className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-right text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            className="w-full pl-6 pr-2 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs font-mono text-right text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:outline-none"
                           />
                         </div>
                       </div>
@@ -1907,13 +1907,13 @@ export const JobDetail = () => {
                       {/* Total & Remove */}
                       <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1.5">
                         <div className="sm:hidden">
-                          <span className="text-[11px] font-semibold text-slate-600 block">Total</span>
-                          <span className="font-mono text-xs font-bold text-slate-900">
+                          <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] block">Total</span>
+                          <span className="font-mono text-xs font-bold text-[var(--spatial-text-title)]">
                             {currSym}{lineTotal.toFixed(2)}
                           </span>
                         </div>
 
-                        <span className="hidden sm:inline font-mono text-xs font-bold text-slate-900 min-w-[65px] text-right">
+                        <span className="hidden sm:inline font-mono text-xs font-bold text-[var(--spatial-text-title)] min-w-[65px] text-right">
                           {currSym}{lineTotal.toFixed(2)}
                         </span>
 
@@ -1921,7 +1921,7 @@ export const JobDetail = () => {
                           type="button"
                           onClick={() => handleRemoveEstimateItem(idx)}
                           title="Remove this item"
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ml-1"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1935,9 +1935,9 @@ export const JobDetail = () => {
               <button
                 type="button"
                 onClick={handleAddEstimateItem}
-                className="w-full py-2.5 px-3 bg-white hover:bg-primary-50/60 text-primary-600 hover:text-primary-700 border-2 border-dashed border-primary-200 hover:border-primary-300 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm group"
+                className="w-full py-2.5 px-3 bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] text-sky-500 hover:text-sky-400 border-2 border-dashed border-sky-500/30 hover:border-sky-500/50 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all shadow-sm group"
               >
-                <div className="w-5 h-5 rounded-full bg-primary-100 group-hover:bg-primary-200 text-primary-700 flex items-center justify-center transition-colors">
+                <div className="w-5 h-5 rounded-full bg-sky-500/10 group-hover:bg-sky-500/20 text-sky-500 flex items-center justify-center transition-colors">
                   <Plus className="w-3.5 h-3.5" />
                 </div>
                 <span>+ Add Another Part or Repair Detail</span>
@@ -1947,7 +1947,7 @@ export const JobDetail = () => {
 
           {/* Optional Notes */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
               Estimate Notes & Terms (Optional)
             </label>
             <textarea
@@ -1955,7 +1955,7 @@ export const JobDetail = () => {
               value={estimateForm.notes || ''}
               onChange={(e) => setEstimateForm({ ...estimateForm, notes: e.target.value })}
               placeholder="e.g. Quotation valid for 7 days. 90-day warranty on replaced parts."
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-1 focus:ring-sky-500 focus:outline-none"
             />
           </div>
 
@@ -1979,48 +1979,48 @@ export const JobDetail = () => {
             const grandTotal = subtotal + taxAmount;
 
             return (
-              <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 rounded-xl shadow-md border border-slate-700">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3 pb-3 border-b border-slate-700/60">
+              <div className="bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] p-4 rounded-xl shadow-md border border-[var(--spatial-border)]">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-3 pb-3 border-b border-[var(--spatial-border)]">
                   <div>
-                    <span className="text-slate-400 block text-[11px]">Labor Charge</span>
-                    <span className="font-mono text-sm font-semibold text-slate-100">
+                    <span className="text-[var(--spatial-text-muted)] block text-[11px]">Labor Charge</span>
+                    <span className="font-mono text-sm font-semibold text-[var(--spatial-text-title)]">
                       {currSym}{labor.toFixed(2)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">
+                    <span className="text-[var(--spatial-text-muted)] block text-[11px]">
                       Parts & Repairs ({(estimateForm.items || []).filter(i => i.item_name || i.unit_price).length})
                     </span>
-                    <span className="font-mono text-sm font-semibold text-slate-100">
+                    <span className="font-mono text-sm font-semibold text-[var(--spatial-text-title)]">
                       {currSym}{partsTotal.toFixed(2)}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">
+                    <span className="text-[var(--spatial-text-muted)] block text-[11px]">
                       Discount {estimateForm.discount_type === 'PERCENTAGE' && parseFloat(estimateForm.discount_value) > 0 ? `(${estimateForm.discount_value}%)` : ''}
                     </span>
-                    <span className="font-mono text-sm font-semibold text-emerald-400">
+                    <span className="font-mono text-sm font-semibold text-emerald-500 dark:text-emerald-400">
                       {discount > 0 ? `-${currSym}${discount.toFixed(2)}` : `${currSym}0.00`}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-400 block text-[11px]">
+                    <span className="text-[var(--spatial-text-muted)] block text-[11px]">
                       {taxRate > 0 ? `GST / Tax (${taxRate}%)` : 'GST / Tax'}
                     </span>
-                    <span className="font-mono text-sm font-semibold text-slate-300">
+                    <span className="font-mono text-sm font-semibold text-[var(--spatial-text-title)]">
                       {taxRate > 0 ? `${currSym}${taxAmount.toFixed(2)}` : 'Nil (0%)'}
                     </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="text-xs uppercase tracking-wider font-semibold text-slate-300">
+                    <span className="text-xs uppercase tracking-wider font-semibold text-[var(--spatial-text-title)]">
                       Total Estimated Amount
                     </span>
-                    <p className="text-[11px] text-slate-400">Total payable by customer upon repair approval</p>
+                    <p className="text-[11px] text-[var(--spatial-text-muted)]">Total payable by customer upon repair approval</p>
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl font-bold font-mono text-emerald-400">
+                    <span className="text-2xl font-bold font-mono text-emerald-500 dark:text-emerald-400">
                       {currSym}{grandTotal.toFixed(2)}
                     </span>
                   </div>
@@ -2030,7 +2030,7 @@ export const JobDetail = () => {
           })()}
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsEstimateModalOpen(false)}>
               Cancel
             </Button>

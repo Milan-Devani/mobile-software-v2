@@ -24,7 +24,23 @@ export const dispatchNotification = async ({
   const shopPhone = shop?.phone || '080000 24439';
   const shopAddress = shop?.address || 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006';
   const currSym = shop?.currency_symbol || '₹';
-  const approvalUrl = `${env.CLIENT_URL}/repair/${job.job_number}/approval?token=${job.approval_token}`;
+  
+  // Resolve accurate live frontend URL (never relative, never asterisk)
+  const resolveFrontendBase = () => {
+    if (metadata?.clientUrl && typeof metadata.clientUrl === 'string' && metadata.clientUrl.startsWith('http')) {
+      return metadata.clientUrl.replace(/\/+$/, '');
+    }
+    if (env.APP_URL && typeof env.APP_URL === 'string' && env.APP_URL !== '*' && env.APP_URL.startsWith('http')) {
+      return env.APP_URL.replace(/\/+$/, '');
+    }
+    if (env.CLIENT_URL && typeof env.CLIENT_URL === 'string' && env.CLIENT_URL !== '*' && env.CLIENT_URL.startsWith('http')) {
+      return env.CLIENT_URL.replace(/\/+$/, '');
+    }
+    return env.NODE_ENV === 'production' ? 'https://mobile-software-v2.vercel.app' : 'http://localhost:5173';
+  };
+
+  const clientBaseUrl = resolveFrontendBase();
+  const approvalUrl = `${clientBaseUrl}/repair/${job.job_number}/approval?token=${job.approval_token}`;
 
   let subject = '';
   let emailHtml = '';

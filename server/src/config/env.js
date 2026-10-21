@@ -13,8 +13,16 @@ export const env = {
   PORT: process.env.PORT || 5000,
   NODE_ENV: process.env.NODE_ENV || 'development',
   API_URL: process.env.API_URL || 'http://localhost:5000',
-  CLIENT_URL: process.env.CLIENT_URL || 'http://localhost:5173',
-  APP_URL: process.env.APP_URL || 'http://localhost:5173',
+  CLIENT_URL: (process.env.CLIENT_URL && process.env.CLIENT_URL !== '*' && process.env.CLIENT_URL.startsWith('http'))
+    ? process.env.CLIENT_URL
+    : (process.env.APP_URL && process.env.APP_URL !== '*' && process.env.APP_URL.startsWith('http'))
+      ? process.env.APP_URL
+      : (process.env.NODE_ENV === 'production' ? 'https://mobile-software-v2.vercel.app' : 'http://localhost:5173'),
+  APP_URL: (process.env.APP_URL && process.env.APP_URL !== '*' && process.env.APP_URL.startsWith('http'))
+    ? process.env.APP_URL
+    : (process.env.CLIENT_URL && process.env.CLIENT_URL !== '*' && process.env.CLIENT_URL.startsWith('http'))
+      ? process.env.CLIENT_URL
+      : (process.env.NODE_ENV === 'production' ? 'https://mobile-software-v2.vercel.app' : 'http://localhost:5173'),
   
   // JWT
   JWT_SECRET: process.env.JWT_SECRET || 'super_secure_jwt_secret_key_fixit_repair_system_2026_xyz987',

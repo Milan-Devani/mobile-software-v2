@@ -1,4 +1,5 @@
 import { db } from '../db/db.js';
+import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
 import { generateInvoicePdfBuffer } from '../services/pdfService.js';
@@ -104,7 +105,8 @@ export const downloadInvoicePdf = async (req, res, next) => {
     }
 
     const shop = await db.shops.getProfile();
-    const trackingUrl = `${req.protocol}://${req.get('host')}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
+    const clientBase = req.get('origin') || (env.CLIENT_URL && env.CLIENT_URL !== '*' && env.CLIENT_URL.startsWith('http') ? env.CLIENT_URL : env.APP_URL && env.APP_URL !== '*' && env.APP_URL.startsWith('http') ? env.APP_URL : (env.NODE_ENV === 'production' ? 'https://mobile-software-v2.vercel.app' : 'http://localhost:5173'));
+    const trackingUrl = `${clientBase.replace(/\/+$/, '')}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
 
     const pdfBuffer = await generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl });
 

@@ -2,6 +2,19 @@ import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
 
+const extractClientUrl = (req) => {
+  const origin = req.get('origin');
+  if (origin && origin.startsWith('http')) return origin.replace(/\/+$/, '');
+  const referer = req.get('referer');
+  if (referer && referer.startsWith('http')) {
+    try {
+      const parsed = new URL(referer);
+      return `${parsed.protocol}//${parsed.host}`;
+    } catch (_) {}
+  }
+  return null;
+};
+
 export const getJobs = async (req, res, next) => {
   try {
     const {
@@ -145,6 +158,7 @@ export const createJob = async (req, res, next) => {
       job: fullJob,
       customer,
       type: 'JOB_CREATED',
+      metadata: { clientUrl: extractClientUrl(req) },
     }).catch(err => console.error('Notification dispatch error:', err));
 
     res.status(201).json({
@@ -443,6 +457,7 @@ export const saveEstimate = async (req, res, next) => {
         job: updatedJob,
         customer,
         type: isFreeWarranty ? 'JOB_REOPENED' : 'ESTIMATE_SENT',
+        metadata: { clientUrl: extractClientUrl(req) },
       }).catch(err => console.error('Estimate notification error:', err));
     }
 
@@ -722,6 +737,7 @@ export const markReadyForPickup = async (req, res, next) => {
       job: updatedJob,
       customer,
       type: 'READY_FOR_PICKUP',
+      metadata: { clientUrl: extractClientUrl(req) },
     }).catch(err => console.error('Ready for pickup notification error:', err));
 
     res.json({
@@ -782,7 +798,7 @@ export const recordPickup = async (req, res, next) => {
       customer,
       type: 'INVOICE_GENERATED',
       channels,
-      metadata: { isWarrantyHandover: isFreeWarranty },
+      metadata: { isWarrantyHandover: isFreeWarranty, clientUrl: extractClientUrl(req) },
     }).catch(err => console.error('Invoice delivery notification error:', err));
 
     res.json({
@@ -914,6 +930,7 @@ export const reopenJob = async (req, res, next) => {
         job: updatedJob,
         customer,
         type: 'JOB_REOPENED',
+        metadata: { clientUrl: extractClientUrl(req) },
       }).catch((notifyErr) => console.warn('Reopen notification ignored:', notifyErr.message));
     } catch (notifyErr) {
       console.warn('Reopen notification error:', notifyErr.message);
