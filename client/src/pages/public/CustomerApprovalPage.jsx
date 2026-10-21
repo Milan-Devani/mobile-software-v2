@@ -104,11 +104,10 @@ export const CustomerApprovalPage = () => {
 
         {/* Decision Banner if already decided */}
         {decisionDone && (
-          <div className={`p-5 rounded-2xl border text-center ${
-            decisionDone === 'APPROVED'
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
-          }`}>
+          <div className={`p-5 rounded-2xl border text-center ${decisionDone === 'APPROVED'
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-rose-50 border-rose-200 text-rose-900'
+            }`}>
             <div className="flex items-center justify-center gap-2 mb-1">
               {decisionDone === 'APPROVED' ? (
                 <CheckCircle2 className="w-6 h-6 text-emerald-600" />
@@ -222,10 +221,10 @@ export const CustomerApprovalPage = () => {
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
                 <div>
                   <span className="text-xs text-slate-500 font-medium">Estimated Total (Taxes incl.)</span>
-                  <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold mt-0.5">
+                  {/* <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-bold mt-0.5">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     <span>Includes 90-Day Hardware Warranty</span>
-                  </div>
+                  </div> */}
                 </div>
                 <span className="text-2xl font-black font-mono text-slate-900">${Number(est.total_amount).toFixed(2)}</span>
               </div>

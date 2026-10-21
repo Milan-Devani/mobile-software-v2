@@ -153,7 +153,27 @@ export const JobCreate = () => {
 
   const [checklist, setChecklist] = useState(getDefaultChecklist());
 
+  // Auto-select Operating System based on selected brand (Apple -> iOS, others -> Android)
+  const watchedBrand = watch('device_brand');
+  useEffect(() => {
+    if (watchedBrand) {
+      if (watchedBrand.trim().toLowerCase() === 'apple') {
+        setValue('device_os', 'iOS', { shouldValidate: true });
+      } else {
+        setValue('device_os', 'Android', { shouldValidate: true });
+      }
+    }
+  }, [watchedBrand, setValue]);
+
   const handleChecklistToggle = (key, val) => {
+    if (key === 'powers_on' && val === 'No') {
+      const allNegative = {};
+      INWARD_CHECKLIST_CONFIG.forEach((item) => {
+        allNegative[item.key] = item.type === 'working' ? 'No' : 'Yes';
+      });
+      setChecklist(allNegative);
+      return;
+    }
     setChecklist((prev) => ({ ...prev, [key]: val }));
   };
 
@@ -463,7 +483,14 @@ export const JobCreate = () => {
                   'Other Brand',
                 ]}
                 value={watch('device_brand')}
-                onChange={(val) => setValue('device_brand', val, { shouldValidate: true })}
+                onChange={(val) => {
+                  setValue('device_brand', val, { shouldValidate: true });
+                  if (val && val.trim().toLowerCase() === 'apple') {
+                    setValue('device_os', 'iOS', { shouldValidate: true });
+                  } else if (val) {
+                    setValue('device_os', 'Android', { shouldValidate: true });
+                  }
+                }}
                 placeholder="-- Select Brand --"
                 error={errors.device_brand?.message}
               />
@@ -513,7 +540,6 @@ export const JobCreate = () => {
               >
                 <option value="iOS">iOS</option>
                 <option value="Android">Android</option>
-                <option value="iPadOS">iPadOS</option>
                 <option value="Other">Other</option>
               </select>
             </div>

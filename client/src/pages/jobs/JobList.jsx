@@ -12,6 +12,8 @@ import {
   ArrowUpDown,
   Trash2,
   RotateCcw,
+  ShieldCheck,
+  Clock,
   X
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -312,11 +314,10 @@ export const JobList = () => {
               <button
                 key={tab.key}
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                  active
-                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
-                    : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${active
+                  ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -422,6 +423,7 @@ export const JobList = () => {
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
                     <th className="px-5 py-3 whitespace-nowrap">Customer</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Customer Number</th>
                     <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
                     <th className="px-5 py-3 whitespace-nowrap">Complaint / Issue</th>
                     <th className="px-5 py-3 whitespace-nowrap">Status</th>
@@ -438,9 +440,8 @@ export const JobList = () => {
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
-                          isSelected ? 'bg-sky-500/10' : ''
-                        }`}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${isSelected ? 'bg-sky-500/10' : ''
+                          }`}
                       >
                         <td
                           className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
@@ -458,34 +459,76 @@ export const JobList = () => {
                           {job.job_number}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name || 'Walk-in Customer'}</span>
-                            {job.customer?.phone && (
-                              <span className="text-[11px] text-[var(--spatial-text-muted)] font-mono">({job.customer.phone})</span>
-                            )}
-                          </div>
+                          <span className="font-semibold text-[var(--spatial-text-title)]">
+                            {job.customer?.full_name || 'Walk-in Customer'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-[11px] text-[var(--spatial-text-body)]">
+                          {job.customer?.phone || job.customer?.whatsapp_number || '—'}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-medium text-[var(--spatial-text-title)]">{job.device?.brand} {job.device?.model}</span>
-                            {job.device?.imei && (
-                              <span className="text-[10px] text-[var(--spatial-text-muted)] font-mono bg-[var(--spatial-bg-card-subtle)] px-1.5 py-0.5 rounded border border-[var(--spatial-border)]">
-                                IMEI: {job.device.imei}
-                              </span>
-                            )}
-                          </div>
+                          <span className="font-medium text-[var(--spatial-text-title)]">
+                            {job.device?.brand} {job.device?.model}
+                          </span>
                         </td>
                         <td className="px-5 py-3.5 text-[var(--spatial-text-body)] whitespace-nowrap max-w-sm truncate" title={job.customer_complaint}>
                           {job.customer_complaint || '—'}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5 flex-nowrap">
-                            <Badge status={job.status} />
-                            {job.is_warranty_claim && (
-                              <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
-                                Warranty #{job.reopen_count || 1}
-                              </span>
-                            )}
+                          <div className="flex flex-col gap-1 items-start">
+                            <div className="flex items-center gap-1.5 flex-nowrap">
+                              <Badge status={job.status} />
+                              {job.is_warranty_claim && (
+                                <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
+                                  Warranty #{job.reopen_count || 1}
+                                </span>
+                              )}
+                            </div>
+                            {/* Pending or Remaining Warranty Days */}
+                            {(() => {
+                              const totalDays = job.warranty_days !== undefined ? Number(job.warranty_days) : 90;
+                              if (job.status === 'DELIVERED') {
+                                if (totalDays <= 0) {
+                                  return (
+                                    <span className="text-[10px] text-slate-400 font-medium">
+                                      No warranty
+                                    </span>
+                                  );
+                                }
+                                const deliveryDate = new Date(job.delivered_at || job.updated_at);
+                                const elapsed = Math.floor((new Date() - deliveryDate) / (1000 * 60 * 60 * 24));
+                                const remaining = Math.max(0, totalDays - elapsed);
+                                if (remaining > 0) {
+                                  return (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                      <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                                      {remaining}d warranty left
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    Warranty expired
+                                  </span>
+                                );
+                              }
+                              if (['CANCELLED', 'REJECTED'].includes(job.status)) {
+                                return null;
+                              }
+                              if (totalDays <= 0) {
+                                return (
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    No warranty
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                  <Clock className="w-3 h-3 text-amber-500 shrink-0" />
+                                  Pending ({totalDays}d)
+                                </span>
+                              );
+                            })()}
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)] whitespace-nowrap">
@@ -513,9 +556,9 @@ export const JobList = () => {
                               </button>
                             )}
                             <button
-                              onClick={() => navigate(`/jobs/${job.id}`)}
+                              onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
                               className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
-                              title="Open Job Sheet"
+                              title="Open Job Sheet (Parts & Estimate)"
                             >
                               <Eye className="w-4 h-4" />
                             </button>

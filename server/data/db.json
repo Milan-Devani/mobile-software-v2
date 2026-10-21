@@ -2243,7 +2243,7 @@
       "device_id": "ba58c05b-f93d-4dff-9671-0b927bb319db",
       "assigned_technician_id": null,
       "created_by_user_id": "10000000-0000-0000-0000-000000000001",
-      "status": "RECEIVED",
+      "status": "DIAGNOSING",
       "priority": "NORMAL",
       "service_type": "Pending",
       "customer_complaint": "Screen is blinking",
@@ -2273,7 +2273,7 @@
       "rejection_reason": null,
       "warranty_days": 90,
       "created_at": "2026-10-21T14:48:01.506Z",
-      "updated_at": "2026-10-21T14:48:01.506Z"
+      "updated_at": "2026-10-21T17:45:20.240Z"
     },
     {
       "id": "604d06b0-e0ac-49e0-815d-b0837780e575",
@@ -3880,6 +3880,26 @@
       "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner.",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-21T15:29:19.041Z"
+    },
+    {
+      "id": "9d600d35-0f9b-431f-9cc4-128c3d537842",
+      "job_id": "98fa417b-8a26-42c1-ba73-cba9b7a504c4",
+      "from_status": "RECEIVED",
+      "to_status": "DIAGNOSING",
+      "action_title": "Diagnostic Assessment Started",
+      "notes": "Technician Shop Owner (Legacy) has begun device bench testing and inspection.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-21T17:45:11.574Z"
+    },
+    {
+      "id": "100ef87c-b92c-4697-a5cd-8e909ee7bb8e",
+      "job_id": "98fa417b-8a26-42c1-ba73-cba9b7a504c4",
+      "from_status": "DIAGNOSING",
+      "to_status": "DIAGNOSING",
+      "action_title": "Diagnosis Findings Recorded",
+      "notes": "Technician noted: csdc... Solution: scs...",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-21T17:45:20.240Z"
     }
   ],
   "diagnoses": [
@@ -4254,6 +4274,18 @@
       "internal_technician_notes": "",
       "created_at": "2026-10-21T12:00:11.721Z",
       "updated_at": "2026-10-21T12:00:11.721Z"
+    },
+    {
+      "id": "fccd8546-5526-440e-9c38-216cb2c4e11d",
+      "job_id": "98fa417b-8a26-42c1-ba73-cba9b7a504c4",
+      "diagnosed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "reported_issue": "Screen is blinking",
+      "technician_findings": "csdc",
+      "root_cause": "",
+      "recommended_solution": "scs",
+      "internal_technician_notes": "",
+      "created_at": "2026-10-21T17:45:20.216Z",
+      "updated_at": "2026-10-21T17:45:20.216Z"
     }
   ],
   "repair_estimates": [

@@ -94,6 +94,10 @@ CREATE TABLE IF NOT EXISTS devices (
     serial_number VARCHAR(100),
     passcode VARCHAR(50),
     operating_system VARCHAR(50) DEFAULT 'iOS',
+    invoice_date DATE,
+    invoice_number VARCHAR(100),
+    expiry_date DATE,
+    cosmetic_condition VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -103,7 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_devices_customer_id ON devices(customer_id);
 -- 6. REPAIR JOBS
 CREATE TABLE IF NOT EXISTS repair_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_number VARCHAR(50) UNIQUE NOT NULL, -- e.g. JOB-2026-000001
+    job_number VARCHAR(50) UNIQUE NOT NULL, -- e.g. mobo-2026-0001
     shop_id UUID REFERENCES shops(id) ON DELETE SET NULL,
     customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
     device_id UUID NOT NULL REFERENCES devices(id) ON DELETE RESTRICT,
@@ -114,6 +118,7 @@ CREATE TABLE IF NOT EXISTS repair_jobs (
     -- Enum values: RECEIVED, DIAGNOSING, ESTIMATE_SENT, AWAITING_APPROVAL, APPROVED, REJECTED, IN_PROGRESS, TESTING, READY_FOR_PICKUP, DELIVERED, CANCELLED
     
     priority VARCHAR(20) DEFAULT 'NORMAL', -- LOW, NORMAL, HIGH, URGENT
+    service_type VARCHAR(50) DEFAULT 'Pending',
     customer_complaint TEXT NOT NULL,
     
     -- Condition checklist JSON
@@ -137,6 +142,8 @@ CREATE TABLE IF NOT EXISTS repair_jobs (
     -- Financial summary cached
     subtotal NUMERIC(12, 2) DEFAULT 0.00,
     discount NUMERIC(12, 2) DEFAULT 0.00,
+    discount_type VARCHAR(20) DEFAULT 'amount',
+    discount_value NUMERIC(12, 2) DEFAULT 0.00,
     tax_rate NUMERIC(5, 2) DEFAULT 8.25,
     tax_amount NUMERIC(12, 2) DEFAULT 0.00,
     total_amount NUMERIC(12, 2) DEFAULT 0.00,
@@ -144,6 +151,21 @@ CREATE TABLE IF NOT EXISTS repair_jobs (
     balance_due NUMERIC(12, 2) DEFAULT 0.00,
     payment_status VARCHAR(50) DEFAULT 'UNPAID', -- UNPAID, PARTIAL, PAID
     
+    -- Warranty Claim & Reopen tracking
+    is_warranty_claim BOOLEAN DEFAULT FALSE,
+    reopen_count INT DEFAULT 0,
+    warranty_same_issue BOOLEAN DEFAULT FALSE,
+    reopened_at TIMESTAMPTZ,
+    reopened_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    warranty_claim_type VARCHAR(50),
+    warranty_free_rework BOOLEAN DEFAULT FALSE,
+    last_warranty_issue TEXT,
+    reopen_notes TEXT,
+    previous_delivered_at TIMESTAMPTZ,
+    approval_notes TEXT,
+    previous_total_amount NUMERIC(12, 2) DEFAULT 0.00,
+    previous_balance_due NUMERIC(12, 2) DEFAULT 0.00,
+
     -- Customer Pickup & Acceptance
     customer_tested_device BOOLEAN DEFAULT FALSE,
     customer_acceptance_confirmed BOOLEAN DEFAULT FALSE,
@@ -239,6 +261,8 @@ CREATE TABLE IF NOT EXISTS repair_estimates (
     labor_charge NUMERIC(12, 2) DEFAULT 0.00,
     parts_subtotal NUMERIC(12, 2) DEFAULT 0.00,
     discount NUMERIC(12, 2) DEFAULT 0.00,
+    discount_type VARCHAR(20) DEFAULT 'amount',
+    discount_value NUMERIC(12, 2) DEFAULT 0.00,
     tax_rate NUMERIC(5, 2) DEFAULT 8.25,
     tax_amount NUMERIC(12, 2) DEFAULT 0.00,
     total_amount NUMERIC(12, 2) DEFAULT 0.00,
@@ -256,6 +280,7 @@ CREATE TABLE IF NOT EXISTS repair_estimate_items (
     estimate_id UUID NOT NULL REFERENCES repair_estimates(id) ON DELETE CASCADE,
     part_id UUID REFERENCES parts(id) ON DELETE SET NULL,
     item_name VARCHAR(200) NOT NULL,
+    warranty VARCHAR(100) DEFAULT '90 Days',
     quantity INT NOT NULL DEFAULT 1,
     unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     discount NUMERIC(12, 2) DEFAULT 0.00,
@@ -331,6 +356,8 @@ CREATE TABLE IF NOT EXISTS invoices (
     labor_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     parts_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     discount NUMERIC(12, 2) DEFAULT 0.00,
+    discount_type VARCHAR(20) DEFAULT 'amount',
+    discount_value NUMERIC(12, 2) DEFAULT 0.00,
     tax_rate NUMERIC(5, 2) DEFAULT 8.25,
     tax_amount NUMERIC(12, 2) DEFAULT 0.00,
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
@@ -355,6 +382,7 @@ CREATE TABLE IF NOT EXISTS invoice_items (
     invoice_id UUID NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
     item_type VARCHAR(50) NOT NULL, -- PART, LABOR, SERVICE, FEE
     item_name VARCHAR(200) NOT NULL,
+    warranty VARCHAR(100) DEFAULT '90 Days',
     quantity INT NOT NULL DEFAULT 1,
     unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     total_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
@@ -415,3 +443,23 @@ CREATE TABLE IF NOT EXISTS settings (
     description TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- 23. BACKUP LOGS
+CREATE TABLE IF NOT EXISTS backup_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    backup_type VARCHAR(20) NOT NULL DEFAULT 'MANUAL', -- MANUAL, SCHEDULED
+    status VARCHAR(30) NOT NULL DEFAULT 'RUNNING',     -- QUEUED, RUNNING, COMPLETED, FAILED
+    filename VARCHAR(255),
+    drive_file_id VARCHAR(255),
+    drive_folder_id VARCHAR(255),
+    file_size_bytes BIGINT,
+    checksum_md5 VARCHAR(64),
+    duration_ms INT,
+    error_message TEXT,
+    created_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    started_at TIMESTAMPTZ DEFAULT NOW(),
+    completed_at TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_started_at ON backup_logs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_backup_logs_status ON backup_logs(status);
+

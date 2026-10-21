@@ -1,0 +1,100 @@
+# ==============================================================================
+# RENDER BLUEPRINT SPECIFICATION: WEB SERVICE & DAILY BACKUP CRON JOB
+# ==============================================================================
+
+services:
+  # 1. Main Express API Web Service
+  - type: web
+    name: mobotech-repair-api
+    runtime: node
+    plan: free
+    region: oregon
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node src/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
+      - key: BACKUP_ENCRYPTION_KEY
+        sync: false
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"
+
+  # 2. Daily Automatic Database Backup Cron Job (Independent of Web Service sleep state)
+  - type: cron
+    name: mobotech-db-backup-cron
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile.backup
+    dockerContext: ./server
+    schedule: "0 2 * * *" # Daily at 02:00 AM UTC (7:30 AM IST)
+    region: oregon
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: SUPABASE_URL
+      - key: SUPABASE_ANON_KEY
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: SUPABASE_ANON_KEY
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: SUPABASE_SERVICE_ROLE_KEY
+      - key: DATABASE_URL
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: DATABASE_URL
+      - key: GOOGLE_CLIENT_ID
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: GOOGLE_CLIENT_ID
+      - key: GOOGLE_CLIENT_SECRET
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: GOOGLE_CLIENT_SECRET
+      - key: GOOGLE_REFRESH_TOKEN
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: GOOGLE_REFRESH_TOKEN
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: GOOGLE_DRIVE_FOLDER_ID
+      - key: BACKUP_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: mobotech-repair-api
+          envVarKey: BACKUP_ENCRYPTION_KEY
+      - key: BACKUP_RETENTION_DAYS
+        value: "30"

@@ -72,22 +72,40 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
 
   const handleDeviceChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      device_data: { ...prev.device_data, [name]: value },
-    }));
+    setFormData((prev) => {
+      const updatedDeviceData = { ...prev.device_data, [name]: value };
+      if (name === 'brand' && value) {
+        if (value.trim().toLowerCase() === 'apple') {
+          updatedDeviceData.operating_system = 'iOS';
+        } else {
+          updatedDeviceData.operating_system = 'Android';
+        }
+      }
+      return {
+        ...prev,
+        device_data: updatedDeviceData,
+      };
+    });
   };
 
   const handleChecklistSet = (key, val) => {
     setFormData((prev) => {
       const cond = { ...prev.device_condition };
       const currentChecklist = { ...(cond.checklist || {}) };
-      currentChecklist[key] = val;
+      if (key === 'powers_on' && val === 'No') {
+        INWARD_CHECKLIST_CONFIG.forEach((it) => {
+          const negVal = it.type === 'working' ? 'No' : 'Yes';
+          currentChecklist[it.key] = negVal;
+          cond[it.key] = negVal;
+        });
+      } else {
+        currentChecklist[key] = val;
+        cond[key] = val;
+      }
       return {
         ...prev,
         device_condition: {
           ...cond,
-          [key]: val,
           checklist: currentChecklist,
         },
       };

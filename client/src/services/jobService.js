@@ -107,6 +107,11 @@ export const jobService = {
     return res.data;
   },
 
+  applyDiscount: async (id, { discount_type = 'AMOUNT', discount_value = 0, notes = '' }) => {
+    const res = await api.post(`/jobs/${id}/discount`, { discount_type, discount_value, notes });
+    return res.data;
+  },
+
   uploadFile: async (formData) => {
     const res = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

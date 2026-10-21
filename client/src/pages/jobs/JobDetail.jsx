@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Wrench,
@@ -26,7 +26,9 @@ import {
   Ban,
   Pencil,
   RotateCcw,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Tag,
+  Percent
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -49,6 +51,26 @@ import { InvoicePrintable } from '../../components/print/InvoicePrintable';
 import { JobEditModal } from '../../components/jobs/JobEditModal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 
+export const getDefaultTabForStatus = (status) => {
+  switch (status) {
+    case 'RECEIVED':
+      return 'overview';
+    case 'DIAGNOSING':
+      return 'diagnosis';
+    case 'ESTIMATE_SENT':
+    case 'APPROVED':
+    case 'IN_PROGRESS':
+      return 'estimate';
+    case 'TESTING':
+      return 'testing';
+    case 'READY_FOR_PICKUP':
+    case 'DELIVERED':
+      return 'payments';
+    default:
+      return 'overview';
+  }
+};
+
 const STATUS_OPTIONS = [
   { key: 'RECEIVED', label: 'Received', desc: 'Device intake complete, awaiting technician diagnosis' },
   { key: 'DIAGNOSING', label: 'Diagnosing', desc: 'Hardware fault analysis & diagnostic testing in progress' },
@@ -65,13 +87,16 @@ const STATUS_OPTIONS = [
 export const JobDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const queryTab = searchParams.get('tab');
   const { user } = useSelector((state) => state.auth);
 
   const [job, setJob] = useState(null);
   const [shop, setShop] = useState(null);
   const [availableParts, setAvailableParts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState(queryTab || 'overview');
+  const tabManuallySelectedRef = useRef(Boolean(queryTab));
 
   // Modals
   const [isDiagnosisModalOpen, setIsDiagnosisModalOpen] = useState(false);
@@ -84,9 +109,16 @@ export const JobDetail = () => {
   const [isEditCustomerModalOpen, setIsEditCustomerModalOpen] = useState(false);
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
   const [sendStatusNotification, setSendStatusNotification] = useState(true);
+
+  const [discountModalForm, setDiscountModalForm] = useState({
+    discount_type: 'AMOUNT',
+    discount_value: '',
+    notes: '',
+  });
 
   // Form states for modals
   const [diagnosisForm, setDiagnosisForm] = useState({
@@ -102,7 +134,7 @@ export const JobDetail = () => {
     discount_type: 'AMOUNT', // 'AMOUNT' | 'PERCENTAGE'
     discount_value: '',
     discount: 0,
-    apply_tax: true,
+    apply_tax: false,
     tax_rate: 18,
     notes: '',
     items: [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
@@ -131,6 +163,7 @@ export const JobDetail = () => {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingInvoice, setIsSendingInvoice] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const isFreeWarranty = Boolean(
@@ -179,6 +212,14 @@ export const JobDetail = () => {
       setShop(shopData);
       setAvailableParts(partsData);
 
+      // Auto-select tab: if queryTab is present (?tab=diagnosis from eye icon), honor it!
+      if (queryTab) {
+        setActiveTab(queryTab);
+        tabManuallySelectedRef.current = true;
+      } else if (!tabManuallySelectedRef.current) {
+        setActiveTab(getDefaultTabForStatus(jobData.status));
+      }
+
       // Initialize forms if data exists
       if (jobData.diagnosis) {
         setDiagnosisForm({
@@ -199,6 +240,7 @@ export const JobDetail = () => {
         const loadedItems = (jobData.estimate.items || []).map((i) => ({
           part_id: i.part_id || null,
           item_name: i.item_name || '',
+          warranty: i.warranty || '',
           quantity: i.quantity || 1,
           unit_price: i.unit_price ?? '',
           discount: i.discount || 0,
@@ -217,7 +259,7 @@ export const JobDetail = () => {
           apply_tax: existingTaxRate > 0,
           tax_rate: existingTaxRate > 0 ? existingTaxRate : (shopData?.tax_rate || 18),
           notes: jobData.estimate.notes || '',
-          items: loadedItems.length > 0 ? loadedItems : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
+          items: loadedItems.length > 0 ? loadedItems : [{ item_name: '', warranty: '', quantity: 1, unit_price: '', discount: 0 }],
         });
       } else {
         setEstimateForm((prev) => ({
@@ -225,9 +267,9 @@ export const JobDetail = () => {
           discount_type: 'AMOUNT',
           discount_value: '',
           discount: 0,
-          apply_tax: true,
+          apply_tax: false,
           tax_rate: shopData?.tax_rate || 18,
-          items: prev.items && prev.items.length > 0 ? prev.items : [{ item_name: '', quantity: 1, unit_price: '', discount: 0 }],
+          items: prev.items && prev.items.length > 0 ? prev.items : [{ item_name: '', warranty: '', quantity: 1, unit_price: '', discount: 0 }],
         }));
       }
     } catch (err) {
@@ -239,14 +281,16 @@ export const JobDetail = () => {
   };
 
   useEffect(() => {
+    tabManuallySelectedRef.current = Boolean(queryTab);
     fetchJobData();
-  }, [id]);
+  }, [id, queryTab]);
 
   // Status transitions
   const handleStartDiagnosis = async () => {
     try {
       const updated = await jobService.startDiagnosis(job.id);
       setJob((prev) => ({ ...prev, ...updated }));
+      setActiveTab('diagnosis');
       toast.success('Diagnosis phase started.');
       setIsDiagnosisModalOpen(true);
     } catch (err) {
@@ -270,6 +314,10 @@ export const JobDetail = () => {
   };
 
   const handleOpenEstimateModal = () => {
+    if (isFreeWarranty) {
+      toast.info('This job is covered under warranty for the same issue. Repair rework is 100% free with no estimate or approval needed.');
+      return;
+    }
     if (job?.estimate) {
       setEstimateForm({
         labor_charge: job.estimate.labor_charge || 0,
@@ -281,13 +329,13 @@ export const JobDetail = () => {
         notes: job.estimate.notes || '',
         items: job.estimate.items && job.estimate.items.length > 0
           ? job.estimate.items.map(it => ({
-              part_id: it.part_id || null,
-              item_name: it.item_name || '',
-              warranty: it.warranty || '',
-              quantity: it.quantity || 1,
-              unit_price: it.unit_price || '',
-              discount: it.discount || 0,
-            }))
+            part_id: it.part_id || null,
+            item_name: it.item_name || '',
+            warranty: it.warranty || '',
+            quantity: it.quantity || 1,
+            unit_price: it.unit_price || '',
+            discount: it.discount || 0,
+          }))
           : [{ item_name: '', warranty: '90 Days', quantity: 1, unit_price: '', discount: 0 }],
       });
     } else {
@@ -408,10 +456,7 @@ export const JobDetail = () => {
       toast.success(res.message || `Job status updated to ${selectedStatus}!`);
       setIsChangeStatusModalOpen(false);
 
-      if (selectedStatus === 'DIAGNOSING') setActiveTab('diagnosis');
-      else if (selectedStatus === 'ESTIMATE_SENT') setActiveTab('estimate');
-      else if (selectedStatus === 'TESTING') setActiveTab('testing');
-      else if (['READY_FOR_PICKUP', 'DELIVERED'].includes(selectedStatus)) setActiveTab('payments');
+      setActiveTab(getDefaultTabForStatus(selectedStatus));
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to update job status');
     } finally {
@@ -473,13 +518,14 @@ export const JobDetail = () => {
 
   const handleResendInvoice = async () => {
     try {
-      setIsSaving(true);
+      setIsSendingInvoice(true);
       await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP', 'SMS']);
       toast.success('Tax Invoice & Delivery Receipt sent to customer via WhatsApp and Email!');
+      fetchJobData();
     } catch (err) {
       toast.error(err.message || 'Failed to send invoice');
     } finally {
-      setIsSaving(false);
+      setIsSendingInvoice(false);
     }
   };
 
@@ -496,6 +542,7 @@ export const JobDetail = () => {
         try {
           const updated = await jobService.startRepair(job.id);
           setJob((prev) => ({ ...prev, ...updated }));
+          setActiveTab('estimate');
           toast.success('Repair started! Parts deducted from stock.');
           fetchJobData();
         } catch (err) {
@@ -535,7 +582,7 @@ export const JobDetail = () => {
       // Ensure all tests are passed if completing QC inspection directly
       if (job.tests && job.tests.some((t) => t.result !== 'PASS')) {
         const allPass = (job.tests || []).map((t) => ({ ...t, result: 'PASS' }));
-        await jobService.saveTests(job.id, allPass).catch(() => {});
+        await jobService.saveTests(job.id, allPass).catch(() => { });
       }
       const updated = await jobService.markReadyForPickup(job.id);
       setJob((prev) => ({ ...prev, ...updated }));
@@ -575,7 +622,7 @@ export const JobDetail = () => {
         transaction_reference: paymentForm.transaction_reference,
         notes: paymentForm.notes,
       });
-      toast.success(`Payment of $${paymentForm.amount} recorded successfully.`);
+      toast.success(`Payment of ${currSym}${paymentForm.amount} recorded successfully.`);
       setIsPaymentModalOpen(false);
       setPaymentForm({
         amount: '',
@@ -586,6 +633,42 @@ export const JobDetail = () => {
       fetchJobData();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenDiscountModal = () => {
+    const existingType = job?.discount_type || job?.estimate?.discount_type || 'AMOUNT';
+    const existingVal = job?.discount_value !== undefined
+      ? job.discount_value
+      : (job?.estimate?.discount_value !== undefined ? job.estimate.discount_value : (job?.discount || ''));
+
+    setDiscountModalForm({
+      discount_type: existingType,
+      discount_value: existingVal !== 0 ? existingVal : '',
+      notes: '',
+    });
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleApplyDiscountSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSaving(true);
+      const res = await jobService.applyDiscount(job.id, {
+        discount_type: discountModalForm.discount_type,
+        discount_value: parseFloat(discountModalForm.discount_value) || 0,
+        notes: discountModalForm.notes.trim(),
+      });
+      if (res.data?.job) {
+        setJob((prev) => ({ ...prev, ...res.data.job }));
+      }
+      toast.success(res.message || 'Discount applied successfully!');
+      setIsDiscountModalOpen(false);
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to apply discount');
     } finally {
       setIsSaving(false);
     }
@@ -681,11 +764,10 @@ export const JobDetail = () => {
                   Warranty Claim #{job.reopen_count || 1}
                 </span>
               )}
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                job.priority === 'URGENT' ? 'bg-rose-100 text-rose-800' :
-                job.priority === 'HIGH' ? 'bg-amber-100 text-amber-800' :
-                'bg-slate-100 text-slate-700'
-              }`}>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${job.priority === 'URGENT' ? 'bg-rose-100 text-rose-800' :
+                  job.priority === 'HIGH' ? 'bg-amber-100 text-amber-800' :
+                    'bg-slate-100 text-slate-700'
+                }`}>
                 {job.priority} Priority
               </span>
             </div>
@@ -702,7 +784,7 @@ export const JobDetail = () => {
               variant="outline"
               size="sm"
               icon={SlidersHorizontal}
-              className="border-primary-500/50 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-950/40 font-semibold"
+              className="bg-primary-50 dark:bg-primary-950/60 border-2 border-primary-500 text-primary-700 dark:text-primary-300 hover:bg-primary-600 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white font-bold transition-all shadow-2xs"
               onClick={() => {
                 setSelectedStatus(job.status);
                 setStatusNotes('');
@@ -758,14 +840,14 @@ export const JobDetail = () => {
             size="sm"
             icon={Send}
             onClick={handleResendInvoice}
-            loading={isSaving}
+            loading={isSendingInvoice}
             className="text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/30 font-medium"
             title="Dispatch Tax Invoice & Receipt to Customer via WhatsApp & Email"
           >
             Send Invoice
           </Button>
 
-          {job.approval_token && (
+          {job.approval_token && !isFreeWarranty && (
             <Button
               variant="outline"
               size="sm"
@@ -789,9 +871,9 @@ export const JobDetail = () => {
           )}
 
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            className="bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white font-bold transition-all shadow-2xs"
             icon={Trash2}
             onClick={handleDeleteJob}
             title="Permanently Delete Job Sheet"
@@ -803,15 +885,13 @@ export const JobDetail = () => {
 
       {/* Warranty Claim Banner if active */}
       {job.is_warranty_claim && (
-        <div className={`p-3.5 border rounded-xl flex items-center justify-between flex-wrap gap-3 text-xs ${
-          isFreeWarranty
+        <div className={`p-3.5 border rounded-xl flex items-center justify-between flex-wrap gap-3 text-xs ${isFreeWarranty
             ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
             : 'bg-amber-500/10 border-amber-500/25 text-amber-950 dark:text-amber-200'
-        }`}>
+          }`}>
           <div className="flex items-center gap-2.5">
-            <ShieldCheck className={`w-5 h-5 flex-shrink-0 ${
-              isFreeWarranty ? 'text-emerald-500' : 'text-amber-500'
-            }`} />
+            <ShieldCheck className={`w-5 h-5 flex-shrink-0 ${isFreeWarranty ? 'text-emerald-500' : 'text-amber-500'
+              }`} />
             <div>
               <p className="font-bold flex items-center gap-2 flex-wrap">
                 <span>Active Warranty Claim #{job.reopen_count || 1}</span>
@@ -883,12 +963,14 @@ export const JobDetail = () => {
         ].map((tab) => (
           <button
             key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${
-              activeTab === tab.key
+            onClick={() => {
+              tabManuallySelectedRef.current = true;
+              setActiveTab(tab.key);
+            }}
+            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${activeTab === tab.key
                 ? 'border-primary-600 text-primary-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -983,11 +1065,10 @@ export const JobDetail = () => {
                     <div key={item.key} className="flex items-center justify-between p-1.5 rounded bg-slate-50 border border-slate-100">
                       <span className="text-slate-600 text-[11px]">{item.label}</span>
                       <span
-                        className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded ${
-                          isPositive
+                        className={`font-mono text-[11px] font-bold px-1.5 py-0.5 rounded ${isPositive
                             ? 'bg-emerald-100 text-emerald-800'
                             : 'bg-rose-100 text-rose-800'
-                        }`}
+                          }`}
                       >
                         {val}
                       </span>
@@ -1082,7 +1163,7 @@ export const JobDetail = () => {
           title="Repair Estimate & Parts Quotation"
           subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
           action={
-            ['admin', 'technician'].includes(user?.role_id) && (
+            ['admin', 'technician'].includes(user?.role_id) && !isFreeWarranty && (
               <Button size="sm" onClick={handleOpenEstimateModal}>
                 {job.estimate ? 'Update Estimate' : 'Create Estimate'}
               </Button>
@@ -1091,6 +1172,24 @@ export const JobDetail = () => {
         >
           {job.estimate ? (
             <div className="space-y-6 text-xs">
+              {isFreeWarranty && (
+                <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-xs text-emerald-950 dark:text-emerald-200 uppercase tracking-wide">
+                        100% Free Warranty Claim (Same Issue Rework)
+                      </h4>
+                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
+                        No additional parts or labor billed. No customer estimate or approval is required. Pre-authorized at ₹0.00.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
+                    ₹0.00 Due
+                  </span>
+                </div>
+              )}
               {/* Approval status banner */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1301,9 +1400,14 @@ export const JobDetail = () => {
               <p className="text-2xl font-black text-slate-900 font-mono mt-1">
                 {isFreeWarranty ? `${currSym}0.00` : `${currSym}${Number(job.total_amount).toFixed(2)}`}
               </p>
-              {isFreeWarranty && (
+              {isFreeWarranty ? (
                 <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">Covered Under Warranty (₹0.00)</span>
-              )}
+              ) : Number(job.discount || 0) > 0 ? (
+                <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 flex items-center gap-1">
+                  <Tag className="w-3 h-3 shrink-0" />
+                  Discount: -{currSym}{Number(job.discount).toFixed(2)} ({job.discount_type === 'PERCENTAGE' ? `${job.discount_value}%` : `${currSym}${Number(job.discount_value).toFixed(2)}`})
+                </span>
+              ) : null}
             </div>
             <div className="p-4 bg-white rounded-xl border border-slate-200">
               <p className="text-[11px] font-bold text-slate-500 uppercase">Amount Paid</p>
@@ -1328,12 +1432,24 @@ export const JobDetail = () => {
             subtitle="Record transactions via Cash, Card, UPI, or Bank Transfer"
             action={
               <div className="flex items-center gap-2">
+                {!isFreeWarranty && ['admin', 'staff'].includes(user?.role_id) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={Tag}
+                    onClick={handleOpenDiscountModal}
+                    className="border-emerald-500/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold"
+                    title="Apply or edit flat/percentage discount"
+                  >
+                    {Number(job.discount || 0) > 0 ? 'Edit Discount' : 'Add Discount'}
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"
                   icon={Send}
                   onClick={handleResendInvoice}
-                  loading={isSaving}
+                  loading={isSendingInvoice}
                   title="Send Tax Invoice & Receipt to Customer via WhatsApp and Email"
                 >
                   Send Invoice
@@ -1536,9 +1652,8 @@ export const JobDetail = () => {
                       discount_value: rawVal,
                     }));
                   }}
-                  className={`w-full py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none ${
-                    estimateForm.discount_type === 'AMOUNT' ? 'pl-7 pr-3' : 'pl-3 pr-8'
-                  }`}
+                  className={`w-full py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-primary-500 focus:outline-none ${estimateForm.discount_type === 'AMOUNT' ? 'pl-7 pr-3' : 'pl-3 pr-8'
+                    }`}
                 />
               </div>
 
@@ -1630,11 +1745,10 @@ export const JobDetail = () => {
                     key={rate}
                     type="button"
                     onClick={() => setEstimateForm({ ...estimateForm, tax_rate: rate })}
-                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors ${
-                      Number(estimateForm.tax_rate) === rate
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors ${Number(estimateForm.tax_rate) === rate
                         ? 'bg-emerald-600 text-white shadow-2xs'
                         : 'bg-white hover:bg-slate-200 text-slate-700 border border-slate-200'
-                    }`}
+                      }`}
                   >
                     {rate}% GST
                   </button>
@@ -1709,9 +1823,8 @@ export const JobDetail = () => {
 
             {/* Column Headers for larger screens */}
             <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 bg-slate-100/80 rounded-lg text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-              <div className="col-span-4">Part or Repair Description</div>
+              <div className="col-span-5">Part or Repair Description</div>
               <div className="col-span-3">Warranty</div>
-              <div className="col-span-1 text-center">Qty</div>
               <div className="col-span-2 text-right">Price ({currSym})</div>
               <div className="col-span-2 text-right pr-6">Total</div>
             </div>
@@ -1730,7 +1843,7 @@ export const JobDetail = () => {
                   >
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
                       {/* Part or Repair Details Input */}
-                      <div className="sm:col-span-4">
+                      <div className="sm:col-span-5">
                         <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
                           Part / Repair Details
                         </label>
@@ -1770,64 +1883,48 @@ export const JobDetail = () => {
                         </div>
                       </div>
 
-                      {/* Quantity */}
-                      <div className="grid grid-cols-3 sm:contents gap-2 items-center">
-                        <div className="sm:col-span-1">
-                          <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
-                            Qty
-                          </label>
+                      {/* Price */}
+                      <div className="sm:col-span-2">
+                        <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
+                          Price ({currSym})
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">
+                            {currSym}
+                          </span>
                           <input
                             type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateEstimateItem(idx, 'quantity', parseInt(e.target.value, 10) || 1)}
-                            className="w-full px-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
+                            step="any"
+                            min="0"
+                            placeholder="0.00"
+                            value={item.unit_price}
+                            onChange={(e) => handleUpdateEstimateItem(idx, 'unit_price', e.target.value)}
+                            className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-right text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
                           />
                         </div>
+                      </div>
 
-                        {/* Price */}
-                        <div className="sm:col-span-2">
-                          <label className="block sm:hidden text-[11px] font-semibold text-slate-600 mb-1">
-                            Price ({currSym})
-                          </label>
-                          <div className="relative">
-                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-mono">
-                              {currSym}
-                            </span>
-                            <input
-                              type="number"
-                              step="any"
-                              min="0"
-                              placeholder="0.00"
-                              value={item.unit_price}
-                              onChange={(e) => handleUpdateEstimateItem(idx, 'unit_price', e.target.value)}
-                              className="w-full pl-6 pr-2 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono text-right text-slate-900 focus:ring-2 focus:ring-primary-500 focus:outline-none"
-                            />
-                          </div>
-                        </div>
-
-                        {/* Total & Remove */}
-                        <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1.5">
-                          <div className="sm:hidden">
-                            <span className="text-[11px] font-semibold text-slate-600 block">Total</span>
-                            <span className="font-mono text-xs font-bold text-slate-900">
-                              {currSym}{lineTotal.toFixed(2)}
-                            </span>
-                          </div>
-
-                          <span className="hidden sm:inline font-mono text-xs font-bold text-slate-900 min-w-[65px] text-right">
+                      {/* Total & Remove */}
+                      <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1.5">
+                        <div className="sm:hidden">
+                          <span className="text-[11px] font-semibold text-slate-600 block">Total</span>
+                          <span className="font-mono text-xs font-bold text-slate-900">
                             {currSym}{lineTotal.toFixed(2)}
                           </span>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveEstimateItem(idx)}
-                            title="Remove this item"
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
+
+                        <span className="hidden sm:inline font-mono text-xs font-bold text-slate-900 min-w-[65px] text-right">
+                          {currSym}{lineTotal.toFixed(2)}
+                        </span>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveEstimateItem(idx)}
+                          title="Remove this item"
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors ml-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2277,11 +2374,10 @@ export const JobDetail = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <label
                   onClick={() => setReopenForm((prev) => ({ ...prev, claim_type: 'SAME_ISSUE' }))}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${
-                    reopenForm.claim_type === 'SAME_ISSUE'
+                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${reopenForm.claim_type === 'SAME_ISSUE'
                       ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 font-bold mb-1">
                     <input
@@ -2302,11 +2398,10 @@ export const JobDetail = () => {
 
                 <label
                   onClick={() => setReopenForm((prev) => ({ ...prev, claim_type: 'NEW_ISSUE' }))}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${
-                    reopenForm.claim_type === 'NEW_ISSUE'
+                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${reopenForm.claim_type === 'NEW_ISSUE'
                       ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 ring-2 ring-amber-500/20'
                       : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2 font-bold mb-1">
                     <input
@@ -2455,11 +2550,10 @@ export const JobDetail = () => {
                     key={opt.key}
                     type="button"
                     onClick={() => setSelectedStatus(opt.key)}
-                    className={`py-2 px-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group ${
-                      isSelected
+                    className={`py-2 px-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group ${isSelected
                         ? 'border-primary-500 bg-primary-50/90 dark:bg-primary-950/70 ring-2 ring-primary-500/40 shadow-xs'
                         : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
-                    }`}
+                      }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 mb-0.5">
@@ -2474,11 +2568,10 @@ export const JobDetail = () => {
                         {opt.desc}
                       </p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border shrink-0 flex items-center justify-center transition-all ${
-                      isSelected
+                    <div className={`w-4 h-4 rounded-full border shrink-0 flex items-center justify-center transition-all ${isSelected
                         ? 'border-primary-600 bg-primary-600 text-white'
                         : 'border-slate-300 dark:border-slate-600 bg-transparent group-hover:border-slate-400'
-                    }`}>
+                      }`}>
                       {isSelected && <Check className="w-2.5 h-2.5 stroke-[3]" />}
                     </div>
                   </button>
@@ -2512,6 +2605,182 @@ export const JobDetail = () => {
             </label>
           </div>
         </form>
+      </Modal>
+
+      {/* APPLY DISCOUNT MODAL */}
+      <Modal
+        isOpen={isDiscountModalOpen}
+        onClose={() => setIsDiscountModalOpen(false)}
+        title={Number(job.discount || 0) > 0 ? "Edit Job Discount" : "Add Discount"}
+        subtitle={`Job #${job.job_number} • Current Total: ${currSym}${Number(job.total_amount).toFixed(2)}`}
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDiscountModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="discount-form"
+              size="sm"
+              loading={isSaving}
+              icon={Tag}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+            >
+              Apply Discount
+            </Button>
+          </div>
+        }
+      >
+        {(() => {
+          const baseSubtotal = (job?.estimate?.parts_subtotal || 0) + (job?.estimate?.labor_charge || 0) > 0
+            ? ((job.estimate.parts_subtotal || 0) + (job.estimate.labor_charge || 0))
+            : (job?.subtotal > 0 ? job.subtotal : Math.max(0, (job?.total_amount || 0) + (job?.discount || 0)));
+
+          const discountVal = parseFloat(discountModalForm.discount_value) || 0;
+          const isPercent = discountModalForm.discount_type === 'PERCENTAGE';
+          const calculatedDiscount = isPercent
+            ? parseFloat(((baseSubtotal * Math.min(100, discountVal)) / 100).toFixed(2))
+            : Math.min(baseSubtotal, discountVal);
+
+          const subtotalAfterDisc = Math.max(0, baseSubtotal - calculatedDiscount);
+          const taxRate = job?.tax_rate !== undefined ? job.tax_rate : (job?.estimate?.tax_rate || 0);
+          const calculatedTax = parseFloat(((subtotalAfterDisc * taxRate) / 100).toFixed(2));
+          const calculatedTotal = parseFloat((subtotalAfterDisc + calculatedTax).toFixed(2));
+          const calculatedRemaining = Math.max(0, parseFloat((calculatedTotal - (job?.paid_amount || 0)).toFixed(2)));
+
+          return (
+            <form id="discount-form" onSubmit={handleApplyDiscountSubmit} className="space-y-4">
+              {/* Radio options: Amount vs Percentage */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2">
+                  Discount Type <span className="text-rose-500">*</span>
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'AMOUNT'
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="discount_type"
+                      value="AMOUNT"
+                      checked={discountModalForm.discount_type === 'AMOUNT'}
+                      onChange={() => setDiscountModalForm({ ...discountModalForm, discount_type: 'AMOUNT' })}
+                      className="w-4 h-4 text-emerald-600 accent-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Amount ({currSym})
+                      </span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                        Fixed rupee discount
+                      </span>
+                    </div>
+                  </label>
+
+                  <label
+                    className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'PERCENTAGE'
+                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="discount_type"
+                      value="PERCENTAGE"
+                      checked={discountModalForm.discount_type === 'PERCENTAGE'}
+                      onChange={() => setDiscountModalForm({ ...discountModalForm, discount_type: 'PERCENTAGE' })}
+                      className="w-4 h-4 text-emerald-600 accent-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div>
+                      <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                        Percentage (%)
+                      </span>
+                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                        % of repair subtotal
+                      </span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Discount Input */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Discount Value {discountModalForm.discount_type === 'PERCENTAGE' ? '(%)' : `(${currSym})`} <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">
+                    {discountModalForm.discount_type === 'PERCENTAGE' ? '%' : currSym}
+                  </span>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max={discountModalForm.discount_type === 'PERCENTAGE' ? '100' : baseSubtotal}
+                    required
+                    value={discountModalForm.discount_value}
+                    onChange={(e) => setDiscountModalForm({ ...discountModalForm, discount_value: e.target.value })}
+                    placeholder={discountModalForm.discount_type === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 250'}
+                    className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Discount Notes */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  Reason / Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={discountModalForm.notes}
+                  onChange={(e) => setDiscountModalForm({ ...discountModalForm, notes: e.target.value })}
+                  placeholder="e.g. Repeat customer courtesy, festive promotion..."
+                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Live Calculation Preview Box */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs space-y-1.5">
+                <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                  <span>Base Subtotal:</span>
+                  <span className="font-mono font-medium">{currSym}{baseSubtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                  <span>Discount Applied:</span>
+                  <span className="font-mono">-{currSym}{calculatedDiscount.toFixed(2)}</span>
+                </div>
+                {taxRate > 0 && (
+                  <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                    <span>Tax ({taxRate}%):</span>
+                    <span className="font-mono font-medium">+{currSym}{calculatedTax.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-200 dark:border-slate-700 pt-1.5 flex justify-between text-slate-900 dark:text-slate-100 font-bold">
+                  <span>New Grand Total:</span>
+                  <span className="font-mono text-sm">{currSym}{calculatedTotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500 dark:text-slate-400">
+                  <span>Already Paid:</span>
+                  <span className="font-mono">{currSym}{Number(job.paid_amount || 0).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-rose-600 dark:text-rose-400 font-bold">
+                  <span>New Balance Due:</span>
+                  <span className="font-mono text-sm">{currSym}{calculatedRemaining.toFixed(2)}</span>
+                </div>
+              </div>
+            </form>
+          );
+        })()}
       </Modal>
     </div>
   );

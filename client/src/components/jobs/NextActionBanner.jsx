@@ -31,10 +31,27 @@ export const NextActionBanner = ({
   if (!job) return null;
 
   const status = job.status;
+  const isFreeWarranty = Boolean(
+    job.is_warranty_claim &&
+    (job.warranty_same_issue || job.warranty_free_rework || (job.approval_status === 'APPROVED' && Number(job.balance_due || 0) === 0))
+  );
 
   const getActionConfig = () => {
     switch (status) {
       case 'RECEIVED':
+        if (isFreeWarranty) {
+          return {
+            title: 'Warranty Claim Intake (100% Free Rework)',
+            instruction: 'Customer returned under warranty for the same issue. Pre-authorized free rework — no estimate or customer approval required. Begin repair on workbench.',
+            buttonLabel: 'Start Repair (In Progress)',
+            icon: Play,
+            bg: 'bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border-emerald-300',
+            textColor: 'text-emerald-950 dark:text-emerald-200',
+            btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+            action: onStartRepair,
+            canPerform: ['admin', 'technician'].includes(userRole),
+          };
+        }
         return {
           title: 'Device Intake Complete - Awaiting Diagnosis',
           instruction: 'Technician needs to inspect hardware, test components, and log diagnosis findings.',
@@ -48,6 +65,19 @@ export const NextActionBanner = ({
         };
 
       case 'DIAGNOSING':
+        if (isFreeWarranty) {
+          return {
+            title: 'Warranty Rework Authorized (100% Free)',
+            instruction: 'Same-issue warranty rework pre-authorized at ₹0. No estimate preparation or customer approval needed. Move device to workbench and begin repair.',
+            buttonLabel: 'Start Repair (In Progress)',
+            icon: Play,
+            bg: 'bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border-emerald-300',
+            textColor: 'text-emerald-950 dark:text-emerald-200',
+            btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+            action: onStartRepair,
+            canPerform: ['admin', 'technician'].includes(userRole),
+          };
+        }
         return {
           title: 'Diagnosis In Progress',
           instruction: 'Enter discovered root cause, recommended fix, and create parts/labor cost estimate.',
@@ -62,6 +92,19 @@ export const NextActionBanner = ({
 
       case 'ESTIMATE_SENT':
       case 'AWAITING_APPROVAL':
+        if (isFreeWarranty) {
+          return {
+            title: 'Warranty Claim Authorized (100% Free Rework)',
+            instruction: 'Covered under warranty. Pre-authorized free rework — no estimate or customer approval required. Move device to workbench and begin repair.',
+            buttonLabel: 'Start Repair (In Progress)',
+            icon: Play,
+            bg: 'bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border-emerald-300',
+            textColor: 'text-emerald-950 dark:text-emerald-200',
+            btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
+            action: onStartRepair,
+            canPerform: ['admin', 'technician'].includes(userRole),
+          };
+        }
         return {
           title: 'Estimate Sent - Awaiting Customer Approval',
           instruction: `Estimate ($${Number(job.total_amount).toFixed(2)}) sent to ${job.customer?.full_name || 'Customer'}. Waiting for authorization or manual phone approval.`,
@@ -75,17 +118,18 @@ export const NextActionBanner = ({
         };
 
       case 'APPROVED':
-        const isWarrantyApproved = job.is_warranty_claim && (job.warranty_same_issue || Number(job.balance_due || 0) === 0);
         return {
-          title: isWarrantyApproved ? 'Warranty Claim Authorized (Free Rework)' : 'Estimate Approved by Customer',
-          instruction: isWarrantyApproved
+          title: isFreeWarranty ? 'Warranty Claim Authorized (100% Free Rework)' : 'Estimate Approved by Customer',
+          instruction: isFreeWarranty
             ? 'Covered under warranty. Pre-authorized free rework — no customer approval or payment needed. Move to workbench and begin repair.'
             : 'Customer authorized the repair. Move device to workbench and begin parts replacement.',
           buttonLabel: 'Start Repair (In Progress)',
           icon: Play,
-          bg: 'bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200',
-          textColor: 'text-blue-900',
-          btnClass: 'bg-blue-600 hover:bg-blue-700 text-white',
+          bg: isFreeWarranty
+            ? 'bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border-emerald-300'
+            : 'bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border-blue-200',
+          textColor: isFreeWarranty ? 'text-emerald-950 dark:text-emerald-200' : 'text-blue-900',
+          btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
           action: onStartRepair,
           canPerform: ['admin', 'technician'].includes(userRole),
         };
@@ -117,7 +161,6 @@ export const NextActionBanner = ({
         };
 
       case 'READY_FOR_PICKUP':
-        const isFreeWarranty = job.is_warranty_claim && (job.warranty_same_issue || job.warranty_free_rework || Number(job.balance_due || 0) === 0);
         return {
           title: isFreeWarranty
             ? 'Device Ready for Customer Pickup (Warranty Rework Complete)'

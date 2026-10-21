@@ -329,13 +329,20 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
     }
 
     // Fallback: Open in WhatsApp Web/App
-    const msg = `*Service Record & Invoice - ${shopName}*\n` +
-      `Dear ${cust.full_name || 'Customer'},\n` +
-      `Your service record & invoice #${invoice?.invoice_number || job.job_number} is ready.\n` +
-      `Device: ${dev.brand || ''} ${dev.model || ''}\n` +
-      `Total: ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
-      `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
-      `Mobotech Mobile Care, Central Bazar, Surat. Phone: ${shopPhone}`;
+    const isWarranty = Boolean(job.is_warranty_claim || job.warranty_same_issue || job.warranty_free_rework);
+    const msg = isWarranty
+      ? `*Warranty Service Handover & Invoice - ${shopName}*\n` +
+        `Dear ${cust.full_name || 'Customer'},\n` +
+        `Your warranty rework for ${dev.brand || ''} ${dev.model || ''} (Job #${job.job_number}) is completed and handed over (100% Free Rework - ${currencySymbol}0.00 Balance Due).\n` +
+        `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
+        `${shopName}, ${shopAddress}. Phone: ${shopPhone}`
+      : `*Service Record & Invoice - ${shopName}*\n` +
+        `Dear ${cust.full_name || 'Customer'},\n` +
+        `Your service record & invoice #${invoice?.invoice_number || job.job_number} is ready.\n` +
+        `Device: ${dev.brand || ''} ${dev.model || ''}\n` +
+        `Total: ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
+        `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
+        `Mobotech Mobile Care, Central Bazar, Surat. Phone: ${shopPhone}`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 

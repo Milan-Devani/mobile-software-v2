@@ -26,6 +26,7 @@ import {
   X,
   Edit2,
   LogOut,
+  Database,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -39,6 +40,7 @@ import { Badge } from '../../components/common/Badge';
 import { WhatsAppQrModal } from '../../components/common/WhatsAppQrModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { BackupManagementTab } from '../../components/settings/BackupManagementTab';
 import {
   useTheme,
   SPATIAL_STYLES,
@@ -498,6 +500,21 @@ export const Settings = () => {
           <Bell className="w-4 h-4" />
           <span>Notifications & WhatsApp</span>
         </button>
+
+        {user?.role_id === 'admin' && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('backups')}
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+              activeTab === 'backups'
+                ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
+                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+            }`}
+          >
+            <Database className="w-4 h-4" />
+            <span>Database Backups</span>
+          </button>
+        )}
       </div>
 
       {/* ==================================================================== */}
@@ -1257,6 +1274,13 @@ export const Settings = () => {
             </div>
           </div>
         </Card>
+      )}
+
+      {/* ==================================================================== */}
+      {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY                          */}
+      {/* ==================================================================== */}
+      {activeTab === 'backups' && user?.role_id === 'admin' && (
+        <BackupManagementTab />
       )}
 
       {/* ==================================================================== */}
