@@ -100,3 +100,103 @@
 - **Root Cause:** Fast2SMS account balance is 0.
 - **Recommendation:** Recharge Fast2SMS wallet in Fast2SMS portal if SMS is desired. WhatsApp and Email channels remain fully functional and operational.
 - **Fix Status:** **Open (External Dependency)**
+
+---
+
+### BUG-005: Duplicate Job Ticket Numbers on Rapid Multi-Job Creation
+- **Bug ID:** `BUG-005`
+- **Title:** Sequential ticket generator `generateNextJobNumber` returned duplicate job numbers (e.g. `mobo-2026-0004`)
+- **Severity:** `P1 — High`
+- **Priority:** `Urgent`
+- **Affected Module:** `MOD-05 (Job Intake & Ticket Generation)` / `server/src/db/db.js`
+- **Preconditions:** Creating multiple jobs while Supabase is configured.
+- **Exact Reproduction Steps:**
+  1. Create Job Sheet 1 -> received `mobo-2026-0004`.
+  2. Create Job Sheet 2 -> received `mobo-2026-0004` (duplicate!).
+  3. Query `db.jobs.findById('mobo-2026-0004')` -> ambiguous match, shadows subsequent jobs.
+- **Expected Result:** Every created job sheet must receive a strictly unique, sequential number (`mobo-2026-0004`, `mobo-2026-0005`, `mobo-2026-0006`, etc.).
+- **Actual Result:** Generator queried Supabase alone and returned early without inspecting `localDb`, leading to sequence collisions.
+- **Root Cause:** `generateNextJobNumber` returned early on the Supabase branch without reconciling local engine records with remote records.
+- **Fix Implemented:** Updated `generateNextJobNumber` and `generateNextInvoiceNumber` to inspect both `localDb` and Supabase and take `Math.max(localSeq, supabaseSeq) + 1`. Cleaned and re-sequenced past duplicate records in `db.json`.
+- **Verification Evidence:** `qaComprehensiveVerification.js` verified 3 back-to-back jobs received `mobo-2026-0008`, `mobo-2026-0009`, `mobo-2026-0010`.
+- **Fix Status:** **Retest Passed**
+
+---
+
+### BUG-006: Raw Password Hash Leaked in `createUser` API & Database Response
+- **Bug ID:** `BUG-006`
+- **Title:** `POST /api/auth/users` and `db.users.create` leaked `password_hash` in JSON response body
+- **Severity:** `P1 — High (Security)`
+- **Priority:** `High`
+- **Affected Module:** `MOD-01 (Authentication & User Management)` / `server/src/controllers/authController.js`, `server/src/db/db.js`
+- **Preconditions:** Creating a staff or technician user as an admin.
+- **Exact Reproduction Steps:**
+  1. Call `POST /api/auth/users` with user details.
+  2. Inspect HTTP 201 response payload.
+- **Expected Result:** `password_hash` must be omitted from all API responses and database entity returns.
+- **Actual Result:** Response body contained `password_hash: "$2b$10$..."`.
+- **Root Cause:** `authController.js` sent raw `createdUser` without destructuring, and `db.users.create` Supabase branch returned raw `data`.
+- **Fix Implemented:** Added `const { password_hash: _ph, ...safeUser } = createdUser;` in `authController.js` and stripped hash in `db.users.create`.
+- **Verification Evidence:** `qaComprehensiveVerification.js` check #5 and #7 confirmed `password_hash` is completely absent from user object.
+- **Fix Status:** **Retest Passed**
+
+---
+
+### BUG-007: Dropdown Menu Hardcoded White/Slate Background & Missing CSS Class
+- **Bug ID:** `BUG-007`
+- **Title:** Hardcoded `bg-white dark:bg-slate-900` in Topbar and `SpatialSelect` causing theme background collision
+- **Severity:** `P2 — Medium`
+- **Priority:** `Normal`
+- **Affected Module:** `MOD-02 (Design System & Theming)` / `Topbar.jsx`, `SpatialSelect.jsx`, `index.css`
+- **Preconditions:** Switching to `clean-light` (dark mode) or `futuristic-glass` style.
+- **Exact Reproduction Steps:**
+  1. Switch to `futuristic-glass`.
+  2. Open Style or Color Mode dropdown in Topbar or Customer dropdown in `JobCreate.jsx`.
+- **Expected Result:** Dropdown panel should use `--spatial-bg-dropdown` with backdrop blur matching the active theme.
+- **Actual Result:** Hardcoded `bg-white dark:bg-slate-900 border-slate-700` overridden theme CSS variables, and `.spatial-dropdown-panel` class was missing in `index.css`.
+- **Fix Implemented:** Defined `.spatial-dropdown-panel` in `index.css` with `var(--spatial-bg-dropdown)` and `backdrop-filter: var(--spatial-glass-blur)`. Removed hardcoded slate classes in `Topbar.jsx` and `SpatialSelect.jsx`.
+- **Verification Evidence:** Dropdowns now inherit cohesive styling in all 9 theme combinations.
+- **Fix Status:** **Retest Passed**
+
+---
+
+### BUG-008: Hardcoded Light Theme in Global ErrorBoundary
+- **Bug ID:** `BUG-008`
+- **Title:** `ErrorBoundary.jsx` rendered hardcoded `bg-slate-50` and `bg-white` card on unhandled React crash
+- **Severity:** `P2 — Medium`
+- **Priority:** `Normal`
+- **Affected Module:** `MOD-00 (Core Architecture)` / `ErrorBoundary.jsx`
+- **Preconditions:** Unhandled render error while user is in Dark Spatial or Futuristic Glass mode.
+- **Expected Result:** Error card should adapt to the active dark/spatial theme.
+- **Actual Result:** User was presented with a blinding white full-page container.
+- **Fix Implemented:** Replaced hardcoded classes with `var(--spatial-bg-app)`, `var(--spatial-bg-card)`, and spatial buttons.
+- **Verification Evidence:** Verified dark-spatial aesthetic styling in `ErrorBoundary.jsx`.
+- **Fix Status:** **Retest Passed**
+
+---
+
+### BUG-009: Dashboard Metric Fetch Failure Silently Suppressed
+- **Bug ID:** `BUG-009`
+- **Title:** `fetchStats()` in `Dashboard.jsx` suppressed API error without user feedback
+- **Severity:** `P2 — Medium`
+- **Priority:** `Normal`
+- **Affected Module:** `MOD-03 (Dashboard)` / `Dashboard.jsx`
+- **Preconditions:** Network interruption or API timeout while loading dashboard.
+- **Actual Result:** Catch block logged to `console.error` without user toast or retry button.
+- **Fix Implemented:** Added `toast.error('Failed to load dashboard statistics')`, `fetchError` state, and an empty state card with a "Retry Loading" action.
+- **Verification Evidence:** Component now gracefully prompts retry on API failure.
+- **Fix Status:** **Retest Passed**
+
+---
+
+### BUG-010: React Compiler Date Function Impurity Warning in InvoicePrintable
+- **Bug ID:** `BUG-010`
+- **Title:** Impure `new Date()` calls during component render in `InvoicePrintable.jsx`
+- **Severity:** `P3 — Low`
+- **Priority:** `Low`
+- **Affected Module:** `MOD-09 (Billing & Invoices)` / `InvoicePrintable.jsx`
+- **Root Cause:** Helper functions `formatSignatureDate` and `formatInwardDate` invoked `new Date()` directly if date parameter was falsy.
+- **Fix Implemented:** Guarded `if (!dateVal) return '';` and verified timestamp validity before instantiation.
+- **Verification Evidence:** Linter reports 0 purity errors in `InvoicePrintable.jsx`.
+- **Fix Status:** **Retest Passed**
+

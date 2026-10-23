@@ -38,13 +38,18 @@ export const Dashboard = () => {
   const [pageSize, setPageSize] = useState(10);
   const navigate = useNavigate();
 
+  const [fetchError, setFetchError] = useState(null);
+
   const fetchStats = async () => {
     try {
       setLoading(true);
+      setFetchError(null);
       const res = await dashboardService.getStats();
       setData(res);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
+      setFetchError(err.message || 'Failed to load dashboard metrics');
+      toast.error('Failed to load dashboard statistics');
     } finally {
       setLoading(false);
     }
@@ -55,7 +60,21 @@ export const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <LoadingSpinner label="Loading workshop statistics..." />;
+    return <LoadingSpinner fullPage label="Loading workshop statistics..." />;
+  }
+
+  if (!data && fetchError) {
+    return (
+      <div className="py-8">
+        <EmptyState
+          icon={AlertCircle}
+          title="Unable to load workshop metrics"
+          description={fetchError}
+          actionLabel="Retry Loading"
+          onAction={fetchStats}
+        />
+      </div>
+    );
   }
 
   const summary = data?.summary || {};

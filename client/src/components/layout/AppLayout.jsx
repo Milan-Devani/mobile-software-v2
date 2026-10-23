@@ -14,7 +14,7 @@ export const AppLayout = () => {
       {isDark && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-40 transition-opacity duration-500"
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-40 transition-opacity duration-500 print:hidden"
         >
           <div className="absolute -top-40 left-1/3 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px]" />
           <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[140px]" />
@@ -28,9 +28,9 @@ export const AppLayout = () => {
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main Content Area (offset by sidebar width on desktop) */}
-      <div className="lg:pl-64 flex flex-col flex-1 min-w-0 z-10 relative">
+      <div className="lg:pl-64 flex flex-col flex-1 min-w-0 z-10 relative print:pl-0">
         <Topbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
-        <main className="flex-1 p-4 sm:p-6 md:p-8 max-w-7xl w-full mx-auto">
+        <main className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 max-w-[1680px] w-full mx-auto print:p-0 print:m-0 print:max-w-none">
           <Outlet />
         </main>
       </div>

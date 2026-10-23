@@ -77,7 +77,7 @@ export const CustomerDetail = () => {
   }, [id]);
 
   if (loading) {
-    return <LoadingSpinner label="Loading customer profile..." />;
+    return <LoadingSpinner fullPage label="Loading customer profile..." />;
   }
 
   const customer = data?.customer;

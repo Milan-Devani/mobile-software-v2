@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
 import { createInitialSeedData } from './seedData.js';
+import { setupVendorRepo } from './vendorRepo.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,12 +14,198 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 // Local in-memory cache for development mode
 let localDb = null;
 
+export const sanitizeRecord = (record) => {
+  if (!record || typeof record !== 'object') return record;
+  const clean = { ...record };
+  for (const [key, val] of Object.entries(clean)) {
+    if (val === '') {
+      if (
+        key.endsWith('_date') ||
+        key.endsWith('_at') ||
+        key.endsWith('_id') ||
+        key === 'valid_until' ||
+        key === 'invoice_date' ||
+        key === 'expiry_date' ||
+        key === 'rejection_reason' ||
+        key === 'date'
+      ) {
+        clean[key] = null;
+      }
+    }
+  }
+  return clean;
+};
+
+export const safeSupabaseInsert = async (table, data) => {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    let payload = Array.isArray(data)
+      ? data.map(r => ({ ...sanitizeRecord(r) }))
+      : { ...sanitizeRecord(data) };
+
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const { data: res, error } = await supabase.from(table).insert(payload).select();
+      if (!error) return res;
+
+      const match = error.message.match(/Could not find the '([^']+)' column/i);
+      if (match && match[1]) {
+        const missingCol = match[1];
+        if (Array.isArray(payload)) {
+          payload.forEach(r => delete r[missingCol]);
+        } else {
+          delete payload[missingCol];
+        }
+      } else {
+        if (error.code !== 'PGRST205') {
+          console.warn(`⚠️ Supabase [${table}] insert error:`, error.message);
+        }
+        return null;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ Supabase [${table}] insert error:`, err.message);
+    return null;
+  }
+};
+
+export const safeSupabaseUpdate = async (table, id, updates) => {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    let payload = { ...sanitizeRecord(updates) };
+
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const { data: res, error } = await supabase.from(table).update(payload).eq('id', id).select();
+      if (!error) return res;
+
+      const match = error.message.match(/Could not find the '([^']+)' column/i);
+      if (match && match[1]) {
+        const missingCol = match[1];
+        delete payload[missingCol];
+      } else {
+        if (error.code !== 'PGRST205') {
+          console.warn(`⚠️ Supabase [${table}] update error:`, error.message);
+        }
+        return null;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ Supabase [${table}] update error:`, err.message);
+    return null;
+  }
+};
+
+export const safeSupabaseDelete = async (table, id, idColumn = 'id') => {
+  if (!isSupabaseConfigured()) return false;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return false;
+    const { error } = await supabase.from(table).delete().eq(idColumn, id);
+    if (error) {
+      if (error.code !== 'PGRST205') {
+        console.warn(`⚠️ Supabase [${table}] delete error:`, error.message);
+      }
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn(`⚠️ Supabase [${table}] delete error:`, err.message);
+    return false;
+  }
+};
+
+export const safeSupabaseUpsert = async (table, data, onConflict = 'id') => {
+  if (!isSupabaseConfigured()) return null;
+  try {
+    const supabase = getSupabase();
+    if (!supabase) return null;
+    let payload = Array.isArray(data)
+      ? data.map(r => ({ ...sanitizeRecord(r) }))
+      : { ...sanitizeRecord(data) };
+
+    for (let attempts = 0; attempts < 10; attempts++) {
+      const { data: res, error } = await supabase.from(table).upsert(payload, { onConflict }).select();
+      if (!error) return res;
+
+      const match = error.message.match(/Could not find the '([^']+)' column/i);
+      if (match && match[1]) {
+        const missingCol = match[1];
+        if (Array.isArray(payload)) {
+          payload.forEach(r => delete r[missingCol]);
+        } else {
+          delete payload[missingCol];
+        }
+      } else {
+        if (error.code !== 'PGRST205') {
+          console.warn(`⚠️ Supabase [${table}] upsert error:`, error.message);
+        }
+        return null;
+      }
+    }
+    return null;
+  } catch (err) {
+    console.warn(`⚠️ Supabase [${table}] upsert error:`, err.message);
+    return null;
+  }
+};
+
+export const syncFromSupabase = async () => {
+  if (!isSupabaseConfigured()) return;
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    const coreTables = [
+      'shops',
+      'roles',
+      'users',
+      'customers',
+      'devices',
+      'parts',
+      'repair_jobs',
+      'job_status_history',
+      'diagnoses',
+      'repair_estimates',
+      'repair_estimate_items',
+      'part_stock_movements',
+      'repair_tests',
+      'payments',
+      'invoices',
+      'invoice_items',
+      'notification_logs',
+      'settings',
+      'sales',
+      'vendors',
+      'vendor_transactions',
+      'vendor_mobiles',
+      'vendor_status_history',
+      'vendor_ledger',
+      'vendor_payments',
+    ];
+
+    for (const tbl of coreTables) {
+      try {
+        const { data, error } = await supabase.from(tbl).select('*').limit(3000);
+        if (!error && Array.isArray(data) && data.length > 0) {
+          localDb[tbl] = data;
+        }
+      } catch (_) {
+        // Table may not exist yet or empty
+      }
+    }
+    console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
+  } catch (err) {
+    console.warn('⚠️ Supabase live sync warning:', err.message);
+  }
+};
+
 // Ensure local data directory and seed file exist
 export const initDb = async () => {
-  if (isSupabaseConfigured()) {
-    console.log('✅ Supabase PostgreSQL is connected as primary database.');
-  }
-
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -38,6 +225,248 @@ export const initDb = async () => {
     localDb = await createInitialSeedData();
     saveLocalDb();
     console.log('✅ Initial database seeded successfully.');
+  }
+
+  // If Supabase is connected, sync live records directly from Supabase PostgreSQL
+  if (isSupabaseConfigured()) {
+    console.log('✅ Supabase PostgreSQL is connected as primary database. Syncing live tables...');
+    await syncFromSupabase();
+  }
+
+  if (localDb) {
+    localDb.vendors = localDb.vendors || [];
+    localDb.vendor_transactions = localDb.vendor_transactions || [];
+    localDb.vendor_mobiles = localDb.vendor_mobiles || [];
+    localDb.vendor_status_history = localDb.vendor_status_history || [];
+    localDb.vendor_ledger = localDb.vendor_ledger || [];
+    localDb.vendor_payments = localDb.vendor_payments || [];
+    localDb.sales = localDb.sales || [];
+
+    if (localDb.sales.length === 0) {
+      localDb.sales = [
+        {
+          id: 's0000000-0000-0000-0000-000000000001',
+          invoice_number: 'INV-2026-000045',
+          invoice_no_seq: 45,
+          invoice_date: '2026-10-22',
+          customer_name: 'Rajeshbhai Patel',
+          customer_phone: '9825123456',
+          customer_email: 'rajesh.patel@gmail.com',
+          customer_address: 'B-402, Shivalik Residency, Varachha, Surat',
+          place_of_supply: 'Gujarat ( 24 )',
+          customer_gstin: '24AAACP1234A1Z5',
+          items: [
+            {
+              sr_no: 1,
+              name: 'iPhone 15 Pro Max 256GB Natural Titanium',
+              item_type: 'PHONE',
+              imei: '358901234567890',
+              warranty: '1 Year Apple Official Warranty',
+              hsn: '8517',
+              quantity: 1,
+              unit: 'NOS',
+              rate: 134000,
+              taxable_value: 134000,
+              gst_rate: 18,
+              gst_amount: 24120,
+              total: 158120,
+            },
+            {
+              sr_no: 2,
+              name: 'Original 20W USB-C Power Adapter',
+              item_type: 'ACCESSORY',
+              imei: 'A2305-C891234',
+              warranty: '6 Months Replacement',
+              hsn: '8504',
+              quantity: 1,
+              unit: 'NOS',
+              rate: 1900,
+              taxable_value: 1900,
+              gst_rate: 18,
+              gst_amount: 342,
+              total: 2242,
+            },
+          ],
+          subtotal: 135900,
+          discount_type: 'amount',
+          discount_value: 900,
+          discount_amount: 900,
+          taxable_amount: 135000,
+          gst_enabled: true,
+          gst_type: 'CGST_SGST',
+          gst_rate: 18,
+          igst_rate: 0,
+          igst_amount: 0,
+          cgst_rate: 9,
+          cgst_amount: 12150,
+          sgst_rate: 9,
+          sgst_amount: 12150,
+          total_tax: 24300,
+          total_amount: 159300,
+          payment_mode: 'UPI',
+          payment_status: 'PAID',
+          bank_details: {
+            bank_name: 'ICICI Bank',
+            branch: 'Surat',
+            account_number: '2715500356',
+            ifsc: 'ICIC000045',
+            upi_id: 'mobotech@icici',
+          },
+          terms_conditions: [
+            'Subject to Surat Jurisdiction.',
+            'Our Responsibility Ceases as soon as goods leave our Premises.',
+            'Goods once sold will not be taken back.',
+            'Warranty as per manufacturer or shop warranty policy.',
+            'Delivery Ex-Premises.',
+          ],
+          notes: 'Customer paid full via UPI. Handset sealed box delivered.',
+          issued_by_name: 'Shop Owner',
+          created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+          updated_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: 's0000000-0000-0000-0000-000000000002',
+          invoice_number: 'INV-2026-000046',
+          invoice_no_seq: 46,
+          invoice_date: '2026-10-23',
+          customer_name: 'Amitbhai Shah',
+          customer_phone: '9879012345',
+          customer_email: 'amit.shah@outlook.com',
+          customer_address: 'Ring Road, Surat',
+          place_of_supply: 'Gujarat ( 24 )',
+          customer_gstin: '',
+          items: [
+            {
+              sr_no: 1,
+              name: 'Samsung Galaxy S24 Ultra Dynamic AMOLED 2X Display Module',
+              item_type: 'PART',
+              imei: 'SM-S928B-09871',
+              warranty: '6 Months Screen Warranty',
+              hsn: '8517',
+              quantity: 1,
+              unit: 'NOS',
+              rate: 18500,
+              taxable_value: 18500,
+              gst_rate: 0,
+              gst_amount: 0,
+              total: 18500,
+            },
+            {
+              sr_no: 2,
+              name: 'UV Curved Tempered Glass Installation',
+              item_type: 'ACCESSORY',
+              imei: '',
+              warranty: 'No Warranty',
+              hsn: '7007',
+              quantity: 1,
+              unit: 'NOS',
+              rate: 500,
+              taxable_value: 500,
+              gst_rate: 0,
+              gst_amount: 0,
+              total: 500,
+            },
+          ],
+          subtotal: 19000,
+          discount_type: 'amount',
+          discount_value: 500,
+          discount_amount: 500,
+          taxable_amount: 18500,
+          gst_enabled: false,
+          gst_type: 'IGST',
+          gst_rate: 0,
+          igst_rate: 0,
+          igst_amount: 0,
+          cgst_rate: 0,
+          cgst_amount: 0,
+          sgst_rate: 0,
+          sgst_amount: 0,
+          total_tax: 0,
+          total_amount: 18500,
+          payment_mode: 'CASH',
+          payment_status: 'PAID',
+          bank_details: {
+            bank_name: 'ICICI Bank',
+            branch: 'Surat',
+            account_number: '2715500356',
+            ifsc: 'ICIC000045',
+            upi_id: 'mobotech@icici',
+          },
+          terms_conditions: [
+            'Subject to Surat Jurisdiction.',
+            'Goods once sold will not be taken back.',
+            'Warranty as per manufacturer or shop warranty policy.',
+          ],
+          notes: 'Display replacement completed with original frame. Cash received.',
+          issued_by_name: 'Shop Owner',
+          created_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+          updated_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
+        },
+        {
+          id: 's0000000-0000-0000-0000-000000000003',
+          invoice_number: 'INV-2026-000047',
+          invoice_no_seq: 47,
+          invoice_date: '2026-10-23',
+          customer_name: 'Pooja Mehta',
+          customer_phone: '9909012345',
+          customer_email: 'pooja.mehta@gmail.com',
+          customer_address: 'City Light Rd, Surat',
+          place_of_supply: 'Gujarat ( 24 )',
+          customer_gstin: '24BBZPM9876C1Z3',
+          items: [
+            {
+              sr_no: 1,
+              name: 'OnePlus 12 5G (16GB RAM + 512GB Silky Black)',
+              item_type: 'PHONE',
+              imei: '864209040112233',
+              warranty: '1 Year Brand Warranty',
+              hsn: '8517',
+              quantity: 1,
+              unit: 'NOS',
+              rate: 64999,
+              taxable_value: 64999,
+              gst_rate: 18,
+              gst_amount: 11699.82,
+              total: 76698.82,
+            },
+          ],
+          subtotal: 64999,
+          discount_type: 'amount',
+          discount_value: 1000,
+          discount_amount: 1000,
+          taxable_amount: 63999,
+          gst_enabled: true,
+          gst_type: 'CGST_SGST',
+          gst_rate: 18,
+          igst_rate: 0,
+          igst_amount: 0,
+          cgst_rate: 9,
+          cgst_amount: 5759.91,
+          sgst_rate: 9,
+          sgst_amount: 5759.91,
+          total_tax: 11519.82,
+          total_amount: 75518.82,
+          payment_mode: 'CARD',
+          payment_status: 'PAID',
+          bank_details: {
+            bank_name: 'ICICI Bank',
+            branch: 'Surat',
+            account_number: '2715500356',
+            ifsc: 'ICIC000045',
+            upi_id: 'mobotech@icici',
+          },
+          terms_conditions: [
+            'Subject to Surat Jurisdiction.',
+            'Goods once sold will not be taken back.',
+          ],
+          notes: 'Card swipe via HDFC POS terminal.',
+          issued_by_name: 'Shop Owner',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+      saveLocalDb();
+    }
   }
 };
 
@@ -68,37 +497,38 @@ export const parseWarrantyDays = (val) => {
 export const generateNextJobNumber = async () => {
   const currentYear = new Date().getFullYear();
   const prefix = `mobo-${currentYear}-`;
+  let highestSeq = 0;
 
-  if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    const { data } = await supabase
-      .from('repair_jobs')
-      .select('job_number')
-      .like('job_number', `${prefix}%`)
-      .order('job_number', { ascending: false })
-      .limit(1);
-
-    if (data && data.length > 0) {
-      const lastNumberStr = data[0].job_number.replace(prefix, '');
-      const lastSeq = parseInt(lastNumberStr, 10) || 0;
-      return `${prefix}${String(lastSeq + 1).padStart(4, '0')}`;
-    }
-    return `${prefix}0001`;
-  }
-
-  // Local engine
-  const existingNumbers = (localDb.repair_jobs || [])
+  // 1. Check local engine records
+  const localNumbers = (localDb?.repair_jobs || [])
     .map(j => j.job_number)
     .filter(num => num && num.startsWith(prefix));
 
-  if (existingNumbers.length === 0) {
-    return `${prefix}0001`;
-  }
-
-  let highestSeq = 0;
-  for (const num of existingNumbers) {
+  for (const num of localNumbers) {
     const seq = parseInt(num.replace(prefix, ''), 10) || 0;
     if (seq > highestSeq) highestSeq = seq;
+  }
+
+  // 2. Also check Supabase records if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase
+        .from('repair_jobs')
+        .select('job_number')
+        .like('job_number', `${prefix}%`)
+        .order('job_number', { ascending: false })
+        .limit(20);
+
+      if (data && data.length > 0) {
+        for (const row of data) {
+          const seq = parseInt((row.job_number || '').replace(prefix, ''), 10) || 0;
+          if (seq > highestSeq) highestSeq = seq;
+        }
+      }
+    } catch (_) {
+      // Non-blocking fallback to local highest sequence
+    }
   }
 
   return `${prefix}${String(highestSeq + 1).padStart(4, '0')}`;
@@ -108,35 +538,92 @@ export const generateNextJobNumber = async () => {
 export const generateNextInvoiceNumber = async () => {
   const currentYear = new Date().getFullYear();
   const prefix = `INV-${currentYear}-`;
+  let highestSeq = 0;
 
-  if (isSupabaseConfigured()) {
-    const supabase = getSupabase();
-    const { data } = await supabase
-      .from('invoices')
-      .select('invoice_number')
-      .like('invoice_number', `${prefix}%`)
-      .order('invoice_number', { ascending: false })
-      .limit(1);
-
-    if (data && data.length > 0) {
-      const lastNumberStr = data[0].invoice_number.replace(prefix, '');
-      const lastSeq = parseInt(lastNumberStr, 10) || 0;
-      return `${prefix}${String(lastSeq + 1).padStart(6, '0')}`;
-    }
-    return `${prefix}000001`;
-  }
-
-  const existing = (localDb.invoices || [])
+  // 1. Check local engine records
+  const localInvoices = (localDb?.invoices || [])
     .map(inv => inv.invoice_number)
     .filter(num => num && num.startsWith(prefix));
 
-  if (existing.length === 0) return `${prefix}000001`;
-  let highest = 0;
-  for (const num of existing) {
+  for (const num of localInvoices) {
     const seq = parseInt(num.replace(prefix, ''), 10) || 0;
-    if (seq > highest) highest = seq;
+    if (seq > highestSeq) highestSeq = seq;
   }
-  return `${prefix}${String(highest + 1).padStart(6, '0')}`;
+
+  // 2. Also check Supabase records if configured
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = getSupabase();
+      const { data } = await supabase
+        .from('invoices')
+        .select('invoice_number')
+        .like('invoice_number', `${prefix}%`)
+        .order('invoice_number', { ascending: false })
+        .limit(20);
+
+      if (data && data.length > 0) {
+        for (const row of data) {
+          const seq = parseInt((row.invoice_number || '').replace(prefix, ''), 10) || 0;
+          if (seq > highestSeq) highestSeq = seq;
+        }
+      }
+    } catch (_) {
+      // Non-blocking fallback
+    }
+  }
+
+  return `${prefix}${String(highestSeq + 1).padStart(6, '0')}`;
+};
+
+// Next Sales Invoice Number generator
+export const generateNextSaleInvoiceNumber = async () => {
+  const currentYear = new Date().getFullYear();
+  const prefix = `INV-${currentYear}-`;
+  let highestSeq = 0;
+
+  const allRecords = [
+    ...(localDb?.sales || []).map(s => s.invoice_number),
+    ...(localDb?.invoices || []).map(i => i.invoice_number)
+  ].filter(num => num && typeof num === 'string' && num.startsWith(prefix));
+
+  for (const num of allRecords) {
+    const seq = parseInt(num.replace(prefix, ''), 10) || 0;
+    if (seq > highestSeq) highestSeq = seq;
+  }
+
+  for (const s of (localDb?.sales || [])) {
+    if (s.invoice_no_seq && s.invoice_no_seq > highestSeq) {
+      highestSeq = s.invoice_no_seq;
+    }
+  }
+
+  const nextSeq = highestSeq + 1;
+  return {
+    fullNumber: `${prefix}${String(nextSeq).padStart(6, '0')}`,
+    seqNumber: nextSeq,
+    shortNumber: String(nextSeq)
+  };
+};
+
+// Vendor Repository instance
+const supabaseHelpers = {
+  safeInsert: safeSupabaseInsert,
+  safeUpdate: safeSupabaseUpdate,
+  safeDelete: safeSupabaseDelete,
+  safeUpsert: safeSupabaseUpsert,
+};
+
+const {
+  generateNextVendorCode,
+  generateNextVendorTxnNumber,
+  generateNextVendorVoucherNumber,
+  vendorDbMethods,
+} = setupVendorRepo(() => localDb, () => saveLocalDb(), supabaseHelpers);
+
+export {
+  generateNextVendorCode,
+  generateNextVendorTxnNumber,
+  generateNextVendorVoucherNumber,
 };
 
 // Unified Database Repository
@@ -181,7 +668,8 @@ export const db = {
       if (isSupabaseConfigured()) {
         const { data, error } = await getSupabase().from('users').insert(newUser).select().single();
         if (error) throw error;
-        return data;
+        const { password_hash: _ph, ...safeData } = data || newUser;
+        return safeData;
       }
       localDb.users.push(newUser);
       saveLocalDb();
@@ -666,6 +1154,14 @@ export const db = {
       }
 
       saveLocalDb();
+
+      // Persist to Supabase PostgreSQL
+      await safeSupabaseInsert('repair_jobs', newJob);
+      const firstHistory = (localDb.job_status_history || []).find(h => h.job_id === newJob.id);
+      if (firstHistory) await safeSupabaseInsert('job_status_history', firstHistory);
+      const testsToInsert = (localDb.repair_tests || []).filter(t => t.job_id === newJob.id);
+      if (testsToInsert.length > 0) await safeSupabaseInsert('repair_tests', testsToInsert);
+
       return newJob;
     },
 
@@ -678,6 +1174,7 @@ export const db = {
         updated_at: new Date().toISOString()
       };
       saveLocalDb();
+      await safeSupabaseUpdate('repair_jobs', id, updates);
       return localDb.repair_jobs[idx];
     },
 
@@ -690,7 +1187,7 @@ export const db = {
 
       // Clean up related records
       localDb.repair_tests = (localDb.repair_tests || []).filter(t => t.job_id !== id);
-      localDb.repair_diagnoses = (localDb.repair_diagnoses || []).filter(d => d.job_id !== id);
+      localDb.diagnoses = (localDb.diagnoses || []).filter(d => d.job_id !== id);
       localDb.job_status_history = (localDb.job_status_history || []).filter(h => h.job_id !== id);
 
       // Remove associated estimate & items
@@ -716,6 +1213,21 @@ export const db = {
       localDb.notifications = (localDb.notifications || []).filter(n => n.job_id !== id);
 
       saveLocalDb();
+
+      // Cascade delete in Supabase
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = getSupabase();
+          await supabase.from('repair_tests').delete().eq('job_id', id);
+          await supabase.from('job_status_history').delete().eq('job_id', id);
+          await supabase.from('diagnoses').delete().eq('job_id', id);
+          await supabase.from('payments').delete().eq('job_id', id);
+          await supabase.from('repair_jobs').delete().eq('id', id);
+        } catch (err) {
+          console.warn('⚠️ Supabase repair_jobs delete error:', err.message);
+        }
+      }
+
       return true;
     },
 
@@ -727,7 +1239,7 @@ export const db = {
       localDb.repair_jobs[idx].status = newStatus;
       localDb.repair_jobs[idx].updated_at = new Date().toISOString();
 
-      localDb.job_status_history.push({
+      const historyRecord = {
         id: uuidv4(),
         job_id: id,
         from_status: oldStatus,
@@ -736,9 +1248,14 @@ export const db = {
         notes: notes || '',
         performed_by_user_id: userId || null,
         created_at: new Date().toISOString()
-      });
+      };
+      localDb.job_status_history.push(historyRecord);
 
       saveLocalDb();
+
+      await safeSupabaseUpdate('repair_jobs', id, { status: newStatus, updated_at: new Date().toISOString() });
+      await safeSupabaseInsert('job_status_history', historyRecord);
+
       return localDb.repair_jobs[idx];
     },
 
@@ -795,6 +1312,7 @@ export const db = {
         localDb.diagnoses.push(diag);
       }
       saveLocalDb();
+      await safeSupabaseUpsert('diagnoses', diag, 'id');
       return diag;
     }
   },
@@ -887,12 +1405,14 @@ export const db = {
         localDb.repair_estimates.push(est);
       }
 
-      for (const item of processedItems) {
-        localDb.repair_estimate_items.push({
-          ...item,
-          estimate_id: est.id,
-          created_at: new Date().toISOString()
-        });
+      const estimateItemsToInsert = processedItems.map(item => ({
+        ...item,
+        estimate_id: est.id,
+        created_at: new Date().toISOString()
+      }));
+
+      for (const item of estimateItemsToInsert) {
+        localDb.repair_estimate_items.push(item);
       }
 
       // Update cached totals on the repair_job record
@@ -923,8 +1443,38 @@ export const db = {
       }
 
       saveLocalDb();
+
+      // Persist estimate, items, and updated job to Supabase
+      if (isSupabaseConfigured()) {
+        await safeSupabaseUpsert('repair_estimates', est, 'id');
+        try {
+          const supabase = getSupabase();
+          await supabase.from('repair_estimate_items').delete().eq('estimate_id', est.id);
+          await safeSupabaseInsert('repair_estimate_items', estimateItemsToInsert);
+        } catch (err) {
+          console.warn('⚠️ Supabase estimate items sync error:', err.message);
+        }
+
+        if (jobIdx !== -1) {
+          const job = localDb.repair_jobs[jobIdx];
+          await safeSupabaseUpdate('repair_jobs', jobId, {
+            subtotal: job.subtotal,
+            discount: job.discount,
+            discount_type: job.discount_type,
+            discount_value: job.discount_value,
+            tax_rate: job.tax_rate,
+            tax_amount: job.tax_amount,
+            total_amount: job.total_amount,
+            balance_due: job.balance_due,
+            warranty_days: job.warranty_days,
+            updated_at: job.updated_at
+          });
+        }
+      }
+
       return { ...est, items: processedItems };
     },
+
     updateDiscount: async ({ jobId, discount, discountType, discountValue, taxAmount, totalAmount }) => {
       const est = (localDb.repair_estimates || []).find(e => e.job_id === jobId);
       if (est) {
@@ -984,6 +1534,7 @@ export const db = {
       };
       localDb.parts.push(newPart);
       saveLocalDb();
+      await safeSupabaseInsert('parts', newPart);
       return newPart;
     },
     update: async (id, updates) => {
@@ -1001,6 +1552,7 @@ export const db = {
         updated_at: new Date().toISOString()
       };
       saveLocalDb();
+      await safeSupabaseUpdate('parts', id, updates);
       return localDb.parts[idx];
     },
     adjustStock: async ({ partId, quantityChange, movementType, referenceNumber, notes, jobId, userId }) => {
@@ -1018,7 +1570,7 @@ export const db = {
       part.status = newStock > 0 ? 'ACTIVE' : 'OUT_OF_STOCK';
       part.updated_at = new Date().toISOString();
 
-      localDb.part_stock_movements.push({
+      const movementRecord = {
         id: uuidv4(),
         part_id: partId,
         job_id: jobId || null,
@@ -1030,9 +1582,13 @@ export const db = {
         notes: notes || '',
         created_by_user_id: userId || null,
         created_at: new Date().toISOString()
-      });
+      };
+
+      localDb.part_stock_movements.push(movementRecord);
 
       saveLocalDb();
+      await safeSupabaseUpdate('parts', partId, { stock_quantity: newStock, status: part.status, updated_at: part.updated_at });
+      await safeSupabaseInsert('part_stock_movements', movementRecord);
       return part;
     },
     delete: async (id) => {
@@ -1040,6 +1596,7 @@ export const db = {
       if (idx === -1) return false;
       localDb.parts.splice(idx, 1);
       saveLocalDb();
+      await safeSupabaseDelete('parts', id);
       return true;
     },
     bulkDelete: async (ids = []) => {
@@ -1053,6 +1610,11 @@ export const db = {
         }
       }
       saveLocalDb();
+      if (isSupabaseConfigured() && ids.length > 0) {
+        try {
+          await getSupabase().from('parts').delete().in('id', ids);
+        } catch (_) {}
+      }
       return count;
     }
   },
@@ -1087,6 +1649,10 @@ export const db = {
         }
       }
       saveLocalDb();
+      if (isSupabaseConfigured()) {
+        const testsToSync = (localDb.repair_tests || []).filter(t => t.job_id === jobId);
+        await safeSupabaseUpsert('repair_tests', testsToSync, 'id');
+      }
       return (localDb.repair_tests || []).filter(t => t.job_id === jobId);
     }
   },
@@ -1141,7 +1707,7 @@ export const db = {
       job.updated_at = new Date().toISOString();
 
       // Add timeline entry
-      localDb.job_status_history.push({
+      const timelineRecord = {
         id: uuidv4(),
         job_id: jobId,
         from_status: job.status,
@@ -1150,11 +1716,23 @@ export const db = {
         notes: `Recorded by staff. Total paid: $${newPaidAmount.toFixed(2)}, Remaining balance: $${newBalance.toFixed(2)}. Ref: ${transactionReference || 'N/A'}`,
         performed_by_user_id: userId,
         created_at: new Date().toISOString()
-      });
+      };
+      localDb.job_status_history.push(timelineRecord);
 
       saveLocalDb();
+
+      await safeSupabaseInsert('payments', payment);
+      await safeSupabaseUpdate('repair_jobs', jobId, {
+        paid_amount: job.paid_amount,
+        balance_due: job.balance_due,
+        payment_status: job.payment_status,
+        updated_at: job.updated_at
+      });
+      await safeSupabaseInsert('job_status_history', timelineRecord);
+
       return { payment, job };
     },
+
     list: async ({ search = '', method = 'ALL', limit = 50, offset = 0 } = {}) => {
       let payments = [...(localDb.payments || [])];
       let populated = payments.map(p => {
@@ -1214,6 +1792,17 @@ export const db = {
       }
 
       saveLocalDb();
+
+      await safeSupabaseDelete('payments', id);
+      if (job) {
+        await safeSupabaseUpdate('repair_jobs', jobId, {
+          paid_amount: job.paid_amount,
+          balance_due: job.balance_due,
+          payment_status: job.payment_status,
+          updated_at: job.updated_at
+        });
+      }
+
       return true;
     },
     bulkDelete: async (ids = []) => {
@@ -1244,6 +1833,24 @@ export const db = {
       }
 
       saveLocalDb();
+
+      if (isSupabaseConfigured() && ids.length > 0) {
+        try {
+          await getSupabase().from('payments').delete().in('id', ids);
+          for (const jobId of affectedJobIds) {
+            const job = (localDb.repair_jobs || []).find(j => j.id === jobId);
+            if (job) {
+              await safeSupabaseUpdate('repair_jobs', jobId, {
+                paid_amount: job.paid_amount,
+                balance_due: job.balance_due,
+                payment_status: job.payment_status,
+                updated_at: job.updated_at
+              });
+            }
+          }
+        } catch (_) {}
+      }
+
       return count;
     }
   },
@@ -1362,8 +1969,129 @@ export const db = {
       }
 
       saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        await safeSupabaseUpsert('invoices', invoice, 'id');
+        try {
+          const supabase = getSupabase();
+          await supabase.from('invoice_items').delete().eq('invoice_id', invoice.id);
+          await safeSupabaseInsert('invoice_items', invoiceItems);
+        } catch (err) {
+          console.warn('⚠️ Supabase invoice_items sync error:', err.message);
+        }
+      }
+
       return { ...invoice, items: invoiceItems };
     }
+  },
+
+
+  // SALES (DIRECT INVOICES FOR PHONES & PARTS)
+  sales: {
+    list: async ({ search, status, sortBy = 'created_at', sortDir = 'desc', limit = 50, offset = 0 } = {}) => {
+      let sales = [...(localDb.sales || [])];
+
+      // Status / Filter tabs
+      if (status && status !== 'ALL') {
+        if (status === 'WITH_GST') {
+          sales = sales.filter((s) => s.gst_enabled === true);
+        } else if (status === 'NON_GST') {
+          sales = sales.filter((s) => !s.gst_enabled);
+        } else if (status === 'CASH') {
+          sales = sales.filter((s) => (s.payment_mode || 'CASH').toUpperCase() === 'CASH');
+        } else if (status === 'UPI') {
+          sales = sales.filter((s) => (s.payment_mode || '').toUpperCase() === 'UPI');
+        } else if (status === 'CARD') {
+          sales = sales.filter((s) => (s.payment_mode || '').toUpperCase() === 'CARD');
+        }
+      }
+
+      // Search matching customer name, phone, email, invoice_number, sequence number, items name, description/IMEI
+      if (search) {
+        const q = search.toLowerCase();
+        sales = sales.filter((s) =>
+          (s.invoice_number && s.invoice_number.toLowerCase().includes(q)) ||
+          (s.invoice_no_seq && String(s.invoice_no_seq).includes(q)) ||
+          (s.customer_name && s.customer_name.toLowerCase().includes(q)) ||
+          (s.customer_phone && s.customer_phone.includes(q)) ||
+          (s.customer_email && s.customer_email.toLowerCase().includes(q)) ||
+          (s.items && Array.isArray(s.items) && s.items.some((it) =>
+            (it.name && it.name.toLowerCase().includes(q)) ||
+            (it.item_name && it.item_name.toLowerCase().includes(q)) ||
+            (it.imei && it.imei.toLowerCase().includes(q)) ||
+            (it.description && it.description.toLowerCase().includes(q)) ||
+            (it.warranty && it.warranty.toLowerCase().includes(q))
+          ))
+        );
+      }
+
+      // Sorting
+      sales.sort((a, b) => {
+        let valA, valB;
+        if (sortBy === 'total_amount') {
+          valA = parseFloat(a.total_amount) || 0;
+          valB = parseFloat(b.total_amount) || 0;
+        } else if (sortBy === 'customer_name') {
+          valA = (a.customer_name || '').toLowerCase();
+          valB = (b.customer_name || '').toLowerCase();
+        } else {
+          // created_at or default
+          valA = new Date(a.created_at || a.invoice_date || 0).getTime();
+          valB = new Date(b.created_at || b.invoice_date || 0).getTime();
+        }
+
+        if (sortDir === 'asc') {
+          return valA > valB ? 1 : valA < valB ? -1 : 0;
+        } else {
+          return valA < valB ? 1 : valA > valB ? -1 : 0;
+        }
+      });
+
+      const total = sales.length;
+      const paginated = sales.slice(offset, offset + limit);
+      return { sales: paginated, total };
+    },
+    findById: async (id) => {
+      const sale = (localDb.sales || []).find((s) => s.id === id || s.invoice_number === id);
+      return sale || null;
+    },
+    create: async (saleData) => {
+      localDb.sales = localDb.sales || [];
+      const newSale = {
+        id: uuidv4(),
+        ...saleData,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      localDb.sales.push(newSale);
+      saveLocalDb();
+      await safeSupabaseInsert('sales', newSale);
+      return newSale;
+    },
+    delete: async (id) => {
+      localDb.sales = localDb.sales || [];
+      const idx = localDb.sales.findIndex((s) => s.id === id);
+      if (idx !== -1) {
+        localDb.sales.splice(idx, 1);
+        saveLocalDb();
+        await safeSupabaseDelete('sales', id);
+        return true;
+      }
+      return false;
+    },
+    bulkDelete: async (ids = []) => {
+      localDb.sales = localDb.sales || [];
+      const idSet = new Set(ids);
+      const beforeCount = localDb.sales.length;
+      localDb.sales = localDb.sales.filter((s) => !idSet.has(s.id));
+      saveLocalDb();
+      if (isSupabaseConfigured() && ids.length > 0) {
+        try {
+          await getSupabase().from('sales').delete().in('id', ids);
+        } catch (_) {}
+      }
+      return beforeCount - localDb.sales.length;
+    },
   },
 
   // NOTIFICATION LOGS
@@ -1388,6 +2116,11 @@ export const db = {
       if (!localDb.notification_logs) localDb.notification_logs = [];
       localDb.notification_logs.push(logEntry);
       saveLocalDb();
+      const supabaseLog = { ...logEntry };
+      if (supabaseLog.job_id && !(localDb.repair_jobs || []).some(j => j.id === supabaseLog.job_id)) {
+        supabaseLog.job_id = null;
+      }
+      await safeSupabaseInsert('notification_logs', supabaseLog);
       return logEntry;
     },
     getLogs: async ({ jobId, channel, search, limit = 50, offset = 0 } = {}) => {
@@ -1416,6 +2149,7 @@ export const db = {
       if (idx === -1) return false;
       localDb.notification_logs.splice(idx, 1);
       saveLocalDb();
+      await safeSupabaseDelete('notification_logs', id);
       return true;
     },
     bulkDelete: async (ids = []) => {
@@ -1429,6 +2163,11 @@ export const db = {
         }
       }
       saveLocalDb();
+      if (isSupabaseConfigured() && ids.length > 0) {
+        try {
+          await getSupabase().from('notification_logs').delete().in('id', ids);
+        } catch (_) {}
+      }
       return count;
     }
   },
@@ -1479,9 +2218,11 @@ export const db = {
         localDb.settings.push(setting);
       }
       saveLocalDb();
+      await safeSupabaseUpsert('settings', setting, 'key');
       return setting;
     }
   },
+
 
   // BACKUP LOGS
   backup_logs: {
@@ -1625,5 +2366,7 @@ export const db = {
       );
       return running || null;
     }
-  }
+  },
+
+  ...vendorDbMethods,
 };

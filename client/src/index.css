@@ -294,6 +294,17 @@ select option {
   padding: 6px 12px;
 }
 
+/* Spatial Dropdown Panel */
+.spatial-dropdown-panel {
+  background-color: var(--spatial-bg-dropdown, #0e1526);
+  border: 1px solid var(--spatial-border);
+  backdrop-filter: var(--spatial-glass-blur);
+  -webkit-backdrop-filter: var(--spatial-glass-blur);
+  border-radius: 0.875rem;
+  box-shadow: var(--spatial-shadow);
+  color: var(--spatial-text-title);
+}
+
 /* Spatial Inner Box (for interactive tiles/cards inside a container card) */
 .spatial-inner-box {
   background-color: var(--spatial-bg-card-subtle);
@@ -850,3 +861,35 @@ textarea.focus\:ring-primary-500:focus {
 .swal2-cancel:hover {
   background: var(--spatial-bg-card-hover) !important;
 }
+
+/* ========================================================================== */
+/* PRINT MEDIA STYLES FOR SALES BILLS & TAX INVOICES                          */
+/* ========================================================================== */
+@media print {
+  body {
+    background-color: #ffffff !important;
+    background-image: none !important;
+    color: #000000 !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  #same-to-same-bill-sheet {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
+  }
+}
+

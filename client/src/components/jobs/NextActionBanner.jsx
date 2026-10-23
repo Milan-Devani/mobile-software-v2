@@ -177,7 +177,22 @@ export const NextActionBanner = ({
           canPerform: ['admin', 'staff'].includes(userRole),
         };
 
-      case 'DELIVERED':
+      case 'DELIVERED': {
+        const isEstimateRejectedReturn = Boolean(job.approval_status === 'REJECTED');
+        if (isEstimateRejectedReturn) {
+          return {
+            title: 'Device Returned Unrepaired (Estimate Declined)',
+            instruction: 'Device was returned to customer in original condition without repair. If customer agrees to proceed or requests a revised quote, click below to reopen this job.',
+            buttonLabel: 'Reopen Job',
+            icon: RotateCcw,
+            bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
+            textColor: 'text-amber-900',
+            btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
+            action: onReopenJob,
+            canPerform: true,
+          };
+        }
+
         return {
           title: job.is_warranty_claim
             ? `Device Delivered (Warranty Claim #${job.reopen_count || 1} Active)`
@@ -193,6 +208,7 @@ export const NextActionBanner = ({
           action: onReopenJob,
           canPerform: true,
         };
+      }
 
       case 'REJECTED':
         return {

@@ -93,7 +93,7 @@ export const Topbar = ({ onToggleSidebar }) => {
   };
 
   return (
-    <header className="h-16 spatial-topbar sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6">
+    <header className="h-16 spatial-topbar sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 print:hidden">
       {/* Left: Hamburger & Global Search */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
         <button
@@ -151,7 +151,7 @@ export const Topbar = ({ onToggleSidebar }) => {
           </button>
 
           {styleMenuOpen && (
-            <div className="absolute right-0 mt-2 w-56 spatial-dropdown-panel bg-white dark:bg-slate-900 p-1.5 z-50 shadow-xl border border-slate-200 dark:border-slate-700 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-56 spatial-dropdown-panel p-1.5 z-50 shadow-xl animate-in fade-in zoom-in-95 duration-150">
               <div className="px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] border-b border-[var(--spatial-border)] mb-1">
                 Spatial UI Design Styles
               </div>
@@ -202,7 +202,7 @@ export const Topbar = ({ onToggleSidebar }) => {
           </button>
 
           {themeMenuOpen && (
-            <div className="absolute right-0 mt-2 w-40 spatial-dropdown-panel bg-white dark:bg-slate-900 p-1.5 z-50 shadow-xl border border-slate-200 dark:border-slate-700">
+            <div className="absolute right-0 mt-2 w-40 spatial-dropdown-panel p-1.5 z-50 shadow-xl animate-in fade-in zoom-in-95 duration-150">
               <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] border-b border-[var(--spatial-border)] mb-1">
                 Color Mode
               </div>

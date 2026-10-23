@@ -36,10 +36,20 @@ export const Card = ({
   );
 };
 
-export const LoadingSpinner = ({ label = 'Loading...', size = 'md' }) => {
+export const LoadingSpinner = ({
+  label = 'Loading...',
+  size = 'md',
+  fullPage = false,
+  className = '',
+  minHeight = 'min-h-[280px]',
+}) => {
   const sizeClass = size === 'sm' ? 'w-5 h-5' : size === 'lg' ? 'w-10 h-10' : 'w-7 h-7';
+  const heightClass = fullPage ? 'min-h-[60vh]' : minHeight;
+
   return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 gap-3">
+    <div
+      className={`flex flex-col items-center justify-center flex-1 w-full ${heightClass} py-12 px-4 gap-3 text-center ${className}`}
+    >
       <Loader2 className={`${sizeClass} text-sky-400 animate-spin`} />
       {label && <p className="text-xs font-medium text-[var(--spatial-text-muted)]">{label}</p>}
     </div>

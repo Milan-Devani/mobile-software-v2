@@ -390,7 +390,7 @@ export const Settings = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner label="Loading workshop settings & spatial preferences..." />;
+    return <LoadingSpinner fullPage label="Loading workshop settings & spatial preferences..." />;
   }
 
   // Visual card definitions for the three spatial styles

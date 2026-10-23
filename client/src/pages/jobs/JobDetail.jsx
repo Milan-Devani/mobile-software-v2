@@ -43,6 +43,8 @@ import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
+import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
 import { NextActionBanner } from '../../components/jobs/NextActionBanner';
 import { JobTimeline } from '../../components/jobs/JobTimeline';
 import { QualityChecklist } from '../../components/jobs/QualityChecklist';
@@ -169,6 +171,10 @@ export const JobDetail = () => {
   const isFreeWarranty = Boolean(
     job?.is_warranty_claim &&
     (job?.warranty_same_issue || job?.warranty_free_rework || Number(job?.balance_due) === 0 || Number(job?.total_amount) === 0)
+  );
+
+  const isEstimateRejected = Boolean(
+    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED'
   );
 
   // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
@@ -464,19 +470,40 @@ export const JobDetail = () => {
     }
   };
 
+  const handleOpenReopenModal = () => {
+    if (job?.approval_status === 'REJECTED') {
+      setReopenForm({
+        reason: 'Customer requested revised estimate / re-quoting',
+        target_status: 'ESTIMATE_SENT',
+        notes: '',
+        claim_type: 'NEW_ISSUE',
+      });
+    } else {
+      setReopenForm({
+        reason: '',
+        target_status: 'DIAGNOSING',
+        notes: '',
+        claim_type: 'SAME_ISSUE',
+      });
+    }
+    setIsReopenModalOpen(true);
+  };
+
   const handleReopenJob = async (e) => {
     e.preventDefault();
     if (!reopenForm.reason.trim()) {
-      toast.error('Please specify the customer complaint / warranty issue.');
+      toast.error('Please specify the reason for reopening.');
       return;
     }
     try {
       setIsSaving(true);
+      const isRejectedFlow = job?.approval_status === 'REJECTED';
+      const targetStatus = reopenForm.target_status || (isRejectedFlow ? 'ESTIMATE_SENT' : 'DIAGNOSING');
       const res = await jobService.reopenJob(job.id, {
         reason: reopenForm.reason.trim(),
-        target_status: reopenForm.target_status || 'DIAGNOSING',
+        target_status: targetStatus,
         notes: reopenForm.notes.trim(),
-        claim_type: reopenForm.claim_type || 'SAME_ISSUE',
+        claim_type: isRejectedFlow ? 'NEW_ISSUE' : (reopenForm.claim_type || 'SAME_ISSUE'),
       });
       setJob(res.job);
       toast.success(res.message || 'Job successfully reopened!');
@@ -487,9 +514,11 @@ export const JobDetail = () => {
         notes: '',
         claim_type: 'SAME_ISSUE',
       });
-      if (reopenForm.target_status === 'DIAGNOSING') {
+      if (isRejectedFlow || targetStatus === 'ESTIMATE_SENT') {
+        setActiveTab('estimate');
+      } else if (targetStatus === 'DIAGNOSING') {
         setActiveTab('diagnosis');
-      } else if (reopenForm.target_status === 'TESTING') {
+      } else if (targetStatus === 'TESTING') {
         setActiveTab('testing');
       }
     } catch (err) {
@@ -602,7 +631,11 @@ export const JobDetail = () => {
       setIsSaving(true);
       const updated = await jobService.recordPickup(job.id, pickupForm);
       setJob((prev) => ({ ...prev, ...updated }));
-      toast.success('Device delivered & final invoice sent to customer!');
+      toast.success(
+        isEstimateRejected
+          ? 'Device returned to customer in original condition!'
+          : 'Device delivered & final invoice sent to customer!'
+      );
       setIsPickupModalOpen(false);
     } catch (err) {
       toast.error(err.message);
@@ -735,7 +768,7 @@ export const JobDetail = () => {
   };
 
   if (loading || !job) {
-    return <LoadingSpinner label="Loading repair job sheet..." />;
+    return <LoadingSpinner fullPage label="Loading repair job sheet..." />;
   }
 
   const cond = job.device_condition || {};
@@ -802,9 +835,9 @@ export const JobDetail = () => {
               size="sm"
               className="border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 font-semibold"
               icon={RotateCcw}
-              onClick={() => setIsReopenModalOpen(true)}
+              onClick={handleOpenReopenModal}
             >
-              Reopen Job {job.status === 'DELIVERED' ? '(Warranty)' : ''}
+              Reopen Job {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' ? '(Warranty)' : ''}
             </Button>
           )}
 
@@ -942,7 +975,7 @@ export const JobDetail = () => {
         onMarkReadyForPickup={handleMarkReadyForPickup}
         onOpenPickupModal={() => setIsPickupModalOpen(true)}
         onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
-        onReopenJob={() => setIsReopenModalOpen(true)}
+        onReopenJob={handleOpenReopenModal}
         onChangeStatus={() => {
           setSelectedStatus(job.status);
           setStatusNotes('');
@@ -1418,11 +1451,14 @@ export const JobDetail = () => {
             </div>
             <div className="p-4 bg-white rounded-xl border border-slate-200">
               <p className="text-[11px] font-bold text-slate-500 uppercase">Remaining Balance</p>
-              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                {isFreeWarranty ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
+              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                {isFreeWarranty || isEstimateRejected ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
               </p>
               {isFreeWarranty && (
                 <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">No balance due</span>
+              )}
+              {isEstimateRejected && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Estimate declined — {currSym}0.00 due</span>
               )}
             </div>
           </div>
@@ -1432,7 +1468,7 @@ export const JobDetail = () => {
             subtitle="Record transactions via Cash, Card, UPI, or Bank Transfer"
             action={
               <div className="flex items-center gap-2">
-                {!isFreeWarranty && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1444,17 +1480,19 @@ export const JobDetail = () => {
                     {Number(job.discount || 0) > 0 ? 'Edit Discount' : 'Add Discount'}
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  icon={Send}
-                  onClick={handleResendInvoice}
-                  loading={isSendingInvoice}
-                  title="Send Tax Invoice & Receipt to Customer via WhatsApp and Email"
-                >
-                  Send Invoice
-                </Button>
-                {!isFreeWarranty && job.balance_due > 0 && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isEstimateRejected && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={Send}
+                    onClick={handleResendInvoice}
+                    loading={isSendingInvoice}
+                    title="Send Tax Invoice & Receipt to Customer via WhatsApp and Email"
+                  >
+                    Send Invoice
+                  </Button>
+                )}
+                {!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button size="sm" icon={CreditCard} onClick={() => setIsPaymentModalOpen(true)}>
                     Record Payment
                   </Button>
@@ -1770,54 +1808,43 @@ export const JobDetail = () => {
               </div>
 
               {availableParts.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    const partId = e.target.value;
-                    if (!partId) return;
-                    const selected = availableParts.find((p) => p.id === partId);
-                    if (selected) {
-                      setEstimateForm((prev) => {
-                        const items = [...(prev.items || [])];
-                        const lastIdx = items.length - 1;
-                        if (lastIdx >= 0 && !items[lastIdx].item_name && (!items[lastIdx].unit_price || items[lastIdx].unit_price === '')) {
-                          items[lastIdx] = {
-                            part_id: selected.id,
-                            item_name: selected.name,
-                            warranty: '90 Days',
-                            quantity: 1,
-                            unit_price: selected.selling_price,
-                            discount: 0,
-                          };
-                          return { ...prev, items };
-                        } else {
-                          return {
-                            ...prev,
-                            items: [
-                              ...items,
-                              {
-                                part_id: selected.id,
-                                item_name: selected.name,
-                                warranty: '90 Days',
-                                quantity: 1,
-                                unit_price: selected.selling_price,
-                                discount: 0,
-                              },
-                            ],
-                          };
-                        }
-                      });
-                    }
-                    e.target.value = '';
+                <SpatialPartsPicker
+                  parts={availableParts}
+                  onSelect={(selected) => {
+                    setEstimateForm((prev) => {
+                      const items = [...(prev.items || [])];
+                      const lastIdx = items.length - 1;
+                      if (lastIdx >= 0 && !items[lastIdx].item_name && (!items[lastIdx].unit_price || items[lastIdx].unit_price === '')) {
+                        items[lastIdx] = {
+                          part_id: selected.id,
+                          item_name: selected.name,
+                          warranty: '90 Days',
+                          quantity: 1,
+                          unit_price: selected.selling_price,
+                          discount: 0,
+                        };
+                        return { ...prev, items };
+                      } else {
+                        return {
+                          ...prev,
+                          items: [
+                            ...items,
+                            {
+                              part_id: selected.id,
+                              item_name: selected.name,
+                              warranty: '90 Days',
+                              quantity: 1,
+                              unit_price: selected.selling_price,
+                              discount: 0,
+                            },
+                          ],
+                        };
+                      }
+                    });
+                    toast.success(`Added "${selected.name}" from inventory!`);
                   }}
-                  className="text-xs px-2.5 py-1 bg-[var(--spatial-input-bg)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)] rounded-lg transition-colors focus:outline-none"
-                >
-                  <option value="">+ From Inventory...</option>
-                  {availableParts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({currSym}{Number(p.selling_price).toFixed(2)})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="+ From Inventory..."
+                />
               )}
             </div>
 
@@ -1862,25 +1889,21 @@ export const JobDetail = () => {
                         <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Warranty Period
                         </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="e.g. 30 Days, 90 Days..."
-                            list={`warranty-presets-${idx}`}
-                            value={item.warranty || ''}
-                            onChange={(e) => handleUpdateEstimateItem(idx, 'warranty', e.target.value)}
-                            className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-medium"
-                          />
-                          <datalist id={`warranty-presets-${idx}`}>
-                            <option value="30 Days" />
-                            <option value="40 Days" />
-                            <option value="60 Days" />
-                            <option value="90 Days" />
-                            <option value="180 Days" />
-                            <option value="1 Year" />
-                            <option value="No Warranty" />
-                          </datalist>
-                        </div>
+                        <SpatialWarrantyInput
+                          value={item.warranty || ''}
+                          onChange={(val) => handleUpdateEstimateItem(idx, 'warranty', val)}
+                          placeholder="e.g. 30 Days, 90 Days..."
+                          heightClass="h-9"
+                          presets={[
+                            'No Warranty',
+                            '30 Days',
+                            '40 Days',
+                            '60 Days',
+                            '90 Days',
+                            '180 Days',
+                            '1 Year',
+                          ]}
+                        />
                       </div>
 
                       {/* Price */}
@@ -2130,8 +2153,8 @@ export const JobDetail = () => {
       <Modal
         isOpen={isPickupModalOpen}
         onClose={() => setIsPickupModalOpen(false)}
-        title="Customer Pickup & Delivery Confirmation"
-        subtitle="Customer inspection and device release protocol"
+        title={isEstimateRejected ? "Return Device to Customer (Unrepaired)" : "Customer Pickup & Delivery Confirmation"}
+        subtitle={isEstimateRejected ? "Handover device in original intake condition after estimate decline" : "Customer inspection and device release protocol"}
       >
         <form onSubmit={handleRecordPickup} className="space-y-4">
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
@@ -2142,7 +2165,13 @@ export const JobDetail = () => {
                 onChange={(e) => setPickupForm({ ...pickupForm, customer_tested_device: e.target.checked })}
                 className="w-4 h-4 text-emerald-600 rounded"
               />
-              <span>Customer physically tested device in shop: <strong>YES</strong></span>
+              <span>
+                {isEstimateRejected ? (
+                  <>Customer inspected and verified device in shop: <strong>YES</strong></>
+                ) : (
+                  <>Customer physically tested device in shop: <strong>YES</strong></>
+                )}
+              </span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-800">
@@ -2152,7 +2181,13 @@ export const JobDetail = () => {
                 onChange={(e) => setPickupForm({ ...pickupForm, customer_acceptance_confirmed: e.target.checked })}
                 className="w-4 h-4 text-emerald-600 rounded"
               />
-              <span>Customer confirms: <em>"Device received and working properly."</em></span>
+              <span>
+                {isEstimateRejected ? (
+                  <>Customer confirms: <em>"Device received back in original intake condition (Unrepaired)."</em></>
+                ) : (
+                  <>Customer confirms: <em>"Device received and working properly."</em></>
+                )}
+              </span>
             </label>
           </div>
 
@@ -2161,7 +2196,7 @@ export const JobDetail = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Covered under Warranty — Free Rework ({currSym}0.00 Balance Due. No payment required).</span>
             </div>
-          ) : job.balance_due > 0 ? (
+          ) : isEstimateRejected ? null : job.balance_due > 0 ? (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>Warning: Outstanding balance of {currSym}{Number(job.balance_due).toFixed(2)} must be collected before handover.</span>
@@ -2174,7 +2209,7 @@ export const JobDetail = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Handed over with charger and warranty receipt."
+              placeholder={isEstimateRejected ? "e.g. Handed over unrepaired as customer declined estimate." : "e.g. Handed over with charger and warranty receipt."}
               value={pickupForm.delivery_notes}
               onChange={(e) => setPickupForm({ ...pickupForm, delivery_notes: e.target.value })}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
@@ -2184,9 +2219,13 @@ export const JobDetail = () => {
           <div className="p-3 bg-sky-50 border border-sky-200/80 rounded-xl text-xs text-sky-900 flex items-start gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-semibold block">Automatic Invoice & Receipt Dispatch</span>
+              <span className="font-semibold block">
+                {isEstimateRejected ? "Handover Return Notification" : "Automatic Invoice & Receipt Dispatch"}
+              </span>
               <p className="text-[11px] text-sky-700 leading-normal">
-                Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery.
+                {isEstimateRejected
+                  ? "Handover confirmation message will be sent to customer's WhatsApp & Email confirming device return in original condition."
+                  : "Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery."}
               </p>
             </div>
           </div>
@@ -2200,9 +2239,13 @@ export const JobDetail = () => {
               size="sm"
               icon={CheckCircle2}
               loading={isSaving}
-              disabled={(!isFreeWarranty && job.balance_due > 0) || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
+              disabled={(!isFreeWarranty && !isEstimateRejected && job.balance_due > 0) || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
             >
-              {isFreeWarranty ? 'Complete Handover & Send Receipt' : 'Complete Delivery & Send Invoice'}
+              {isEstimateRejected
+                ? 'Complete Return & Handover Device'
+                : isFreeWarranty
+                ? 'Complete Handover & Send Receipt'
+                : 'Complete Delivery & Send Invoice'}
             </Button>
           </div>
         </form>
@@ -2318,12 +2361,11 @@ export const JobDetail = () => {
         />
       )}
 
-      {/* REOPEN JOB (WARRANTY CLAIM) MODAL */}
-      {/* REOPEN JOB (WARRANTY CLAIM) MODAL */}
+      {/* REOPEN JOB MODAL */}
       <Modal
         isOpen={isReopenModalOpen}
         onClose={() => setIsReopenModalOpen(false)}
-        title={job.status === 'DELIVERED' ? 'Reopen Job for Warranty Claim' : 'Reopen Repair Job'}
+        title={job.approval_status === 'REJECTED' ? 'Reopen Job Sheet (Revise Estimate)' : (job.status === 'DELIVERED' ? 'Reopen Job for Warranty Claim' : 'Reopen Repair Job')}
         subtitle={`Job #${job.job_number} • ${job.customer?.full_name || 'Customer'} • ${job.device?.brand || ''} ${job.device?.model || ''}`}
         maxWidth="max-w-xl"
         footer={
@@ -2344,7 +2386,9 @@ export const JobDetail = () => {
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm"
               icon={RotateCcw}
             >
-              Reopen Job Sheet
+              {job.approval_status === 'REJECTED'
+                ? 'Reopen & Go to Estimate Tab'
+                : 'Reopen Job Sheet'}
             </Button>
           </div>
         }
@@ -2354,19 +2398,23 @@ export const JobDetail = () => {
             <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-900 dark:text-amber-200">
               <p className="font-bold">
-                {job.status === 'DELIVERED'
+                {job.approval_status === 'REJECTED'
+                  ? 'Reopening Estimate-Declined Job'
+                  : job.status === 'DELIVERED'
                   ? 'Customer Returning Within Warranty Period'
                   : 'Reactivating Closed/Cancelled Repair Job'}
               </p>
               <p className="mt-0.5 opacity-90">
-                {job.status === 'DELIVERED'
+                {job.approval_status === 'REJECTED'
+                  ? 'Reopening moves the job sheet back to the quotation stage so you can update parts, modify prices or discounts, and send a revised estimate to the customer.'
+                  : job.status === 'DELIVERED'
                   ? 'Reopening moves the device back to the active repair pipeline so technicians can re-inspect the hardware, resolve the issue, and conduct QC tests.'
                   : 'Reopening restores this job sheet so diagnosis and repair can proceed.'}
               </p>
             </div>
           </div>
 
-          {job.status === 'DELIVERED' && (
+          {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' && (
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Warranty Claim Coverage Type <span className="text-rose-500">*</span>
@@ -2425,14 +2473,14 @@ export const JobDetail = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Customer Complaint / Warranty Issue <span className="text-rose-500">*</span>
+              {job.approval_status === 'REJECTED' ? 'Reason for Reopening / Customer Notes' : 'Customer Complaint / Warranty Issue'} <span className="text-rose-500">*</span>
             </label>
             <textarea
               required
               rows={3}
               value={reopenForm.reason}
               onChange={(e) => setReopenForm({ ...reopenForm, reason: e.target.value })}
-              placeholder="Describe the issue reported by customer under warranty (e.g. Screen touch unresponsive on upper right after 5 days of delivery, battery draining quickly, etc.)..."
+              placeholder={job.approval_status === 'REJECTED' ? 'e.g. Customer requested revised quote or agreed to alternative parts...' : 'Describe the issue reported by customer under warranty (e.g. Screen touch unresponsive on upper right after 5 days of delivery, battery draining quickly, etc.)...'}
               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
           </div>
@@ -2447,22 +2495,34 @@ export const JobDetail = () => {
                 onChange={(e) => setReopenForm({ ...reopenForm, target_status: e.target.value })}
                 className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
               >
-                <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
-                <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
-                <option value="TESTING">Testing (Quality Check Bench)</option>
-                <option value="RECEIVED">Received (Intake Awaiting)</option>
+                {job.approval_status === 'REJECTED' ? (
+                  <>
+                    <option value="ESTIMATE_SENT">Estimate Stage (Revise & Send Quotation)</option>
+                    <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
+                    <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
+                    <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
+                    <option value="TESTING">Testing (Quality Check Bench)</option>
+                    <option value="RECEIVED">Received (Intake Awaiting)</option>
+                  </>
+                )}
               </select>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Warranty Claim Tag
-              </label>
-              <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Claim #{(job.reopen_count || 0) + 1}</span>
+            {job.approval_status !== 'REJECTED' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Warranty Claim Tag
+                </label>
+                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Claim #{(job.reopen_count || 0) + 1}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div>

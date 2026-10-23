@@ -130,7 +130,7 @@ export const BackupManagementTab = () => {
   };
 
   if (loading && !status) {
-    return <LoadingSpinner label="Loading database backup configuration..." />;
+    return <LoadingSpinner minHeight="min-h-[380px]" label="Loading database backup configuration..." />;
   }
 
   const isRunning = status?.isRunning;

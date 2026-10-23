@@ -27,18 +27,44 @@ async function testConnection() {
   }
 
   console.log('✅ Successfully connected to Supabase PostgreSQL!');
-  console.log('Shops count or record:', shops);
+  const allTables = [
+    'shops',
+    'roles',
+    'users',
+    'customers',
+    'devices',
+    'parts',
+    'repair_jobs',
+    'job_notes',
+    'job_status_history',
+    'diagnoses',
+    'repair_estimates',
+    'repair_estimate_items',
+    'part_stock_movements',
+    'repair_tests',
+    'payments',
+    'invoices',
+    'invoice_items',
+    'notification_logs',
+    'settings',
+    'backup_logs',
+    'sales',
+    'vendors',
+    'vendor_transactions',
+    'vendor_mobiles',
+    'vendor_ledger',
+    'vendor_payments',
+    'vendor_status_history',
+  ];
 
-  // Test 2: check repair_jobs
-  const { data: jobs, error: jobsErr } = await supabase
-    .from('repair_jobs')
-    .select('id, job_number')
-    .limit(5);
-
-  if (jobsErr) {
-    console.warn('⚠️ Error querying repair_jobs:', jobsErr.message);
-  } else {
-    console.log(`✅ repair_jobs table found with ${jobs.length} sample records:`, jobs);
+  console.log('\n--- Checking All Tables in Supabase ---');
+  for (const tbl of allTables) {
+    const { count, error } = await supabase.from(tbl).select('*', { count: 'exact', head: true });
+    if (error) {
+      console.log(`❌ ${tbl}: ${error.message} (${error.code})`);
+    } else {
+      console.log(`✅ ${tbl}: EXISTS (${count ?? 0} rows)`);
+    }
   }
 }
 

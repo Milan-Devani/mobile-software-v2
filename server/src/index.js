@@ -22,6 +22,8 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import whatsappRoutes from './routes/whatsappRoutes.js';
 import backupRoutes from './routes/backupRoutes.js';
+import salesRoutes from './routes/salesRoutes.js';
+import vendorRoutes from './routes/vendorRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -96,6 +98,8 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/parts', partsRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/sales', salesRoutes);
+app.use('/api/vendors', vendorRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notifications', notificationRoutes);
@@ -122,6 +126,13 @@ const startServer = async () => {
       console.log(`   Client URL:   ${env.CLIENT_URL}`);
       console.log(`====================================================`);
     });
+
+    // Auto-connect Baileys WhatsApp session if saved auth credentials exist
+    try {
+      const { initBaileys } = await import('./services/baileysService.js');
+      initBaileys(false).catch((err) => console.warn('Background Baileys auto-start warning:', err.message));
+    } catch (_) {}
+
     return server;
   } catch (err) {
     console.error('❌ Failed to start server:', err);

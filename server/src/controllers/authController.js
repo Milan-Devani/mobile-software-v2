@@ -105,10 +105,12 @@ export const createUser = async (req, res, next) => {
       is_active: true,
     });
 
+    const { password_hash: _ph, ...safeUser } = createdUser;
+
     res.status(201).json({
       success: true,
       message: 'User created successfully.',
-      data: { user: createdUser },
+      data: { user: safeUser },
     });
   } catch (err) {
     next(err);

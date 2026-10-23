@@ -12,6 +12,8 @@ import {
   LogOut,
   Smartphone,
   PlusCircle,
+  Receipt,
+  Building2,
 } from 'lucide-react';
 import { logout } from '../../store/authSlice';
 import Swal from 'sweetalert2';
@@ -41,6 +43,8 @@ export const Sidebar = ({ isOpen, onClose }) => {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['admin', 'technician', 'staff'] },
     { label: 'Repair Jobs', path: '/jobs', icon: Wrench, roles: ['admin', 'technician', 'staff'] },
+    { label: 'Sell / Invoicing', path: '/sales', icon: Receipt, roles: ['admin', 'technician', 'staff'] },
+    { label: 'Vendor Management', path: '/vendors', icon: Building2, roles: ['admin', 'technician', 'staff'] },
     { label: 'Customers', path: '/customers', icon: Users, roles: ['admin', 'technician', 'staff'] },
     { label: 'Parts & Stock', path: '/parts', icon: Package, roles: ['admin', 'technician', 'staff'] },
     { label: 'Payments', path: '/payments', icon: CreditCard, roles: ['admin', 'staff'] },
@@ -61,7 +65,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 w-64 spatial-sidebar flex flex-col ${
+        className={`fixed top-0 bottom-0 left-0 z-40 w-64 spatial-sidebar flex flex-col print:hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >

@@ -299,7 +299,7 @@ export const JobCreate = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner label="Preparing Job Sheet intake wizard..." />;
+    return <LoadingSpinner fullPage label="Preparing Job Sheet intake wizard..." />;
   }
 
   return (

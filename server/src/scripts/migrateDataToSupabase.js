@@ -37,11 +37,25 @@ async function chunkAndUpsert(supabase, tableName, records, batchSize = 100) {
   const sanitized = records.map(sanitizeRecord);
   console.log(`   ⏳ [${tableName}] Migrating ${sanitized.length} records...`);
   for (let i = 0; i < sanitized.length; i += batchSize) {
-    const chunk = sanitized.slice(i, i + batchSize);
-    const { error } = await supabase.from(tableName).upsert(chunk, { onConflict: tableName === 'settings' ? 'key' : 'id' });
-    if (error) {
-      console.error(`   ❌ [${tableName}] Error inserting batch ${i / batchSize + 1}:`, error.message);
-      throw error;
+    let chunk = sanitized.slice(i, i + batchSize).map(r => ({ ...r }));
+    let success = false;
+    let attempts = 0;
+    while (!success && attempts < 10) {
+      attempts++;
+      const { error } = await supabase.from(tableName).upsert(chunk, { onConflict: tableName === 'settings' ? 'key' : 'id' });
+      if (!error) {
+        success = true;
+      } else {
+        const match = error.message.match(/Could not find the '([^']+)' column/i);
+        if (match && match[1]) {
+          const missingCol = match[1];
+          console.warn(`   ⚠️ [${tableName}] Column '${missingCol}' not in Supabase schema. Stripping and retrying...`);
+          chunk.forEach(r => delete r[missingCol]);
+        } else {
+          console.error(`   ❌ [${tableName}] Error inserting batch ${i / batchSize + 1}:`, error.message);
+          throw error;
+        }
+      }
     }
   }
   console.log(`   ✅ [${tableName}] Successfully migrated ${sanitized.length} records.`);
@@ -169,6 +183,67 @@ export async function migrateAllData() {
       await chunkAndUpsert(supabase, 'settings', settingsArr);
     }
 
+    // Check if new modules tables (sales, vendors) exist in Supabase
+    const { error: salesCheckErr } = await supabase.from('sales').select('id').limit(1);
+    const hasSales = !salesCheckErr || salesCheckErr.code !== 'PGRST205';
+
+    if (hasSales) {
+      // 19. Sales Invoices
+      try {
+        await chunkAndUpsert(supabase, 'sales', db.sales || []);
+      } catch (err) {
+        if (err.message && (err.message.includes('customer_id') || err.message.includes('issued_by'))) {
+          console.warn('   ⚠️ Supabase "sales" table missing some columns. Retrying without customer_id/issued_by...');
+          const stripped = (db.sales || []).map(s => {
+            const copy = { ...s };
+            delete copy.customer_id;
+            delete copy.issued_by_user_id;
+            delete copy.issued_by_name;
+            return copy;
+          });
+          await chunkAndUpsert(supabase, 'sales', stripped);
+        } else {
+          throw err;
+        }
+      }
+    } else {
+      console.log('   ℹ️ Table "sales" not found in Supabase schema yet. Run supabase/migrations/20261023_sales_and_vendors.sql to enable.');
+    }
+
+    const { error: vendorCheckErr } = await supabase.from('vendors').select('id').limit(1);
+    const hasVendors = !vendorCheckErr || vendorCheckErr.code !== 'PGRST205';
+
+    if (hasVendors) {
+      // 20. Vendors
+      const vendors = db.vendors || [];
+      await chunkAndUpsert(supabase, 'vendors', vendors);
+      const validVendorIds = new Set(vendors.map(v => v.id));
+
+      // 21. Vendor Transactions
+      const validTxns = (db.vendor_transactions || []).filter(t => validVendorIds.has(t.vendor_id));
+      await chunkAndUpsert(supabase, 'vendor_transactions', validTxns);
+      const validTxnIds = new Set(validTxns.map(t => t.id));
+
+      // 22. Vendor Mobiles
+      const validMobiles = (db.vendor_mobiles || []).filter(m => validVendorIds.has(m.vendor_id));
+      await chunkAndUpsert(supabase, 'vendor_mobiles', validMobiles);
+      const validMobileIds = new Set(validMobiles.map(m => m.id));
+
+      // 23. Vendor Status History
+      const validHistory = (db.vendor_status_history || []).filter(h => validMobileIds.has(h.vendor_mobile_id));
+      await chunkAndUpsert(supabase, 'vendor_status_history', validHistory);
+
+      // 24. Vendor Ledger
+      const validLedger = (db.vendor_ledger || []).filter(l => validVendorIds.has(l.vendor_id));
+      await chunkAndUpsert(supabase, 'vendor_ledger', validLedger);
+
+      // 25. Vendor Payments
+      const validPayments = (db.vendor_payments || []).filter(p => validVendorIds.has(p.vendor_id));
+      await chunkAndUpsert(supabase, 'vendor_payments', validPayments);
+    } else {
+      console.log('   ℹ️ Table "vendors" not found in Supabase schema yet. Run supabase/migrations/20261023_sales_and_vendors.sql to enable.');
+    }
+
     console.log('\n====================================================');
     console.log('🎉 ALL DATA MIGRATED TO SUPABASE SUCCESSFULLY!');
     console.log('====================================================');
@@ -179,3 +254,4 @@ export async function migrateAllData() {
 }
 
 migrateAllData();
+
