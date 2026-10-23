@@ -294,8 +294,10 @@ export const JobList = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight">Repair Job Sheets</h2>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
+          <h2 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight">
+            Repair Job Sheets
+          </h2>
+          <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
             Browse, search, and manage all active and archived service tickets
           </p>
         </div>
@@ -305,7 +307,7 @@ export const JobList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-4 rounded-2xl space-y-3">
+      <div className="spatial-card p-3.5 sm:p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
@@ -314,10 +316,11 @@ export const JobList = () => {
               <button
                 key={tab.key}
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${active
-                  ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
-                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
+                  active
+                    ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
+                    : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+                }`}
               >
                 {tab.label}
               </button>
@@ -326,9 +329,9 @@ export const JobList = () => {
         </div>
 
         {/* Search input & Sort */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search Job #, Customer, Phone, IMEI (500ms debounce)..."
@@ -346,7 +349,7 @@ export const JobList = () => {
                   params.set('page', '1');
                   setSearchParams(params);
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -356,7 +359,7 @@ export const JobList = () => {
 
           <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
             <span className="shrink-0 font-medium">Sort by:</span>
-            <div className="w-36">
+            <div className="w-40">
               <SpatialSelect
                 value={`${currentSort}:${currentDir}`}
                 onChange={(val) => {
@@ -410,7 +413,7 @@ export const JobList = () => {
           <div>
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1250px]">
-                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">
                   <tr>
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
                       <input
@@ -418,7 +421,7 @@ export const JobList = () => {
                         checked={jobs.length > 0 && jobs.every((j) => selectedIds.includes(j.id))}
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
-                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                        className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                       />
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
@@ -440,8 +443,9 @@ export const JobList = () => {
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${isSelected ? 'bg-sky-500/10' : ''
-                          }`}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-500/[0.08]' : ''
+                        }`}
                       >
                         <td
                           className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
@@ -452,18 +456,18 @@ export const JobList = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectRow(job.id)}
                             aria-label={`Select job ${job.job_number}`}
-                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                            className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
+                        <td className="px-5 py-3.5 font-semibold text-[#0071e3] dark:text-[#0a84ff] whitespace-nowrap tracking-tight">
                           {job.job_number}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <span className="font-semibold text-[var(--spatial-text-title)]">
+                          <span className="font-medium text-[var(--spatial-text-title)]">
                             {job.customer?.full_name || 'Walk-in Customer'}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-[11px] text-[var(--spatial-text-body)]">
+                        <td className="px-5 py-3.5 whitespace-nowrap tabular-nums text-[11px] text-[var(--spatial-text-body)]">
                           {job.customer?.phone || job.customer?.whatsapp_number || '—'}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
@@ -479,7 +483,7 @@ export const JobList = () => {
                             <div className="flex items-center gap-1.5 flex-nowrap">
                               <Badge status={job.status} />
                               {job.is_warranty_claim && (
-                                <span className="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
+                                <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
                                   Warranty #{job.reopen_count || 1}
                                 </span>
                               )}
@@ -490,7 +494,7 @@ export const JobList = () => {
                               if (job.status === 'DELIVERED') {
                                 if (totalDays <= 0) {
                                   return (
-                                    <span className="text-[10px] text-slate-400 font-medium">
+                                    <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
                                       No warranty
                                     </span>
                                   );
@@ -500,14 +504,14 @@ export const JobList = () => {
                                 const remaining = Math.max(0, totalDays - elapsed);
                                 if (remaining > 0) {
                                   return (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
                                       <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
                                       {remaining}d warranty left
                                     </span>
                                   );
                                 }
                                 return (
-                                  <span className="text-[10px] text-slate-400 font-medium">
+                                  <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
                                     Warranty expired
                                   </span>
                                 );
@@ -517,7 +521,7 @@ export const JobList = () => {
                               }
                               if (totalDays <= 0) {
                                 return (
-                                  <span className="text-[10px] text-slate-400 font-medium">
+                                  <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
                                     No warranty
                                   </span>
                                 );
@@ -531,17 +535,17 @@ export const JobList = () => {
                             })()}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)] whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-medium text-[var(--spatial-text-title)] whitespace-nowrap tabular-nums">
                           ₹{Number(job.total_amount || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-bold whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-semibold whitespace-nowrap tabular-nums">
                           {job.balance_due > 0 ? (
-                            <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
+                            <span className="text-rose-500 dark:text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
                           ) : (
-                            <span className="text-emerald-400">₹0</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">₹0</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono text-[11px]">
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap tabular-nums text-[11px]">
                           {new Date(job.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -549,7 +553,7 @@ export const JobList = () => {
                             {['DELIVERED', 'CANCELLED', 'REJECTED'].includes(job.status) && (
                               <button
                                 onClick={(e) => handleQuickReopen(e, job)}
-                                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95"
                                 title={job.status === 'DELIVERED' ? 'Reopen Job (Warranty Claim)' : 'Reopen Repair Job'}
                               >
                                 <RotateCcw className="w-4 h-4" />
@@ -557,14 +561,14 @@ export const JobList = () => {
                             )}
                             <button
                               onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95"
                               title="Open Job Sheet (Parts & Estimate)"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={(e) => handleDeleteJob(e, job)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all active:scale-95"
                               title="Delete Job Sheet"
                             >
                               <Trash2 className="w-4 h-4" />

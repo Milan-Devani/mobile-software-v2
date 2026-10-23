@@ -181,11 +181,11 @@ export const NotificationLogs = () => {
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">
             Notification Logs & Dispatch
           </h2>
           <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
@@ -198,15 +198,15 @@ export const NotificationLogs = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="spatial-card p-3 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="spatial-card p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search recipient or message type (500ms debounce)..."
+            placeholder="Search recipient or message type..."
             value={search}
             onChange={handleSearchChange}
-            className="w-full pl-8 pr-8 py-1.5 text-xs bg-[var(--spatial-card-subtle)] border border-[var(--spatial-border)] rounded-lg text-[var(--spatial-text-body)] focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-full pl-8 pr-8 py-2 text-xs spatial-input rounded-xl"
           />
           {search && (
             <button
@@ -228,7 +228,7 @@ export const NotificationLogs = () => {
           <select
             value={channelFilter}
             onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-3 py-1.5 bg-[var(--spatial-card-subtle)] border border-[var(--spatial-border)] rounded-lg text-xs font-semibold text-[var(--spatial-text-body)] focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="px-3 py-2 spatial-input rounded-xl text-xs font-semibold"
           >
             <option value="ALL">All Channels</option>
             <option value="WHATSAPP">WhatsApp</option>

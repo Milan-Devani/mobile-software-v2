@@ -112,21 +112,21 @@ export const VendorDetail = () => {
           <button
             type="button"
             onClick={() => navigate('/vendors/list')}
-            className="p-2 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-400 text-[var(--spatial-text-title)] transition-all cursor-pointer"
+            className="p-2 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] transition-all active:scale-95 cursor-pointer"
             title="Back to Vendors List"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight">
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">
                 {vendor.name}
               </h1>
-              <span className="font-mono text-xs px-2 py-0.5 rounded font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              <span className="font-mono text-xs px-2.5 py-0.5 rounded-md font-semibold bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
                 {vendor.vendor_code}
               </span>
             </div>
-            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
               {vendor.shop_name || 'Authorized Service Partner'}
             </p>
           </div>
@@ -265,7 +265,7 @@ export const VendorDetail = () => {
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                 active
-                  ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+                  ? 'bg-apple-blue text-white shadow-xs'
                   : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
               }`}
             >

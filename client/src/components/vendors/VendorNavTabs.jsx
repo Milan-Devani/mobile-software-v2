@@ -24,7 +24,7 @@ const TABS = [
 
 export const VendorNavTabs = ({ activeTab }) => {
   return (
-    <div className="spatial-card p-1.5 rounded-2xl flex items-center gap-1 overflow-x-auto no-scrollbar shadow-xs">
+    <div className="p-1 rounded-2xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] flex items-center gap-1 overflow-x-auto no-scrollbar shadow-2xs">
       {TABS.map((tab) => {
         const Icon = tab.icon;
         return (
@@ -33,15 +33,15 @@ export const VendorNavTabs = ({ activeTab }) => {
             to={tab.path}
             end={tab.exact}
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all select-none cursor-pointer ${
+              `flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-140 select-none cursor-pointer active:scale-95 ${
                 isActive
-                  ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/30'
-                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+                  ? 'bg-white dark:bg-[#2c2c2e] text-[#0071e3] dark:text-[#0a84ff] shadow-sm font-semibold'
+                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
               }`
             }
           >
-            <Icon className="w-3.5 h-3.5 shrink-0" />
-            <span>{tab.label}</span>
+            <Icon className="w-3.5 h-3.5 shrink-0 stroke-[2]" />
+            <span className="tracking-tight">{tab.label}</span>
           </NavLink>
         );
       })}

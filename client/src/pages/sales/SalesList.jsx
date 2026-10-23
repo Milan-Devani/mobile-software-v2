@@ -275,11 +275,13 @@ export const SalesList = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
-            <Receipt className="w-7 h-7 text-sky-400" />
+          <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+              <Receipt className="w-5 h-5" />
+            </div>
             Sales & Quick Billing
           </h1>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
+          <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-1 font-normal">
             Browse, search, and manage all retail customer bills and GST tax invoices for phones, parts, and accessories
           </p>
         </div>
@@ -290,52 +292,52 @@ export const SalesList = () => {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="spatial-card p-4 rounded-2xl flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-sky-500/15 text-sky-400">
-            <Receipt className="w-6 h-6" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 sm:gap-4">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center shrink-0">
+            <Receipt className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
               Total Bills Generated
             </div>
-            <div className="text-xl font-bold font-mono text-[var(--spatial-text-title)] mt-0.5">
+            <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-0.5">
               {total}
             </div>
           </div>
         </div>
 
-        <div className="spatial-card p-4 rounded-2xl flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-emerald-500/15 text-emerald-400">
-            <IndianRupee className="w-6 h-6" />
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center shrink-0">
+            <IndianRupee className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
               Total Invoiced Value
             </div>
-            <div className="text-xl font-bold font-mono text-[var(--spatial-text-title)] mt-0.5">
+            <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-0.5">
               {formatIndianCurrency(totalSalesRevenue, true)}
             </div>
           </div>
         </div>
 
-        <div className="spatial-card p-4 rounded-2xl flex items-center gap-3.5">
-          <div className="p-3 rounded-xl bg-indigo-500/15 text-indigo-400">
-            <CreditCard className="w-6 h-6" />
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
+            <CreditCard className="w-5 h-5" />
           </div>
           <div>
-            <div className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+            <div className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
               GST Tax Tracked
             </div>
-            <div className="text-xl font-bold font-mono text-[var(--spatial-text-title)] mt-0.5">
+            <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-0.5">
               {formatIndianCurrency(totalTaxCollected, true)}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Filter and Search Bar (Exact same layout & design as JobList.jsx) */}
-      <div className="spatial-card p-4 rounded-2xl space-y-3">
+      {/* Filter and Search Bar */}
+      <div className="spatial-card p-3.5 sm:p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
@@ -345,9 +347,9 @@ export const SalesList = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
                   active
-                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+                    ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
                     : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
                 }`}
               >
@@ -357,16 +359,16 @@ export const SalesList = () => {
           })}
         </div>
 
-        {/* Search input & Sort Bar with ergonomic h-11 height */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        {/* Search input & Sort Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               placeholder="Search by customer name, phone, bill #, IMEI..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="w-full h-11 pl-10 pr-9 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+              className="w-full pl-8 pr-8 py-2 text-xs spatial-input rounded-xl"
             />
             {searchInput && (
               <button
@@ -378,7 +380,7 @@ export const SalesList = () => {
                   params.set('page', '1');
                   setSearchParams(params);
                 }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -422,7 +424,7 @@ export const SalesList = () => {
         deleteLabel={`Delete (${selectedIds.length})`}
       />
 
-      {/* Main Bills Table Card (Exact same design and functionality as Repair Job Sheets table) */}
+      {/* Main Bills Table Card */}
       <Card
         title={`Matching Sales Bills (${total})`}
         subtitle={`Showing page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`}
@@ -442,7 +444,7 @@ export const SalesList = () => {
           <div>
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1250px]">
-                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">
                   <tr>
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
                       <input
@@ -450,7 +452,7 @@ export const SalesList = () => {
                         checked={sales.length > 0 && sales.every((s) => selectedIds.includes(s.id))}
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
-                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                        className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                       />
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Invoice #</th>
@@ -475,8 +477,8 @@ export const SalesList = () => {
                       <tr
                         key={sale.id}
                         onClick={() => handleOpenPrint(sale)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
-                          isSelected ? 'bg-sky-500/10' : ''
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-500/[0.08]' : ''
                         }`}
                       >
                         {/* 1. Checkbox */}
@@ -489,22 +491,22 @@ export const SalesList = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectRow(sale.id)}
                             aria-label={`Select invoice #${sale.invoice_no_seq || sale.invoice_number}`}
-                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                            className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                           />
                         </td>
 
                         {/* 2. Invoice Number */}
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
+                        <td className="px-5 py-3.5 font-semibold text-[#0071e3] dark:text-[#0a84ff] whitespace-nowrap tracking-tight">
                           <div className="flex items-center gap-1.5">
                             <span>#{sale.invoice_no_seq || sale.invoice_number}</span>
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-500/10 border border-blue-500/20 text-[#0071e3] dark:text-[#0a84ff]">
                               BILL
                             </span>
                           </div>
                         </td>
 
                         {/* 3. Date */}
-                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono text-[11px]">
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap tabular-nums text-[11px]">
                           <div className="flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5 text-[var(--spatial-text-muted)]" />
                             <span>{formatInvoiceDate(sale.invoice_date || sale.created_at)}</span>
@@ -514,7 +516,7 @@ export const SalesList = () => {
                         {/* 4. Customer */}
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-[var(--spatial-text-title)]">
+                            <span className="font-medium text-[var(--spatial-text-title)]">
                               {sale.customer_name || 'Walk-in Customer'}
                             </span>
                           </div>
@@ -526,7 +528,7 @@ export const SalesList = () => {
                         </td>
 
                         {/* 5. Customer Phone */}
-                        <td className="px-5 py-3.5 whitespace-nowrap font-mono text-[11px] text-[var(--spatial-text-body)]">
+                        <td className="px-5 py-3.5 whitespace-nowrap tabular-nums text-[11px] text-[var(--spatial-text-body)]">
                           <div className="flex items-center gap-1.5">
                             <Phone className="w-3 h-3 text-[var(--spatial-text-muted)]" />
                             <span>{sale.customer_phone || '—'}</span>
@@ -537,16 +539,16 @@ export const SalesList = () => {
                         <td className="px-5 py-3.5 max-w-md">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-semibold text-[var(--spatial-text-title)] truncate">
+                              <span className="font-medium text-[var(--spatial-text-title)] truncate">
                                 {firstItem.name || firstItem.item_name || 'Item'}
                               </span>
                               {firstItem.imei && (
-                                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-slate-800 text-sky-300 border border-sky-500/30">
+                                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-[var(--spatial-bg-card-subtle)] text-[#0071e3] dark:text-[#0a84ff] border border-[var(--spatial-border)]">
                                   IMEI: {firstItem.imei}
                                 </span>
                               )}
                               {firstItem.warranty && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
+                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
                                   <ShieldCheck className="w-3 h-3" />
                                   {firstItem.warranty}
                                 </span>
@@ -554,7 +556,7 @@ export const SalesList = () => {
                             </div>
 
                             {remainingItemsCount > 0 && (
-                              <div className="text-[10px] text-sky-400 font-medium">
+                              <div className="text-[10px] text-[#0071e3] dark:text-[#0a84ff] font-medium">
                                 + {remainingItemsCount} more item{remainingItemsCount > 1 ? 's' : ''} (
                                 {items.slice(1).map((it) => it.name || it.item_name).join(', ')})
                               </div>
@@ -565,10 +567,10 @@ export const SalesList = () => {
                         {/* 7. Tax Status Badge */}
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                               sale.gst_enabled
-                                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
-                                : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+                                ? 'bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20'
+                                : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
                             }`}
                           >
                             {sale.gst_enabled
@@ -581,14 +583,14 @@ export const SalesList = () => {
 
                         {/* 8. Payment Mode Badge */}
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold uppercase">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold uppercase">
                             <CheckCircle2 className="w-3 h-3" />
                             {sale.payment_mode || 'CASH'}
                           </span>
                         </td>
 
                         {/* 9. Total Amount */}
-                        <td className="px-5 py-3.5 text-right font-mono font-bold text-sm text-[var(--spatial-text-title)] whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right tabular-nums font-semibold text-sm text-[var(--spatial-text-title)] whitespace-nowrap">
                           {formatIndianCurrency(sale.total_amount, true)}
                         </td>
 
@@ -602,7 +604,7 @@ export const SalesList = () => {
                             <button
                               type="button"
                               onClick={(e) => handleDownloadPdf(e, sale)}
-                              className="p-1.5 rounded-lg text-indigo-400 hover:bg-indigo-500/10 border border-transparent hover:border-indigo-500/20 transition-all cursor-pointer"
+                              className="p-1.5 rounded-lg text-indigo-500 dark:text-indigo-400 hover:bg-indigo-500/10 transition-all cursor-pointer active:scale-95"
                               title="Download Real Invoice PDF"
                             >
                               <Download className="w-4 h-4" />
@@ -612,7 +614,7 @@ export const SalesList = () => {
                             <button
                               type="button"
                               onClick={() => handleOpenPrint(sale)}
-                              className="p-1.5 rounded-lg text-sky-400 hover:bg-sky-500/10 border border-transparent hover:border-sky-500/20 transition-all cursor-pointer"
+                              className="p-1.5 rounded-lg text-[#0071e3] dark:text-[#0a84ff] hover:bg-blue-500/10 transition-all cursor-pointer active:scale-95"
                               title="View & Print Same to Same Bill"
                             >
                               <Printer className="w-4 h-4" />
@@ -622,7 +624,7 @@ export const SalesList = () => {
                             <button
                               type="button"
                               onClick={(e) => handleShareWhatsApp(e, sale)}
-                              className="p-1.5 rounded-lg text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all cursor-pointer"
+                              className="p-1.5 rounded-lg text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-all cursor-pointer active:scale-95"
                               title="Send Real Invoice PDF Directly to Customer Number"
                             >
                               <Share2 className="w-4 h-4" />
@@ -632,7 +634,7 @@ export const SalesList = () => {
                             <button
                               type="button"
                               onClick={(e) => handleDelete(e, sale)}
-                              className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                              className="p-1.5 rounded-lg text-rose-500 dark:text-rose-400 hover:bg-rose-500/10 transition-all cursor-pointer active:scale-95"
                               title="Delete Sales Bill"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -646,7 +648,7 @@ export const SalesList = () => {
               </table>
             </div>
 
-            {/* Pagination Controls (Exact matching JobList.jsx) */}
+            {/* Pagination Controls */}
             <div className="p-4 border-t border-[var(--spatial-border)]">
               <SpatialPagination
                 page={page}

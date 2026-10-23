@@ -137,26 +137,26 @@ export const VendorPaymentModal = ({
             <button
               type="button"
               onClick={() => setPaymentType('PAYMENT_TO_VENDOR')}
-              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer active:scale-[0.98] ${
                 paymentType === 'PAYMENT_TO_VENDOR'
-                  ? 'bg-sky-500/15 border-sky-400 text-sky-400 ring-2 ring-sky-500/20'
+                  ? 'bg-[#0071e3]/12 border-[#0071e3] text-[#0071e3] dark:bg-[#0a84ff]/18 dark:border-[#0a84ff] dark:text-[#0a84ff] ring-2 ring-[#0071e3]/20 shadow-xs'
                   : 'bg-[var(--spatial-input-bg)] border-[var(--spatial-border)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
               }`}
             >
-              <div className="text-xs font-bold">Payment to Vendor</div>
+              <div className="text-xs font-semibold">Payment to Vendor</div>
               <div className="text-[10px] opacity-80 mt-0.5">We pay vendor (reduces payable)</div>
             </button>
 
             <button
               type="button"
               onClick={() => setPaymentType('PAYMENT_FROM_VENDOR')}
-              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+              className={`p-3 rounded-xl border text-left transition-all cursor-pointer active:scale-[0.98] ${
                 paymentType === 'PAYMENT_FROM_VENDOR'
-                  ? 'bg-emerald-500/15 border-emerald-400 text-emerald-400 ring-2 ring-emerald-500/20'
+                  ? 'bg-emerald-500/12 border-emerald-500 text-emerald-600 dark:text-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
                   : 'bg-[var(--spatial-input-bg)] border-[var(--spatial-border)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
               }`}
             >
-              <div className="text-xs font-bold">Payment from Vendor</div>
+              <div className="text-xs font-semibold">Payment from Vendor</div>
               <div className="text-[10px] opacity-80 mt-0.5">Vendor pays us (B2B repairs)</div>
             </button>
           </div>
@@ -180,7 +180,7 @@ export const VendorPaymentModal = ({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 required
-                className="w-full h-11 pl-8 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                className="w-full h-11 pl-8 pr-3 spatial-input rounded-xl text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none"
               />
             </div>
           </div>
@@ -193,7 +193,7 @@ export const VendorPaymentModal = ({
               type="date"
               value={date}
               onChange={(e) => setDate(e.target.value)}
-              className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              className="w-full h-11 px-3 spatial-input rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] focus:outline-none"
             />
           </div>
         </div>
@@ -227,7 +227,7 @@ export const VendorPaymentModal = ({
               placeholder="e.g. UPI Ref / Cheque No"
               value={referenceNo}
               onChange={(e) => setReferenceNo(e.target.value)}
-              className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+              className="w-full h-11 px-3 spatial-input rounded-xl text-xs sm:text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none"
             />
           </div>
         </div>
@@ -242,7 +242,7 @@ export const VendorPaymentModal = ({
             placeholder="e.g. Full settlement for March batch, or advance for motherboard repair"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+            className="w-full h-11 px-3 spatial-input rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none"
           />
         </div>
 

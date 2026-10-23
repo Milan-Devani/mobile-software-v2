@@ -112,7 +112,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Full Name *
             </label>
             <input
@@ -121,12 +121,12 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               required
               value={formData.full_name}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Gender & User Type
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -134,7 +134,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 name="gender"
                 value={formData.gender}
                 onChange={handleChange}
-                className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none capitalize"
+                className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs capitalize"
               >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -144,7 +144,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 name="user_type"
                 value={formData.user_type}
                 onChange={handleChange}
-                className="w-full px-2.5 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs"
               >
                 <option value="End User">End User</option>
                 <option value="Dealer">Dealer</option>
@@ -155,11 +155,11 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
         </div>
 
         {/* Contact Numbers */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-          <span className="text-xs font-bold text-slate-900 block">Contact & WhatsApp Information</span>
+        <div className="p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-xl space-y-3">
+          <span className="text-xs font-bold text-[var(--spatial-text-title)] block">Contact & WhatsApp Information</span>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Primary Phone *
               </label>
               <input
@@ -169,9 +169,9 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 placeholder="Primary phone number"
                 value={formData.phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
-              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 select-none">
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-[var(--spatial-text-body)] select-none">
                 <input
                   type="checkbox"
                   checked={sameAsPhone}
@@ -182,7 +182,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                       setFormData((prev) => ({ ...prev, whatsapp_number: prev.phone }));
                     }
                   }}
-                  className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-apple-blue rounded accent-apple-blue"
                 />
                 <span className="font-medium">WhatsApp number is same as Phone number</span>
               </label>
@@ -190,7 +190,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
 
             {!sameAsPhone && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                   WhatsApp Number *
                 </label>
                 <input
@@ -200,13 +200,13 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                   placeholder="Enter separate WhatsApp number"
                   value={formData.whatsapp_number}
                   onChange={handleChange}
-                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
               </div>
             )}
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Alternate Phone
               </label>
               <input
@@ -215,12 +215,12 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 placeholder="Family / Office phone"
                 value={formData.alternate_phone}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-emerald-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase mb-1">
                 Alternate WhatsApp (In-Repair)
               </label>
               <input
@@ -229,7 +229,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 placeholder="Where to send repair updates"
                 value={formData.alternate_whatsapp}
                 onChange={handleChange}
-                className="w-full px-3 py-2 bg-emerald-50/60 border border-emerald-300 rounded-lg text-xs font-mono focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono border-emerald-500/30"
               />
             </div>
           </div>
@@ -238,7 +238,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
         {/* Email & Address */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Email Address (Mail ID) *
             </label>
             <input
@@ -248,12 +248,12 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               placeholder="customer@example.com"
               value={formData.email}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Street Address
             </label>
             <input
@@ -262,12 +262,12 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               placeholder="Building, street, landmark"
               value={formData.address}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
               City
             </label>
             <input
@@ -275,12 +275,12 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               name="city"
               value={formData.city}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">
+            <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
               Postal Code / PIN
             </label>
             <input
@@ -288,13 +288,13 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               name="postal_code"
               value={formData.postal_code}
               onChange={handleChange}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+          <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
             Customer Remarks / Internal Notes
           </label>
           <textarea
@@ -303,11 +303,11 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
             value={formData.notes}
             onChange={handleChange}
             placeholder="Special customer preferences, corporate account details, etc."
-            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--spatial-border)]">
           <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

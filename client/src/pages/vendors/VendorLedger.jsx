@@ -170,20 +170,20 @@ export default function VendorLedger() {
   };
 
   return (
-    <div className="min-h-screen text-slate-100 p-4 md:p-6 space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <FileText className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-apple-blue/10 border border-apple-blue/20 text-apple-blue flex items-center justify-center">
+              <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--spatial-text-title)] flex items-center gap-2">
                 Vendor Accounting Ledger
               </h1>
-              <p className="text-xs text-slate-400">
-                Full debit & credit transaction ledger, repair charges, payments, and running balances.
+              <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+                Full debit & credit transaction ledger, repair charges, payments, and running balances
               </p>
             </div>
           </div>
@@ -193,17 +193,17 @@ export default function VendorLedger() {
           <button
             onClick={fetchLedger}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm"
+            className="p-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm cursor-pointer"
             title="Refresh Ledger"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-apple-blue' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
           <button
             onClick={exportToCSV}
             disabled={!filteredEntries.length}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium disabled:opacity-50 cursor-pointer"
             title="Export to CSV"
           >
             <Download className="w-4 h-4" />
@@ -213,20 +213,21 @@ export default function VendorLedger() {
           <button
             onClick={handlePrint}
             disabled={!filteredEntries.length}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm font-medium disabled:opacity-50"
+            className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium disabled:opacity-50 cursor-pointer"
             title="Print Statement"
           >
             <Printer className="w-4 h-4" />
             <span className="hidden sm:inline">Print</span>
           </button>
 
-          <button
+          <Button
+            variant="primary"
+            size="sm"
+            icon={PlusCircle}
             onClick={() => setPaymentModalOpen(true)}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-medium text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition"
           >
-            <PlusCircle className="w-4 h-4" />
             Record Payment / Voucher
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -234,11 +235,11 @@ export default function VendorLedger() {
       <VendorNavTabs activeTab="ledger" />
 
       {/* Filter and Vendor Select Bar */}
-      <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md space-y-4">
+      <div className="spatial-card p-4 rounded-2xl space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           {/* Vendor Selector */}
           <div className="md:col-span-5">
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Select Vendor Account
             </label>
             <SpatialSelect
@@ -252,27 +253,27 @@ export default function VendorLedger() {
 
           {/* Date Range Start */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               From Date
             </label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
             />
           </div>
 
           {/* Date Range End */}
           <div className="md:col-span-2">
-            <label className="block text-xs font-medium text-slate-400 mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               To Date
             </label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
             />
           </div>
 
@@ -280,29 +281,29 @@ export default function VendorLedger() {
           <div className="md:col-span-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
             <button
               onClick={() => setQuickDate('ALL')}
-              className={`px-2.5 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                 !startDate && !endDate
-                  ? 'bg-cyan-500 text-white'
-                  : 'bg-slate-700/60 text-slate-300 hover:bg-slate-700'
+                  ? 'bg-apple-blue text-white shadow-xs'
+                  : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
               }`}
             >
               All Time
             </button>
             <button
               onClick={() => setQuickDate('TODAY')}
-              className="px-2.5 py-2 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
             >
               Today
             </button>
             <button
               onClick={() => setQuickDate('THIS_MONTH')}
-              className="px-2.5 py-2 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
             >
               This Month
             </button>
             <button
               onClick={() => setQuickDate('LAST_MONTH')}
-              className="px-2.5 py-2 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
             >
               Last Month
             </button>
@@ -311,41 +312,41 @@ export default function VendorLedger() {
 
         {/* Search within ledger */}
         <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)]" />
           <input
             type="text"
             placeholder="Search by description, reference number, transaction type, or payment mode..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+            className="w-full pl-9 pr-3 py-2 rounded-xl spatial-input text-xs sm:text-sm"
           />
         </div>
       </div>
 
       {/* Selected Vendor Profile Header Card */}
       {activeVendor && (
-        <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800/90 border border-slate-700/60 backdrop-blur-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="spatial-card p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400 font-bold text-lg">
+            <div className="w-12 h-12 rounded-2xl bg-apple-blue/10 border border-apple-blue/20 flex items-center justify-center text-apple-blue font-bold text-lg">
               {activeVendor.name ? activeVendor.name.charAt(0).toUpperCase() : 'V'}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">{activeVendor.name}</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                <h2 className="text-lg font-bold text-[var(--spatial-text-title)]">{activeVendor.name}</h2>
+                <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
                   {activeVendor.code || 'VENDOR'}
                 </span>
               </div>
-              <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3 flex-wrap">
+              <div className="text-xs text-[var(--spatial-text-muted)] mt-0.5 flex items-center gap-3 flex-wrap">
                 {activeVendor.shop_name && <span>{activeVendor.shop_name}</span>}
                 {activeVendor.mobile && (
-                  <span className="flex items-center gap-1">
-                    <Phone className="w-3 h-3 text-slate-500" />
+                  <span className="flex items-center gap-1 font-mono">
+                    <Phone className="w-3 h-3 text-[var(--spatial-text-muted)]" />
                     {activeVendor.mobile}
                   </span>
                 )}
                 {activeVendor.gst_number && (
-                  <span className="text-slate-500">GST: {activeVendor.gst_number}</span>
+                  <span className="font-mono text-[11px]">GST: {activeVendor.gst_number}</span>
                 )}
               </div>
             </div>
@@ -353,27 +354,27 @@ export default function VendorLedger() {
 
           {/* Current Live Balance Banner */}
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-xs text-slate-400 uppercase tracking-wider block font-medium">
+            <div className="text-left md:text-right">
+              <span className="text-[11px] text-[var(--spatial-text-muted)] uppercase tracking-wider block font-semibold">
                 Current Net Position
               </span>
-              <div className="text-2xl font-black mt-0.5">
+              <div className="text-2xl font-bold font-mono tabular-nums mt-0.5">
                 {activeVendor.current_balance > 0 ? (
-                  <span className="text-amber-400 flex items-center gap-1">
+                  <span className="text-amber-500 flex items-center gap-1.5">
                     ₹{parseFloat(activeVendor.current_balance).toLocaleString('en-IN')}{' '}
-                    <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-normal">
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 font-semibold">
                       Payable (We Owe)
                     </span>
                   </span>
                 ) : activeVendor.current_balance < 0 ? (
-                  <span className="text-emerald-400 flex items-center gap-1">
+                  <span className="text-emerald-500 flex items-center gap-1.5">
                     ₹{Math.abs(parseFloat(activeVendor.current_balance)).toLocaleString('en-IN')}{' '}
-                    <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-normal">
+                    <span className="text-xs px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-semibold">
                       Receivable (Vendor Owes Us)
                     </span>
                   </span>
                 ) : (
-                  <span className="text-slate-400 text-lg">₹0.00 (Balanced / Settled)</span>
+                  <span className="text-[var(--spatial-text-muted)] text-lg">₹0.00 (Balanced / Settled)</span>
                 )}
               </div>
             </div>
@@ -382,70 +383,70 @@ export default function VendorLedger() {
       )}
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-          <span className="text-xs text-slate-400 font-medium block">Opening Balance</span>
-          <div className="text-xl font-bold text-white mt-1">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <span className="text-[11px] text-[var(--spatial-text-muted)] font-semibold uppercase tracking-wider block">Opening Balance</span>
+          <div className="text-2xl font-bold font-mono tabular-nums text-[var(--spatial-text-title)] mt-1.5">
             ₹{parseFloat(statement?.opening_balance || 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">Account start position</span>
+          <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Account start position</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30 backdrop-blur-md">
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-blue-400 font-medium">Total Debits</span>
-            <ArrowUpRight className="w-4 h-4 text-blue-400" />
+            <span className="text-[11px] text-apple-blue font-semibold uppercase tracking-wider">Total Debits</span>
+            <ArrowUpRight className="w-4 h-4 text-apple-blue" />
           </div>
-          <div className="text-xl font-bold text-blue-300 mt-1">
+          <div className="text-2xl font-bold font-mono tabular-nums text-apple-blue mt-1.5">
             ₹{parseFloat(statement?.total_debit || 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[11px] text-blue-400/80 mt-1 block">Payments made / billed services</span>
+          <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Payments made / billed services</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 backdrop-blur-md">
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-emerald-400 font-medium">Total Credits</span>
-            <ArrowDownLeft className="w-4 h-4 text-emerald-400" />
+            <span className="text-[11px] text-emerald-500 font-semibold uppercase tracking-wider">Total Credits</span>
+            <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
           </div>
-          <div className="text-xl font-bold text-emerald-300 mt-1">
+          <div className="text-2xl font-bold font-mono tabular-nums text-emerald-500 mt-1.5">
             ₹{parseFloat(statement?.total_credit || 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[11px] text-emerald-400/80 mt-1 block">Repair charges / funds received</span>
+          <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Repair charges / funds received</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-          <span className="text-xs text-slate-400 font-medium block">Closing Period Balance</span>
-          <div className="text-xl font-bold text-white mt-1">
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <span className="text-[11px] text-[var(--spatial-text-muted)] font-semibold uppercase tracking-wider block">Closing Period Balance</span>
+          <div className="text-2xl font-bold font-mono tabular-nums text-[var(--spatial-text-title)] mt-1.5">
             ₹{parseFloat(statement?.closing_balance || 0).toLocaleString('en-IN')}
           </div>
-          <span className="text-[11px] text-slate-500 mt-1 block">Calculated running total</span>
+          <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Calculated running total</span>
         </div>
       </div>
 
       {/* Ledger Entries Table */}
-      <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md overflow-hidden">
+      <div className="spatial-card p-0 rounded-2xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-slate-400 flex flex-col items-center justify-center gap-3">
-            <RefreshCw className="w-6 h-6 animate-spin text-cyan-400" />
+          <div className="p-12 text-center text-[var(--spatial-text-muted)] flex flex-col items-center justify-center gap-3">
+            <RefreshCw className="w-6 h-6 animate-spin text-apple-blue" />
             <span>Computing vendor accounting ledger statement...</span>
           </div>
         ) : !selectedVendorId ? (
-          <div className="p-12 text-center text-slate-400">
-            <Building2 className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+          <div className="p-12 text-center text-[var(--spatial-text-muted)]">
+            <Building2 className="w-12 h-12 mx-auto mb-3 text-[var(--spatial-text-muted)]" />
             <p>Please select a vendor account above to view their financial ledger.</p>
           </div>
         ) : filteredEntries.length === 0 ? (
-          <div className="p-12 text-center text-slate-400">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-slate-600" />
-            <h3 className="text-base font-semibold text-slate-300">No Ledger Entries Found</h3>
-            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+          <div className="p-12 text-center text-[var(--spatial-text-muted)]">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-[var(--spatial-text-muted)]" />
+            <h3 className="text-base font-semibold text-[var(--spatial-text-title)]">No Ledger Entries Found</h3>
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-1 max-w-sm mx-auto">
               There are no debit or credit transactions recorded for this vendor within the selected period.
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/70 border-b border-slate-700/70 text-xs text-slate-400 uppercase tracking-wider">
+          <div className="overflow-x-auto table-scrollbar w-full pb-2">
+            <table className="w-full text-left text-xs min-w-[950px]">
+              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                 <tr>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Type / Ref No</th>
@@ -456,72 +457,72 @@ export default function VendorLedger() {
                   <th className="py-3 px-4 text-right">Running Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/40">
+              <tbody className="divide-y divide-[var(--spatial-border)]">
                 {filteredEntries.map((entry, idx) => {
                   const isDebit = parseFloat(entry.debit) > 0;
                   const isCredit = parseFloat(entry.credit) > 0;
                   const runningBal = parseFloat(entry.running_balance || 0);
 
                   return (
-                    <tr key={entry.id || idx} className="hover:bg-slate-700/30 transition">
+                    <tr key={entry.id || idx} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                       {/* Date */}
-                      <td className="py-3 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                      <td className="py-3 px-4 text-xs font-mono text-[var(--spatial-text-muted)] whitespace-nowrap">
                         {entry.date}
                       </td>
 
                       {/* Type / Ref */}
-                      <td className="py-3 px-4">
-                        <div className="font-mono text-xs font-semibold text-cyan-400">
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <div className="font-mono text-xs font-semibold text-apple-blue">
                           {entry.reference_no || '-'}
                         </div>
-                        <span className="text-[10px] uppercase font-bold text-slate-400">
+                        <span className="text-[10px] uppercase font-bold text-[var(--spatial-text-muted)]">
                           {entry.entry_type?.replace(/_/g, ' ') || 'TRANSACTION'}
                         </span>
                       </td>
 
                       {/* Description */}
                       <td className="py-3 px-4 max-w-md">
-                        <div className="text-slate-200 text-xs">{entry.description}</div>
+                        <div className="text-[var(--spatial-text-title)] text-xs font-medium">{entry.description}</div>
                         {entry.notes && (
-                          <div className="text-[11px] text-slate-500 mt-0.5 italic">
+                          <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5 italic">
                             Notes: {entry.notes}
                           </div>
                         )}
                       </td>
 
                       {/* Payment Mode */}
-                      <td className="py-3 px-4 text-xs">
+                      <td className="py-3 px-4 text-xs whitespace-nowrap">
                         {entry.payment_mode && entry.payment_mode !== 'NONE' ? (
-                          <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-700/80 text-slate-300 border border-slate-600">
+                          <span className="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)]">
                             {entry.payment_mode}
                           </span>
                         ) : (
-                          <span className="text-slate-600">-</span>
+                          <span className="text-[var(--spatial-text-muted)]">-</span>
                         )}
                       </td>
 
                       {/* Debit */}
-                      <td className="py-3 px-4 text-right font-mono font-semibold text-blue-400">
+                      <td className="py-3 px-4 text-right font-mono font-semibold tabular-nums text-apple-blue whitespace-nowrap">
                         {isDebit ? `₹${parseFloat(entry.debit).toLocaleString('en-IN')}` : '-'}
                       </td>
 
                       {/* Credit */}
-                      <td className="py-3 px-4 text-right font-mono font-semibold text-emerald-400">
+                      <td className="py-3 px-4 text-right font-mono font-semibold tabular-nums text-emerald-500 whitespace-nowrap">
                         {isCredit ? `₹${parseFloat(entry.credit).toLocaleString('en-IN')}` : '-'}
                       </td>
 
                       {/* Running Balance */}
-                      <td className="py-3 px-4 text-right font-mono font-bold">
+                      <td className="py-3 px-4 text-right font-mono font-bold tabular-nums whitespace-nowrap">
                         {runningBal > 0 ? (
-                          <span className="text-amber-400">
+                          <span className="text-amber-500">
                             ₹{runningBal.toLocaleString('en-IN')} <span className="text-[10px] font-normal">Cr (Payable)</span>
                           </span>
                         ) : runningBal < 0 ? (
-                          <span className="text-emerald-400">
+                          <span className="text-emerald-500">
                             ₹{Math.abs(runningBal).toLocaleString('en-IN')} <span className="text-[10px] font-normal">Dr (Receivable)</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400">₹0.00</span>
+                          <span className="text-[var(--spatial-text-muted)] font-normal">₹0.00</span>
                         )}
                       </td>
                     </tr>

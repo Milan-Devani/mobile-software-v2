@@ -349,16 +349,19 @@ export const SalesInvoiceCreate = () => {
           <button
             type="button"
             onClick={() => navigate('/sales')}
-            className="p-2 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-400 text-[var(--spatial-text-title)] transition-all cursor-pointer"
+            className="p-2 rounded-xl text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] transition-all cursor-pointer active:scale-95"
+            title="Back to sales"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h2 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2">
-              <Receipt className="w-6 h-6 text-sky-400" />
+            <h2 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+                <Receipt className="w-4 h-4" />
+              </div>
               Generate Bill (Sell Phone & Parts)
             </h2>
-            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+            <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
               Record sales, itemize phone IMEIs and replacement parts, configure GST tax & discounts
             </p>
           </div>
@@ -366,7 +369,7 @@ export const SalesInvoiceCreate = () => {
 
         {/* Invoice Number & Date Badge */}
         <div className="hidden sm:flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-xs font-mono font-bold text-sky-400">
+          <div className="px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[#0071e3] dark:text-[#0a84ff] tabular-nums">
             Bill #{invoiceNumber}
           </div>
         </div>

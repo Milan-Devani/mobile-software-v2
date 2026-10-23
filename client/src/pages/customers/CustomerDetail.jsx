@@ -92,19 +92,20 @@ export const CustomerDetail = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/customers')}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-colors border border-slate-200"
+            className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl transition-all border border-[var(--spatial-border)] active:scale-95 cursor-pointer"
+            title="Back to Customers"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight">{customer?.full_name}</h2>
-              <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">{customer?.full_name}</h2>
+              <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
                 {customer?.customer_code}
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Member since {new Date(customer?.created_at).toLocaleDateString()}
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
+              Customer profile • Registered {new Date(customer?.created_at).toLocaleDateString()}
             </p>
           </div>
         </div>
@@ -119,7 +120,7 @@ export const CustomerDetail = () => {
           </Button>
           <Button
             variant="ghost"
-            className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+            className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
             icon={Trash2}
             onClick={handleDeleteCustomer}
             title="Permanently Delete Customer"
@@ -137,25 +138,25 @@ export const CustomerDetail = () => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Total Repairs</p>
-          <p className="text-2xl font-black text-slate-900 mt-1 font-mono">{stats.total_repairs || 0}</p>
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Repairs</p>
+          <p className="text-2xl font-bold text-[var(--spatial-text-title)] mt-2 font-mono tabular-nums">{stats.total_repairs || 0}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Active Repairs</p>
-          <p className="text-2xl font-black text-primary-600 mt-1 font-mono">{stats.active_repairs || 0}</p>
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Active Repairs</p>
+          <p className="text-2xl font-bold text-apple-blue mt-2 font-mono tabular-nums">{stats.active_repairs || 0}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Completed</p>
-          <p className="text-2xl font-black text-emerald-600 mt-1 font-mono">{stats.completed_repairs || 0}</p>
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Completed</p>
+          <p className="text-2xl font-bold text-emerald-500 mt-2 font-mono tabular-nums">{stats.completed_repairs || 0}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Pending Balance</p>
-          <p className="text-2xl font-black text-rose-600 mt-1 font-mono">${stats.pending_payments?.toFixed(2) || '0.00'}</p>
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Pending Balance</p>
+          <p className="text-2xl font-bold text-rose-500 mt-2 font-mono tabular-nums">₹{stats.pending_payments?.toFixed(2) || '0.00'}</p>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
-          <p className="text-[11px] font-semibold text-slate-500 uppercase">Total Spent</p>
-          <p className="text-2xl font-black text-slate-900 mt-1 font-mono">${stats.total_spent?.toFixed(2) || '0.00'}</p>
+        <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
+          <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Spent</p>
+          <p className="text-2xl font-bold text-[var(--spatial-text-title)] mt-2 font-mono tabular-nums">₹{stats.total_spent?.toFixed(2) || '0.00'}</p>
         </div>
       </div>
 
@@ -164,19 +165,19 @@ export const CustomerDetail = () => {
         {/* Contact Info Card */}
         <Card title="Contact Information" className="md:col-span-1">
           <div className="space-y-3.5 text-xs">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <span className="text-slate-500 text-[11px]">Type / Gender:</span>
-              <span className="font-semibold text-slate-800">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--spatial-border)]">
+              <span className="text-[var(--spatial-text-muted)] text-[11px]">Type / Gender:</span>
+              <span className="font-semibold text-[var(--spatial-text-title)]">
                 {customer?.user_type || 'End User'} • <span className="capitalize">{customer?.gender || 'male'}</span>
               </span>
             </div>
 
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+                <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] shrink-0" />
                 <div>
-                  <p className="text-slate-400 text-[10px] uppercase font-bold">Primary Phone</p>
-                  <p className="font-mono font-semibold text-slate-900">{customer?.phone}</p>
+                  <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Primary Phone</p>
+                  <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{customer?.phone}</p>
                 </div>
               </div>
             </div>
@@ -186,15 +187,15 @@ export const CustomerDetail = () => {
                 <div className="flex items-center gap-3">
                   <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                   <div>
-                    <p className="text-slate-400 text-[10px] uppercase font-bold">Primary WhatsApp</p>
-                    <p className="font-mono font-semibold text-slate-900">{customer.whatsapp_number}</p>
+                    <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Primary WhatsApp</p>
+                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{customer.whatsapp_number}</p>
                   </div>
                 </div>
                 <a
                   href={`https://wa.me/${customer.whatsapp_number.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-semibold text-[10px]"
+                  className="px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 font-semibold text-[10px] transition-colors"
                 >
                   Chat
                 </a>
@@ -203,29 +204,29 @@ export const CustomerDetail = () => {
 
             {/* Alternate Contacts */}
             {customer?.alternate_phone && (
-              <div className="flex items-center gap-3 pt-1 border-t border-slate-100">
-                <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-3 pt-2 border-t border-[var(--spatial-border)]">
+                <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] shrink-0" />
                 <div>
-                  <p className="text-slate-400 text-[10px] uppercase font-bold">Alternate Phone</p>
-                  <p className="font-mono font-semibold text-slate-900">{customer.alternate_phone}</p>
+                  <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Alternate Phone</p>
+                  <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{customer.alternate_phone}</p>
                 </div>
               </div>
             )}
 
             {customer?.alternate_whatsapp && (
-              <div className="flex items-center justify-between p-2 bg-emerald-50/70 border border-emerald-200/80 rounded-lg">
+              <div className="flex items-center justify-between p-2.5 bg-emerald-500/8 border border-emerald-500/20 rounded-xl">
                 <div className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <MessageCircle className="w-4 h-4 text-emerald-500 shrink-0" />
                   <div>
-                    <p className="text-emerald-800 text-[10px] uppercase font-bold">Alt WhatsApp (In-Repair)</p>
-                    <p className="font-mono font-bold text-emerald-950">{customer.alternate_whatsapp}</p>
+                    <p className="text-emerald-600 dark:text-emerald-400 text-[10px] uppercase font-bold">Alt WhatsApp (In-Repair)</p>
+                    <p className="font-mono font-bold text-[var(--spatial-text-title)]">{customer.alternate_whatsapp}</p>
                   </div>
                 </div>
                 <a
                   href={`https://wa.me/${customer.alternate_whatsapp.replace(/\D/g, '')}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="px-2 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700 font-bold text-[10px] shadow-2xs"
+                  className="px-2.5 py-1 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 font-semibold text-[10px] transition-colors shadow-xs"
                   title="Direct chat while customer's phone is held in repair"
                 >
                   Chat Alt
@@ -234,20 +235,20 @@ export const CustomerDetail = () => {
             )}
 
             {customer?.email && (
-              <div className="flex items-center gap-3 pt-1 border-t border-slate-100">
-                <Mail className="w-4 h-4 text-slate-400 shrink-0" />
+              <div className="flex items-center gap-3 pt-2 border-t border-[var(--spatial-border)]">
+                <Mail className="w-4 h-4 text-[var(--spatial-text-muted)] shrink-0" />
                 <div>
-                  <p className="text-slate-400 text-[10px] uppercase font-bold">Email (Mail ID)</p>
-                  <p className="font-semibold text-slate-900 truncate max-w-xs">{customer.email}</p>
+                  <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Email (Mail ID)</p>
+                  <p className="font-semibold text-[var(--spatial-text-title)] truncate max-w-xs">{customer.email}</p>
                 </div>
               </div>
             )}
 
-            <div className="flex items-start gap-3 pt-1 border-t border-slate-100">
-              <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-3 pt-2 border-t border-[var(--spatial-border)]">
+              <MapPin className="w-4 h-4 text-[var(--spatial-text-muted)] shrink-0 mt-0.5" />
               <div>
-                <p className="text-slate-400 text-[10px] uppercase font-bold">Address</p>
-                <p className="font-semibold text-slate-900">
+                <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Address</p>
+                <p className="font-medium text-[var(--spatial-text-title)]">
                   {customer?.address || 'No address provided'}
                   {customer?.city ? `, ${customer.city}` : ''}
                   {customer?.state ? `, ${customer.state} ${customer.postal_code || ''}` : ''}
@@ -256,9 +257,9 @@ export const CustomerDetail = () => {
             </div>
 
             {customer?.notes && (
-              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/80 mt-2">
-                <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Customer Notes</p>
-                <p className="text-slate-700 italic">{customer.notes}</p>
+              <div className="p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] mt-2">
+                <p className="text-[10px] uppercase font-bold text-[var(--spatial-text-muted)] mb-1">Customer Notes</p>
+                <p className="text-[var(--spatial-text-body)] italic text-xs">{customer.notes}</p>
               </div>
             )}
           </div>
@@ -267,18 +268,18 @@ export const CustomerDetail = () => {
         {/* Devices Registered Card */}
         <Card title={`Customer Devices (${devices.length})`} className="md:col-span-2">
           {devices.length === 0 ? (
-            <p className="text-slate-400 text-xs italic py-4 text-center">No devices registered under this customer yet.</p>
+            <p className="text-[var(--spatial-text-muted)] text-xs italic py-4 text-center">No devices registered under this customer yet.</p>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {devices.map((device) => (
-                <div key={device.id} className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-white border border-slate-200 text-primary-600">
+                <div key={device.id} className="p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-xl flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-apple-blue/10 border border-apple-blue/20 flex items-center justify-center text-apple-blue shrink-0">
                     <Smartphone className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <h5 className="font-bold text-slate-900 text-xs">{device.brand} {device.model}</h5>
-                    <p className="text-[11px] text-slate-500 font-mono mt-0.5">IMEI: {device.imei || 'Not recorded'}</p>
-                    <p className="text-[11px] text-slate-500">{device.color || ''} {device.storage_capacity ? `• ${device.storage_capacity}` : ''}</p>
+                    <h5 className="font-bold text-[var(--spatial-text-title)] text-xs">{device.brand} {device.model}</h5>
+                    <p className="text-[11px] text-[var(--spatial-text-muted)] font-mono mt-0.5">IMEI: {device.imei || 'Not recorded'}</p>
+                    <p className="text-[11px] text-[var(--spatial-text-muted)]">{device.color || ''} {device.storage_capacity ? `• ${device.storage_capacity}` : ''}</p>
                   </div>
                 </div>
               ))}
@@ -305,7 +306,7 @@ export const CustomerDetail = () => {
           <div>
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[950px]">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                   <tr>
                     <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
                     <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
@@ -318,41 +319,43 @@ export const CustomerDetail = () => {
                     <th className="px-5 py-3 text-center whitespace-nowrap">View</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[var(--spatial-border)]">
                   {jobs
                     .slice((jobPage - 1) * jobPageSize, jobPage * jobPageSize)
                     .map((job) => (
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
+                        className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
                       >
-                        <td className="px-5 py-3.5 font-mono font-bold text-primary-600 whitespace-nowrap">
-                          {job.job_number}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="font-mono font-semibold text-xs px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
+                            {job.job_number}
+                          </span>
                         </td>
-                        <td className="px-5 py-3.5 font-medium text-slate-900 whitespace-nowrap">
+                        <td className="px-5 py-3.5 font-medium text-[var(--spatial-text-title)] whitespace-nowrap">
                           {job.device?.brand} {job.device?.model}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-600 max-w-xs truncate whitespace-nowrap" title={job.customer_complaint}>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] max-w-xs truncate whitespace-nowrap" title={job.customer_complaint}>
                           {job.customer_complaint || '—'}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <Badge status={job.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono text-slate-700 whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums text-[var(--spatial-text-title)] whitespace-nowrap">
                           ₹{Number(job.total_amount || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono text-emerald-600 font-semibold whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums text-emerald-500 font-semibold whitespace-nowrap">
                           ₹{Number(job.paid_amount || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-bold whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums font-bold whitespace-nowrap">
                           {job.balance_due > 0 ? (
-                            <span className="text-rose-600">₹{Number(job.balance_due).toLocaleString()}</span>
+                            <span className="text-rose-500">₹{Number(job.balance_due).toLocaleString()}</span>
                           ) : (
-                            <span className="text-slate-400">₹0</span>
+                            <span className="text-[var(--spatial-text-muted)] font-normal">₹0</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap font-mono text-[11px]">
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono text-[11px]">
                           {new Date(job.created_at).toLocaleDateString()}
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
@@ -361,7 +364,8 @@ export const CustomerDetail = () => {
                               e.stopPropagation();
                               navigate(`/jobs/${job.id}`);
                             }}
-                            className="p-1.5 text-slate-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            className="p-1.5 text-[var(--spatial-text-muted)] hover:text-apple-blue hover:bg-apple-blue/10 rounded-lg transition-all active:scale-90"
+                            title="View Job Details"
                           >
                             <Eye className="w-4 h-4" />
                           </button>

@@ -199,23 +199,26 @@ export const VendorSendMobiles = () => {
           <button
             type="button"
             onClick={() => navigate('/vendors')}
-            className="p-2 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-400 text-[var(--spatial-text-title)] transition-all cursor-pointer"
+            className="p-2 rounded-xl text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] transition-all cursor-pointer active:scale-95"
+            title="Back to vendor dashboard"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2">
-              <ArrowUpRight className="w-6 h-6 text-sky-400" />
+            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+                <ArrowUpRight className="w-4 h-4" />
+              </div>
               Send Mobiles to Vendor (Outward Dispatch)
             </h1>
-            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+            <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
               Itemize multiple handsets, record IMEI / problems, set expected return dates, and print chalan
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="px-3 py-1.5 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-xs font-mono font-bold text-sky-400">
+          <div className="px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-semibold text-[#0071e3] dark:text-[#0a84ff] tabular-nums">
             Chalan #{txnNumber}
           </div>
         </div>

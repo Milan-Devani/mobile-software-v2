@@ -204,8 +204,10 @@ export const Dashboard = () => {
       {/* Welcome & Primary Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight">Workshop Operations</h2>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
+          <h2 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight">
+            Workshop Operations
+          </h2>
+          <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
             Real-time repair lifecycle tracking and revenue metrics
           </p>
         </div>
@@ -221,62 +223,76 @@ export const Dashboard = () => {
       </div>
 
       {/* Top Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Total Active Jobs */}
-        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Jobs</span>
-            <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 border border-sky-400/30 flex items-center justify-center">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Jobs</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/15 flex items-center justify-center">
               <Wrench className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-[var(--spatial-text-title)] mt-2 font-mono">{summary.total_jobs || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
-            <span className="text-sky-400 font-bold">{summary.today_jobs || 0}</span> new today
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums">
+              {summary.total_jobs || 0}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              <span className="text-[#0071e3] dark:text-[#0a84ff] font-semibold">{summary.today_jobs || 0}</span> new today
+            </div>
           </div>
         </div>
 
         {/* In Progress */}
-        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">In Progress</span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-400 border border-purple-400/30 flex items-center justify-center">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">In Progress</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/15 flex items-center justify-center">
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-purple-400 mt-2 font-mono">{summary.in_progress || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
-            <span className="text-purple-400 font-bold">{summary.testing || 0}</span> in QC testing
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-indigo-500 dark:text-indigo-400 tabular-nums">
+              {summary.in_progress || 0}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              <span className="text-indigo-500 dark:text-indigo-400 font-semibold">{summary.testing || 0}</span> in QC testing
+            </div>
           </div>
         </div>
 
         {/* Ready for Pickup */}
-        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Ready for Pickup</span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-400/30 flex items-center justify-center">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Ready for Pickup</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-emerald-400 mt-2 font-mono">{summary.ready_for_pickup || 0}</p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
-            <span className="text-emerald-400 font-bold">{summary.completed || 0}</span> delivered
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+              {summary.ready_for_pickup || 0}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">{summary.completed || 0}</span> delivered
+            </div>
           </div>
         </div>
 
         {/* Pending Receivables / Balance */}
-        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl">
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Pending Balance</span>
-            <div className="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-400/30 flex items-center justify-center">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Pending Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/15 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-rose-400 mt-2 font-mono">
-            ₹{Number(summary.pending_payments || 0).toLocaleString()}
-          </p>
-          <div className="flex items-center gap-1.5 mt-2 text-[11px] text-[var(--spatial-text-muted)]">
-            Today's revenue: <strong className="text-[var(--spatial-text-title)] font-mono">₹{Number(summary.today_revenue || 0).toLocaleString()}</strong>
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-rose-500 dark:text-rose-400 tabular-nums">
+              ₹{Number(summary.pending_payments || 0).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              Today's revenue: <strong className="text-[var(--spatial-text-title)] font-semibold tabular-nums">₹{Number(summary.today_revenue || 0).toLocaleString()}</strong>
+            </div>
           </div>
         </div>
       </div>
@@ -290,21 +306,25 @@ export const Dashboard = () => {
               <button
                 key={p.status}
                 onClick={() => setStatusFilter(isSelected ? 'ALL' : p.status)}
-                className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                className={`p-3 rounded-xl border text-left transition-all duration-200 cursor-pointer active:scale-[0.98] ${
                   isSelected
-                    ? 'border-sky-400 bg-sky-500/20 shadow-md ring-2 ring-sky-500/30 -translate-y-1'
-                    : 'spatial-inner-box hover:border-sky-400/50'
+                    ? 'border-[#0071e3] bg-blue-500/10 shadow-sm ring-1 ring-[#0071e3]/30'
+                    : 'spatial-inner-box hover:border-[var(--spatial-border-highlight)]'
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[var(--spatial-text-title)] truncate">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[12px] font-medium text-[var(--spatial-text-title)] truncate">
                     {p.label}
                   </span>
-                  <span className="text-xs font-mono font-bold px-1.5 py-0.5 rounded-full bg-[var(--spatial-bg-card-hover)] text-sky-400 border border-sky-400/20">
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full tabular-nums ${
+                    isSelected
+                      ? 'bg-[#0071e3] text-white'
+                      : 'bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
+                  }`}>
                     {p.count}
                   </span>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2.5">
                   <Badge status={p.status} size="sm" />
                 </div>
               </button>
@@ -330,7 +350,7 @@ export const Dashboard = () => {
         action={
           <div className="flex items-center gap-2">
             <div className="relative">
-              <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
                 placeholder="Filter recent..."
@@ -344,7 +364,7 @@ export const Dashboard = () => {
             </div>
             <button
               onClick={() => navigate('/jobs')}
-              className="text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 hover:underline ml-2"
+              className="text-xs font-medium text-[#0071e3] dark:text-[#0a84ff] hover:opacity-80 flex items-center gap-1 ml-2 transition-opacity active:scale-95"
             >
               <span>View All</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -369,7 +389,7 @@ export const Dashboard = () => {
           <div>
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1100px]">
-                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">
                   <tr>
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
                       <input
@@ -377,7 +397,7 @@ export const Dashboard = () => {
                         checked={isPageAllSelected}
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
-                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                        className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                       />
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
@@ -396,8 +416,8 @@ export const Dashboard = () => {
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
-                          isSelected ? 'bg-sky-500/10' : ''
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
+                          isSelected ? 'bg-blue-500/[0.08]' : ''
                         }`}
                       >
                         <td
@@ -409,17 +429,17 @@ export const Dashboard = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectRow(job.id)}
                             aria-label={`Select job ${job.job_number}`}
-                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                            className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
+                        <td className="px-5 py-3.5 font-semibold text-[#0071e3] dark:text-[#0a84ff] whitespace-nowrap tracking-tight">
                           {job.job_number}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="font-semibold text-[var(--spatial-text-title)]">{job.customer?.full_name || 'Walk-in'}</span>
+                            <span className="font-medium text-[var(--spatial-text-title)]">{job.customer?.full_name || 'Walk-in'}</span>
                             {job.customer?.phone && (
-                              <span className="text-[11px] text-[var(--spatial-text-muted)] font-mono">({job.customer.phone})</span>
+                              <span className="text-[11px] text-[var(--spatial-text-muted)] tabular-nums">({job.customer.phone})</span>
                             )}
                           </div>
                         </td>
@@ -436,28 +456,28 @@ export const Dashboard = () => {
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <Badge status={job.status} />
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-medium text-[var(--spatial-text-title)] whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-medium text-[var(--spatial-text-title)] whitespace-nowrap tabular-nums">
                           ₹{Number(job.total_amount || 0).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-mono font-semibold whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-medium whitespace-nowrap tabular-nums">
                           {job.balance_due > 0 ? (
-                            <span className="text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
+                            <span className="text-rose-500 dark:text-rose-400 font-semibold">₹{Number(job.balance_due).toLocaleString()}</span>
                           ) : (
-                            <span className="text-emerald-400">₹0</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">₹0</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => navigate(`/jobs/${job.id}`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95"
                               title="View Job Sheet"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleSingleDelete(job)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all active:scale-95"
                               title="Delete Job"
                             >
                               <Trash2 className="w-4 h-4" />

@@ -317,16 +317,19 @@ export const VendorReceiveMobiles = () => {
           <button
             type="button"
             onClick={() => navigate('/vendors')}
-            className="p-2 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-400 text-[var(--spatial-text-title)] transition-all cursor-pointer"
+            className="p-2 rounded-xl text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] transition-all cursor-pointer active:scale-95"
+            title="Back to vendor dashboard"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2">
-              <ArrowDownLeft className="w-6 h-6 text-emerald-400" />
+            <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+                <ArrowDownLeft className="w-4 h-4" />
+              </div>
               Receive Mobiles from Vendor (Inward Intake)
             </h1>
-            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+            <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
               Process partial/full returns of previously dispatched handsets, or accept new client repairs from vendor
             </p>
           </div>
@@ -341,24 +344,24 @@ export const VendorReceiveMobiles = () => {
         <button
           type="button"
           onClick={() => setActiveWorkflow('WORKFLOW_A')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer select-none active:scale-[0.99] ${
             activeWorkflow === 'WORKFLOW_A'
-              ? 'bg-sky-500/10 border-sky-400 ring-2 ring-sky-500/20 shadow-sm'
-              : 'spatial-card hover:border-[var(--spatial-border-hover)]'
+              ? 'bg-blue-500/[0.08] border-[#0071e3] ring-1 ring-[#0071e3]/30 shadow-xs'
+              : 'spatial-card spatial-card-hover'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="font-bold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
-              <ArrowDownLeft className="w-4 h-4 text-sky-400" />
+            <span className="font-semibold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
+              <ArrowDownLeft className="w-4 h-4 text-[#0071e3] dark:text-[#0a84ff]" />
               Workflow A: Receive Previously Sent Mobiles
             </span>
             {activeWorkflow === 'WORKFLOW_A' && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-sky-500 text-white">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#0071e3] text-white">
                 ACTIVE
               </span>
             )}
           </div>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1.5">
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-2 leading-relaxed font-normal">
             We sent mobiles to vendor for specialized repair. Receive them back (supports partial returns!), record actual charges, warranty, and update vendor ledger.
           </p>
         </button>
@@ -366,24 +369,24 @@ export const VendorReceiveMobiles = () => {
         <button
           type="button"
           onClick={() => setActiveWorkflow('WORKFLOW_B')}
-          className={`p-4 rounded-2xl border text-left transition-all cursor-pointer select-none ${
+          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer select-none active:scale-[0.99] ${
             activeWorkflow === 'WORKFLOW_B'
-              ? 'bg-emerald-500/10 border-emerald-400 ring-2 ring-emerald-500/20 shadow-sm'
-              : 'spatial-card hover:border-[var(--spatial-border-hover)]'
+              ? 'bg-emerald-500/[0.08] border-emerald-500 ring-1 ring-emerald-500/30 shadow-xs'
+              : 'spatial-card spatial-card-hover'
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="font-bold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-400" />
+            <span className="font-semibold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
+              <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Workflow B: Receive New Mobiles from Vendor (B2B Repair)
             </span>
             {activeWorkflow === 'WORKFLOW_B' && (
-              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white">
                 ACTIVE
               </span>
             )}
           </div>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1.5">
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-2 leading-relaxed font-normal">
             Vendor brings retail handsets to OUR shop for repair. Track them as B2B repair jobs at our shop, and return back to vendor when completed.
           </p>
         </button>

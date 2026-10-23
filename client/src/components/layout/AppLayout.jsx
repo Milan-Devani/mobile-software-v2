@@ -9,18 +9,14 @@ export const AppLayout = () => {
   const { spatialStyle, isDark } = useTheme();
 
   return (
-    <div className="min-h-screen flex flex-col relative overflow-x-hidden selection:bg-sky-500 selection:text-white">
-      {/* Subtle Ambient Spatial Glow Accent for Futuristic and Dark Spatial themes */}
+    <div className="min-h-screen flex flex-col relative overflow-x-hidden selection:bg-[#0071e3] selection:text-white">
+      {/* Subtle Apple Ambient Vignette Depth */}
       {isDark && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-40 transition-opacity duration-500 print:hidden"
+          className="pointer-events-none fixed inset-0 z-0 overflow-hidden opacity-25 transition-opacity duration-500 print:hidden"
         >
-          <div className="absolute -top-40 left-1/3 w-[600px] h-[600px] bg-sky-500/10 rounded-full blur-[140px]" />
-          <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] bg-indigo-500/10 rounded-full blur-[140px]" />
-          {spatialStyle === 'futuristic-glass' && (
-            <div className="absolute -bottom-20 left-10 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[140px]" />
-          )}
+          <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[700px] h-[400px] bg-blue-500/10 rounded-full blur-[140px]" />
         </div>
       )}
 

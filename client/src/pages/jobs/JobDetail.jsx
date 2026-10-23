@@ -781,30 +781,32 @@ export const JobDetail = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/jobs')}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-colors border border-slate-200"
+            className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl transition-all border border-[var(--spatial-border)] active:scale-95"
+            title="Back to repair jobs"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight font-mono">
+              <h2 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight">
                 {job.job_number}
               </h2>
               <Badge status={job.status} />
               {job.is_warranty_claim && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
                   Warranty Claim #{job.reopen_count || 1}
                 </span>
               )}
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${job.priority === 'URGENT' ? 'bg-rose-100 text-rose-800' :
-                  job.priority === 'HIGH' ? 'bg-amber-100 text-amber-800' :
-                    'bg-slate-100 text-slate-700'
-                }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
+                job.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                job.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
+                'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
+              }`}>
                 {job.priority} Priority
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
               Intake Date: {new Date(job.created_at).toLocaleString()} • Technician: {job.technician?.full_name || 'Unassigned'}
             </p>
           </div>
@@ -817,7 +819,7 @@ export const JobDetail = () => {
               variant="outline"
               size="sm"
               icon={SlidersHorizontal}
-              className="bg-primary-50 dark:bg-primary-950/60 border-2 border-primary-500 text-primary-700 dark:text-primary-300 hover:bg-primary-600 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white font-bold transition-all shadow-2xs"
+              className="bg-blue-500/10 border-[#0071e3]/30 text-[#0071e3] dark:text-[#0a84ff] hover:bg-blue-500/20 font-semibold transition-all active:scale-95"
               onClick={() => {
                 setSelectedStatus(job.status);
                 setStatusNotes('');
@@ -833,7 +835,7 @@ export const JobDetail = () => {
             <Button
               variant="outline"
               size="sm"
-              className="border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 font-semibold"
+              className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-semibold"
               icon={RotateCcw}
               onClick={handleOpenReopenModal}
             >
@@ -874,7 +876,7 @@ export const JobDetail = () => {
             icon={Send}
             onClick={handleResendInvoice}
             loading={isSendingInvoice}
-            className="text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/30 font-medium"
+            className="text-[#0071e3] dark:text-[#0a84ff] border-blue-500/30 hover:bg-blue-500/10 font-medium"
             title="Dispatch Tax Invoice & Receipt to Customer via WhatsApp & Email"
           >
             Send Invoice
@@ -895,7 +897,7 @@ export const JobDetail = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
               icon={Ban}
               onClick={handleCancelJob}
             >
@@ -906,7 +908,7 @@ export const JobDetail = () => {
           <Button
             variant="outline"
             size="sm"
-            className="bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white font-bold transition-all shadow-2xs"
+            className="bg-rose-500/10 border-rose-500/30 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20 font-semibold transition-all active:scale-95"
             icon={Trash2}
             onClick={handleDeleteJob}
             title="Permanently Delete Job Sheet"
@@ -918,22 +920,22 @@ export const JobDetail = () => {
 
       {/* Warranty Claim Banner if active */}
       {job.is_warranty_claim && (
-        <div className={`p-3.5 border rounded-xl flex items-center justify-between flex-wrap gap-3 text-xs ${isFreeWarranty
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
-            : 'bg-amber-500/10 border-amber-500/25 text-amber-950 dark:text-amber-200'
+        <div className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-3 text-xs ${isFreeWarranty
+            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-950 dark:text-emerald-200'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-950 dark:text-amber-200'
           }`}>
           <div className="flex items-center gap-2.5">
             <ShieldCheck className={`w-5 h-5 flex-shrink-0 ${isFreeWarranty ? 'text-emerald-500' : 'text-amber-500'
               }`} />
             <div>
-              <p className="font-bold flex items-center gap-2 flex-wrap">
+              <p className="font-semibold flex items-center gap-2 flex-wrap">
                 <span>Active Warranty Claim #{job.reopen_count || 1}</span>
                 {isFreeWarranty ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                     ✓ Same Issue • 100% Free Rework (₹0 Balance Due)
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                     New Issue • Chargeable Parts
                   </span>
                 )}
@@ -955,7 +957,7 @@ export const JobDetail = () => {
               </Button>
             )}
             {job.reopened_at && (
-              <span className="text-[11px] font-mono opacity-80 whitespace-nowrap">
+              <span className="text-[11px] tabular-nums opacity-80 whitespace-nowrap">
                 Reopened: {new Date(job.reopened_at).toLocaleDateString()}
               </span>
             )}
@@ -985,7 +987,7 @@ export const JobDetail = () => {
       />
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1.5 p-1 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl overflow-x-auto no-scrollbar">
         {[
           { key: 'overview', label: 'Overview & Intake' },
           { key: 'diagnosis', label: 'Diagnosis & Solution' },
@@ -1000,10 +1002,11 @@ export const JobDetail = () => {
               tabManuallySelectedRef.current = true;
               setActiveTab(tab.key);
             }}
-            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${activeTab === tab.key
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-              }`}
+            className={`px-3.5 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
+              activeTab === tab.key
+                ? 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] shadow-xs font-semibold border border-[var(--spatial-border)]'
+                : 'border border-transparent text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)]/50'
+            }`}
           >
             {tab.label}
           </button>

@@ -36,27 +36,28 @@ export const Modal = ({
   return createPortal(
     <div className="fixed inset-0 z-[9999] overflow-y-auto">
       <div className="flex min-h-full items-center justify-center p-3 sm:p-4 text-center">
-        {/* Spatial Backdrop */}
+        {/* Apple Dimming Backdrop */}
         <div
-          className="fixed inset-0 bg-black/70 backdrop-blur-md transition-opacity duration-200"
+          className="fixed inset-0 bg-black/45 backdrop-blur-md transition-opacity duration-200"
           onClick={onClose}
         />
 
-        {/* Spatial Dialog Panel */}
+        {/* Apple Dialog Window Panel */}
         <div
           className={`w-full ${maxWidth} max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col transform overflow-hidden rounded-2xl spatial-modal-panel p-5 sm:p-6 text-left align-middle transition-all z-10 relative shadow-2xl`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 flex items-start justify-between pb-3 sm:pb-4 border-b border-[var(--spatial-border)]">
             <div>
-              <h3 className="text-lg font-bold text-[var(--spatial-text-title)] tracking-tight">{title}</h3>
-              {subtitle && <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">{subtitle}</p>}
+              <h3 className="text-base sm:text-lg font-semibold text-[var(--spatial-text-title)] tracking-tight">{title}</h3>
+              {subtitle && <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5 font-normal">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg p-1.5 hover:bg-[var(--spatial-bg-card-subtle)] transition-colors active:scale-95 cursor-pointer"
+              className="text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-full p-1.5 hover:bg-[var(--spatial-bg-card-hover)] transition-all active:scale-90 cursor-pointer"
+              aria-label="Close modal"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 stroke-[2]" />
             </button>
           </div>
 

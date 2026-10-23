@@ -452,10 +452,10 @@ export const Settings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('appearance')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
             activeTab === 'appearance'
-              ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
-              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
           }`}
         >
           <Palette className="w-4 h-4" />
@@ -465,10 +465,10 @@ export const Settings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('shop')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
             activeTab === 'shop'
-              ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
-              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
           }`}
         >
           <Store className="w-4 h-4" />
@@ -478,10 +478,10 @@ export const Settings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('users')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
             activeTab === 'users'
-              ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
-              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
           }`}
         >
           <Users className="w-4 h-4" />
@@ -491,10 +491,10 @@ export const Settings = () => {
         <button
           type="button"
           onClick={() => setActiveTab('notifications')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
             activeTab === 'notifications'
-              ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
-              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
           }`}
         >
           <Bell className="w-4 h-4" />
@@ -505,10 +505,10 @@ export const Settings = () => {
           <button
             type="button"
             onClick={() => setActiveTab('backups')}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
+            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
               activeTab === 'backups'
-                ? 'bg-sky-500 text-white shadow-md shadow-sky-950/20'
-                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+                ? 'bg-apple-blue text-white shadow-xs'
+                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
             }`}
           >
             <Database className="w-4 h-4" />

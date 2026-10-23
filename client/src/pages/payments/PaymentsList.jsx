@@ -161,11 +161,11 @@ export const PaymentsList = () => {
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-[var(--spatial-text-title)] tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">
             Payment Ledger & Receipts
           </h2>
           <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
@@ -187,53 +187,53 @@ export const PaymentsList = () => {
 
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="spatial-card p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)]">
+        <div className="spatial-card p-4 rounded-2xl">
           <p className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
             Filtered Total
           </p>
-          <p className="text-2xl font-black text-[var(--spatial-text-title)] font-mono mt-1">
+          <p className="text-2xl font-bold text-[var(--spatial-text-title)] font-mono tabular-nums mt-1">
             ₹{Number(stats.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </p>
           <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
             {total} total transaction{total === 1 ? '' : 's'}
           </p>
         </div>
-        <div className="spatial-card p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)]">
-          <p className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+        <div className="spatial-card p-4 rounded-2xl border-emerald-500/20 bg-emerald-500/5">
+          <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
             Cash Collected
           </p>
-          <p className="text-2xl font-black text-emerald-500 font-mono mt-1">
+          <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 font-mono tabular-nums mt-1">
             ₹{Number(stats.cashTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="spatial-card p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)]">
-          <p className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+        <div className="spatial-card p-4 rounded-2xl border-apple-blue/20 bg-apple-blue/5">
+          <p className="text-[11px] font-bold text-apple-blue uppercase tracking-wider">
             Card Transactions
           </p>
-          <p className="text-2xl font-black text-sky-500 font-mono mt-1">
+          <p className="text-2xl font-bold text-apple-blue font-mono tabular-nums mt-1">
             ₹{Number(stats.cardTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </p>
         </div>
-        <div className="spatial-card p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)]">
-          <p className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+        <div className="spatial-card p-4 rounded-2xl border-purple-500/20 bg-purple-500/5">
+          <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">
             UPI / QR Digital
           </p>
-          <p className="text-2xl font-black text-indigo-400 font-mono mt-1">
+          <p className="text-2xl font-bold text-purple-600 dark:text-purple-400 font-mono tabular-nums mt-1">
             ₹{Number(stats.upiTotal || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </p>
         </div>
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="spatial-card p-3 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-card-bg)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="spatial-card p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search receipt #, job ticket, customer, ref (500ms debounce)..."
+            placeholder="Search receipt #, job ticket, customer, ref..."
             value={search}
             onChange={handleSearchChange}
-            className="w-full pl-8 pr-8 py-1.5 text-xs bg-[var(--spatial-card-subtle)] border border-[var(--spatial-border)] rounded-lg text-[var(--spatial-text-body)] focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="w-full pl-8 pr-8 py-2 text-xs spatial-input rounded-xl"
           />
           {search && (
             <button
@@ -255,7 +255,7 @@ export const PaymentsList = () => {
           <select
             value={methodFilter}
             onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-3 py-1.5 bg-[var(--spatial-card-subtle)] border border-[var(--spatial-border)] rounded-lg text-xs font-semibold text-[var(--spatial-text-body)] focus:outline-none focus:ring-1 focus:ring-sky-500"
+            className="px-3 py-2 spatial-input rounded-xl text-xs font-semibold"
           >
             <option value="ALL">All Methods</option>
             <option value="CASH">Cash</option>

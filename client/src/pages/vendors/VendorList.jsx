@@ -209,7 +209,7 @@ export const VendorList = () => {
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                   active
-                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/20'
+                    ? 'bg-apple-blue text-white shadow-xs'
                     : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
                 }`}
               >
@@ -230,7 +230,7 @@ export const VendorList = () => {
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="w-full h-11 pl-10 pr-9 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+            className="w-full h-11 pl-10 pr-9 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/20 transition-all shadow-xs"
           />
           {search && (
             <button
@@ -293,8 +293,10 @@ export const VendorList = () => {
                         className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer group"
                       >
                         {/* 1. Code */}
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
-                          {vendor.vendor_code || 'VND'}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="font-mono font-semibold text-xs px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
+                            {vendor.vendor_code || 'VND'}
+                          </span>
                         </td>
 
                         {/* 2. Name & Shop */}

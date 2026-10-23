@@ -140,7 +140,7 @@ export const SpatialSelect = ({
           disabled
             ? 'opacity-50 cursor-not-allowed bg-[var(--spatial-bg-card-subtle)] border-[var(--spatial-border)]'
             : isOpen
-            ? 'border-sky-400 bg-[var(--spatial-bg-card)] ring-2 ring-sky-500/20 shadow-sm'
+            ? 'border-[#0071e3] dark:border-[#0a84ff] bg-[var(--spatial-bg-card)] ring-2 ring-[#0071e3]/20 dark:ring-[#0a84ff]/30 shadow-xs'
             : 'spatial-input hover:border-[var(--spatial-border-hover)]'
         } ${error ? 'border-rose-500 ring-1 ring-rose-500/30' : ''} ${buttonClassName}`}
       >
@@ -151,7 +151,7 @@ export const SpatialSelect = ({
                 {selectedOption.label}
               </span>
               {selectedOption.badge && (
-                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-400/20 shrink-0">
+                <span className="px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold bg-[#0071e3]/10 text-[#0071e3] dark:bg-[#0a84ff]/15 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 shrink-0">
                   {selectedOption.badge}
                 </span>
               )}
@@ -161,18 +161,18 @@ export const SpatialSelect = ({
           )}
         </span>
         <ChevronDown
-          className={`w-4 h-4 text-[var(--spatial-text-muted)] shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180 text-sky-400' : ''
+          className={`w-4 h-4 text-[var(--spatial-text-muted)] shrink-0 transition-transform duration-150 ${
+            isOpen ? 'rotate-180 text-[#0071e3] dark:text-[#0a84ff]' : ''
           }`}
         />
       </button>
 
-      {/* Floating Spatial Dropdown Panel */}
+      {/* Floating Apple Dropdown Panel */}
       {isOpen && (
         <div
           className={`absolute left-0 right-0 ${
             placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          } z-[9999] spatial-dropdown-panel p-1.5 max-h-72 flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-150 ${menuClassName}`}
+          } z-[9999] spatial-dropdown-panel p-1.5 max-h-72 flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-140 ${menuClassName}`}
           style={{
             backgroundColor: 'var(--spatial-bg-dropdown, #ffffff)',
             boxShadow:
@@ -183,7 +183,7 @@ export const SpatialSelect = ({
           {isSearchEnabled && (
             <div className="p-1.5 border-b border-[var(--spatial-border)] mb-1">
               <div className="relative">
-                <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2 stroke-[2]" />
                 <input
                   ref={searchInputRef}
                   type="text"
@@ -203,7 +203,7 @@ export const SpatialSelect = ({
                     }}
                     className="p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] absolute right-1.5 top-1/2 -translate-y-1/2"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-3 h-3 stroke-[2]" />
                   </button>
                 )}
               </div>
@@ -225,8 +225,8 @@ export const SpatialSelect = ({
                     onClick={() => handleSelect(opt.value)}
                     className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs cursor-pointer transition-all ${
                       isSelected
-                        ? 'bg-sky-500/20 text-sky-400 font-bold border border-sky-400/30 shadow-xs'
-                        : 'text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)] hover:text-sky-300'
+                        ? 'bg-[#0071e3]/12 text-[#0071e3] dark:bg-[#0a84ff]/18 dark:text-[#0a84ff] font-semibold'
+                        : 'text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
                     }`}
                   >
                     {renderOption ? (
@@ -234,7 +234,7 @@ export const SpatialSelect = ({
                     ) : (
                       <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
                         <div className="truncate min-w-0">
-                          <p className="font-semibold truncate leading-tight">{opt.label}</p>
+                          <p className="font-medium truncate leading-tight tracking-tight">{opt.label}</p>
                           {opt.subtitle && (
                             <p className="text-[11px] text-[var(--spatial-text-muted)] truncate font-mono mt-0.5">
                               {opt.subtitle}
@@ -242,14 +242,14 @@ export const SpatialSelect = ({
                           )}
                         </div>
                         {opt.badge && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-sky-500/15 text-sky-400 border border-sky-400/20 shrink-0 ml-auto">
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-[#0071e3]/10 text-[#0071e3] dark:bg-[#0a84ff]/15 dark:text-[#0a84ff] shrink-0 ml-auto">
                             {opt.badge}
                           </span>
                         )}
                       </div>
                     )}
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-sky-400 shrink-0 ml-1.5" />
+                      <Check className="w-3.5 h-3.5 text-[#0071e3] dark:text-[#0a84ff] stroke-[2.5] shrink-0 ml-1.5" />
                     )}
                   </div>
                 );

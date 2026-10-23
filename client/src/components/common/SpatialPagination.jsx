@@ -124,9 +124,9 @@ export const SpatialPagination = ({
                 key={p}
                 type="button"
                 onClick={() => onPageChange(p)}
-                className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all ${
+                className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                   isActive
-                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/30'
+                    ? 'bg-[#0071e3] text-white shadow-xs dark:bg-[#0a84ff]'
                     : 'border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
                 }`}
               >

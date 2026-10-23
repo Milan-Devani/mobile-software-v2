@@ -27,13 +27,21 @@ export default {
           success: '#10b981',
           warning: '#f59e0b',
           danger: '#ef4444',
-          indigo: '#6366f1',
           amber: '#d97706',
+        },
+        apple: {
+          blue: '#0071e3',
+          darkBlue: '#0a84ff',
+          gray: '#8e8e93',
+          lightBg: '#f5f5f7',
+          darkBg: '#000000',
+          darkSurface: '#1c1c1e',
+          darkSubtle: '#2c2c2e',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"SF Pro Display"', '"SF Pro"', 'Inter', 'system-ui', 'sans-serif'],
+        mono: ['"SF Mono"', '"JetBrains Mono"', 'Menlo', 'Consolas', 'monospace'],
       }
     },
   },

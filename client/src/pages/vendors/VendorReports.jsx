@@ -227,20 +227,20 @@ export default function VendorReports() {
   ];
 
   return (
-    <div className="min-h-screen text-slate-100 p-4 md:p-6 space-y-6">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-              <BarChart3 className="w-5 h-5 text-white" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-500 flex items-center justify-center">
+              <BarChart3 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--spatial-text-title)] flex items-center gap-2">
                 Vendor Reports & Analytics
               </h1>
-              <p className="text-xs text-slate-400">
-                Detailed metrics on repair volumes, handset turnaround, IMEI audit histories, and balance positions.
+              <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+                Detailed metrics on repair volumes, handset turnaround, IMEI audit histories, and balance positions
               </p>
             </div>
           </div>
@@ -250,25 +250,25 @@ export default function VendorReports() {
           <button
             onClick={fetchReports}
             disabled={loading}
-            className="p-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm"
+            className="p-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm cursor-pointer"
             title="Refresh Report"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-cyan-400' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-apple-blue' : ''}`} />
             <span className="hidden sm:inline">Refresh</span>
           </button>
 
           <button
             onClick={exportToCSV}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm font-medium"
+            className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium cursor-pointer"
             title="Export CSV"
           >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+            <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
             <span className="hidden sm:inline">Export Excel/CSV</span>
           </button>
 
           <button
             onClick={() => window.print()}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-2 text-sm font-medium"
+            className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium cursor-pointer"
             title="Print Report"
           >
             <Printer className="w-4 h-4" />
@@ -281,11 +281,11 @@ export default function VendorReports() {
       <VendorNavTabs activeTab="reports" />
 
       {/* Filter and Date Bar */}
-      <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md space-y-4">
+      <div className="spatial-card p-4 rounded-2xl space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Vendor */}
           <div className="lg:col-span-4">
-            <label className="block text-xs font-medium text-slate-400 mb-1">Filter Vendor</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Filter Vendor</label>
             <SpatialSelect
               options={vendorSelectOptions}
               value={selectedVendorId}
@@ -297,29 +297,29 @@ export default function VendorReports() {
 
           {/* Start Date */}
           <div className="lg:col-span-2">
-            <label className="block text-xs font-medium text-slate-400 mb-1">From Date</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">From Date</label>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
             />
           </div>
 
           {/* End Date */}
           <div className="lg:col-span-2">
-            <label className="block text-xs font-medium text-slate-400 mb-1">To Date</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">To Date</label>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500"
+              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
             />
           </div>
 
           {/* Direction Flow */}
           <div className="lg:col-span-2">
-            <label className="block text-xs font-medium text-slate-400 mb-1">Flow Direction</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Flow Direction</label>
             <SpatialSelect
               options={[
                 { value: 'ALL', label: 'All Directions' },
@@ -335,21 +335,23 @@ export default function VendorReports() {
           <div className="lg:col-span-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
             <button
               onClick={() => handleQuickDate('ALL')}
-              className={`px-2 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap ${
-                !startDate && !endDate ? 'bg-cyan-500 text-white' : 'bg-slate-700/60 text-slate-300'
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                !startDate && !endDate
+                  ? 'bg-apple-blue text-white shadow-xs'
+                  : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
               }`}
             >
               All
             </button>
             <button
               onClick={() => handleQuickDate('THIS_MONTH')}
-              className="px-2 py-2 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
             >
               This Month
             </button>
             <button
               onClick={() => handleQuickDate('LAST_MONTH')}
-              className="px-2 py-2 rounded-lg text-xs font-medium bg-slate-700/60 text-slate-300 whitespace-nowrap"
+              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
             >
               Last Month
             </button>
@@ -358,54 +360,30 @@ export default function VendorReports() {
       </div>
 
       {/* Report Sub-Tabs Switcher */}
-      <div className="flex items-center gap-2 border-b border-slate-700/60 pb-1 overflow-x-auto">
-        <button
-          onClick={() => setActiveReportTab('overview')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
-            activeReportTab === 'overview'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          Executive Overview
-        </button>
-
-        <button
-          onClick={() => setActiveReportTab('mobile_history')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
-            activeReportTab === 'mobile_history'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <Smartphone className="w-4 h-4" />
-          Mobile Repair History & IMEI Audit
-        </button>
-
-        <button
-          onClick={() => setActiveReportTab('vendor_wise')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
-            activeReportTab === 'vendor_wise'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <Building2 className="w-4 h-4" />
-          Vendor-wise Performance
-        </button>
-
-        <button
-          onClick={() => setActiveReportTab('balances')}
-          className={`px-4 py-2 rounded-xl text-sm font-medium transition flex items-center gap-2 whitespace-nowrap ${
-            activeReportTab === 'balances'
-              ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'
-              : 'text-slate-400 hover:text-white hover:bg-slate-800'
-          }`}
-        >
-          <CreditCard className="w-4 h-4" />
-          Outstanding Balances & Dues
-        </button>
+      <div className="flex items-center gap-2 border-b border-[var(--spatial-border)] pb-2 overflow-x-auto no-scrollbar">
+        {[
+          { key: 'overview', label: 'Executive Overview', icon: BarChart3 },
+          { key: 'mobile_history', label: 'Mobile History & IMEI Audit', icon: Smartphone },
+          { key: 'vendor_wise', label: 'Vendor-wise Performance', icon: Building2 },
+          { key: 'balances', label: 'Outstanding Balances & Dues', icon: CreditCard },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = activeReportTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveReportTab(tab.key)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                active
+                  ? 'bg-apple-blue text-white shadow-xs'
+                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* TAB CONTENT 1: OVERVIEW */}
@@ -413,80 +391,80 @@ export default function VendorReports() {
         <div className="space-y-6">
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-              <span className="text-xs text-slate-400 font-medium">Total Handsets Handled</span>
-              <div className="text-2xl font-bold text-white mt-1">
+            <div className="spatial-card p-4 rounded-2xl">
+              <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Total Handsets Handled</span>
+              <div className="text-2xl font-bold text-[var(--spatial-text-title)] mt-1 tabular-nums">
                 {reportData?.metrics?.total_mobiles || 0}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Devices tracked in period</span>
+              <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Devices tracked in period</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-blue-500/10 border border-blue-500/30 backdrop-blur-md">
-              <span className="text-xs text-blue-400 font-medium">Total Dispatched (Sent)</span>
-              <div className="text-2xl font-bold text-blue-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl border-apple-blue/20 bg-apple-blue/5">
+              <span className="text-xs text-apple-blue font-medium">Total Dispatched (Sent)</span>
+              <div className="text-2xl font-bold text-apple-blue mt-1 tabular-nums">
                 {reportData?.metrics?.sent_count || 0}
               </div>
-              <span className="text-[11px] text-blue-400/80 mt-1 block">Outward repair assignments</span>
+              <span className="text-[11px] text-apple-blue/80 mt-1 block">Outward repair assignments</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 backdrop-blur-md">
-              <span className="text-xs text-emerald-400 font-medium">Received / Returned</span>
-              <div className="text-2xl font-bold text-emerald-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl border-emerald-500/20 bg-emerald-500/5">
+              <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">Received / Returned</span>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
                 {reportData?.metrics?.returned_count || 0}
               </div>
-              <span className="text-[11px] text-emerald-400/80 mt-1 block">Successfully processed back</span>
+              <span className="text-[11px] text-emerald-600/80 dark:text-emerald-400/80 mt-1 block">Successfully processed back</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md">
-              <span className="text-xs text-amber-400 font-medium">Currently in Lab (Pending)</span>
-              <div className="text-2xl font-bold text-amber-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl border-amber-500/20 bg-amber-500/5">
+              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">Currently in Lab (Pending)</span>
+              <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1 tabular-nums">
                 {reportData?.metrics?.pending_count || 0}
               </div>
-              <span className="text-[11px] text-amber-400/80 mt-1 block">Awaiting completion / return</span>
+              <span className="text-[11px] text-amber-600/80 dark:text-amber-400/80 mt-1 block">Awaiting completion / return</span>
             </div>
           </div>
 
           {/* Financial Breakdown Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-              <span className="text-xs text-slate-400 font-medium">Total Incurred Repair Cost</span>
-              <div className="text-2xl font-bold text-cyan-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl">
+              <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Total Incurred Repair Cost</span>
+              <div className="text-2xl font-bold text-apple-blue mt-1 tabular-nums">
                 ₹{parseFloat(reportData?.metrics?.total_actual_cost || 0).toLocaleString('en-IN')}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Charges billed by vendor labs</span>
+              <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Charges billed by vendor labs</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-              <span className="text-xs text-slate-400 font-medium">Total Disbursed Payments</span>
-              <div className="text-2xl font-bold text-emerald-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl">
+              <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Total Disbursed Payments</span>
+              <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 tabular-nums">
                 ₹{parseFloat(reportData?.metrics?.total_paid_to_vendors || 0).toLocaleString('en-IN')}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Payments made to vendors</span>
+              <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Payments made to vendors</span>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md">
-              <span className="text-xs text-slate-400 font-medium">B2B Funds Received</span>
-              <div className="text-2xl font-bold text-purple-300 mt-1">
+            <div className="spatial-card p-4 rounded-2xl">
+              <span className="text-xs text-[var(--spatial-text-muted)] font-medium">B2B Funds Received</span>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mt-1 tabular-nums">
                 ₹{parseFloat(reportData?.metrics?.total_received_from_vendors || 0).toLocaleString('en-IN')}
               </div>
-              <span className="text-[11px] text-slate-500 mt-1 block">Collected for vendor inward repairs</span>
+              <span className="text-[11px] text-[var(--spatial-text-muted)] mt-1 block">Collected for vendor inward repairs</span>
             </div>
           </div>
 
           {/* Quick Vendor Summary Table */}
-          <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md overflow-hidden">
-            <div className="p-4 border-b border-slate-700/60 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-white">Vendor Performance Summary</h3>
+          <div className="spatial-card rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-[var(--spatial-border)] flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[var(--spatial-text-title)]">Vendor Performance Summary</h3>
               <button
                 onClick={() => setActiveReportTab('vendor_wise')}
-                className="text-xs text-cyan-400 hover:underline flex items-center gap-1"
+                className="text-xs text-apple-blue hover:underline flex items-center gap-1 font-medium cursor-pointer"
               >
                 View Complete Breakdown <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-slate-900/70 border-b border-slate-700/70 text-xs text-slate-400 uppercase">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">
                   <tr>
                     <th className="py-3 px-4">Vendor</th>
                     <th className="py-3 px-4 text-center">Total Sent</th>
@@ -496,24 +474,24 @@ export default function VendorReports() {
                     <th className="py-3 px-4 text-right">Balance</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-700/40">
+                <tbody className="divide-y divide-[var(--spatial-border)]">
                   {vendorBreakdown.slice(0, 6).map((v) => (
-                    <tr key={v.id} className="hover:bg-slate-700/30">
+                    <tr key={v.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-white">{v.name}</div>
-                        <div className="text-xs text-slate-400">{v.shop_name || 'Vendor'}</div>
+                        <div className="font-semibold text-[var(--spatial-text-title)]">{v.name}</div>
+                        <div className="text-xs text-[var(--spatial-text-muted)]">{v.shop_name || 'Vendor'}</div>
                       </td>
-                      <td className="py-3 px-4 text-center font-mono">{v.total_sent}</td>
-                      <td className="py-3 px-4 text-center font-mono text-emerald-400">{v.total_returned}</td>
-                      <td className="py-3 px-4 text-center font-mono text-amber-400">{v.pending_count}</td>
-                      <td className="py-3 px-4 text-right font-mono">₹{v.total_repair_cost.toLocaleString('en-IN')}</td>
-                      <td className="py-3 px-4 text-right font-mono font-bold">
+                      <td className="py-3 px-4 text-center tabular-nums font-mono text-[var(--spatial-text-body)]">{v.total_sent}</td>
+                      <td className="py-3 px-4 text-center tabular-nums font-mono text-emerald-600 dark:text-emerald-400 font-medium">{v.total_returned}</td>
+                      <td className="py-3 px-4 text-center tabular-nums font-mono text-amber-600 dark:text-amber-400 font-medium">{v.pending_count}</td>
+                      <td className="py-3 px-4 text-right tabular-nums font-mono text-[var(--spatial-text-title)]">₹{v.total_repair_cost.toLocaleString('en-IN')}</td>
+                      <td className="py-3 px-4 text-right tabular-nums font-mono font-bold">
                         {v.current_balance > 0 ? (
-                          <span className="text-amber-400">₹{parseFloat(v.current_balance).toLocaleString('en-IN')} Cr</span>
+                          <span className="text-amber-600 dark:text-amber-400">₹{parseFloat(v.current_balance).toLocaleString('en-IN')} Cr</span>
                         ) : v.current_balance < 0 ? (
-                          <span className="text-emerald-400">₹{Math.abs(parseFloat(v.current_balance)).toLocaleString('en-IN')} Dr</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">₹{Math.abs(parseFloat(v.current_balance)).toLocaleString('en-IN')} Dr</span>
                         ) : (
-                          <span className="text-slate-400">₹0</span>
+                          <span className="text-[var(--spatial-text-muted)]">₹0</span>
                         )}
                       </td>
                     </tr>
@@ -529,26 +507,26 @@ export default function VendorReports() {
       {activeReportTab === 'mobile_history' && (
         <div className="space-y-4">
           <div className="relative">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)]" />
             <input
               type="text"
               placeholder="Search by IMEI Number, Serial, Device Brand, Model, or Customer Name..."
               value={imeiSearch}
               onChange={(e) => setImeiSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900/80 border border-slate-700 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              className="w-full pl-9 pr-3 py-2.5 rounded-xl spatial-input text-sm"
             />
           </div>
 
-          <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md overflow-hidden">
+          <div className="spatial-card rounded-2xl overflow-hidden">
             {filteredMobiles.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
-                <Smartphone className="w-12 h-12 mx-auto mb-3 text-slate-600" />
+              <div className="p-12 text-center text-[var(--spatial-text-muted)]">
+                <Smartphone className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>No handsets found matching your search criteria.</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
-                  <thead className="bg-slate-900/70 border-b border-slate-700/70 text-xs text-slate-400 uppercase">
+                  <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">
                     <tr>
                       <th className="py-3 px-4">Device & IMEI</th>
                       <th className="py-3 px-4">Customer</th>
@@ -560,45 +538,45 @@ export default function VendorReports() {
                       <th className="py-3 px-4 text-right">Cost (₹)</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-700/40">
+                  <tbody className="divide-y divide-[var(--spatial-border)]">
                     {filteredMobiles.map((mob) => (
-                      <tr key={mob.id} className="hover:bg-slate-700/30">
+                      <tr key={mob.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                         <td className="py-3 px-4">
-                          <div className="font-semibold text-white">{mob.brand} {mob.model}</div>
-                          <div className="text-xs font-mono text-cyan-400">IMEI: {mob.imei || 'N/A'}</div>
+                          <div className="font-semibold text-[var(--spatial-text-title)]">{mob.brand} {mob.model}</div>
+                          <div className="text-xs font-mono text-apple-blue font-medium">IMEI: {mob.imei || 'N/A'}</div>
                         </td>
-                        <td className="py-3 px-4 text-xs text-slate-300">
+                        <td className="py-3 px-4 text-xs text-[var(--spatial-text-body)]">
                           {mob.customer_name || '-'}
                         </td>
                         <td className="py-3 px-4">
-                          <div className="text-xs font-medium text-slate-200">{mob.vendor?.name || 'Vendor'}</div>
-                          <div className="text-[11px] text-slate-400">{mob.vendor?.shop_name}</div>
+                          <div className="text-xs font-medium text-[var(--spatial-text-title)]">{mob.vendor?.name || 'Vendor'}</div>
+                          <div className="text-[11px] text-[var(--spatial-text-muted)]">{mob.vendor?.shop_name}</div>
                         </td>
-                        <td className="py-3 px-4 max-w-xs text-xs text-amber-300">
+                        <td className="py-3 px-4 max-w-xs text-xs text-amber-600 dark:text-amber-400 font-medium">
                           {mob.repair_problem}
                         </td>
-                        <td className="py-3 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                        <td className="py-3 px-4 text-xs font-mono tabular-nums text-[var(--spatial-text-muted)] whitespace-nowrap">
                           {mob.sent_date || mob.created_at?.split('T')[0]}
                         </td>
-                        <td className="py-3 px-4 text-xs font-mono text-slate-300 whitespace-nowrap">
+                        <td className="py-3 px-4 text-xs font-mono tabular-nums text-[var(--spatial-text-muted)] whitespace-nowrap">
                           {mob.returned_date || mob.received_date || '-'}
                         </td>
                         <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800 border border-slate-700 text-slate-300">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-body)]">
                             {mob.current_status}
                           </span>
                           {mob.repair_result && mob.repair_result !== 'PENDING' && (
-                            <span className="block text-[10px] text-emerald-400 mt-0.5 font-medium">
+                            <span className="block text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 font-medium">
                               Result: {mob.repair_result}
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono">
-                          <div className="text-white font-semibold">
+                        <td className="py-3 px-4 text-right font-mono tabular-nums">
+                          <div className="text-[var(--spatial-text-title)] font-semibold">
                             ₹{parseFloat(mob.actual_cost || mob.estimated_cost || 0).toLocaleString('en-IN')}
                           </div>
                           {parseFloat(mob.actual_cost || 0) > 0 && (
-                            <div className="text-[10px] text-emerald-400">Actual</div>
+                            <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Actual</div>
                           )}
                         </td>
                       </tr>
@@ -613,10 +591,10 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 3: VENDOR-WISE PERFORMANCE */}
       {activeReportTab === 'vendor_wise' && (
-        <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md overflow-hidden">
+        <div className="spatial-card rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/70 border-b border-slate-700/70 text-xs text-slate-400 uppercase">
+              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">
                 <tr>
                   <th className="py-3 px-4">Vendor Partner</th>
                   <th className="py-3 px-4">Contact Details</th>
@@ -628,29 +606,29 @@ export default function VendorReports() {
                   <th className="py-3 px-4 text-right">Current Balance</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/40">
+              <tbody className="divide-y divide-[var(--spatial-border)]">
                 {vendorBreakdown.map((v) => (
-                  <tr key={v.id} className="hover:bg-slate-700/30">
+                  <tr key={v.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                     <td className="py-3 px-4">
-                      <div className="font-semibold text-white">{v.name}</div>
-                      <div className="text-xs text-slate-400">{v.shop_name}</div>
+                      <div className="font-semibold text-[var(--spatial-text-title)]">{v.name}</div>
+                      <div className="text-xs text-[var(--spatial-text-muted)]">{v.shop_name}</div>
                     </td>
-                    <td className="py-3 px-4 text-xs text-slate-300">
+                    <td className="py-3 px-4 text-xs text-[var(--spatial-text-muted)]">
                       <div>{v.mobile || '-'}</div>
-                      {v.gst_number && <div className="text-[10px] text-slate-500">GST: {v.gst_number}</div>}
+                      {v.gst_number && <div className="text-[10px]">GST: {v.gst_number}</div>}
                     </td>
-                    <td className="py-3 px-4 text-center font-mono font-medium">{v.total_sent}</td>
-                    <td className="py-3 px-4 text-center font-mono text-emerald-400 font-medium">{v.total_returned}</td>
-                    <td className="py-3 px-4 text-center font-mono text-amber-400 font-bold">{v.pending_count}</td>
-                    <td className="py-3 px-4 text-right font-mono text-slate-200">₹{v.total_repair_cost.toLocaleString('en-IN')}</td>
-                    <td className="py-3 px-4 text-right font-mono text-emerald-400">₹{v.total_paid.toLocaleString('en-IN')}</td>
-                    <td className="py-3 px-4 text-right font-mono font-bold">
+                    <td className="py-3 px-4 text-center font-mono tabular-nums text-[var(--spatial-text-body)] font-medium">{v.total_sent}</td>
+                    <td className="py-3 px-4 text-center font-mono tabular-nums text-emerald-600 dark:text-emerald-400 font-medium">{v.total_returned}</td>
+                    <td className="py-3 px-4 text-center font-mono tabular-nums text-amber-600 dark:text-amber-400 font-bold">{v.pending_count}</td>
+                    <td className="py-3 px-4 text-right font-mono tabular-nums text-[var(--spatial-text-title)]">₹{v.total_repair_cost.toLocaleString('en-IN')}</td>
+                    <td className="py-3 px-4 text-right font-mono tabular-nums text-emerald-600 dark:text-emerald-400">₹{v.total_paid.toLocaleString('en-IN')}</td>
+                    <td className="py-3 px-4 text-right font-mono tabular-nums font-bold">
                       {v.current_balance > 0 ? (
-                        <span className="text-amber-400">₹{parseFloat(v.current_balance).toLocaleString('en-IN')} Cr</span>
+                        <span className="text-amber-600 dark:text-amber-400">₹{parseFloat(v.current_balance).toLocaleString('en-IN')} Cr</span>
                       ) : v.current_balance < 0 ? (
-                        <span className="text-emerald-400">₹{Math.abs(parseFloat(v.current_balance)).toLocaleString('en-IN')} Dr</span>
+                        <span className="text-emerald-600 dark:text-emerald-400">₹{Math.abs(parseFloat(v.current_balance)).toLocaleString('en-IN')} Dr</span>
                       ) : (
-                        <span className="text-slate-400">₹0</span>
+                        <span className="text-[var(--spatial-text-muted)]">₹0</span>
                       )}
                     </td>
                   </tr>
@@ -663,10 +641,10 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 4: OUTSTANDING BALANCES & DUES */}
       {activeReportTab === 'balances' && (
-        <div className="rounded-2xl bg-slate-800/60 border border-slate-700/60 backdrop-blur-md overflow-hidden">
+        <div className="spatial-card rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-900/70 border-b border-slate-700/70 text-xs text-slate-400 uppercase">
+              <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">
                 <tr>
                   <th className="py-3 px-4">Vendor Partner</th>
                   <th className="py-3 px-4">Contact</th>
@@ -676,44 +654,44 @@ export default function VendorReports() {
                   <th className="py-3 px-4 text-center">Ledger Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-700/40">
+              <tbody className="divide-y divide-[var(--spatial-border)]">
                 {vendors.map((v) => {
                   const bal = parseFloat(v.current_balance || 0);
                   const isPayable = bal > 0;
                   const isReceivable = bal < 0;
 
                   return (
-                    <tr key={v.id} className="hover:bg-slate-700/30">
+                    <tr key={v.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                       <td className="py-3 px-4">
-                        <div className="font-semibold text-white">{v.name}</div>
-                        <div className="text-xs text-slate-400">{v.shop_name}</div>
+                        <div className="font-semibold text-[var(--spatial-text-title)]">{v.name}</div>
+                        <div className="text-xs text-[var(--spatial-text-muted)]">{v.shop_name}</div>
                       </td>
-                      <td className="py-3 px-4 text-xs text-slate-300">
+                      <td className="py-3 px-4 text-xs text-[var(--spatial-text-muted)]">
                         {v.mobile}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono text-slate-400">
+                      <td className="py-3 px-4 text-right font-mono tabular-nums text-[var(--spatial-text-muted)]">
                         ₹{parseFloat(v.opening_balance || 0).toLocaleString('en-IN')}
                       </td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-base">
+                      <td className="py-3 px-4 text-right font-mono tabular-nums font-bold text-base">
                         {isPayable ? (
-                          <span className="text-amber-400">₹{bal.toLocaleString('en-IN')}</span>
+                          <span className="text-amber-600 dark:text-amber-400">₹{bal.toLocaleString('en-IN')}</span>
                         ) : isReceivable ? (
-                          <span className="text-emerald-400">₹{Math.abs(bal).toLocaleString('en-IN')}</span>
+                          <span className="text-emerald-600 dark:text-emerald-400">₹{Math.abs(bal).toLocaleString('en-IN')}</span>
                         ) : (
-                          <span className="text-slate-400">₹0.00</span>
+                          <span className="text-[var(--spatial-text-muted)]">₹0.00</span>
                         )}
                       </td>
                       <td className="py-3 px-4">
                         {isPayable ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
                             Payable (We Owe Vendor)
                           </span>
                         ) : isReceivable ? (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                             Receivable (Vendor Owes Us)
                           </span>
                         ) : (
-                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-700 text-slate-300">
+                          <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]">
                             Settled / Nil Balance
                           </span>
                         )}
@@ -721,7 +699,7 @@ export default function VendorReports() {
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={() => navigate(`/vendors/ledger?vendorId=${v.id}`)}
-                          className="px-3 py-1.5 rounded-lg bg-cyan-600/80 hover:bg-cyan-500 text-white text-xs font-medium transition"
+                          className="px-3.5 py-1.5 rounded-xl bg-apple-blue hover:bg-apple-blue/90 text-white text-xs font-medium transition active:scale-95 shadow-xs cursor-pointer"
                         >
                           View Ledger
                         </button>

@@ -86,11 +86,13 @@ export const VendorDashboard = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
-            <Building2 className="w-7 h-7 text-sky-400" />
+          <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+              <Building2 className="w-5 h-5" />
+            </div>
             Vendor Management
           </h1>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
+          <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-1 font-normal">
             Outsource repairs, track multi-mobile movements, manage vendor ledger accounts, and audit balances
           </p>
         </div>
@@ -110,6 +112,7 @@ export const VendorDashboard = () => {
             variant="outline"
             size="sm"
             icon={ArrowDownLeft}
+            className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-medium"
             onClick={() => navigate('/vendors/receive')}
           >
             Receive from Vendor
@@ -140,20 +143,20 @@ export const VendorDashboard = () => {
             {/* 1. Total Vendors */}
             <div
               onClick={() => navigate('/vendors/list')}
-              className="spatial-card p-4 rounded-2xl hover:border-sky-500/40 transition-all cursor-pointer group shadow-sm"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
                   Total Vendors
                 </span>
-                <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/15 flex items-center justify-center">
                   <Building2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-[var(--spatial-text-title)] mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-2">
                 {stats?.total_vendors || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
                 Active service partners & labs
               </p>
             </div>
@@ -161,20 +164,20 @@ export const VendorDashboard = () => {
             {/* 2. Total Mobiles Sent */}
             <div
               onClick={() => navigate('/vendors/transactions?txnType=SEND_TO_VENDOR')}
-              className="spatial-card p-4 rounded-2xl hover:border-indigo-500/40 transition-all cursor-pointer group shadow-sm"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
                   Mobiles Sent
                 </span>
-                <div className="p-2 rounded-xl bg-indigo-500/15 text-indigo-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/15 flex items-center justify-center">
                   <ArrowUpRight className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-[var(--spatial-text-title)] mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-indigo-500 dark:text-indigo-400 tabular-nums mt-2">
                 {stats?.total_mobiles_sent || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
                 Cumulative outsourced handsets
               </p>
             </div>
@@ -182,20 +185,20 @@ export const VendorDashboard = () => {
             {/* 3. Total Mobiles Received */}
             <div
               onClick={() => navigate('/vendors/transactions?txnType=RECEIVE_FROM_VENDOR')}
-              className="spatial-card p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer group shadow-sm"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
                   Mobiles Received
                 </span>
-                <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
                   <ArrowDownLeft className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-emerald-400 mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-2">
                 {stats?.total_mobiles_received || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
                 Returned back from vendors
               </p>
             </div>
@@ -203,20 +206,20 @@ export const VendorDashboard = () => {
             {/* 4. Mobiles Currently at Vendors (Pending Return) */}
             <div
               onClick={() => navigate('/vendors/pending')}
-              className="spatial-card p-4 rounded-2xl hover:border-amber-500/40 transition-all cursor-pointer group shadow-sm bg-amber-500/[0.03]"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-amber-500 dark:text-amber-400 uppercase tracking-wider">
                   At Vendors Now
                 </span>
-                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/15 flex items-center justify-center">
                   <Clock className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-amber-400 mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-amber-500 dark:text-amber-400 tabular-nums mt-2">
                 {stats?.mobiles_currently_at_vendors || 0}
               </div>
-              <p className="text-[10px] text-amber-300/80 mt-1">
+              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-1 font-normal">
                 Handsets pending return to shop
               </p>
             </div>
@@ -224,20 +227,20 @@ export const VendorDashboard = () => {
             {/* 5. Pending Repair Mobiles */}
             <div
               onClick={() => navigate('/vendors/pending?status=IN_REPAIR')}
-              className="spatial-card p-4 rounded-2xl hover:border-sky-500/40 transition-all cursor-pointer group shadow-sm"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
                   In Repair
                 </span>
-                <div className="p-2 rounded-xl bg-sky-500/15 text-sky-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/15 flex items-center justify-center">
                   <RefreshCw className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-[var(--spatial-text-title)] mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-2">
                 {stats?.pending_repair_mobiles || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
                 Under active diagnosis or parts
               </p>
             </div>
@@ -245,20 +248,20 @@ export const VendorDashboard = () => {
             {/* 6. Ready for Collection */}
             <div
               onClick={() => navigate('/vendors/pending?status=READY_FOR_RETURN')}
-              className="spatial-card p-4 rounded-2xl hover:border-teal-500/40 transition-all cursor-pointer group shadow-sm"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
                   Ready for Return
                 </span>
-                <div className="p-2 rounded-xl bg-teal-500/15 text-teal-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/15 flex items-center justify-center">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black font-mono text-teal-400 mt-2">
+              <div className="text-2xl font-semibold tracking-tight text-teal-600 dark:text-teal-400 tabular-nums mt-2">
                 {stats?.ready_for_collection || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
                 Finished repair, pickup pending
               </p>
             </div>
@@ -266,20 +269,20 @@ export const VendorDashboard = () => {
             {/* 7. Total Vendor Payable */}
             <div
               onClick={() => navigate('/vendors/ledger')}
-              className="spatial-card p-4 rounded-2xl hover:border-rose-500/40 transition-all cursor-pointer group shadow-sm bg-rose-500/[0.03]"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-rose-500 dark:text-rose-400 uppercase tracking-wider">
                   Total Payable
                 </span>
-                <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/15 flex items-center justify-center">
                   <IndianRupee className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-rose-400 mt-2 truncate">
+              <div className="text-xl sm:text-2xl font-semibold tracking-tight text-rose-500 dark:text-rose-400 tabular-nums mt-2 truncate">
                 {formatIndianCurrency(stats?.total_vendor_payable || 0, true)}
               </div>
-              <p className="text-[10px] text-rose-300/80 mt-1">
+              <p className="text-[10px] text-rose-500/80 dark:text-rose-400/80 mt-1 font-normal">
                 We owe vendors for completed jobs
               </p>
             </div>
@@ -287,20 +290,20 @@ export const VendorDashboard = () => {
             {/* 8. Total Vendor Receivable */}
             <div
               onClick={() => navigate('/vendors/ledger')}
-              className="spatial-card p-4 rounded-2xl hover:border-emerald-500/40 transition-all cursor-pointer group shadow-sm bg-emerald-500/[0.03]"
+              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
                   Total Receivable
                 </span>
-                <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400 group-hover:scale-110 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
                   <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-black font-mono text-emerald-400 mt-2 truncate">
+              <div className="text-xl sm:text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-2 truncate">
                 {formatIndianCurrency(stats?.total_vendor_receivable || 0, true)}
               </div>
-              <p className="text-[10px] text-emerald-300/80 mt-1">
+              <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-1 font-normal">
                 Vendors owe us for B2B repairs
               </p>
             </div>

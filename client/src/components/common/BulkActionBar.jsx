@@ -25,41 +25,41 @@ export const BulkActionBar = ({
 
   return (
     <div
-      className={`mb-3 p-3 sm:px-4 rounded-2xl bg-white dark:bg-slate-900 border-2 border-sky-400 dark:border-sky-500 shadow-md shadow-sky-500/10 dark:shadow-sky-950/40 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-200 ${className}`}
+      className={`mb-3 p-3 sm:px-4 rounded-2xl spatial-card border border-[var(--spatial-border)] shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in slide-in-from-top-2 duration-180 ${className}`}
     >
       {/* Left: Counter & Clear */}
       <div className="flex items-center gap-2.5">
-        <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center shadow-xs">
-          <CheckSquare className="w-4 h-4 stroke-[2.5]" />
+        <div className="w-7 h-7 rounded-lg bg-[#0071e3] dark:bg-[#0a84ff] text-white flex items-center justify-center shadow-2xs">
+          <CheckSquare className="w-4 h-4 stroke-[2.2]" />
         </div>
         <div>
-          <span className="font-extrabold text-slate-900 dark:text-white text-sm">{selectedCount}</span>{' '}
-          <span className="font-semibold text-slate-600 dark:text-slate-300 text-xs">item{selectedCount > 1 ? 's' : ''} selected</span>
+          <span className="font-bold text-[var(--spatial-text-title)] text-sm font-mono">{selectedCount}</span>{' '}
+          <span className="font-medium text-[var(--spatial-text-body)] text-xs">item{selectedCount > 1 ? 's' : ''} selected</span>
         </div>
 
         {onClearSelection && (
           <button
             type="button"
             onClick={onClearSelection}
-            className="ml-2 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 flex items-center gap-1 hover:underline cursor-pointer transition-colors"
+            className="ml-2 text-xs font-medium text-[var(--spatial-text-muted)] hover:text-rose-500 flex items-center gap-1 hover:underline cursor-pointer transition-colors"
           >
-            <X className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span>Clear selection</span>
+            <X className="w-3.5 h-3.5 stroke-[2]" />
+            <span>Clear</span>
           </button>
         )}
       </div>
 
       {/* Right: Actions */}
-      <div className="flex flex-wrap items-center gap-2.5">
+      <div className="flex flex-wrap items-center gap-2">
         {customActions}
 
         {onBulkUpdate && (
           <button
             type="button"
             onClick={onBulkUpdate}
-            className="px-3.5 py-1.5 rounded-xl font-bold bg-sky-600 hover:bg-sky-700 active:bg-sky-800 text-white border border-sky-600 shadow-sm shadow-sky-600/30 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+            className="spatial-btn-primary px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.98]"
           >
-            <Edit3 className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Edit3 className="w-3.5 h-3.5 stroke-[2]" />
             <span>{updateLabel}</span>
           </button>
         )}
@@ -68,9 +68,9 @@ export const BulkActionBar = ({
           <button
             type="button"
             onClick={onBulkDelete}
-            className="px-3.5 py-1.5 rounded-xl font-bold bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white border border-rose-600 shadow-sm shadow-rose-600/30 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer text-xs"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-medium bg-[#ff3b30] hover:bg-[#e03126] text-white shadow-xs dark:bg-[#ff453a] dark:hover:bg-[#ff5b52] transition-all flex items-center gap-1.5 cursor-pointer active:scale-[0.98]"
           >
-            <Trash2 className="w-3.5 h-3.5 stroke-[2.5]" />
+            <Trash2 className="w-3.5 h-3.5 stroke-[2]" />
             <span>{deleteLabel}</span>
           </button>
         )}

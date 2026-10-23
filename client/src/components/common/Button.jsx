@@ -13,21 +13,21 @@ export const Button = ({
   onClick,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-semibold rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-sky-500/30 disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.97]';
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-140 ease-out focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 dark:focus:ring-[#0a84ff]/40 disabled:opacity-40 disabled:cursor-not-allowed select-none active:scale-[0.98] cursor-pointer';
 
   const variantClasses = {
     primary: 'spatial-btn-primary',
     secondary: 'spatial-btn-secondary',
-    outline: 'border border-[var(--spatial-border)] text-[var(--spatial-text-title)] bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] hover:border-[var(--spatial-border-hover)] shadow-xs',
-    danger: 'bg-gradient-to-r from-rose-600 to-rose-500 text-white hover:from-rose-500 hover:to-rose-600 shadow-md shadow-rose-950/20 active:scale-[0.97]',
-    success: 'bg-gradient-to-r from-emerald-600 to-teal-500 text-white hover:from-emerald-500 hover:to-teal-600 shadow-md shadow-emerald-950/20 active:scale-[0.97]',
-    ghost: 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]',
+    outline: 'border border-[var(--spatial-border)] text-[var(--spatial-text-title)] bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] hover:border-[var(--spatial-border-hover)] shadow-2xs',
+    danger: 'bg-[#ff3b30] hover:bg-[#e03126] text-white shadow-xs dark:bg-[#ff453a] dark:hover:bg-[#ff5b52] active:scale-[0.98]',
+    success: 'bg-[#34c759] hover:bg-[#2db84f] text-white shadow-xs dark:bg-[#30d158] dark:hover:bg-[#43d968] active:scale-[0.98]',
+    ghost: 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]',
   };
 
   const sizeClasses = {
     sm: 'text-xs px-3 py-1.5 gap-1.5',
-    md: 'text-xs sm:text-sm px-4 py-2 gap-2',
-    lg: 'text-sm sm:text-base px-5 py-2.5 gap-2.5',
+    md: 'text-xs sm:text-[13px] px-3.5 py-2 gap-2',
+    lg: 'text-sm sm:text-base px-4 py-2.5 gap-2.5',
   };
 
   return (
