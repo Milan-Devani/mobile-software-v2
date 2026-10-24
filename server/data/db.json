@@ -1711,13 +1711,13 @@
       "is_warranty_claim": false,
       "reopen_count": 2,
       "warranty_same_issue": false,
-      "reopened_at": "2026-10-23T22:04:30.622Z",
+      "reopened_at": "2026-10-23T22:04:30.622+00:00",
       "reopened_by_user_id": "10000000-0000-0000-0000-000000000004",
       "warranty_claim_type": null,
       "warranty_free_rework": false,
       "last_warranty_issue": null,
       "reopen_notes": "",
-      "previous_delivered_at": "2026-10-23T22:03:01.123Z",
+      "previous_delivered_at": "2026-10-23T22:03:01.123+00:00",
       "approval_notes": null,
       "previous_total_amount": 0,
       "previous_balance_due": 0,
@@ -1725,15 +1725,15 @@
       "customer_acceptance_confirmed": true,
       "customer_signature": null,
       "delivery_notes": "",
-      "delivered_at": "2026-10-23T22:05:31.290Z",
+      "delivered_at": "2026-10-23T22:05:31.29+00:00",
       "delivered_by_user_id": "10000000-0000-0000-0000-000000000004",
       "approval_token": "fb786be3-06fe-4e83-a81e-0acc316e7f25",
       "approval_status": "APPROVED",
-      "approval_decision_at": "2026-10-23T22:04:55.988Z",
+      "approval_decision_at": "2026-10-23T22:04:55.988+00:00",
       "rejection_reason": null,
       "warranty_days": 15,
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:31.347Z"
+      "updated_at": "2026-10-23T22:05:31.364+00:00"
     },
     {
       "id": "0b8888ad-456b-47aa-9b6c-d1be116c0fff",
@@ -3791,6 +3791,16 @@
       "created_at": "2026-10-23T21:49:43.594+00:00"
     },
     {
+      "id": "f0c4c1ed-1965-4b8c-b3fa-8be3392fe4ca",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "DELIVERED",
+      "to_status": "REJECTED",
+      "action_title": "Status Changed to REJECTED (Owner Override)",
+      "notes": "Status changed from DELIVERED to REJECTED. Notes: Reset to rejected (Staff: Shop Owner).",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-23T22:03:00.866+00:00"
+    },
+    {
       "id": "b741a574-913a-46ed-8299-c6bd66d85122",
       "job_id": "7deb99ef-aaa7-4f53-8ff5-06abd5cf6ebc",
       "from_status": "RECEIVED",
@@ -3849,6 +3859,16 @@
       "notes": "Device returned to customer in original intake condition without repair. Handled by staff Shop Owner.",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-23T21:49:08.958+00:00"
+    },
+    {
+      "id": "990615a2-2dd0-4f8e-8c89-a97bdad1750c",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "ESTIMATE_SENT",
+      "to_status": "ESTIMATE_SENT",
+      "action_title": "Job Reopened for Revised Estimate (ESTIMATE_SENT)",
+      "notes": "Job reopened after estimate decline. Target: ESTIMATE_SENT. Notes: Customer requested revised estimate / re-quoting. Staff: Shop Owner (Legacy).",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:04:30.696+00:00"
     },
     {
       "id": "98fcb02b-2410-488c-bf7d-3b7e69caf55c",
@@ -4091,6 +4111,16 @@
       "created_at": "2026-10-21T09:51:06.105+00:00"
     },
     {
+      "id": "ad6a69c1-7d00-4030-8ea4-4aa67d470509",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "ESTIMATE_SENT",
+      "to_status": "ESTIMATE_SENT",
+      "action_title": "Repair Estimate Generated & Sent",
+      "notes": "Estimate of $15000.00 prepared (Labor: $0.00, Parts: $15000.00).",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:04:40.746+00:00"
+    },
+    {
       "id": "28286393-c71e-4045-909b-491bcf2746f0",
       "job_id": "7deb99ef-aaa7-4f53-8ff5-06abd5cf6ebc",
       "from_status": "DIAGNOSING",
@@ -4129,6 +4159,56 @@
       "notes": "Device returned to customer in original intake condition without repair. Handled by staff Shop Owner.",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-23T22:00:07.356+00:00"
+    },
+    {
+      "id": "c86ca218-5748-4c8e-96eb-cfd4eba0abca",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "ESTIMATE_SENT",
+      "to_status": "APPROVED",
+      "action_title": "Customer Approved Repair Estimate",
+      "notes": "Customer confirmed and approved the repair estimate online.",
+      "performed_by_user_id": null,
+      "created_at": "2026-10-23T22:04:56.058+00:00"
+    },
+    {
+      "id": "6d7590a9-9c42-4d7b-be98-597267d44aea",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "IN_PROGRESS",
+      "to_status": "TESTING",
+      "action_title": "Hardware Repair Finished - Testing Required",
+      "notes": "Physical repair work completed by Shop Owner (Legacy). Device sent to Quality Check testing bench.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:09.057+00:00"
+    },
+    {
+      "id": "cb4aff29-117f-49de-9bf4-e7b69107d4ad",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "TESTING",
+      "to_status": "TESTING",
+      "action_title": "Quality Testing Checklist Updated",
+      "notes": "Quality inspection updated: 16 PASS, 0 FAIL, 0 NOT TESTED.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:13.396+00:00"
+    },
+    {
+      "id": "6c60f88b-7998-4c0e-a833-9ad01d5e449f",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "READY_FOR_PICKUP",
+      "to_status": "READY_FOR_PICKUP",
+      "action_title": "Payment Received: $15000.00 (CASH)",
+      "notes": "Recorded by staff. Total paid: $15000.00, Remaining balance: $0.00. Ref: N/A",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:25.005+00:00"
+    },
+    {
+      "id": "9a058ce0-bf6e-4434-9c57-65ae765885b3",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "DELIVERED",
+      "to_status": "DELIVERED",
+      "action_title": "Device Delivered to Customer",
+      "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner (Legacy).",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:31.347+00:00"
     },
     {
       "id": "4a66cd76-63ac-4c5b-9c91-98a4edbed9b7",
@@ -4189,6 +4269,16 @@
       "notes": "Job reopened after estimate decline. Target: ESTIMATE_SENT. Notes: Customer requested revised quotation. Staff: Shop Owner.",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-23T22:00:07.95+00:00"
+    },
+    {
+      "id": "2bebbd99-4438-41ca-ad75-bf726ae22401",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "APPROVED",
+      "to_status": "IN_PROGRESS",
+      "action_title": "Repair In Progress",
+      "notes": "Technician Shop Owner (Legacy) commenced hardware repair and replacement.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:06.907+00:00"
     },
     {
       "id": "4f615c71-dfc5-4119-ac6c-df7616f7d2b5",
@@ -4259,6 +4349,16 @@
       "notes": "Status changed from ESTIMATE_SENT to REJECTED. Notes: Reset to rejected (Staff: Shop Owner).",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-23T22:00:30.795+00:00"
+    },
+    {
+      "id": "2decca6e-b2ca-41c2-9daa-0017f9627e39",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "TESTING",
+      "to_status": "READY_FOR_PICKUP",
+      "action_title": "Device Marked Ready for Customer Pickup",
+      "notes": "All quality checks verified. Device cleaned and packaged for pickup.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "created_at": "2026-10-23T22:05:13.603+00:00"
     },
     {
       "id": "e32c082b-166e-4119-b57c-5e94d25ac19f",
@@ -4741,6 +4841,26 @@
       "created_at": "2026-10-23T21:19:32.88+00:00"
     },
     {
+      "id": "f205d9e3-9377-489b-b642-d774888f656f",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "DELIVERED",
+      "to_status": "DELIVERED",
+      "action_title": "Device Delivered to Customer",
+      "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-23T22:02:55.473+00:00"
+    },
+    {
+      "id": "70c67fc6-0f22-4926-9f09-c7162a7ad687",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "from_status": "DELIVERED",
+      "to_status": "DELIVERED",
+      "action_title": "Device Handed Over Unrepaired (Estimate Declined)",
+      "notes": "Device returned to customer in original intake condition without repair. Handled by staff Shop Owner.",
+      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
+      "created_at": "2026-10-23T22:03:01.18+00:00"
+    },
+    {
       "id": "0bd3e86a-bd64-4076-a1b3-4f700e444280",
       "job_id": "8ba4a3d5-d6f9-44f3-960a-e2d84039ecd5",
       "from_status": null,
@@ -4819,126 +4939,6 @@
       "notes": "Recorded by staff. Total paid: $7080.00, Remaining balance: $0.00. Ref: CASH-SETTLEMENT",
       "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
       "created_at": "2026-10-23T17:21:33.709+00:00"
-    },
-    {
-      "id": "f205d9e3-9377-489b-b642-d774888f656f",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "DELIVERED",
-      "to_status": "DELIVERED",
-      "action_title": "Device Delivered to Customer",
-      "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
-      "created_at": "2026-10-23T22:02:55.473Z"
-    },
-    {
-      "id": "f0c4c1ed-1965-4b8c-b3fa-8be3392fe4ca",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "DELIVERED",
-      "to_status": "REJECTED",
-      "action_title": "Status Changed to REJECTED (Owner Override)",
-      "notes": "Status changed from DELIVERED to REJECTED. Notes: Reset to rejected (Staff: Shop Owner).",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
-      "created_at": "2026-10-23T22:03:00.866Z"
-    },
-    {
-      "id": "70c67fc6-0f22-4926-9f09-c7162a7ad687",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "DELIVERED",
-      "to_status": "DELIVERED",
-      "action_title": "Device Handed Over Unrepaired (Estimate Declined)",
-      "notes": "Device returned to customer in original intake condition without repair. Handled by staff Shop Owner.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000001",
-      "created_at": "2026-10-23T22:03:01.180Z"
-    },
-    {
-      "id": "990615a2-2dd0-4f8e-8c89-a97bdad1750c",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "ESTIMATE_SENT",
-      "to_status": "ESTIMATE_SENT",
-      "action_title": "Job Reopened for Revised Estimate (ESTIMATE_SENT)",
-      "notes": "Job reopened after estimate decline. Target: ESTIMATE_SENT. Notes: Customer requested revised estimate / re-quoting. Staff: Shop Owner (Legacy).",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:04:30.696Z"
-    },
-    {
-      "id": "ad6a69c1-7d00-4030-8ea4-4aa67d470509",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "ESTIMATE_SENT",
-      "to_status": "ESTIMATE_SENT",
-      "action_title": "Repair Estimate Generated & Sent",
-      "notes": "Estimate of $15000.00 prepared (Labor: $0.00, Parts: $15000.00).",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:04:40.746Z"
-    },
-    {
-      "id": "c86ca218-5748-4c8e-96eb-cfd4eba0abca",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "ESTIMATE_SENT",
-      "to_status": "APPROVED",
-      "action_title": "Customer Approved Repair Estimate",
-      "notes": "Customer confirmed and approved the repair estimate online.",
-      "performed_by_user_id": null,
-      "created_at": "2026-10-23T22:04:56.058Z"
-    },
-    {
-      "id": "2bebbd99-4438-41ca-ad75-bf726ae22401",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "APPROVED",
-      "to_status": "IN_PROGRESS",
-      "action_title": "Repair In Progress",
-      "notes": "Technician Shop Owner (Legacy) commenced hardware repair and replacement.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:06.907Z"
-    },
-    {
-      "id": "6d7590a9-9c42-4d7b-be98-597267d44aea",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "IN_PROGRESS",
-      "to_status": "TESTING",
-      "action_title": "Hardware Repair Finished - Testing Required",
-      "notes": "Physical repair work completed by Shop Owner (Legacy). Device sent to Quality Check testing bench.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:09.057Z"
-    },
-    {
-      "id": "cb4aff29-117f-49de-9bf4-e7b69107d4ad",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "TESTING",
-      "to_status": "TESTING",
-      "action_title": "Quality Testing Checklist Updated",
-      "notes": "Quality inspection updated: 16 PASS, 0 FAIL, 0 NOT TESTED.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:13.396Z"
-    },
-    {
-      "id": "2decca6e-b2ca-41c2-9daa-0017f9627e39",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "TESTING",
-      "to_status": "READY_FOR_PICKUP",
-      "action_title": "Device Marked Ready for Customer Pickup",
-      "notes": "All quality checks verified. Device cleaned and packaged for pickup.",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:13.603Z"
-    },
-    {
-      "id": "6c60f88b-7998-4c0e-a833-9ad01d5e449f",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "READY_FOR_PICKUP",
-      "to_status": "READY_FOR_PICKUP",
-      "action_title": "Payment Received: $15000.00 (CASH)",
-      "notes": "Recorded by staff. Total paid: $15000.00, Remaining balance: $0.00. Ref: N/A",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:25.005Z"
-    },
-    {
-      "id": "9a058ce0-bf6e-4434-9c57-65ae765885b3",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "from_status": "DELIVERED",
-      "to_status": "DELIVERED",
-      "action_title": "Device Delivered to Customer",
-      "notes": "Customer tested phone and signed confirmation: \"Device received and working properly.\" Handled by staff Shop Owner (Legacy).",
-      "performed_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "created_at": "2026-10-23T22:05:31.347Z"
     }
   ],
   "diagnoses": [
@@ -5218,7 +5218,7 @@
       "status": "SENT",
       "created_by_user_id": "10000000-0000-0000-0000-000000000004",
       "created_at": "2026-10-23T21:18:56.39+00:00",
-      "updated_at": "2026-10-23T22:04:40.392Z"
+      "updated_at": "2026-10-23T22:04:40.392+00:00"
     },
     {
       "id": "f971e832-1f0e-4ae0-99c2-e732253a5a39",
@@ -5469,6 +5469,18 @@
       "created_at": "2026-10-23T21:10:28.518+00:00"
     },
     {
+      "id": "fbf2f7ab-3097-4fdd-b5bd-e296b2ab5d72",
+      "estimate_id": "fef2b4e3-3acf-470a-b3d7-e32fb3b5ec91",
+      "part_id": null,
+      "item_name": "display touch change org",
+      "warranty": "15",
+      "quantity": 1,
+      "unit_price": 15000,
+      "discount": 0,
+      "total_price": 15000,
+      "created_at": "2026-10-23T22:04:40.392+00:00"
+    },
+    {
       "id": "2397617d-2ea6-4dc2-95a4-db6eb59e614b",
       "estimate_id": "f971e832-1f0e-4ae0-99c2-e732253a5a39",
       "part_id": null,
@@ -5575,18 +5587,6 @@
       "discount": 0,
       "total_price": 800,
       "created_at": "2026-10-23T17:21:31.147+00:00"
-    },
-    {
-      "id": "fbf2f7ab-3097-4fdd-b5bd-e296b2ab5d72",
-      "part_id": null,
-      "item_name": "display touch change org",
-      "warranty": "15",
-      "quantity": 1,
-      "unit_price": 15000,
-      "discount": 0,
-      "total_price": 15000,
-      "estimate_id": "fef2b4e3-3acf-470a-b3d7-e32fb3b5ec91",
-      "created_at": "2026-10-23T22:04:40.392Z"
     }
   ],
   "part_stock_movements": [
@@ -7503,18 +7503,6 @@
       "updated_at": "2026-10-23T17:26:15.255+00:00"
     },
     {
-      "id": "f067db11-1d8c-4c1b-a190-2a442dacfce5",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "power_on",
-      "test_label": "Device Powers On",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.294Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
-    },
-    {
       "id": "23fff147-696c-4b1e-9cae-1a63e50c1c20",
       "job_id": "0b8888ad-456b-47aa-9b6c-d1be116c0fff",
       "test_key": "biometrics",
@@ -7527,30 +7515,6 @@
       "updated_at": "2026-10-21T10:20:09.419+00:00"
     },
     {
-      "id": "83918f22-2ef3-4bc4-9480-45f2c2aaa0bb",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "display",
-      "test_label": "Display & Color Quality",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
-    },
-    {
-      "id": "b9bfe9fe-70f8-4976-bd04-3e662b8bf88b",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "touch",
-      "test_label": "Touchscreen Responsiveness",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
-    },
-    {
       "id": "41cc1191-cf08-4486-a216-50a45993cc75",
       "job_id": "e956cede-97b6-4e62-960d-880fbcb48919",
       "test_key": "sim_network",
@@ -7561,18 +7525,6 @@
       "tested_at": null,
       "created_at": "2026-10-21T15:29:17.166+00:00",
       "updated_at": "2026-10-21T15:29:17.166+00:00"
-    },
-    {
-      "id": "25a711ad-86df-4331-aede-fd55279c2295",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "charging",
-      "test_label": "Charging Port & Current Draw",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
     },
     {
       "id": "ebe2e342-5573-4609-ae1a-855d71c7cef6",
@@ -7611,18 +7563,6 @@
       "updated_at": "2026-10-21T15:29:17.166+00:00"
     },
     {
-      "id": "abca9556-b52f-4353-8cdc-46ea6139e600",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "camera_rear",
-      "test_label": "Rear Main Camera & Focus",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
-    },
-    {
       "id": "01113ff2-2700-4e78-ba69-6c4aed76f620",
       "job_id": "8ba4a3d5-d6f9-44f3-960a-e2d84039ecd5",
       "test_key": "camera_rear",
@@ -7635,6 +7575,66 @@
       "updated_at": "2026-10-23T17:21:30.453+00:00"
     },
     {
+      "id": "f067db11-1d8c-4c1b-a190-2a442dacfce5",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "power_on",
+      "test_label": "Device Powers On",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.294+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
+    },
+    {
+      "id": "83918f22-2ef3-4bc4-9480-45f2c2aaa0bb",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "display",
+      "test_label": "Display & Color Quality",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
+    },
+    {
+      "id": "b9bfe9fe-70f8-4976-bd04-3e662b8bf88b",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "touch",
+      "test_label": "Touchscreen Responsiveness",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
+    },
+    {
+      "id": "25a711ad-86df-4331-aede-fd55279c2295",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "charging",
+      "test_label": "Charging Port & Current Draw",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
+    },
+    {
+      "id": "abca9556-b52f-4353-8cdc-46ea6139e600",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "camera_rear",
+      "test_label": "Rear Main Camera & Focus",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
+    },
+    {
       "id": "3c53f6c6-f8e0-4c31-ac51-33aabc27e6a3",
       "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
       "test_key": "camera_front",
@@ -7642,9 +7642,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "3d66b0de-6afc-4aab-b88e-a8cc64b3fcca",
@@ -7654,9 +7654,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "153fec9d-48e0-49b4-8fbc-7a99d93d9b90",
@@ -7666,9 +7666,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "2e19c6b8-6b8b-49d0-9b47-602b71441ab4",
@@ -7678,9 +7678,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "e272c3f9-ac1b-4e9d-a2b7-2fadd20dc565",
@@ -7690,9 +7690,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "cec2d6cf-e24b-41b6-9cb1-d9837028502c",
@@ -7702,9 +7702,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "e59bb165-03bc-4f93-9f77-f1452072f8e2",
@@ -7714,9 +7714,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "3c5499e7-b7fb-4fd0-ad4a-6c00ace67c29",
@@ -7726,9 +7726,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "6719ca72-1537-40c9-8c94-4be60c5fb083",
@@ -7738,9 +7738,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "37ad6176-be49-4e6f-8357-aa91848af7d8",
@@ -7750,21 +7750,9 @@
       "result": "PASS",
       "notes": "",
       "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
       "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
-    },
-    {
-      "id": "0479c44e-64dd-4108-b73f-015f3658c0ee",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "test_key": "sensors",
-      "test_label": "Proximity Sensor & Accelerometer",
-      "result": "PASS",
-      "notes": "",
-      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "tested_at": "2026-10-23T22:05:13.295Z",
-      "created_at": "2026-10-23T21:16:58.774+00:00",
-      "updated_at": "2026-10-23T22:05:13.295Z"
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "649d1a5d-8b82-47e8-8491-be34b928e179",
@@ -7801,6 +7789,18 @@
       "tested_at": "2026-10-21T10:41:46.074+00:00",
       "created_at": "2026-10-21T10:36:49.12+00:00",
       "updated_at": "2026-10-21T10:41:46.074+00:00"
+    },
+    {
+      "id": "0479c44e-64dd-4108-b73f-015f3658c0ee",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "test_key": "sensors",
+      "test_label": "Proximity Sensor & Accelerometer",
+      "result": "PASS",
+      "notes": "",
+      "tested_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "tested_at": "2026-10-23T22:05:13.295+00:00",
+      "created_at": "2026-10-23T21:16:58.774+00:00",
+      "updated_at": "2026-10-23T22:05:13.295+00:00"
     },
     {
       "id": "41cc0219-c881-4e78-b80c-5f430c3ccfd6",
@@ -9889,6 +9889,20 @@
       "created_at": "2026-10-23T21:13:35.386+00:00"
     },
     {
+      "id": "95193edf-6f78-4f37-9d00-0b7cd0b97172",
+      "payment_number": "PAY-2026-00023",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "amount": 15000,
+      "payment_method": "CASH",
+      "payment_status": "COMPLETED",
+      "transaction_reference": null,
+      "received_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "notes": "",
+      "paid_at": "2026-10-23T22:05:25.005+00:00",
+      "created_at": "2026-10-23T22:05:25.005+00:00"
+    },
+    {
       "id": "7ebf5f72-881d-4fd7-bf79-f59108d47c49",
       "payment_number": "PAY-2026-00009",
       "job_id": "47e11002-56c4-4172-8d54-c775de80327c",
@@ -10055,20 +10069,6 @@
       "notes": "Full balance settled at delivery counter",
       "paid_at": "2026-10-23T17:21:33.708+00:00",
       "created_at": "2026-10-23T17:21:33.709+00:00"
-    },
-    {
-      "id": "95193edf-6f78-4f37-9d00-0b7cd0b97172",
-      "payment_number": "PAY-2026-00023",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "amount": 15000,
-      "payment_method": "CASH",
-      "payment_status": "COMPLETED",
-      "transaction_reference": null,
-      "received_by_user_id": "10000000-0000-0000-0000-000000000004",
-      "notes": "",
-      "paid_at": "2026-10-23T22:05:25.005Z",
-      "created_at": "2026-10-23T22:05:25.005Z"
     }
   ],
   "invoices": [
@@ -10273,6 +10273,31 @@
       "created_at": "2026-10-23T21:12:34.229+00:00"
     },
     {
+      "id": "d7e32fc6-1ba5-4b33-8e28-07aaec99f5b3",
+      "invoice_number": "INV-2026-000015",
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "shop_id": "a0000000-0000-0000-0000-000000000001",
+      "subtotal": 15000,
+      "labor_amount": 0,
+      "parts_amount": 15000,
+      "discount": 0,
+      "discount_type": "AMOUNT",
+      "discount_value": 0,
+      "tax_rate": 0,
+      "tax_amount": 0,
+      "total_amount": 15000,
+      "paid_amount": 15000,
+      "balance_due": 0,
+      "payment_status": "PAID",
+      "warranty_period": "90 Days Hardware Warranty",
+      "notes": "Thank you for choosing Mobotech mobile care for your mobile device repair!",
+      "pdf_url": null,
+      "issued_by_user_id": "10000000-0000-0000-0000-000000000001",
+      "issued_at": "2026-10-23T22:02:55.618+00:00",
+      "created_at": "2026-10-23T22:02:55.618+00:00"
+    },
+    {
       "id": "19692b06-230d-4d08-83dd-a92639126c41",
       "invoice_number": "INV-2026-000003",
       "job_id": "c5b49f99-182d-4920-9ad2-8df5ccf0f3e9",
@@ -10421,31 +10446,6 @@
       "issued_by_user_id": "10000000-0000-0000-0000-000000000001",
       "issued_at": "2026-10-23T17:21:33.008+00:00",
       "created_at": "2026-10-23T17:21:33.008+00:00"
-    },
-    {
-      "id": "d7e32fc6-1ba5-4b33-8e28-07aaec99f5b3",
-      "invoice_number": "INV-2026-000015",
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "shop_id": "a0000000-0000-0000-0000-000000000001",
-      "subtotal": 15000,
-      "labor_amount": 0,
-      "parts_amount": 15000,
-      "discount": 0,
-      "discount_type": "AMOUNT",
-      "discount_value": 0,
-      "tax_rate": 0,
-      "tax_amount": 0,
-      "total_amount": 15000,
-      "paid_amount": 15000,
-      "balance_due": 0,
-      "payment_status": "PAID",
-      "warranty_period": "90 Days Hardware Warranty",
-      "notes": "Thank you for choosing Mobotech mobile care for your mobile device repair!",
-      "pdf_url": null,
-      "issued_by_user_id": "10000000-0000-0000-0000-000000000001",
-      "issued_at": "2026-10-23T22:02:55.618Z",
-      "created_at": "2026-10-23T22:02:55.618Z"
     }
   ],
   "invoice_items": [
@@ -10700,7 +10700,7 @@
       "quantity": 1,
       "unit_price": 15000,
       "total_price": 15000,
-      "created_at": "2026-10-23T22:05:31.441Z"
+      "created_at": "2026-10-23T22:05:31.441+00:00"
     }
   ],
   "attachments": [],
@@ -27491,6 +27491,62 @@
       "created_at": "2026-10-21T09:12:01.183+00:00"
     },
     {
+      "id": "0d52c066-c93d-4c91-a5fa-25d17785f0b2",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "EMAIL",
+      "message_type": "ESTIMATE_REJECTED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "provider": "BREVO_API",
+        "messageId": "<202610232203.48751135091@smtp-relay.mailin.fr>"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:01.998+00:00",
+      "created_at": "2026-10-23T22:03:01.998+00:00"
+    },
+    {
+      "id": "dd08fabc-4ea3-4f21-b072-a84b16025194",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "WHATSAPP",
+      "message_type": "DEVICE_RETURNED_UNREPAIRED",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB06FBC39FE0903DD5950"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:03.087+00:00",
+      "created_at": "2026-10-23T22:03:03.087+00:00"
+    },
+    {
+      "id": "301d06db-fee7-438a-887d-4dc1698252a6",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "SMS",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-23T22:03:03.574+00:00"
+    },
+    {
       "id": "5dcf961c-b7e2-4f2f-9be9-88bb94ef2879",
       "notification_id": null,
       "job_id": "879029e8-4286-44cf-b7bb-7f578905345c",
@@ -27887,6 +27943,46 @@
       "created_at": "2026-10-21T10:33:59.459+00:00"
     },
     {
+      "id": "c1c737ac-81f4-4b3e-880c-505b23c455b0",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "EMAIL",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "provider": "BREVO_API",
+        "messageId": "<202610232203.72012288472@smtp-relay.mailin.fr>"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:02.096+00:00",
+      "created_at": "2026-10-23T22:03:02.096+00:00"
+    },
+    {
+      "id": "0ebee38c-85a2-4a6f-ae1b-de67d8b9ba64",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "WHATSAPP",
+      "message_type": "INVOICE_GENERATED",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB06670E8D7D4CC9FBBA2"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:03.132+00:00",
+      "created_at": "2026-10-23T22:03:03.132+00:00"
+    },
+    {
       "id": "3c912247-410a-4812-b02e-d714823fa354",
       "notification_id": null,
       "job_id": "879029e8-4286-44cf-b7bb-7f578905345c",
@@ -28171,6 +28267,42 @@
       "created_at": "2026-10-21T10:43:19.201+00:00"
     },
     {
+      "id": "d573e0c1-f735-437a-871e-7daf5912ab5f",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "EMAIL",
+      "message_type": "DEVICE_RETURNED_UNREPAIRED",
+      "recipient": "milandevani994@gmail.com",
+      "status": "SENT",
+      "provider": "BREVO",
+      "provider_response": {
+        "success": true,
+        "provider": "BREVO_API",
+        "messageId": "<202610232203.76090426167@smtp-relay.mailin.fr>"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:02.401+00:00",
+      "created_at": "2026-10-23T22:03:02.401+00:00"
+    },
+    {
+      "id": "7521297c-fe35-4275-bcfc-30dffc05b06f",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "SMS",
+      "message_type": "ESTIMATE_REJECTED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-23T22:03:03.488+00:00"
+    },
+    {
       "id": "b3648b28-10e4-4a94-ac30-59b223d8caa6",
       "notification_id": null,
       "job_id": null,
@@ -28357,6 +28489,42 @@
       "retry_count": 0,
       "sent_at": null,
       "created_at": "2026-10-21T08:29:15.218+00:00"
+    },
+    {
+      "id": "9b32ec2f-7e82-41f5-9114-8551e668c753",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "WHATSAPP",
+      "message_type": "ESTIMATE_REJECTED",
+      "recipient": "8758152507",
+      "status": "SENT",
+      "provider": "BAILEYS_LOCAL",
+      "provider_response": {
+        "success": true,
+        "provider": "BAILEYS_LOCAL",
+        "messageId": "3EB0E50989E959C777C260"
+      },
+      "error_message": null,
+      "retry_count": 0,
+      "sent_at": "2026-10-23T22:03:03.063+00:00",
+      "created_at": "2026-10-23T22:03:03.063+00:00"
+    },
+    {
+      "id": "40465673-d99c-4018-b0cb-dfd8d2d73ce6",
+      "notification_id": null,
+      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
+      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
+      "channel": "SMS",
+      "message_type": "DEVICE_RETURNED_UNREPAIRED",
+      "recipient": "8758152507",
+      "status": "FAILED",
+      "provider": "FAST2SMS",
+      "provider_response": null,
+      "error_message": "You don't have sufficient wallet balance",
+      "retry_count": 0,
+      "sent_at": null,
+      "created_at": "2026-10-23T22:03:03.549+00:00"
     },
     {
       "id": "683b11c7-3b77-46f8-a78f-75972c4cc4a1",
@@ -28629,622 +28797,6 @@
       "retry_count": 0,
       "sent_at": null,
       "created_at": "2026-10-21T10:44:24.745+00:00"
-    },
-    {
-      "id": "f595b900-7e20-4222-9d1c-0bc29bcbdd9d",
-      "notification_id": null,
-      "job_id": "154ce77a-0a87-44ae-8b07-da3562f168cb",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "provider": "BREVO_API",
-        "messageId": "<202610211044.38925585883@smtp-relay.mailin.fr>"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T10:44:25.58+00:00",
-      "created_at": "2026-10-21T10:44:25.58+00:00"
-    },
-    {
-      "id": "e3320c20-2bcd-49dc-9daa-7bf947b210e1",
-      "notification_id": null,
-      "job_id": "154ce77a-0a87-44ae-8b07-da3562f168cb",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-21T10:44:25.967+00:00"
-    },
-    {
-      "id": "84d19e31-cb0e-4f34-8bec-ca8c09f80822",
-      "notification_id": null,
-      "job_id": "e74ca8f3-ef6f-4272-8925-e69b1bd9370a",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "provider": "BREVO_API",
-        "messageId": "<202610211047.18465435893@smtp-relay.mailin.fr>"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T10:47:42.899+00:00",
-      "created_at": "2026-10-21T10:47:42.899+00:00"
-    },
-    {
-      "id": "e430444a-e161-442d-8b68-de0d238416b7",
-      "notification_id": null,
-      "job_id": "e74ca8f3-ef6f-4272-8925-e69b1bd9370a",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB0597BFD6F422B75B582"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T10:47:44.259+00:00",
-      "created_at": "2026-10-21T10:47:44.259+00:00"
-    },
-    {
-      "id": "1ba74d77-7e90-41a1-bca5-ac28e2b87b7c",
-      "notification_id": null,
-      "job_id": "e74ca8f3-ef6f-4272-8925-e69b1bd9370a",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-21T10:47:44.74+00:00"
-    },
-    {
-      "id": "0c956245-634f-46d9-87a1-7ae68b57b71b",
-      "notification_id": null,
-      "job_id": "154ce77a-0a87-44ae-8b07-da3562f168cb",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "provider": "BREVO_API",
-        "messageId": "<202610211048.88859193606@smtp-relay.mailin.fr>"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T10:48:09.676+00:00",
-      "created_at": "2026-10-21T10:48:09.676+00:00"
-    },
-    {
-      "id": "ef75c877-695a-4b3e-ae71-0cf38c922e7f",
-      "notification_id": null,
-      "job_id": "154ce77a-0a87-44ae-8b07-da3562f168cb",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB01C983596E61A5EC680"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T10:48:10.234+00:00",
-      "created_at": "2026-10-21T10:48:10.234+00:00"
-    },
-    {
-      "id": "0f06e999-e93f-4524-b018-b967c911294f",
-      "notification_id": null,
-      "job_id": "47e11002-56c4-4172-8d54-c775de80327c",
-      "customer_id": "ecaf2345-d19d-40f8-b1f0-65e12f6181c5",
-      "channel": "EMAIL",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "qatest_1792583553471@example.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "provider": "BREVO_API",
-        "messageId": "<202610211152.14753512305@smtp-relay.mailin.fr>"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-21T11:52:38.626+00:00",
-      "created_at": "2026-10-21T11:52:38.626+00:00"
-    },
-    {
-      "id": "480017a6-1009-4bfb-bdc3-5444282d184e",
-      "notification_id": null,
-      "job_id": "879029e8-4286-44cf-b7bb-7f578905345c",
-      "customer_id": "fbc9c759-e43a-4305-b259-641835a5ec48",
-      "channel": "WHATSAPP",
-      "message_type": "PAYMENT_RECEIVED",
-      "recipient": "9870095173",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-21T15:10:51.841+00:00"
-    },
-    {
-      "id": "0d52c066-c93d-4c91-a5fa-25d17785f0b2",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "ESTIMATE_REJECTED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232203.48751135091@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:01.998Z",
-      "created_at": "2026-10-23T22:03:01.998Z"
-    },
-    {
-      "id": "c1c737ac-81f4-4b3e-880c-505b23c455b0",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232203.72012288472@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:02.096Z",
-      "created_at": "2026-10-23T22:03:02.096Z"
-    },
-    {
-      "id": "d573e0c1-f735-437a-871e-7daf5912ab5f",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "DEVICE_RETURNED_UNREPAIRED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232203.76090426167@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:02.401Z",
-      "created_at": "2026-10-23T22:03:02.401Z"
-    },
-    {
-      "id": "9b32ec2f-7e82-41f5-9114-8551e668c753",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "ESTIMATE_REJECTED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB0E50989E959C777C260"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:03.063Z",
-      "created_at": "2026-10-23T22:03:03.063Z"
-    },
-    {
-      "id": "dd08fabc-4ea3-4f21-b072-a84b16025194",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "DEVICE_RETURNED_UNREPAIRED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB06FBC39FE0903DD5950"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:03.087Z",
-      "created_at": "2026-10-23T22:03:03.087Z"
-    },
-    {
-      "id": "0ebee38c-85a2-4a6f-ae1b-de67d8b9ba64",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB06670E8D7D4CC9FBBA2"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:03:03.132Z",
-      "created_at": "2026-10-23T22:03:03.132Z"
-    },
-    {
-      "id": "7521297c-fe35-4275-bcfc-30dffc05b06f",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "ESTIMATE_REJECTED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:03:03.488Z"
-    },
-    {
-      "id": "40465673-d99c-4018-b0cb-dfd8d2d73ce6",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "DEVICE_RETURNED_UNREPAIRED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:03:03.549Z"
-    },
-    {
-      "id": "301d06db-fee7-438a-887d-4dc1698252a6",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:03:03.574Z"
-    },
-    {
-      "id": "34bb6b1f-f8dd-4b5c-bbbb-9c00710b2ed8",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "ESTIMATE_SENT",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232204.77621662539@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:04:41.958Z",
-      "created_at": "2026-10-23T22:04:41.958Z"
-    },
-    {
-      "id": "bdce554d-22bf-410a-a36b-9bb4f0991719",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "ESTIMATE_SENT",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB04E60FC34A939ECB355"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:04:42.064Z",
-      "created_at": "2026-10-23T22:04:42.064Z"
-    },
-    {
-      "id": "b80987a4-41fd-47fd-892d-9dc1971fa148",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "ESTIMATE_SENT",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:04:42.562Z"
-    },
-    {
-      "id": "e79d2d44-6423-4818-b9c5-3a8cb1835eff",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "ESTIMATE_APPROVED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232204.89104576745@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:04:57.223Z",
-      "created_at": "2026-10-23T22:04:57.223Z"
-    },
-    {
-      "id": "e3ddeba9-d260-4e9f-8dfc-783e7832db38",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "ESTIMATE_APPROVED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB0B7959B5D2333C6FBE3"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:04:57.305Z",
-      "created_at": "2026-10-23T22:04:57.305Z"
-    },
-    {
-      "id": "01715b86-5b80-4501-806c-5ab9a179ad8f",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "ESTIMATE_APPROVED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:04:57.772Z"
-    },
-    {
-      "id": "5dea05c5-f28b-47c4-8a74-5c9f1ca80e00",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232205.61950293566@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:14.769Z",
-      "created_at": "2026-10-23T22:05:14.769Z"
-    },
-    {
-      "id": "b7209675-617b-488c-be26-149f8cc7a625",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB0400F34A4EE33E82B8D"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:14.850Z",
-      "created_at": "2026-10-23T22:05:14.850Z"
-    },
-    {
-      "id": "1aa20b22-08bf-4dcc-a2b5-5e2f3b58e002",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "READY_FOR_PICKUP",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:05:15.307Z"
-    },
-    {
-      "id": "c9c7e80c-681c-4bbd-8551-81a6a395f7ac",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "PAYMENT_RECEIVED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232205.68009307906@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:26.823Z",
-      "created_at": "2026-10-23T22:05:26.823Z"
-    },
-    {
-      "id": "a15bd3f3-f6e4-4973-9732-db134ccbf7af",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "PAYMENT_RECEIVED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB04DA48DFD4DDBE41A56"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:26.972Z",
-      "created_at": "2026-10-23T22:05:26.972Z"
-    },
-    {
-      "id": "61574201-9373-4f8b-b873-8a7c071d60aa",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "PAYMENT_RECEIVED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:05:27.590Z"
-    },
-    {
-      "id": "3065b519-3ede-4747-b134-6f1afb3d211a",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "EMAIL",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "milandevani994@gmail.com",
-      "status": "SENT",
-      "provider": "BREVO",
-      "provider_response": {
-        "success": true,
-        "messageId": "<202610232205.13413591520@smtp-relay.mailin.fr>",
-        "provider": "BREVO_API"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:38.138Z",
-      "created_at": "2026-10-23T22:05:38.138Z"
-    },
-    {
-      "id": "6fc7d3ce-0451-4472-8777-968d2e39b004",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "WHATSAPP",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "SENT",
-      "provider": "BAILEYS_LOCAL",
-      "provider_response": {
-        "success": true,
-        "provider": "BAILEYS_LOCAL",
-        "messageId": "3EB08CD35FBDA3572D3718"
-      },
-      "error_message": null,
-      "retry_count": 0,
-      "sent_at": "2026-10-23T22:05:38.853Z",
-      "created_at": "2026-10-23T22:05:38.853Z"
-    },
-    {
-      "id": "657a4d28-cc4d-4cbe-93b6-a652fc8f8f0c",
-      "notification_id": null,
-      "job_id": "aea3122b-2e77-43c3-b684-6f3b5964d7f4",
-      "customer_id": "126da560-6156-4327-bae8-be063d9bbcd6",
-      "channel": "SMS",
-      "message_type": "INVOICE_GENERATED",
-      "recipient": "8758152507",
-      "status": "FAILED",
-      "provider": "FAST2SMS",
-      "provider_response": null,
-      "error_message": "You don't have sufficient wallet balance",
-      "retry_count": 0,
-      "sent_at": null,
-      "created_at": "2026-10-23T22:05:39.333Z"
     }
   ],
   "settings": [
@@ -29285,6 +28837,21 @@
   ],
   "repair_diagnoses": [],
   "backup_logs": [
+    {
+      "id": "e37cbe40-d177-4a81-af39-167d0237bad8",
+      "backup_type": "MANUAL",
+      "status": "COMPLETED",
+      "filename": "supabase-backup-2026-10-24-11-18-36.enc",
+      "drive_file_id": "1Fx4zhWiKK5RiQwXsYHp6hlm-zGVZ3qXV",
+      "drive_folder_id": "1cOYpXpbWwHsKPIonBNFTWCGSIsZU_kH-",
+      "file_size_bytes": 87826,
+      "checksum_md5": "9743f78aa22d17e5ea1b8b9464ff0e1c",
+      "duration_ms": 6647,
+      "error_message": null,
+      "created_by_user_id": "10000000-0000-0000-0000-000000000004",
+      "started_at": "2026-10-24T09:18:36.043Z",
+      "completed_at": "2026-10-24T09:18:42.629Z"
+    },
     {
       "id": "cf4f9286-c63d-4795-8896-773d6cb4a3a9",
       "backup_type": "SCHEDULED",

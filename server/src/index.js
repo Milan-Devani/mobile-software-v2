@@ -24,6 +24,7 @@ import whatsappRoutes from './routes/whatsappRoutes.js';
 import backupRoutes from './routes/backupRoutes.js';
 import salesRoutes from './routes/salesRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';
+import deviceBridgeRoutes from './routes/deviceBridgeRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -116,6 +117,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/backups', backupRoutes);
+app.use('/api/device-bridge', deviceBridgeRoutes);
 
 // Catch-all for undefined routes
 app.all('*', (req, res, next) => {
