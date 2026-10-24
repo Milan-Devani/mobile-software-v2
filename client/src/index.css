@@ -13,6 +13,7 @@ input[type=number]::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
+
 input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -231,7 +232,12 @@ input[type=number] {
     transition: background-color 200ms ease, color 200ms ease;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: var(--spatial-text-title);
     letter-spacing: -0.022em;
     font-weight: 600;
@@ -252,11 +258,12 @@ input[type=number] {
   -webkit-backdrop-filter: var(--spatial-glass-blur);
   border: 1px solid var(--spatial-border);
   box-shadow: var(--spatial-shadow);
-  border-radius: 1.125rem; /* 18px Apple curvature */
+  border-radius: 1.125rem;
+  /* 18px Apple curvature */
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 160ms ease,
-              background-color 160ms ease;
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
 
 .spatial-card-hover:hover {
@@ -270,6 +277,7 @@ input[type=number] {
   cursor: pointer;
   user-select: none;
 }
+
 .spatial-card-interactive:active {
   transform: scale(0.985);
 }
@@ -311,19 +319,22 @@ select option {
   border: 1px solid var(--spatial-border);
   border-radius: 0.875rem;
   transition: transform 160ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 160ms ease,
-              background-color 160ms ease;
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 160ms ease,
+    background-color 160ms ease;
 }
+
 .spatial-inner-box:hover {
   transform: translateY(-1.5px);
   box-shadow: 0 6px 18px -4px rgba(0, 0, 0, 0.25);
   border-color: var(--spatial-border-hover);
   background-color: var(--spatial-bg-card-hover);
 }
+
 .spatial-inner-box:active {
   transform: scale(0.985);
 }
+
 [data-theme="light"] .spatial-inner-box:hover {
   box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.15);
@@ -345,10 +356,10 @@ select option {
   -webkit-backdrop-filter: var(--spatial-glass-blur);
   border-right: 1px solid var(--spatial-border);
   transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 200ms ease,
-              border-color 200ms ease,
-              opacity 200ms ease,
-              visibility 200ms ease;
+    background-color 200ms ease,
+    border-color 200ms ease,
+    opacity 200ms ease,
+    visibility 200ms ease;
 }
 
 body.modal-open .spatial-sidebar {
@@ -367,11 +378,13 @@ body.modal-open .spatial-sidebar {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
 }
+
 .spatial-input:focus {
   outline: none;
   border-color: var(--spatial-primary) !important;
   box-shadow: 0 0 0 3.5px rgba(10, 132, 255, 0.28) !important;
 }
+
 [data-theme="light"] .spatial-input:focus {
   box-shadow: 0 0 0 3.5px rgba(0, 113, 227, 0.22) !important;
 }
@@ -424,6 +437,7 @@ select:focus {
   border-color: var(--spatial-primary) !important;
   box-shadow: 0 0 0 3.5px rgba(10, 132, 255, 0.28) !important;
 }
+
 [data-theme="light"] select:focus {
   box-shadow: 0 0 0 3.5px rgba(0, 113, 227, 0.22) !important;
 }
@@ -449,14 +463,16 @@ select option:checked {
   font-weight: 600;
   letter-spacing: -0.01em;
   transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 140ms ease,
-              filter 140ms ease;
+    box-shadow 140ms ease,
+    filter 140ms ease;
 }
+
 .spatial-btn-primary:hover {
   filter: brightness(1.06);
   box-shadow: 0 3px 10px -1px rgba(0, 113, 227, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
   transform: translateY(-0.5px);
 }
+
 .spatial-btn-primary:active {
   transform: scale(0.98);
   filter: brightness(0.96);
@@ -471,14 +487,16 @@ select option:checked {
   font-weight: 500;
   letter-spacing: -0.01em;
   transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
-              background-color 140ms ease,
-              border-color 140ms ease,
-              box-shadow 140ms ease;
+    background-color 140ms ease,
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
+
 .spatial-btn-secondary:hover {
   background-color: var(--spatial-bg-card-hover);
   border-color: var(--spatial-border-hover);
 }
+
 .spatial-btn-secondary:active {
   transform: scale(0.98);
 }
@@ -499,6 +517,7 @@ select option:checked {
     opacity: 0;
     transform: scale(0.97) translateY(6px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -531,6 +550,7 @@ select option:checked {
   border-radius: 9999px;
   transition: background-color 150ms ease;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background-color: rgba(142, 142, 147, 0.6);
 }
@@ -593,43 +613,6 @@ select option:checked {
 }
 
 /* ==========================================================================
-   GLOBAL SKELETON LOADING SYSTEM (APPLE SPATIAL DESIGN)
-   Works seamlessly across Dark, Light, and Glass themes
-   ========================================================================== */
-@keyframes spatial-shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.spatial-skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  background-size: 200% 100%;
-  animation: spatial-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  border-radius: 0.75rem;
-  pointer-events: none;
-}
-
-[data-theme="light"] .spatial-skeleton,
-.light .spatial-skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(0, 0, 0, 0.04) 0%,
-    rgba(0, 0, 0, 0.09) 50%,
-    rgba(0, 0, 0, 0.04) 100%
-  );
-  background-size: 200% 100%;
-}
-
-/* ==========================================================================
    DROPDOWN & SELECT SYSTEM (APPLE DESIGN SYSTEM)
    ========================================================================== */
 .spatial-dropdown-panel {
@@ -652,6 +635,7 @@ select option:checked {
 select {
   color-scheme: dark;
 }
+
 [data-theme="light"] select,
 .light select {
   color-scheme: light;
@@ -678,34 +662,42 @@ select option {
 .dark .bg-white {
   background-color: var(--spatial-bg-card);
 }
+
 .dark .bg-slate-50 {
   background-color: var(--spatial-bg-card-subtle);
 }
+
 .dark .bg-slate-100 {
   background-color: var(--spatial-bg-card-hover);
 }
+
 .dark .border-slate-100,
 .dark .border-slate-200,
 .dark .border-slate-200\/80,
 .dark .border-slate-300 {
   border-color: var(--spatial-border);
 }
-.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
-.dark .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+
+.dark .divide-slate-100> :not([hidden])~ :not([hidden]),
+.dark .divide-slate-200> :not([hidden])~ :not([hidden]) {
   border-color: var(--spatial-border);
 }
+
 .dark .text-slate-900,
 .dark .text-slate-800 {
   color: var(--spatial-text-title);
 }
+
 .dark .text-slate-700,
 .dark .text-slate-600 {
   color: var(--spatial-text-body);
 }
+
 .dark .text-slate-500,
 .dark .text-slate-400 {
   color: var(--spatial-text-muted);
 }
+
 .dark input[type="text"],
 .dark input[type="email"],
 .dark input[type="tel"],
@@ -717,17 +709,21 @@ select option {
   color: var(--spatial-text-title) !important;
   border-color: var(--spatial-border) !important;
 }
+
 .dark input::placeholder,
 .dark textarea::placeholder {
   color: var(--spatial-text-muted) !important;
 }
+
 .dark table thead {
   background-color: var(--spatial-table-header-bg);
   border-color: var(--spatial-border);
 }
+
 .dark table thead th {
   color: var(--spatial-text-muted);
 }
+
 .dark table tbody tr:hover {
   background-color: var(--spatial-table-row-hover);
 }
@@ -786,7 +782,9 @@ textarea.focus\:ring-primary-500:focus {
 
 /* Print Styles for Job Sheets and Invoices */
 @media print {
-  html, body {
+
+  html,
+  body {
     background: #ffffff !important;
     color: #000000 !important;
     margin: 0 !important;
@@ -795,7 +793,7 @@ textarea.focus\:ring-primary-500:focus {
     height: auto !important;
     overflow: visible !important;
   }
-  
+
   body.print-modal-active #root,
   .print-modal-active #root,
   #root.print-hidden-root {
@@ -805,7 +803,11 @@ textarea.focus\:ring-primary-500:focus {
     overflow: hidden !important;
   }
 
-  .no-print, header, aside, nav, button {
+  .no-print,
+  header,
+  aside,
+  nav,
+  button {
     display: none !important;
   }
 
@@ -959,4 +961,3 @@ textarea.focus\:ring-primary-500:focus {
     margin: 6mm 8mm;
   }
 }
-
