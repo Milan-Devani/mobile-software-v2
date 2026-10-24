@@ -143,6 +143,23 @@ const startServer = async () => {
       initBaileys(false).catch((err) => console.warn('Background Baileys auto-start warning:', err.message));
     } catch (_) {}
 
+    // Self-Keep-Alive Engine: Pings external URL every 9 minutes to prevent Render idle sleep
+    const selfUrl = process.env.RENDER_EXTERNAL_URL || (env.API_URL && !env.API_URL.includes('localhost') ? env.API_URL : null);
+    if (selfUrl) {
+      console.log(`📡 Auto-keep-alive worker initialized for ${selfUrl}/health (every 9m)`);
+      setInterval(async () => {
+        try {
+          const pingTarget = `${selfUrl.replace(/\/+$/, '')}/health`;
+          const res = await fetch(pingTarget, { signal: AbortSignal.timeout(30000) });
+          if (res.ok) {
+            console.log(`[Keep-Alive] 🟢 Backend pinged itself successfully at ${new Date().toISOString()}`);
+          }
+        } catch (pingErr) {
+          console.warn(`[Keep-Alive] ⚠️ Background ping note: ${pingErr.message}`);
+        }
+      }, 9 * 60 * 1000); // 9 minutes interval (safely below Render 15-minute shutdown)
+    }
+
     return server;
   } catch (err) {
     console.error('❌ Failed to start server:', err);

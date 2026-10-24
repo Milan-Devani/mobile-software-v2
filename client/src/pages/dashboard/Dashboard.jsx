@@ -55,9 +55,21 @@ export const Dashboard = () => {
     }
   };
 
+  const [isSlowLoading, setIsSlowLoading] = useState(false);
+
   useEffect(() => {
     fetchStats();
   }, []);
+
+  useEffect(() => {
+    let timer;
+    if (loading) {
+      timer = setTimeout(() => setIsSlowLoading(true), 3000);
+    } else {
+      setIsSlowLoading(false);
+    }
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   if (loading) {
     return (
@@ -67,7 +79,14 @@ export const Dashboard = () => {
             <Skeleton className="h-8 w-64" />
             <Skeleton className="h-4 w-80 opacity-70" />
           </div>
-          <Skeleton className="h-10 w-36" rounded="rounded-xl" />
+          {isSlowLoading ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-medium">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+              <span>Connecting to cloud server...</span>
+            </div>
+          ) : (
+            <Skeleton className="h-10 w-36" rounded="rounded-xl" />
+          )}
         </div>
         <StatsSkeleton count={4} />
         <TableSkeleton rows={5} columns={6} showHeader={false} />
