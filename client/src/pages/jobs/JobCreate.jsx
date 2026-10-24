@@ -20,7 +20,7 @@ import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
-import { Card, LoadingSpinner } from '../../components/common/Card';
+import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
@@ -82,6 +82,7 @@ export const JobCreate = () => {
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustWhatsapp, setNewCustWhatsapp] = useState('');
   const [newCustSameAsPhone, setNewCustSameAsPhone] = useState(true);
+  const [newCustHasAltPhone, setNewCustHasAltPhone] = useState(false);
   const [newCustAltPhone, setNewCustAltPhone] = useState('');
   const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState('');
   const [newCustGender, setNewCustGender] = useState('male');
@@ -213,8 +214,8 @@ export const JobCreate = () => {
         phone: newCustPhone.trim(),
         email: newCustEmail.trim(),
         whatsapp_number: newCustSameAsPhone ? newCustPhone.trim() : (newCustWhatsapp.trim() || newCustPhone.trim()),
-        alternate_phone: newCustAltPhone,
-        alternate_whatsapp: newCustAltWhatsapp,
+        alternate_phone: newCustHasAltPhone ? newCustAltPhone.trim() : '',
+        alternate_whatsapp: newCustHasAltPhone ? newCustAltWhatsapp.trim() : '',
         gender: newCustGender,
         user_type: newCustUserType,
         address: newCustAddress,
@@ -232,6 +233,7 @@ export const JobCreate = () => {
       setNewCustEmail('');
       setNewCustWhatsapp('');
       setNewCustSameAsPhone(true);
+      setNewCustHasAltPhone(false);
       setNewCustAltPhone('');
       setNewCustAltWhatsapp('');
       setNewCustAddress('');
@@ -299,7 +301,7 @@ export const JobCreate = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner label="Preparing Job Sheet intake wizard..." />;
+    return <FormSkeleton fields={6} />;
   }
 
   return (
@@ -309,13 +311,14 @@ export const JobCreate = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/jobs')}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-colors border border-slate-200"
+            className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl transition-all border border-[var(--spatial-border)] active:scale-95"
+            title="Back to jobs"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">Create Repair Job Sheet</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-2xl font-semibold text-[var(--spatial-text-title)] tracking-tight">Create Repair Job Sheet</h2>
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
               Record intake details, device diagnostics, condition, and customer issue
             </p>
           </div>
@@ -333,7 +336,7 @@ export const JobCreate = () => {
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex-1">
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                   Customer *
                 </label>
                 <SpatialSelect
@@ -371,39 +374,39 @@ export const JobCreate = () => {
               const sel = customers.find((c) => c.id === selectedId);
               if (!sel) return null;
               return (
-                <div className="p-3.5 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] hover:border-sky-400/40 text-xs space-y-2 mt-2 transition-all">
+                <div className="p-3.5 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] hover:border-[#0071e3]/40 text-xs space-y-2 mt-2 transition-all">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-[var(--spatial-text-title)]">{sel.full_name}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] text-[10px] font-semibold">
+                      <span className="font-semibold text-[var(--spatial-text-title)]">{sel.full_name}</span>
+                      <span className="px-2 py-0.5 rounded-full bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] text-[10px] font-medium">
                         {sel.user_type || 'End User'} • {sel.gender || 'male'}
                       </span>
                     </div>
-                    <span className="font-mono text-sky-400 text-[11px] font-semibold">{sel.customer_code}</span>
+                    <span className="font-semibold text-[#0071e3] dark:text-[#0a84ff] text-[11px] tracking-tight">{sel.customer_code}</span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 text-[11px]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1 text-[11px]">
                     <div>
                       <span className="text-[var(--spatial-text-muted)]">Primary Phone:</span>
-                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.phone || 'N/A'}</p>
+                      <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.phone || 'N/A'}</p>
                     </div>
                     <div>
                       <span className="text-[var(--spatial-text-muted)]">Primary WhatsApp:</span>
-                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
+                      <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
                     </div>
                     <div>
                       <span className="text-[var(--spatial-text-muted)]">Alternate Phone:</span>
-                      <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{sel.alternate_phone || 'None'}</p>
+                      <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.alternate_phone || 'None'}</p>
                     </div>
-                    <div className="bg-emerald-500/10 border border-emerald-500/30 p-1.5 rounded-lg">
-                      <span className="text-emerald-400 font-semibold">Alt WhatsApp (In-Repair):</span>
-                      <p className="font-mono font-bold text-emerald-300">
+                    <div className="bg-emerald-500/10 border border-emerald-500/25 p-2 rounded-xl">
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Alt WhatsApp (In-Repair):</span>
+                      <p className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
                         {sel.alternate_whatsapp || sel.alternate_phone || 'Not recorded'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] pt-1 border-t border-[var(--spatial-border)] flex-wrap gap-2">
+                  <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] pt-1.5 border-t border-[var(--spatial-border)] flex-wrap gap-2">
                     <div>
                       <span>Mail ID:</span> <span className="text-[var(--spatial-text-title)] font-medium">{sel.email || 'None'}</span>
                     </div>
@@ -419,7 +422,7 @@ export const JobCreate = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[var(--spatial-border)]">
               <div>
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                   Priority Level
                 </label>
                 <SpatialSelect
@@ -436,7 +439,7 @@ export const JobCreate = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                   Assign Technician (Optional)
                 </label>
                 <SpatialSelect
@@ -467,7 +470,7 @@ export const JobCreate = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                 Brand *
               </label>
               <SpatialSelect
@@ -498,14 +501,14 @@ export const JobCreate = () => {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                 Model Name / Number *
               </label>
               <input
                 type="text"
                 placeholder="e.g. iPhone 14 Pro / Galaxy S23 Ultra"
                 {...register('device_model')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
               {errors.device_model && (
                 <p className="text-[11px] text-rose-500 mt-1">{errors.device_model.message}</p>
@@ -513,69 +516,70 @@ export const JobCreate = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Color</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Color</label>
               <input
                 type="text"
                 placeholder="e.g. Space Black, Midnight"
                 {...register('device_color')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Storage</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Storage</label>
               <input
                 type="text"
                 placeholder="e.g. 128GB, 256GB"
                 {...register('device_storage')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Operating System</label>
-              <select
-                {...register('device_os')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
-              >
-                <option value="iOS">iOS</option>
-                <option value="Android">Android</option>
-                <option value="Other">Other</option>
-              </select>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Operating System</label>
+              <SpatialSelect
+                value={watch('device_os') || 'Android'}
+                onChange={(val) => setValue('device_os', val, { shouldValidate: true })}
+                options={[
+                  { value: 'iOS', label: 'iOS' },
+                  { value: 'Android', label: 'Android' },
+                  { value: 'Other', label: 'Other' },
+                ]}
+              />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">IMEI Number</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">IMEI Number</label>
               <input
                 type="text"
                 placeholder="15-digit IMEI"
                 {...register('device_imei')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Serial Number</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Serial Number</label>
               <input
                 type="text"
                 placeholder="Serial Number"
                 {...register('device_serial')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">Passcode / PIN</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Passcode / PIN</label>
               <input
                 type="text"
                 placeholder="For technician testing"
                 {...register('device_passcode')}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Repair Service Type</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Repair Service Type</label>
               <SpatialSelect
                 options={[
                   'Screen / Display Replacement',
@@ -596,7 +600,7 @@ export const JobCreate = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Cosmetic Condition</label>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Cosmetic Condition</label>
               <SpatialSelect
                 options={[
                   'Wear And Tear (Normal use)',
@@ -624,7 +628,7 @@ export const JobCreate = () => {
           hover={false}
         >
           <div>
-            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
               Reported Issue / Problem Description *
             </label>
             <textarea
@@ -649,7 +653,7 @@ export const JobCreate = () => {
             <button
               type="button"
               onClick={handleMarkAllFunctional}
-              className="text-xs font-semibold text-sky-400 hover:text-sky-300 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-400/30 hover:bg-sky-500/20 transition-colors"
+              className="text-xs font-medium text-[#0071e3] dark:text-[#0a84ff] bg-blue-500/10 px-2.5 py-1 rounded-xl border border-blue-500/20 hover:bg-blue-500/20 transition-all active:scale-95"
             >
               ✓ All Functional / Good
             </button>
@@ -664,14 +668,14 @@ export const JobCreate = () => {
               return (
                 <div
                   key={item.key}
-                  className="p-2.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] hover:border-sky-400/50 hover:-translate-y-0.5 hover:shadow-sm flex items-center justify-between gap-2 transition-all duration-150"
+                  className="p-2.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] hover:border-[var(--spatial-border-highlight)] flex items-center justify-between gap-2 transition-all duration-150"
                 >
                   <span className="text-xs font-medium text-[var(--spatial-text-title)] leading-snug">{item.label}</span>
                   <div className="flex items-center rounded-lg p-0.5 bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shrink-0">
                     <button
                       type="button"
                       onClick={() => handleChecklistToggle(item.key, 'Yes')}
-                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all active:scale-95 ${
                         isYes
                           ? item.type === 'working'
                             ? 'bg-emerald-600 text-white shadow-xs'
@@ -684,7 +688,7 @@ export const JobCreate = () => {
                     <button
                       type="button"
                       onClick={() => handleChecklistToggle(item.key, 'No')}
-                      className={`px-2.5 py-1 rounded text-xs font-bold transition-all ${
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all active:scale-95 ${
                         isNo
                           ? item.type === 'working'
                             ? 'bg-rose-600 text-white shadow-xs'
@@ -702,13 +706,13 @@ export const JobCreate = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--spatial-border)]">
             <div>
-              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15 transition-all duration-150">
+              <label className="flex items-center gap-2 cursor-pointer p-2.5 rounded-xl border border-rose-500/25 bg-rose-500/10 hover:bg-rose-500/15 transition-all duration-150">
                 <input
                   type="checkbox"
                   {...register('water_damage')}
-                  className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500"
+                  className="w-4 h-4 text-rose-600 rounded focus:ring-rose-500 accent-rose-500"
                 />
-                <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-rose-500 dark:text-rose-400 flex items-center gap-1.5">
                   <ShieldAlert className="w-4 h-4" />
                   Liquid / Water Damage Suspected
                 </span>
@@ -740,14 +744,14 @@ export const JobCreate = () => {
                   type="button"
                   key={acc}
                   onClick={() => toggleAccessory(acc)}
-                  className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                  className={`p-2.5 rounded-xl border text-left text-xs font-medium transition-all duration-150 flex items-center gap-2 cursor-pointer active:scale-95 ${
                     checked
-                      ? 'border-sky-400 bg-sky-500/15 text-[var(--spatial-text-title)] font-semibold shadow-xs ring-1 ring-sky-500/30 -translate-y-0.5'
-                      : 'spatial-inner-box hover:border-sky-400/40 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
+                      ? 'border-[#0071e3] bg-blue-500/10 text-[var(--spatial-text-title)] font-semibold shadow-xs ring-1 ring-[#0071e3]/30'
+                      : 'spatial-inner-box hover:border-[var(--spatial-border-highlight)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                   }`}
                 >
-                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
-                    checked ? 'bg-sky-500 border-sky-500 text-white' : 'border-[var(--spatial-border)]'
+                  <span className={`w-4 h-4 rounded-md border flex items-center justify-center shrink-0 ${
+                    checked ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'border-[var(--spatial-border)]'
                   }`}>
                     {checked && '✓'}
                   </span>
@@ -759,9 +763,9 @@ export const JobCreate = () => {
         </Card>
 
         {/* Submit Bar */}
-        <div className="p-4 bg-white rounded-xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
-          <p className="text-xs text-slate-500">
-            A unique Job Number <span className="font-mono font-bold text-slate-700">(JOB-2026-XXXXXX)</span> will be generated automatically.
+        <div className="spatial-card p-4 rounded-2xl flex items-center justify-between gap-4">
+          <p className="text-xs text-[var(--spatial-text-muted)]">
+            A unique Job Number <span className="font-mono font-semibold text-[var(--spatial-text-title)]">(JOB-2026-XXXXXX)</span> will be generated automatically.
           </p>
           <div className="flex items-center gap-3">
             <Button
@@ -790,13 +794,13 @@ export const JobCreate = () => {
       >
         <form onSubmit={handleQuickCustomerCreate} className="space-y-3.5">
           {/* Note Callout */}
-          <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-lg text-[11px] text-amber-900 leading-snug">
+          <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-[11px] text-amber-700 dark:text-amber-300 leading-snug">
             <strong>⚠️ Important Note:</strong> When the customer submits their phone for repair, their WhatsApp on that device is no longer accessible. Be sure to collect an <strong>Alternate WhatsApp Number</strong> (secondary phone or family member) so they receive status notifications!
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                 Full Name *
               </label>
               <input
@@ -805,40 +809,40 @@ export const JobCreate = () => {
                 placeholder="e.g. Milan Devani"
                 value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                 Gender & User Type
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <select
+                <SpatialSelect
                   value={newCustGender}
-                  onChange={(e) => setNewCustGender(e.target.value)}
-                  className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 capitalize transition-all shadow-xs"
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <select
+                  onChange={setNewCustGender}
+                  options={[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'other', label: 'Other' },
+                  ]}
+                />
+                <SpatialSelect
                   value={newCustUserType}
-                  onChange={(e) => setNewCustUserType(e.target.value)}
-                  className="w-full px-2.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
-                >
-                  <option value="End User">End User</option>
-                  <option value="Dealer">Dealer</option>
-                  <option value="Corporate">Corporate</option>
-                </select>
+                  onChange={setNewCustUserType}
+                  options={[
+                    { value: 'End User', label: 'End User' },
+                    { value: 'Dealer', label: 'Dealer' },
+                    { value: 'Corporate', label: 'Corporate' },
+                  ]}
+                />
               </div>
             </div>
           </div>
 
           {/* Email / Mail ID */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
               Email Address (Mail ID) *
             </label>
             <input
@@ -847,14 +851,14 @@ export const JobCreate = () => {
               placeholder="e.g. milan@example.com"
               value={newCustEmail}
               onChange={(e) => setNewCustEmail(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
           {/* Primary Phone & Primary WhatsApp */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                 Primary Phone Number *
               </label>
               <input
@@ -866,9 +870,9 @@ export const JobCreate = () => {
                   setNewCustPhone(e.target.value);
                   if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
                 }}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
-              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300 select-none">
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-[var(--spatial-text-body)] select-none">
                 <input
                   type="checkbox"
                   checked={newCustSameAsPhone}
@@ -879,7 +883,7 @@ export const JobCreate = () => {
                       setNewCustWhatsapp(newCustPhone);
                     }
                   }}
-                  className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500"
+                  className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3]"
                 />
                 <span className="font-medium">WhatsApp number is same as Phone number</span>
               </label>
@@ -887,7 +891,7 @@ export const JobCreate = () => {
 
             {!newCustSameAsPhone && (
               <div>
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                   Primary WhatsApp Number *
                 </label>
                 <input
@@ -896,61 +900,83 @@ export const JobCreate = () => {
                   placeholder="Enter separate WhatsApp number"
                   value={newCustWhatsapp}
                   onChange={(e) => setNewCustWhatsapp(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
               </div>
             )}
           </div>
 
-          {/* Alternate Phone & Alternate WhatsApp (Crucial Requirement!) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 dark:bg-slate-900/50 border border-emerald-300 dark:border-emerald-600/50 rounded-xl">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                Alternate Phone Number
-              </label>
+          {/* Checkbox for Alternate Phone Number */}
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--spatial-text-title)] select-none font-medium">
               <input
-                type="tel"
-                placeholder="e.g. 8160751302"
-                value={newCustAltPhone}
+                type="checkbox"
+                checked={newCustHasAltPhone}
                 onChange={(e) => {
-                  setNewCustAltPhone(e.target.value);
-                  if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                  const checked = e.target.checked;
+                  setNewCustHasAltPhone(checked);
+                  if (!checked) {
+                    setNewCustAltPhone('');
+                    setNewCustAltWhatsapp('');
+                  }
                 }}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3] cursor-pointer"
               />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-emerald-800 dark:text-emerald-400 uppercase flex items-center gap-1">
-                  <span>Alternate WhatsApp *</span>
-                </label>
-                {newCustAltPhone && (
-                  <button
-                    type="button"
-                    onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
-                    className="text-[10px] text-emerald-700 dark:text-emerald-400 hover:underline"
-                  >
-                    Same as Alt Phone
-                  </button>
-                )}
-              </div>
-              <input
-                type="tel"
-                placeholder="Active WP number during repair"
-                value={newCustAltWhatsapp}
-                onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-emerald-400 dark:border-emerald-500/60 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-xs"
-              />
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-1">
-                Used for instant repair notifications while main phone is in shop
-              </p>
-            </div>
+              <span>Add Alternate Phone Number (In-Repair Contact)</span>
+            </label>
           </div>
+
+          {/* Alternate Phone & Alternate WhatsApp (Only shown when checkbox is checked) */}
+          {newCustHasAltPhone && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-500/30 rounded-2xl animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
+                  Alternate Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 8160751302"
+                  value={newCustAltPhone}
+                  onChange={(e) => {
+                    setNewCustAltPhone(e.target.value);
+                    if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>Alternate WhatsApp</span>
+                  </label>
+                  {newCustAltPhone && (
+                    <button
+                      type="button"
+                      onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
+                      className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      Same as Alt Phone
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="tel"
+                  placeholder="Active WP number during repair"
+                  value={newCustAltWhatsapp}
+                  onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono border-emerald-500/40 focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
+                  Used for instant repair notifications while main phone is in shop
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Address Fields */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
               Address (Street / Area)
             </label>
             <input
@@ -958,7 +984,7 @@ export const JobCreate = () => {
               placeholder="e.g. PASODARA, SURAT, GUJARAT, 394107"
               value={newCustAddress}
               onChange={(e) => setNewCustAddress(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
@@ -969,7 +995,7 @@ export const JobCreate = () => {
                 placeholder="City (e.g. Surat)"
                 value={newCustCity}
                 onChange={(e) => setNewCustCity(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-xs"
               />
             </div>
             <div>
@@ -978,7 +1004,7 @@ export const JobCreate = () => {
                 placeholder="State (e.g. Gujarat)"
                 value={newCustState}
                 onChange={(e) => setNewCustState(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-xs"
               />
             </div>
             <div>
@@ -987,12 +1013,12 @@ export const JobCreate = () => {
                 placeholder="Postal Code"
                 value={newCustPostalCode}
                 onChange={(e) => setNewCustPostalCode(e.target.value)}
-                className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
+                className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-xs font-mono"
               />
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsNewCustModalOpen(false)}>
               Cancel
             </Button>

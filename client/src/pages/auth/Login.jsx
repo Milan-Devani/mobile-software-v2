@@ -70,29 +70,29 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[var(--spatial-bg-app)] flex flex-col justify-center py-12 sm:px-6 lg:px-8 transition-colors">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-primary-600 to-primary-400 text-white shadow-xl shadow-primary-500/20 mb-4">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-apple-blue/10 border border-apple-blue/20 text-apple-blue shadow-xs mb-4">
           <Smartphone className="w-8 h-8" />
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">
           Mobotech mobile care
         </h2>
-        <p className="mt-2 text-xs sm:text-sm text-slate-400">
+        <p className="mt-1.5 text-xs sm:text-sm text-[var(--spatial-text-muted)]">
           Mobile Repair & Workshop Management System
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
-        <div className="bg-white py-8 px-6 shadow-2xl rounded-2xl sm:px-10 border border-slate-100">
+        <div className="spatial-card py-8 px-6 sm:px-10 rounded-3xl shadow-xl">
           <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
             {/* Email Field */}
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1.5">
                 Email Address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--spatial-text-muted)]">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
@@ -100,10 +100,8 @@ export const Login = () => {
                   autoComplete="email"
                   placeholder="admin@fixitrepair.com"
                   {...register('email')}
-                  className={`block w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                    errors.email
-                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
-                      : 'border-slate-200 focus:border-primary-500 focus:ring-primary-500/20'
+                  className={`block w-full pl-10 pr-3.5 py-2.5 spatial-input rounded-xl text-sm transition-all ${
+                    errors.email ? 'border-rose-500 focus:ring-rose-500/20' : ''
                   }`}
                 />
               </div>
@@ -118,12 +116,12 @@ export const Login = () => {
             {/* Password Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider">
                   Password
                 </label>
               </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[var(--spatial-text-muted)]">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
@@ -131,16 +129,14 @@ export const Login = () => {
                   autoComplete="current-password"
                   placeholder="••••••••"
                   {...register('password')}
-                  className={`block w-full pl-10 pr-10 py-2.5 bg-slate-50 border rounded-xl text-sm placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                    errors.password
-                      ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20'
-                      : 'border-slate-200 focus:border-primary-500 focus:ring-primary-500/20'
+                  className={`block w-full pl-10 pr-10 py-2.5 spatial-input rounded-xl text-sm transition-all ${
+                    errors.password ? 'border-rose-500 focus:ring-rose-500/20' : ''
                   }`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -159,51 +155,51 @@ export const Login = () => {
                 <input
                   type="checkbox"
                   {...register('rememberMe')}
-                  className="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-apple-blue border-[var(--spatial-border)] rounded focus:ring-apple-blue"
                 />
-                <span className="text-xs text-slate-600 font-medium select-none">Remember this device</span>
+                <span className="text-xs text-[var(--spatial-text-muted)] font-medium select-none">Remember this device</span>
               </label>
-              <span className="text-xs text-primary-600 font-medium">Single-Shop Portal</span>
+              <span className="text-xs text-apple-blue font-medium">Single-Shop Portal</span>
             </div>
 
             {/* Submit Button */}
             <Button
               type="submit"
               loading={loading}
-              className="w-full py-2.5 text-sm font-semibold rounded-xl"
+              className="w-full py-2.5 text-sm font-semibold rounded-xl active:scale-98 cursor-pointer shadow-xs"
             >
               Sign In to Workshop
             </Button>
           </form>
 
           {/* Quick Demo Credential Pills */}
-          <div className="mt-6 pt-5 border-t border-slate-100">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 text-center mb-2.5">
+          <div className="mt-6 pt-5 border-t border-[var(--spatial-border)]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--spatial-text-muted)] text-center mb-2.5">
               Quick Test Accounts
             </p>
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => handleFillDemo('admin@fixitrepair.com', 'Admin@123456')}
-                className="p-2 text-center rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700 transition-colors"
+                className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
-                <span className="block font-bold text-primary-600">Admin</span>
+                <span className="block font-bold text-apple-blue">Admin</span>
                 Owner
               </button>
               <button
                 type="button"
                 onClick={() => handleFillDemo('tech@fixitrepair.com', 'Tech@123456')}
-                className="p-2 text-center rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700 transition-colors"
+                className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
-                <span className="block font-bold text-indigo-600">Tech</span>
+                <span className="block font-bold text-purple-600 dark:text-purple-400">Tech</span>
                 Workbench
               </button>
               <button
                 type="button"
                 onClick={() => handleFillDemo('staff@fixitrepair.com', 'Staff@123456')}
-                className="p-2 text-center rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[11px] font-medium text-slate-700 transition-colors"
+                className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
-                <span className="block font-bold text-emerald-600">Staff</span>
+                <span className="block font-bold text-emerald-600 dark:text-emerald-400">Staff</span>
                 Intake / Desk
               </button>
             </div>

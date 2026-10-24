@@ -1,0 +1,24 @@
+name: Keep Backend Warm (Anti-Cold-Start)
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free-tier from idling after 15 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend Health Check
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_API_URL || 'https://mobotech-repair-api.onrender.com' }}
+        run: |
+          echo "Pinging backend health endpoint at $BACKEND_URL/health ..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 "$BACKEND_URL/health" || echo "FAILED")
+          echo "Response HTTP status: $STATUS"
+          if [ "$STATUS" -ge 200 ] && [ "$STATUS" -lt 400 ]; then
+            echo "✅ Backend is active and warm."
+          else
+            echo "⚠️ Health check returned status $STATUS (or initial spin-up triggered)."
+          fi

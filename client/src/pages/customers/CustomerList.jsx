@@ -21,11 +21,12 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { customerService } from '../../services/customerService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const customerSchema = z.object({
@@ -55,6 +56,7 @@ export const CustomerList = () => {
   const [pageSize, setPageSize] = useState(10);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addSameAsPhone, setAddSameAsPhone] = useState(true);
+  const [addHasAltPhone, setAddHasAltPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -89,6 +91,8 @@ export const CustomerList = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(customerSchema),
@@ -177,12 +181,15 @@ export const CustomerList = () => {
       const payload = {
         ...data,
         whatsapp_number: addSameAsPhone ? data.phone : (data.whatsapp_number || data.phone),
+        alternate_phone: addHasAltPhone ? (data.alternate_phone || '') : '',
+        alternate_whatsapp: addHasAltPhone ? (data.alternate_whatsapp || '') : '',
       };
       const created = await customerService.createCustomer(payload);
       toast.success(`Customer "${created.full_name}" registered!`);
       setIsAddModalOpen(false);
       reset();
       setAddSameAsPhone(true);
+      setAddHasAltPhone(false);
       fetchCustomers();
     } catch (err) {
       toast.error(err.message || 'Failed to create customer');
@@ -195,9 +202,9 @@ export const CustomerList = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight">Customer Directory</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">Customer Directory</h2>
           <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
-            Manage client profiles, contact information, and repair histories
+            Manage client profiles, contact information, and service histories
           </p>
         </div>
         <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
@@ -221,7 +228,7 @@ export const CustomerList = () => {
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search name, phone, email (500ms debounce)..."
+              placeholder="Search name, phone, email..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
@@ -247,7 +254,7 @@ export const CustomerList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching customer directory..." />
+          <TableSkeleton rows={7} columns={5} showHeader={false} showPagination={false} />
         ) : customers.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -268,7 +275,7 @@ export const CustomerList = () => {
                         checked={customers.length > 0 && customers.every((c) => selectedIds.includes(c.id))}
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
-                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                        className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
                       />
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Code</th>
@@ -287,7 +294,7 @@ export const CustomerList = () => {
                         key={c.id}
                         onClick={() => navigate(`/customers/${c.id}`)}
                         className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer ${
-                          isSelected ? 'bg-sky-500/10' : ''
+                          isSelected ? 'bg-apple-blue/8' : ''
                         }`}
                       >
                         <td
@@ -299,11 +306,13 @@ export const CustomerList = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectRow(c.id)}
                             aria-label={`Select customer ${c.full_name}`}
-                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                            className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">
-                          {c.customer_code || 'CUST'}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="font-mono font-semibold text-xs px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
+                            {c.customer_code || 'CUST'}
+                          </span>
                         </td>
                         <td className="px-5 py-3.5 font-semibold text-[var(--spatial-text-title)] whitespace-nowrap">
                           {c.full_name}
@@ -312,12 +321,12 @@ export const CustomerList = () => {
                           <div className="flex items-center gap-2 whitespace-nowrap">
                             <span className="font-mono text-[var(--spatial-text-title)] font-medium">{c.phone}</span>
                             {c.whatsapp_number && (
-                              <span className="p-0.5 rounded bg-emerald-500/10 text-emerald-400" title="Primary WhatsApp">
+                              <span className="p-1 rounded-md bg-emerald-500/10 text-emerald-500 border border-emerald-500/20" title="Primary WhatsApp">
                                 <MessageCircle className="w-3.5 h-3.5" />
                               </span>
                             )}
                             {(c.alternate_whatsapp || c.alternate_phone) && (
-                              <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-400/20 whitespace-nowrap">
+                              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 whitespace-nowrap">
                                 Alt: {c.alternate_whatsapp || c.alternate_phone}
                               </span>
                             )}
@@ -333,7 +342,7 @@ export const CustomerList = () => {
                           <div className="flex items-center justify-center gap-1">
                             <button
                               onClick={() => navigate(`/customers/${c.id}`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-apple-blue hover:bg-apple-blue/10 rounded-lg transition-all active:scale-90"
                               title="View Customer Profile"
                             >
                               <Eye className="w-4 h-4" />
@@ -343,7 +352,7 @@ export const CustomerList = () => {
                                 setSelectedCustomerForEdit(c);
                                 setIsEditModalOpen(true);
                               }}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-90"
                               title="Edit Customer"
                             >
                               <Pencil className="w-4 h-4" />
@@ -414,22 +423,24 @@ export const CustomerList = () => {
                 Gender & User Type
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <select
-                  {...register('gender')}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs capitalize"
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <select
-                  {...register('user_type')}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs"
-                >
-                  <option value="End User">End User</option>
-                  <option value="Dealer">Dealer</option>
-                  <option value="Corporate">Corporate</option>
-                </select>
+                <SpatialSelect
+                  value={watch('gender') || 'male'}
+                  onChange={(val) => setValue('gender', val, { shouldValidate: true })}
+                  options={[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'other', label: 'Other' },
+                  ]}
+                />
+                <SpatialSelect
+                  value={watch('user_type') || 'End User'}
+                  onChange={(val) => setValue('user_type', val, { shouldValidate: true })}
+                  options={[
+                    { value: 'End User', label: 'End User' },
+                    { value: 'Dealer', label: 'Dealer' },
+                    { value: 'Corporate', label: 'Corporate' },
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -476,31 +487,53 @@ export const CustomerList = () => {
             )}
           </div>
 
-          {/* Alternate Phone & Alternate WhatsApp */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[var(--spatial-bg-card-subtle)] border border-emerald-400/30 rounded-xl">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Alternate Phone Number
-              </label>
+          {/* Checkbox for Alternate Phone Number */}
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--spatial-text-title)] select-none font-medium">
               <input
-                type="tel"
-                placeholder="Secondary phone"
-                {...register('alternate_phone')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                type="checkbox"
+                checked={addHasAltPhone}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setAddHasAltPhone(checked);
+                  if (!checked) {
+                    setValue('alternate_phone', '');
+                    setValue('alternate_whatsapp', '');
+                  }
+                }}
+                className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3] cursor-pointer"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-emerald-400 uppercase mb-1">
-                Alternate WhatsApp (In-Repair)
-              </label>
-              <input
-                type="tel"
-                placeholder="Active WP number while phone in shop"
-                {...register('alternate_whatsapp')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
-              />
-            </div>
+              <span>Add Alternate Phone Number (In-Repair Contact)</span>
+            </label>
           </div>
+
+          {/* Alternate Phone & Alternate WhatsApp */}
+          {addHasAltPhone && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-400/30 rounded-2xl animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Alternate Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Secondary phone"
+                  {...register('alternate_phone')}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-emerald-400 uppercase mb-1">
+                  Alternate WhatsApp (In-Repair)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Active WP number while phone in shop"
+                  {...register('alternate_whatsapp')}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
@@ -560,16 +593,16 @@ export const CustomerList = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Internal Notes</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Internal Notes</label>
             <textarea
               rows={2}
               placeholder="Any special customer notes or preferences..."
               {...register('notes')}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsAddModalOpen(false)}>
               Cancel
             </Button>

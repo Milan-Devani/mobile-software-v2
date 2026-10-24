@@ -107,7 +107,7 @@ export const NextActionBanner = ({
         }
         return {
           title: 'Estimate Sent - Awaiting Customer Approval',
-          instruction: `Estimate ($${Number(job.total_amount).toFixed(2)}) sent to ${job.customer?.full_name || 'Customer'}. Waiting for authorization or manual phone approval.`,
+          instruction: `Estimate (₹${Number(job.total_amount).toFixed(2)}) sent to ${job.customer?.full_name || 'Customer'}. Waiting for authorization or manual phone approval.`,
           buttonLabel: 'Review Estimate & Status',
           icon: Clock,
           bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
@@ -167,7 +167,7 @@ export const NextActionBanner = ({
             : 'Device Ready for Customer Pickup',
           instruction: isFreeWarranty
             ? 'Customer notified. Quality checks passed. Free rework covered under warranty (No payment required).'
-            : `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance ($${Number(job.balance_due || 0).toFixed(2)}).`,
+            : `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance (₹${Number(job.balance_due || 0).toFixed(2)}).`,
           buttonLabel: isFreeWarranty ? 'Process Warranty Handover' : 'Process Customer Pickup',
           icon: ShoppingBag,
           bg: 'bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-200',
@@ -177,7 +177,22 @@ export const NextActionBanner = ({
           canPerform: ['admin', 'staff'].includes(userRole),
         };
 
-      case 'DELIVERED':
+      case 'DELIVERED': {
+        const isEstimateRejectedReturn = Boolean(job.approval_status === 'REJECTED');
+        if (isEstimateRejectedReturn) {
+          return {
+            title: 'Device Returned Unrepaired (Estimate Declined)',
+            instruction: 'Device was returned to customer in original condition without repair. If customer agrees to proceed or requests a revised quote, click below to reopen this job.',
+            buttonLabel: 'Reopen Job',
+            icon: RotateCcw,
+            bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
+            textColor: 'text-amber-900',
+            btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
+            action: onReopenJob,
+            canPerform: true,
+          };
+        }
+
         return {
           title: job.is_warranty_claim
             ? `Device Delivered (Warranty Claim #${job.reopen_count || 1} Active)`
@@ -193,6 +208,7 @@ export const NextActionBanner = ({
           action: onReopenJob,
           canPerform: true,
         };
+      }
 
       case 'REJECTED':
         return {
@@ -231,20 +247,20 @@ export const NextActionBanner = ({
   const Icon = config.icon;
 
   return (
-    <div className={`p-4 sm:p-5 rounded-xl border ${config.bg} shadow-sm mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all`}>
+    <div className="spatial-card p-4 sm:p-5 rounded-2xl mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all">
       <div className="flex items-start gap-3.5">
-        <div className="p-2.5 rounded-lg bg-white shadow-sm border border-slate-200/60 text-primary-600 shrink-0">
+        <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center shrink-0">
           <Icon className="w-5 h-5" />
         </div>
         <div>
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-500">CURRENT STATUS:</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--spatial-text-muted)]">CURRENT STATUS:</span>
             <Badge status={status} size="sm" />
             {['admin', 'staff'].includes(userRole) && onChangeStatus && (
               <button
                 type="button"
                 onClick={onChangeStatus}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-white dark:bg-slate-900 text-primary-600 dark:text-primary-400 border border-primary-200 dark:border-primary-800 hover:bg-primary-50 dark:hover:bg-primary-950/60 transition-colors shadow-2xs"
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--spatial-bg-card-subtle)] text-[#0071e3] dark:text-[#0a84ff] border border-[var(--spatial-border)] hover:border-[#0071e3]/40 transition-all active:scale-95"
                 title="Shop Owner: Change Job Status"
               >
                 <SlidersHorizontal className="w-3 h-3" />
@@ -252,8 +268,8 @@ export const NextActionBanner = ({
               </button>
             )}
           </div>
-          <h4 className={`text-base font-bold ${config.textColor} tracking-tight`}>{config.title}</h4>
-          <p className="text-xs text-slate-600 mt-0.5 max-w-2xl">{config.instruction}</p>
+          <h4 className="text-[15px] sm:text-base font-semibold text-[var(--spatial-text-title)] tracking-tight">{config.title}</h4>
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5 max-w-2xl">{config.instruction}</p>
         </div>
       </div>
 
@@ -262,7 +278,7 @@ export const NextActionBanner = ({
           <button
             onClick={config.action}
             disabled={!config.canPerform}
-            className={`w-full md:w-auto px-4 py-2.5 rounded-lg text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 ${config.btnClass} ${
+            className={`w-full md:w-auto px-4 py-2.5 rounded-xl text-xs font-semibold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 bg-[#0071e3] hover:bg-[#0077ed] text-white ${
               !config.canPerform ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >

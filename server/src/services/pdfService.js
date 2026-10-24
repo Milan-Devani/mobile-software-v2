@@ -559,3 +559,438 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     try { fs.unlinkSync(pdfPath); } catch (e) {}
   }
 }
+
+// Indian Currency and Number to Words formatters for Sales Bills
+function formatInr(num) {
+  if (num === null || num === undefined || isNaN(num)) return '0.00';
+  const val = parseFloat(num);
+  const isNeg = val < 0;
+  const [intPart, decPart] = Math.abs(val).toFixed(2).split('.');
+  let lastThree = intPart.substring(intPart.length - 3);
+  const otherNumbers = intPart.substring(0, intPart.length - 3);
+  if (otherNumbers !== '') lastThree = ',' + lastThree;
+  const formattedInt = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + lastThree;
+  return `${isNeg ? '-' : ''}${formattedInt}.${decPart}`;
+}
+
+function saleNumberToWords(amount) {
+  if (!amount || isNaN(amount) || amount === 0) return 'ZERO RUPEES ONLY';
+  const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ',
+    'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
+  const b = ['', '', 'TWENTY ', 'THIRTY ', 'FORTY ', 'FIFTY ', 'SIXTY ', 'SEVENTY ', 'EIGHTY ', 'NINETY '];
+  const intAmount = Math.floor(Math.abs(amount));
+  const numStr = ('000000000' + intAmount).slice(-9);
+  const crore = parseInt(numStr.slice(0, 2), 10);
+  const lakh = parseInt(numStr.slice(2, 4), 10);
+  const thousand = parseInt(numStr.slice(4, 6), 10);
+  const hundred = parseInt(numStr.slice(6, 7), 10);
+  const rest = parseInt(numStr.slice(7, 9), 10);
+  let words = '';
+  const getTwo = (n) => (n === 0 ? '' : n < 20 ? a[n] : b[Math.floor(n / 10)] + a[n % 10]);
+  if (crore > 0) words += getTwo(crore) + 'CRORE ';
+  if (lakh > 0) words += getTwo(lakh) + 'LAKH ';
+  if (thousand > 0) words += getTwo(thousand) + 'THOUSAND ';
+  if (hundred > 0) words += a[hundred] + 'HUNDRED ';
+  if (rest > 0) {
+    if (words !== '') words += 'AND ';
+    words += getTwo(rest);
+  }
+  return `${words.trim()} RUPEES ONLY`;
+}
+
+export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
+  const browserBinary = findBrowserBinary();
+  if (!browserBinary) {
+    throw new Error('Chromium/Edge browser binary not found on host for vector PDF generation');
+  }
+
+  const shopName = shop?.name || shop?.shop_name || 'Shree Mobile Shop';
+  const shopAddress = shop?.address || 'G/456, Basant Lok Comm., Vasant Vihar, Tardeo Road, Maharashtra - 400001';
+  const shopPhone = shop?.phone || 'Ph. 111 2222 3333';
+  const shopTaxNo = shop?.tax_number || '26CORPP3939N1ZA';
+  const bankName = sale?.bank_details?.bank_name || 'ICICI Bank';
+  const branch = sale?.bank_details?.branch || 'Surat';
+  const accNo = sale?.bank_details?.account_number || '2715500356';
+  const ifsc = sale?.bank_details?.ifsc || 'ICIC045F';
+  const upiId = sale?.bank_details?.upi_id || 'ifox@icici';
+
+  const invoiceNumber = sale?.invoice_no_seq || sale?.invoice_number || '47';
+  const invoiceDate = sale?.invoice_date ? String(sale.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0];
+  const grandTotal = parseFloat(sale?.total_amount) || 0;
+  const taxableAmount = parseFloat(sale?.taxable_amount) || 0;
+  const totalTax = parseFloat(sale?.total_tax) || 0;
+  const gstEnabled = sale?.gst_enabled !== false;
+  const isIgst = sale?.gst_type !== 'CGST_SGST';
+  const totalInWords = saleNumberToWords(grandTotal);
+
+  // Generate UPI QR Code Data URL
+  let qrDataUrl = '';
+  try {
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Bill #${invoiceNumber}`)}`;
+    qrDataUrl = await QRCode.toDataURL(upiUrl, { width: 140, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
+  } catch (err) {
+    console.warn('⚠️ UPI QR generation warning:', err.message);
+  }
+
+  const items = sale?.items || [];
+  const totalQty = items.reduce((sum, it) => sum + (parseInt(it.quantity, 10) || 1), 0);
+
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Tax Invoice #${invoiceNumber}</title>
+<style>
+  @page {
+    size: A4 portrait;
+    margin: 6mm 8mm;
+  }
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body {
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+    color: #111827;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 11px;
+    line-height: 1.25;
+  }
+  .blue-box {
+    border: 2px solid #1e73be;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .border-b-blue { border-bottom: 1.5px solid #1e73be; }
+  .border-r-blue { border-right: 1.5px solid #1e73be; }
+  .border-b-thin { border-bottom: 1px solid #1e73be; }
+  .border-r-thin { border-right: 1px solid #1e73be; }
+  table.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 10.5px;
+  }
+  table.items-table th, table.items-table td {
+    padding: 3px 5px;
+    border-right: 1px solid #1e73be;
+  }
+  table.items-table th:last-child, table.items-table td:last-child {
+    border-right: none;
+  }
+  table.items-table th {
+    background: #ffffff;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 9.5px;
+    border-bottom: 1.5px solid #1e73be;
+  }
+  .brand-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 8px;
+    font-weight: 800;
+    margin: 1px;
+    line-height: 1;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 1. TOP HEADER -->
+  <div style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:6px;">
+    <!-- Left: Logo & Shop Details -->
+    <div style="display:flex; align-items:flex-start; gap:10px; max-width:58%;">
+      <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+        <div style="width:42px; height:46px; border-radius:6px; background:#0ea5e9; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(-8deg);">
+          <svg style="width:24px; height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <line x1="12" y1="18" x2="12.01" y2="18"/>
+          </svg>
+        </div>
+        <span style="font-size:7px; font-weight:900; text-transform:uppercase; margin-top:2px;">PHONE SHOP</span>
+        <span style="font-size:6px; color:#64748b; text-transform:uppercase;">SLOGAN HERE</span>
+      </div>
+      <div>
+        <h1 style="font-size:20px; font-weight:900; color:#1e73be; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>
+        <p style="font-size:10.5px; color:#334155; margin:0 0 2px 0; line-height:1.2;">${shopAddress}</p>
+        <p style="font-size:10.5px; font-weight:700; color:#1e293b; margin:0;">${shopPhone}</p>
+      </div>
+    </div>
+
+    <!-- Right: Brand Badges -->
+    <div style="text-align:right; max-width:42%;">
+      <div style="margin-bottom:2px;">
+        <span class="brand-badge" style="background:#000; color:#fff;">SAMSUNG</span>
+        <span class="brand-badge" style="background:#ff6700; color:#fff;">mi</span>
+        <span class="brand-badge" style="background:#eb0029; color:#fff;">1+</span>
+        <span class="brand-badge" style="background:#fff; border:1px solid #ccc; color:#000;">Google</span>
+        <span class="brand-badge" style="background:#008954; color:#fff;">oppo</span>
+      </div>
+      <div>
+        <span class="brand-badge" style="background:#fff; border:1px solid #ef4444; color:#d40000;">HUAWEI</span>
+        <span class="brand-badge" style="background:#0052d9; color:#fff;">vivo</span>
+        <span class="brand-badge" style="background:#124191; color:#fff;">NOKIA</span>
+        <span class="brand-badge" style="background:#000; color:#fff;">ASUS</span>
+        <span class="brand-badge" style="background:#000; color:#fff;">SONY</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Slogan Banner -->
+  <div style="border-top:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; padding:3px 0; text-align:center; margin-bottom:8px;">
+    <span style="font-size:10px; font-weight:600; color:#334155;">
+      Get All Your Desired Smart Phones From Apple To Vivo On Huge Discounts And Easy EMI
+    </span>
+  </div>
+
+  <!-- 2. MAIN BLUE BORDERED CONTAINER -->
+  <div class="blue-box">
+    <!-- Blue Box Header: GSTIN, TAX INVOICE, ORIGINAL FOR RECIPIENT -->
+    <div class="border-b-blue" style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px;">
+      <div style="font-size:11px; font-weight:700; width:33%;">
+        ${gstEnabled ? `GSTIN : ${shopTaxNo}` : `REG : ${shopTaxNo || 'RETAIL'}`}
+      </div>
+      <div style="font-size:16px; font-weight:900; color:#1e73be; text-align:center; width:34%; text-transform:uppercase; letter-spacing:0.5px;">
+        ${gstEnabled ? 'TAX INVOICE' : 'RETAIL INVOICE'}
+      </div>
+      <div style="font-size:10px; font-weight:700; text-align:right; width:33%; text-transform:uppercase;">
+        ORIGINAL FOR RECIPIENT
+      </div>
+    </div>
+
+    <!-- Customer Details (Left) vs Invoice Details (Right) -->
+    <div class="border-b-blue" style="display:flex;">
+      <!-- Customer Info -->
+      <div class="border-r-blue" style="width:58%; padding:6px 10px;">
+        <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10.5px; padding-bottom:3px; margin-bottom:4px;">
+          Customer Detail
+        </div>
+        <table style="width:100%; font-size:10.5px; border-collapse:collapse;">
+          <tr><td style="width:85px; font-weight:700;">Name</td><td>: <b>${sale.customer_name || 'Customer'}</b></td></tr>
+          <tr><td style="font-weight:700;">Address</td><td>: ${sale.customer_address || 'Surat'}</td></tr>
+          <tr><td style="font-weight:700;">PHONE</td><td>: ${sale.customer_phone || '-'}</td></tr>
+          ${sale.customer_email ? `<tr><td style="font-weight:700;">Mail ID</td><td>: ${sale.customer_email}</td></tr>` : ''}
+          ${sale.customer_gstin ? `<tr><td style="font-weight:700;">GSTIN</td><td>: ${sale.customer_gstin}</td></tr>` : ''}
+          <tr><td style="font-weight:700;">Place of Supply</td><td>: ${sale.place_of_supply || 'Gujarat ( 24 )'}</td></tr>
+        </table>
+      </div>
+
+      <!-- Invoice Info -->
+      <div style="width:42%; padding:6px 10px;">
+        <table style="width:100%; font-size:10.5px; border-collapse:collapse; margin-top:15px;">
+          <tr><td style="width:90px; font-weight:700;">Invoice No.</td><td>: <b>${invoiceNumber}</b></td></tr>
+          <tr><td style="font-weight:700;">Invoice Date</td><td>: ${invoiceDate}</td></tr>
+          <tr><td style="font-weight:700;">Payment Mode</td><td>: <b>${sale.payment_mode || 'CASH'}</b></td></tr>
+          <tr><td style="font-weight:700;">Payment Status</td><td>: <span style="color:#059669; font-weight:700;">PAID</span></td></tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- 3. PRODUCTS & SERVICES TABLE -->
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width:6%; text-align:center;">Sr.<br>No.</th>
+          <th style="width:34%; text-align:left;">Name of Product / Service</th>
+          <th style="width:10%; text-align:center;">HSN/SAC</th>
+          <th style="width:8%; text-align:center;">Qty</th>
+          <th style="width:12%; text-align:right;">Rate</th>
+          <th style="width:14%; text-align:right;">Taxable Value</th>
+          ${gstEnabled ? `<th style="width:16%; text-align:center; padding:0;">
+            <div style="border-bottom:1px solid #1e73be; padding:1px 0;">${isIgst ? 'IGST' : 'CGST / SGST'}</div>
+            <div style="display:flex; font-size:9px;">
+              <span style="width:40%; border-right:1px solid #1e73be;">%</span>
+              <span style="width:60%;">Amount</span>
+            </div>
+          </th>` : ''}
+          <th style="width:${gstEnabled ? '16%' : '30%'}; text-align:right;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${items.map((it, idx) => `
+          <tr style="border-bottom:1px solid #e2e8f0; vertical-align:top;">
+            <td style="text-align:center;">${it.sr_no || idx + 1}</td>
+            <td>
+              <div style="font-weight:700; font-size:10.5px; color:#0f172a;">${it.name || it.item_name || 'Product'}</div>
+              ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#475569; font-family:monospace; margin-top:1px;">${it.imei.startsWith('IMEI') ? it.imei : `IMEI: ${it.imei}`}</div>` : ''}
+              ${it.warranty ? `<div style="font-size:9px; color:#0284c7; margin-top:1px;">Warranty: ${it.warranty}</div>` : ''}
+            </td>
+            <td style="text-align:center; font-family:monospace;">${it.hsn || '8517'}</td>
+            <td style="text-align:center; font-weight:700;">${it.quantity} ${it.unit || 'NOS'}</td>
+            <td style="text-align:right; font-family:monospace;">${formatInr(it.rate)}</td>
+            <td style="text-align:right; font-family:monospace;">${formatInr(it.taxable_value)}</td>
+            ${gstEnabled ? `
+              <td style="padding:0; font-family:monospace;">
+                <div style="display:flex; height:100%;">
+                  <span style="width:40%; text-align:center; border-right:1px solid #1e73be; padding:3px 1px;">${(parseFloat(it.gst_rate) || 18).toFixed(1)}</span>
+                  <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(it.gst_amount)}</span>
+                </div>
+              </td>
+            ` : ''}
+            <td style="text-align:right; font-weight:700; font-family:monospace;">${formatInr(it.total)}</td>
+          </tr>
+        `).join('')}
+
+        <!-- Filler Height Row to give authentic invoice look -->
+        <tr style="height:${items.length === 1 ? '160px' : items.length === 2 ? '110px' : '60px'};">
+          <td></td><td></td><td></td><td></td><td></td><td></td>
+          ${gstEnabled ? `<td><div style="display:flex; height:100%;"><span style="width:40%; border-right:1px solid #1e73be;"></span><span style="width:60%;"></span></div></td>` : ''}
+          <td></td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr style="border-top:1.5px solid #1e73be; border-bottom:1.5px solid #1e73be; font-weight:700; font-size:10.5px;">
+          <td colspan="3" style="text-align:right; text-transform:uppercase;">TOTAL</td>
+          <td style="text-align:center;">${totalQty}</td>
+          <td></td>
+          <td style="text-align:right; font-family:monospace;">${formatInr(taxableAmount)}</td>
+          ${gstEnabled ? `
+            <td style="padding:0; font-family:monospace;">
+              <div style="display:flex;">
+                <span style="width:40%; border-right:1px solid #1e73be;"></span>
+                <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(totalTax)}</span>
+              </div>
+            </td>
+          ` : ''}
+          <td style="text-align:right; font-weight:900; font-family:monospace;">${formatInr(grandTotal)}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- 4. BOTTOM SECTION: Words, Bank Details, Terms vs Totals & Signature -->
+    <div style="display:flex;">
+      <!-- Left Column -->
+      <div class="border-r-blue" style="width:58%; display:flex; flex-direction:column; justify-content:space-between;">
+        <!-- Total in words -->
+        <div class="border-b-thin">
+          <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10px; padding:2px;">
+            Total in words
+          </div>
+          <div style="padding:5px 8px; font-weight:700; font-size:10px; text-transform:uppercase;">
+            ${totalInWords}
+          </div>
+        </div>
+
+        <!-- Bank Details & QR Code -->
+        <div class="border-b-thin" style="padding:0;">
+          <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10px; padding:2px;">
+            Bank Details
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px;">
+            <table style="font-size:9.5px; border-collapse:collapse;">
+              <tr><td style="width:75px; font-weight:700;">Name</td><td>: ${bankName}</td></tr>
+              <tr><td style="font-weight:700;">Branch</td><td>: ${branch}</td></tr>
+              <tr><td style="font-weight:700;">Acc. Number</td><td>: <b>${accNo}</b></td></tr>
+              <tr><td style="font-weight:700;">IFSC</td><td>: <b>${ifsc}</b></td></tr>
+              <tr><td style="font-weight:700;">UPI ID</td><td>: <b>${upiId}</b></td></tr>
+            </table>
+            ${qrDataUrl ? `
+              <div style="text-align:center;">
+                <img src="${qrDataUrl}" style="width:65px; height:65px; border:1px solid #cbd5e1; padding:2px; border-radius:4px;" />
+                <div style="font-size:8px; font-weight:700; margin-top:2px;">Pay using UPI</div>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Terms and Conditions -->
+        <div style="padding:5px 8px; font-size:9px; color:#334155; line-height:1.3;">
+          <div style="font-weight:700; text-decoration:underline; margin-bottom:2px;">Terms and Conditions:</div>
+          <div>1. Subject to Surat/Maharashtra Jurisdiction.</div>
+          <div>2. Our Responsibility Ceases as soon as goods leave our Premises.</div>
+          <div>3. Goods once sold will not be taken back.</div>
+          <div>4. Warranty as per manufacturer or shop warranty policy. Physical/liquid damage voids warranty.</div>
+          ${sale?.notes ? `<div style="font-weight:700; color:#0f172a; margin-top:2px;">Note: ${sale.notes}</div>` : ''}
+        </div>
+      </div>
+
+      <!-- Right Column: Financial Breakdown & Signatory -->
+      <div style="width:42%; display:flex; flex-direction:column; justify-content:space-between;">
+        <div style="font-size:10.5px;">
+          <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px;">
+            <span style="font-weight:700;">Taxable Amount</span>
+            <span style="font-family:monospace;">${formatInr(taxableAmount)}</span>
+          </div>
+
+          ${sale.discount_amount > 0 ? `
+            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px; color:#059669; background:#f0fdf4;">
+              <span style="font-weight:700;">Less : Discount</span>
+              <span style="font-family:monospace;">-${formatInr(sale.discount_amount)}</span>
+            </div>
+          ` : ''}
+
+          ${gstEnabled ? (isIgst ? `
+            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px;">
+              <span style="font-weight:700;">Add : IGST (${sale.gst_rate}%)</span>
+              <span style="font-family:monospace;">${formatInr(totalTax)}</span>
+            </div>
+          ` : `
+            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:3px 10px;">
+              <span style="font-weight:700;">Add : CGST (${(sale.cgst_rate || 9).toFixed(1)}%)</span>
+              <span style="font-family:monospace;">${formatInr(sale.cgst_amount || totalTax / 2)}</span>
+            </div>
+            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:3px 10px;">
+              <span style="font-weight:700;">Add : SGST (${(sale.sgst_rate || 9).toFixed(1)}%)</span>
+              <span style="font-family:monospace;">${formatInr(sale.sgst_amount || totalTax / 2)}</span>
+            </div>
+          `) : ''}
+
+          ${gstEnabled ? `
+            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px; font-weight:700;">
+              <span>Total Tax</span>
+              <span style="font-family:monospace;">${formatInr(totalTax)}</span>
+            </div>
+          ` : ''}
+
+          <div style="display:flex; justify-content:space-between; padding:6px 10px; background:#f8fafc; font-size:12px; font-weight:900; border-bottom:1.5px solid #1e73be;">
+            <span>Total Amount After Tax</span>
+            <span style="color:#1e73be; font-family:monospace;">₹${formatInr(grandTotal)}</span>
+          </div>
+        </div>
+
+        <!-- Signature Box -->
+        <div style="padding:10px 10px 6px; text-align:right;">
+          <div style="font-size:10px; font-weight:700; color:#334155; margin-bottom:20px;">
+            For ${shopName}
+          </div>
+          <div style="border-top:1px solid #1e73be; padding-top:2px; display:inline-block; min-width:140px; text-align:center;">
+            <div style="font-size:10.5px; font-weight:700;">Authorised Signatory</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>`;
+
+  const tempId = `sale_inv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const tmpDir = os.tmpdir();
+  const htmlPath = path.join(tmpDir, `${tempId}.html`);
+  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
+
+  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+
+  try {
+    execSync(`"${browserBinary}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
+      timeout: 25000,
+    });
+
+    if (!fs.existsSync(pdfPath)) {
+      throw new Error('Chromium headless failed to produce PDF output file');
+    }
+
+    return fs.readFileSync(pdfPath);
+  } finally {
+    try { fs.unlinkSync(htmlPath); } catch (e) {}
+    try { fs.unlinkSync(pdfPath); } catch (e) {}
+  }
+}
+

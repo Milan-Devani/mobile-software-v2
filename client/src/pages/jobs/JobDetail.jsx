@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
-  DollarSign,
+  IndianRupee,
   Printer,
   Share2,
   ExternalLink,
@@ -39,10 +39,13 @@ import { invoiceService } from '../../services/invoiceService';
 import { settingsService } from '../../services/settingsService';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
+import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
 import { NextActionBanner } from '../../components/jobs/NextActionBanner';
 import { JobTimeline } from '../../components/jobs/JobTimeline';
 import { QualityChecklist } from '../../components/jobs/QualityChecklist';
@@ -169,6 +172,10 @@ export const JobDetail = () => {
   const isFreeWarranty = Boolean(
     job?.is_warranty_claim &&
     (job?.warranty_same_issue || job?.warranty_free_rework || Number(job?.balance_due) === 0 || Number(job?.total_amount) === 0)
+  );
+
+  const isEstimateRejected = Boolean(
+    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED'
   );
 
   // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
@@ -464,19 +471,40 @@ export const JobDetail = () => {
     }
   };
 
+  const handleOpenReopenModal = () => {
+    if (job?.approval_status === 'REJECTED') {
+      setReopenForm({
+        reason: 'Customer requested revised estimate / re-quoting',
+        target_status: 'ESTIMATE_SENT',
+        notes: '',
+        claim_type: 'NEW_ISSUE',
+      });
+    } else {
+      setReopenForm({
+        reason: '',
+        target_status: 'DIAGNOSING',
+        notes: '',
+        claim_type: 'SAME_ISSUE',
+      });
+    }
+    setIsReopenModalOpen(true);
+  };
+
   const handleReopenJob = async (e) => {
     e.preventDefault();
     if (!reopenForm.reason.trim()) {
-      toast.error('Please specify the customer complaint / warranty issue.');
+      toast.error('Please specify the reason for reopening.');
       return;
     }
     try {
       setIsSaving(true);
+      const isRejectedFlow = job?.approval_status === 'REJECTED';
+      const targetStatus = reopenForm.target_status || (isRejectedFlow ? 'ESTIMATE_SENT' : 'DIAGNOSING');
       const res = await jobService.reopenJob(job.id, {
         reason: reopenForm.reason.trim(),
-        target_status: reopenForm.target_status || 'DIAGNOSING',
+        target_status: targetStatus,
         notes: reopenForm.notes.trim(),
-        claim_type: reopenForm.claim_type || 'SAME_ISSUE',
+        claim_type: isRejectedFlow ? 'NEW_ISSUE' : (reopenForm.claim_type || 'SAME_ISSUE'),
       });
       setJob(res.job);
       toast.success(res.message || 'Job successfully reopened!');
@@ -487,9 +515,11 @@ export const JobDetail = () => {
         notes: '',
         claim_type: 'SAME_ISSUE',
       });
-      if (reopenForm.target_status === 'DIAGNOSING') {
+      if (isRejectedFlow || targetStatus === 'ESTIMATE_SENT') {
+        setActiveTab('estimate');
+      } else if (targetStatus === 'DIAGNOSING') {
         setActiveTab('diagnosis');
-      } else if (reopenForm.target_status === 'TESTING') {
+      } else if (targetStatus === 'TESTING') {
         setActiveTab('testing');
       }
     } catch (err) {
@@ -602,7 +632,11 @@ export const JobDetail = () => {
       setIsSaving(true);
       const updated = await jobService.recordPickup(job.id, pickupForm);
       setJob((prev) => ({ ...prev, ...updated }));
-      toast.success('Device delivered & final invoice sent to customer!');
+      toast.success(
+        isEstimateRejected
+          ? 'Device returned to customer in original condition!'
+          : 'Device delivered & final invoice sent to customer!'
+      );
       setIsPickupModalOpen(false);
     } catch (err) {
       toast.error(err.message);
@@ -735,7 +769,7 @@ export const JobDetail = () => {
   };
 
   if (loading || !job) {
-    return <LoadingSpinner label="Loading repair job sheet..." />;
+    return <DetailSkeleton />;
   }
 
   const cond = job.device_condition || {};
@@ -748,30 +782,32 @@ export const JobDetail = () => {
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/jobs')}
-            className="p-2 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg transition-colors border border-slate-200"
+            className="p-2 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] rounded-xl transition-all border border-[var(--spatial-border)] active:scale-95"
+            title="Back to repair jobs"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight font-mono">
+              <h2 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight">
                 {job.job_number}
               </h2>
               <Badge status={job.status} />
               {job.is_warranty_claim && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" />
                   Warranty Claim #{job.reopen_count || 1}
                 </span>
               )}
-              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${job.priority === 'URGENT' ? 'bg-rose-100 text-rose-800' :
-                  job.priority === 'HIGH' ? 'bg-amber-100 text-amber-800' :
-                    'bg-slate-100 text-slate-700'
-                }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${
+                job.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
+                job.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
+                'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
+              }`}>
                 {job.priority} Priority
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
               Intake Date: {new Date(job.created_at).toLocaleString()} • Technician: {job.technician?.full_name || 'Unassigned'}
             </p>
           </div>
@@ -784,7 +820,7 @@ export const JobDetail = () => {
               variant="outline"
               size="sm"
               icon={SlidersHorizontal}
-              className="bg-primary-50 dark:bg-primary-950/60 border-2 border-primary-500 text-primary-700 dark:text-primary-300 hover:bg-primary-600 hover:text-white dark:hover:bg-primary-600 dark:hover:text-white font-bold transition-all shadow-2xs"
+              className="bg-blue-500/10 border-[#0071e3]/30 text-[#0071e3] dark:text-[#0a84ff] hover:bg-blue-500/20 font-semibold transition-all active:scale-95"
               onClick={() => {
                 setSelectedStatus(job.status);
                 setStatusNotes('');
@@ -800,11 +836,11 @@ export const JobDetail = () => {
             <Button
               variant="outline"
               size="sm"
-              className="border-amber-500/50 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/40 font-semibold"
+              className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-semibold"
               icon={RotateCcw}
-              onClick={() => setIsReopenModalOpen(true)}
+              onClick={handleOpenReopenModal}
             >
-              Reopen Job {job.status === 'DELIVERED' ? '(Warranty)' : ''}
+              Reopen Job {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' ? '(Warranty)' : ''}
             </Button>
           )}
 
@@ -841,7 +877,7 @@ export const JobDetail = () => {
             icon={Send}
             onClick={handleResendInvoice}
             loading={isSendingInvoice}
-            className="text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-700 hover:bg-sky-50 dark:hover:bg-sky-950/30 font-medium"
+            className="text-[#0071e3] dark:text-[#0a84ff] border-blue-500/30 hover:bg-blue-500/10 font-medium"
             title="Dispatch Tax Invoice & Receipt to Customer via WhatsApp & Email"
           >
             Send Invoice
@@ -862,7 +898,7 @@ export const JobDetail = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="text-rose-600 hover:bg-rose-50 hover:text-rose-700"
+              className="text-rose-500 hover:bg-rose-500/10 hover:text-rose-600"
               icon={Ban}
               onClick={handleCancelJob}
             >
@@ -873,7 +909,7 @@ export const JobDetail = () => {
           <Button
             variant="outline"
             size="sm"
-            className="bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-700 text-rose-700 dark:text-rose-300 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white font-bold transition-all shadow-2xs"
+            className="bg-rose-500/10 border-rose-500/30 text-rose-500 dark:text-rose-400 hover:bg-rose-500/20 font-semibold transition-all active:scale-95"
             icon={Trash2}
             onClick={handleDeleteJob}
             title="Permanently Delete Job Sheet"
@@ -885,22 +921,22 @@ export const JobDetail = () => {
 
       {/* Warranty Claim Banner if active */}
       {job.is_warranty_claim && (
-        <div className={`p-3.5 border rounded-xl flex items-center justify-between flex-wrap gap-3 text-xs ${isFreeWarranty
-            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200'
-            : 'bg-amber-500/10 border-amber-500/25 text-amber-950 dark:text-amber-200'
+        <div className={`p-4 rounded-2xl border flex items-center justify-between flex-wrap gap-3 text-xs ${isFreeWarranty
+            ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-950 dark:text-emerald-200'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-950 dark:text-amber-200'
           }`}>
           <div className="flex items-center gap-2.5">
             <ShieldCheck className={`w-5 h-5 flex-shrink-0 ${isFreeWarranty ? 'text-emerald-500' : 'text-amber-500'
               }`} />
             <div>
-              <p className="font-bold flex items-center gap-2 flex-wrap">
+              <p className="font-semibold flex items-center gap-2 flex-wrap">
                 <span>Active Warranty Claim #{job.reopen_count || 1}</span>
                 {isFreeWarranty ? (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
                     ✓ Same Issue • 100% Free Rework (₹0 Balance Due)
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                     New Issue • Chargeable Parts
                   </span>
                 )}
@@ -922,7 +958,7 @@ export const JobDetail = () => {
               </Button>
             )}
             {job.reopened_at && (
-              <span className="text-[11px] font-mono opacity-80 whitespace-nowrap">
+              <span className="text-[11px] tabular-nums opacity-80 whitespace-nowrap">
                 Reopened: {new Date(job.reopened_at).toLocaleDateString()}
               </span>
             )}
@@ -942,7 +978,7 @@ export const JobDetail = () => {
         onMarkReadyForPickup={handleMarkReadyForPickup}
         onOpenPickupModal={() => setIsPickupModalOpen(true)}
         onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
-        onReopenJob={() => setIsReopenModalOpen(true)}
+        onReopenJob={handleOpenReopenModal}
         onChangeStatus={() => {
           setSelectedStatus(job.status);
           setStatusNotes('');
@@ -952,7 +988,7 @@ export const JobDetail = () => {
       />
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 overflow-x-auto no-scrollbar">
+      <div className="flex items-center gap-1.5 p-1 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl overflow-x-auto no-scrollbar">
         {[
           { key: 'overview', label: 'Overview & Intake' },
           { key: 'diagnosis', label: 'Diagnosis & Solution' },
@@ -967,10 +1003,11 @@ export const JobDetail = () => {
               tabManuallySelectedRef.current = true;
               setActiveTab(tab.key);
             }}
-            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-all ${activeTab === tab.key
-                ? 'border-primary-600 text-primary-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-              }`}
+            className={`px-3.5 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
+              activeTab === tab.key
+                ? 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] shadow-xs font-semibold border border-[var(--spatial-border)]'
+                : 'border border-transparent text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)]/50'
+            }`}
           >
             {tab.label}
           </button>
@@ -1418,11 +1455,14 @@ export const JobDetail = () => {
             </div>
             <div className="p-4 bg-white rounded-xl border border-slate-200">
               <p className="text-[11px] font-bold text-slate-500 uppercase">Remaining Balance</p>
-              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                {isFreeWarranty ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
+              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                {isFreeWarranty || isEstimateRejected ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
               </p>
               {isFreeWarranty && (
                 <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">No balance due</span>
+              )}
+              {isEstimateRejected && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Estimate declined — {currSym}0.00 due</span>
               )}
             </div>
           </div>
@@ -1432,7 +1472,7 @@ export const JobDetail = () => {
             subtitle="Record transactions via Cash, Card, UPI, or Bank Transfer"
             action={
               <div className="flex items-center gap-2">
-                {!isFreeWarranty && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1444,17 +1484,19 @@ export const JobDetail = () => {
                     {Number(job.discount || 0) > 0 ? 'Edit Discount' : 'Add Discount'}
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  icon={Send}
-                  onClick={handleResendInvoice}
-                  loading={isSendingInvoice}
-                  title="Send Tax Invoice & Receipt to Customer via WhatsApp and Email"
-                >
-                  Send Invoice
-                </Button>
-                {!isFreeWarranty && job.balance_due > 0 && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isEstimateRejected && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={Send}
+                    onClick={handleResendInvoice}
+                    loading={isSendingInvoice}
+                    title="Send Tax Invoice & Receipt to Customer via WhatsApp and Email"
+                  >
+                    Send Invoice
+                  </Button>
+                )}
+                {!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button size="sm" icon={CreditCard} onClick={() => setIsPaymentModalOpen(true)}>
                     Record Payment
                   </Button>
@@ -1466,7 +1508,7 @@ export const JobDetail = () => {
             {job.payments && job.payments.length > 0 ? (
               <div className="overflow-x-auto table-scrollbar w-full pb-1">
                 <table className="w-full text-left text-xs min-w-[650px]">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                     <tr>
                       <th className="px-5 py-3 whitespace-nowrap">Receipt / Ref</th>
                       <th className="px-5 py-3 whitespace-nowrap">Payment Method</th>
@@ -1475,18 +1517,18 @@ export const JobDetail = () => {
                       <th className="px-5 py-3 whitespace-nowrap">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[var(--spatial-border)]">
                     {job.payments.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/80">
-                        <td className="px-5 py-3.5 font-mono font-bold text-slate-700">{p.payment_number}</td>
-                        <td className="px-5 py-3.5 font-semibold text-slate-900">{p.payment_method}</td>
-                        <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-600">
+                      <tr key={p.id} className="hover:bg-[var(--spatial-table-row-hover)] transition-colors">
+                        <td className="px-5 py-3.5 font-mono font-bold text-[var(--spatial-text-title)]">{p.payment_number}</td>
+                        <td className="px-5 py-3.5 font-semibold text-[var(--spatial-text-title)]">{p.payment_method}</td>
+                        <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-500">
                           {currSym}{Number(p.amount).toFixed(2)}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 font-mono">
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-mono">
                           {new Date(p.paid_at).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-600">{p.notes || '—'}</td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-body)]">{p.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1770,54 +1812,43 @@ export const JobDetail = () => {
               </div>
 
               {availableParts.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    const partId = e.target.value;
-                    if (!partId) return;
-                    const selected = availableParts.find((p) => p.id === partId);
-                    if (selected) {
-                      setEstimateForm((prev) => {
-                        const items = [...(prev.items || [])];
-                        const lastIdx = items.length - 1;
-                        if (lastIdx >= 0 && !items[lastIdx].item_name && (!items[lastIdx].unit_price || items[lastIdx].unit_price === '')) {
-                          items[lastIdx] = {
-                            part_id: selected.id,
-                            item_name: selected.name,
-                            warranty: '90 Days',
-                            quantity: 1,
-                            unit_price: selected.selling_price,
-                            discount: 0,
-                          };
-                          return { ...prev, items };
-                        } else {
-                          return {
-                            ...prev,
-                            items: [
-                              ...items,
-                              {
-                                part_id: selected.id,
-                                item_name: selected.name,
-                                warranty: '90 Days',
-                                quantity: 1,
-                                unit_price: selected.selling_price,
-                                discount: 0,
-                              },
-                            ],
-                          };
-                        }
-                      });
-                    }
-                    e.target.value = '';
+                <SpatialPartsPicker
+                  parts={availableParts}
+                  onSelect={(selected) => {
+                    setEstimateForm((prev) => {
+                      const items = [...(prev.items || [])];
+                      const lastIdx = items.length - 1;
+                      if (lastIdx >= 0 && !items[lastIdx].item_name && (!items[lastIdx].unit_price || items[lastIdx].unit_price === '')) {
+                        items[lastIdx] = {
+                          part_id: selected.id,
+                          item_name: selected.name,
+                          warranty: '90 Days',
+                          quantity: 1,
+                          unit_price: selected.selling_price,
+                          discount: 0,
+                        };
+                        return { ...prev, items };
+                      } else {
+                        return {
+                          ...prev,
+                          items: [
+                            ...items,
+                            {
+                              part_id: selected.id,
+                              item_name: selected.name,
+                              warranty: '90 Days',
+                              quantity: 1,
+                              unit_price: selected.selling_price,
+                              discount: 0,
+                            },
+                          ],
+                        };
+                      }
+                    });
+                    toast.success(`Added "${selected.name}" from inventory!`);
                   }}
-                  className="text-xs px-2.5 py-1 bg-[var(--spatial-input-bg)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)] rounded-lg transition-colors focus:outline-none"
-                >
-                  <option value="">+ From Inventory...</option>
-                  {availableParts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({currSym}{Number(p.selling_price).toFixed(2)})
-                    </option>
-                  ))}
-                </select>
+                  placeholder="+ From Inventory..."
+                />
               )}
             </div>
 
@@ -1862,25 +1893,21 @@ export const JobDetail = () => {
                         <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Warranty Period
                         </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="e.g. 30 Days, 90 Days..."
-                            list={`warranty-presets-${idx}`}
-                            value={item.warranty || ''}
-                            onChange={(e) => handleUpdateEstimateItem(idx, 'warranty', e.target.value)}
-                            className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-medium"
-                          />
-                          <datalist id={`warranty-presets-${idx}`}>
-                            <option value="30 Days" />
-                            <option value="40 Days" />
-                            <option value="60 Days" />
-                            <option value="90 Days" />
-                            <option value="180 Days" />
-                            <option value="1 Year" />
-                            <option value="No Warranty" />
-                          </datalist>
-                        </div>
+                        <SpatialWarrantyInput
+                          value={item.warranty || ''}
+                          onChange={(val) => handleUpdateEstimateItem(idx, 'warranty', val)}
+                          placeholder="e.g. 30 Days, 90 Days..."
+                          heightClass="h-9"
+                          presets={[
+                            'No Warranty',
+                            '30 Days',
+                            '40 Days',
+                            '60 Days',
+                            '90 Days',
+                            '180 Days',
+                            '1 Year',
+                          ]}
+                        />
                       </div>
 
                       {/* Price */}
@@ -2046,12 +2073,12 @@ export const JobDetail = () => {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         title="Record Customer Payment"
-        subtitle={`Remaining Balance: $${Number(job.balance_due || 0).toFixed(2)}`}
+        subtitle={`Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Payment Amount ($) *
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
+              Payment Amount ({currSym}) *
             </label>
             <input
               type="number"
@@ -2061,36 +2088,36 @@ export const JobDetail = () => {
               placeholder={String(job.balance_due)}
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
             />
             <button
               type="button"
               onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
               className="text-[11px] text-primary-600 hover:underline font-medium mt-1 inline-block"
             >
-              Pay Full Remaining Balance (${Number(job.balance_due).toFixed(2)})
+              Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
             </button>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Payment Method *
             </label>
-            <select
+            <SpatialSelect
               value={paymentForm.payment_method}
-              onChange={(e) => setPaymentForm({ ...paymentForm, payment_method: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
-            >
-              <option value="CASH">Cash</option>
-              <option value="CARD">Credit / Debit Card</option>
-              <option value="UPI">UPI / Digital QR</option>
-              <option value="BANK_TRANSFER">Bank Wire / Transfer</option>
-              <option value="OTHER">Other Method</option>
-            </select>
+              onChange={(val) => setPaymentForm({ ...paymentForm, payment_method: val })}
+              options={[
+                { value: 'CASH', label: 'Cash' },
+                { value: 'CARD', label: 'Credit / Debit Card' },
+                { value: 'UPI', label: 'UPI / Digital QR' },
+                { value: 'BANK_TRANSFER', label: 'Bank Wire / Transfer' },
+                { value: 'OTHER', label: 'Other Method' },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Transaction Reference / Receipt ID
             </label>
             <input
@@ -2098,12 +2125,12 @@ export const JobDetail = () => {
               placeholder="e.g. TXN-89410 or Card Slip #481"
               value={paymentForm.transaction_reference}
               onChange={(e) => setPaymentForm({ ...paymentForm, transaction_reference: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Notes
             </label>
             <input
@@ -2111,15 +2138,15 @@ export const JobDetail = () => {
               placeholder="Optional payment notes..."
               value={paymentForm.notes}
               onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsPaymentModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" icon={DollarSign} loading={isSaving}>
+            <Button type="submit" size="sm" icon={IndianRupee} loading={isSaving}>
               Confirm Payment
             </Button>
           </div>
@@ -2130,8 +2157,8 @@ export const JobDetail = () => {
       <Modal
         isOpen={isPickupModalOpen}
         onClose={() => setIsPickupModalOpen(false)}
-        title="Customer Pickup & Delivery Confirmation"
-        subtitle="Customer inspection and device release protocol"
+        title={isEstimateRejected ? "Return Device to Customer (Unrepaired)" : "Customer Pickup & Delivery Confirmation"}
+        subtitle={isEstimateRejected ? "Handover device in original intake condition after estimate decline" : "Customer inspection and device release protocol"}
       >
         <form onSubmit={handleRecordPickup} className="space-y-4">
           <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-2">
@@ -2142,7 +2169,13 @@ export const JobDetail = () => {
                 onChange={(e) => setPickupForm({ ...pickupForm, customer_tested_device: e.target.checked })}
                 className="w-4 h-4 text-emerald-600 rounded"
               />
-              <span>Customer physically tested device in shop: <strong>YES</strong></span>
+              <span>
+                {isEstimateRejected ? (
+                  <>Customer inspected and verified device in shop: <strong>YES</strong></>
+                ) : (
+                  <>Customer physically tested device in shop: <strong>YES</strong></>
+                )}
+              </span>
             </label>
 
             <label className="flex items-center gap-2 cursor-pointer font-medium text-slate-800">
@@ -2152,7 +2185,13 @@ export const JobDetail = () => {
                 onChange={(e) => setPickupForm({ ...pickupForm, customer_acceptance_confirmed: e.target.checked })}
                 className="w-4 h-4 text-emerald-600 rounded"
               />
-              <span>Customer confirms: <em>"Device received and working properly."</em></span>
+              <span>
+                {isEstimateRejected ? (
+                  <>Customer confirms: <em>"Device received back in original intake condition (Unrepaired)."</em></>
+                ) : (
+                  <>Customer confirms: <em>"Device received and working properly."</em></>
+                )}
+              </span>
             </label>
           </div>
 
@@ -2161,7 +2200,7 @@ export const JobDetail = () => {
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Covered under Warranty — Free Rework ({currSym}0.00 Balance Due. No payment required).</span>
             </div>
-          ) : job.balance_due > 0 ? (
+          ) : isEstimateRejected ? null : job.balance_due > 0 ? (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-semibold flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               <span>Warning: Outstanding balance of {currSym}{Number(job.balance_due).toFixed(2)} must be collected before handover.</span>
@@ -2174,7 +2213,7 @@ export const JobDetail = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Handed over with charger and warranty receipt."
+              placeholder={isEstimateRejected ? "e.g. Handed over unrepaired as customer declined estimate." : "e.g. Handed over with charger and warranty receipt."}
               value={pickupForm.delivery_notes}
               onChange={(e) => setPickupForm({ ...pickupForm, delivery_notes: e.target.value })}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
@@ -2184,9 +2223,13 @@ export const JobDetail = () => {
           <div className="p-3 bg-sky-50 border border-sky-200/80 rounded-xl text-xs text-sky-900 flex items-start gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
-              <span className="font-semibold block">Automatic Invoice & Receipt Dispatch</span>
+              <span className="font-semibold block">
+                {isEstimateRejected ? "Handover Return Notification" : "Automatic Invoice & Receipt Dispatch"}
+              </span>
               <p className="text-[11px] text-sky-700 leading-normal">
-                Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery.
+                {isEstimateRejected
+                  ? "Handover confirmation message will be sent to customer's WhatsApp & Email confirming device return in original condition."
+                  : "Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery."}
               </p>
             </div>
           </div>
@@ -2200,9 +2243,13 @@ export const JobDetail = () => {
               size="sm"
               icon={CheckCircle2}
               loading={isSaving}
-              disabled={(!isFreeWarranty && job.balance_due > 0) || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
+              disabled={(!isFreeWarranty && !isEstimateRejected && job.balance_due > 0) || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
             >
-              {isFreeWarranty ? 'Complete Handover & Send Receipt' : 'Complete Delivery & Send Invoice'}
+              {isEstimateRejected
+                ? 'Complete Return & Handover Device'
+                : isFreeWarranty
+                ? 'Complete Handover & Send Receipt'
+                : 'Complete Delivery & Send Invoice'}
             </Button>
           </div>
         </form>
@@ -2318,12 +2365,11 @@ export const JobDetail = () => {
         />
       )}
 
-      {/* REOPEN JOB (WARRANTY CLAIM) MODAL */}
-      {/* REOPEN JOB (WARRANTY CLAIM) MODAL */}
+      {/* REOPEN JOB MODAL */}
       <Modal
         isOpen={isReopenModalOpen}
         onClose={() => setIsReopenModalOpen(false)}
-        title={job.status === 'DELIVERED' ? 'Reopen Job for Warranty Claim' : 'Reopen Repair Job'}
+        title={job.approval_status === 'REJECTED' ? 'Reopen Job Sheet (Revise Estimate)' : (job.status === 'DELIVERED' ? 'Reopen Job for Warranty Claim' : 'Reopen Repair Job')}
         subtitle={`Job #${job.job_number} • ${job.customer?.full_name || 'Customer'} • ${job.device?.brand || ''} ${job.device?.model || ''}`}
         maxWidth="max-w-xl"
         footer={
@@ -2344,7 +2390,9 @@ export const JobDetail = () => {
               className="bg-amber-600 hover:bg-amber-700 text-white font-medium shadow-sm"
               icon={RotateCcw}
             >
-              Reopen Job Sheet
+              {job.approval_status === 'REJECTED'
+                ? 'Reopen & Go to Estimate Tab'
+                : 'Reopen Job Sheet'}
             </Button>
           </div>
         }
@@ -2354,19 +2402,23 @@ export const JobDetail = () => {
             <ShieldCheck className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
             <div className="text-xs text-amber-900 dark:text-amber-200">
               <p className="font-bold">
-                {job.status === 'DELIVERED'
+                {job.approval_status === 'REJECTED'
+                  ? 'Reopening Estimate-Declined Job'
+                  : job.status === 'DELIVERED'
                   ? 'Customer Returning Within Warranty Period'
                   : 'Reactivating Closed/Cancelled Repair Job'}
               </p>
               <p className="mt-0.5 opacity-90">
-                {job.status === 'DELIVERED'
+                {job.approval_status === 'REJECTED'
+                  ? 'Reopening moves the job sheet back to the quotation stage so you can update parts, modify prices or discounts, and send a revised estimate to the customer.'
+                  : job.status === 'DELIVERED'
                   ? 'Reopening moves the device back to the active repair pipeline so technicians can re-inspect the hardware, resolve the issue, and conduct QC tests.'
                   : 'Reopening restores this job sheet so diagnosis and repair can proceed.'}
               </p>
             </div>
           </div>
 
-          {job.status === 'DELIVERED' && (
+          {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' && (
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Warranty Claim Coverage Type <span className="text-rose-500">*</span>
@@ -2425,44 +2477,54 @@ export const JobDetail = () => {
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-              Customer Complaint / Warranty Issue <span className="text-rose-500">*</span>
+              {job.approval_status === 'REJECTED' ? 'Reason for Reopening / Customer Notes' : 'Customer Complaint / Warranty Issue'} <span className="text-rose-500">*</span>
             </label>
             <textarea
               required
               rows={3}
               value={reopenForm.reason}
               onChange={(e) => setReopenForm({ ...reopenForm, reason: e.target.value })}
-              placeholder="Describe the issue reported by customer under warranty (e.g. Screen touch unresponsive on upper right after 5 days of delivery, battery draining quickly, etc.)..."
+              placeholder={job.approval_status === 'REJECTED' ? 'e.g. Customer requested revised quote or agreed to alternative parts...' : 'Describe the issue reported by customer under warranty (e.g. Screen touch unresponsive on upper right after 5 days of delivery, battery draining quickly, etc.)...'}
               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1.5">
                 Target Workbench Stage
               </label>
-              <select
+              <SpatialSelect
                 value={reopenForm.target_status}
-                onChange={(e) => setReopenForm({ ...reopenForm, target_status: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
-              >
-                <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
-                <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
-                <option value="TESTING">Testing (Quality Check Bench)</option>
-                <option value="RECEIVED">Received (Intake Awaiting)</option>
-              </select>
+                onChange={(val) => setReopenForm({ ...reopenForm, target_status: val })}
+                options={
+                  job.approval_status === 'REJECTED'
+                    ? [
+                        { value: 'ESTIMATE_SENT', label: 'Estimate Stage (Revise & Send Quotation)' },
+                        { value: 'DIAGNOSING', label: 'Diagnosing (Inspection Bench)' },
+                        { value: 'IN_PROGRESS', label: 'In Progress (Hardware Workbench)' },
+                      ]
+                    : [
+                        { value: 'DIAGNOSING', label: 'Diagnosing (Inspection Bench)' },
+                        { value: 'IN_PROGRESS', label: 'In Progress (Hardware Workbench)' },
+                        { value: 'TESTING', label: 'Testing (Quality Check Bench)' },
+                        { value: 'RECEIVED', label: 'Received (Intake Awaiting)' },
+                      ]
+                }
+              />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
-                Warranty Claim Tag
-              </label>
-              <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Claim #{(job.reopen_count || 0) + 1}</span>
+            {job.approval_status !== 'REJECTED' && (
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Warranty Claim Tag
+                </label>
+                <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-2">
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Claim #{(job.reopen_count || 0) + 1}</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div>
@@ -2551,8 +2613,8 @@ export const JobDetail = () => {
                     type="button"
                     onClick={() => setSelectedStatus(opt.key)}
                     className={`py-2 px-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group ${isSelected
-                        ? 'border-primary-500 bg-primary-50/90 dark:bg-primary-950/70 ring-2 ring-primary-500/40 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
+                        ? 'border-apple-blue bg-apple-blue/10 ring-2 ring-apple-blue/30 shadow-xs'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <div className="min-w-0 flex-1">
@@ -2664,8 +2726,8 @@ export const JobDetail = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'AMOUNT'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <input
@@ -2677,10 +2739,10 @@ export const JobDetail = () => {
                       className="w-4 h-4 text-emerald-600 accent-emerald-600 focus:ring-emerald-500"
                     />
                     <div>
-                      <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <span className="block text-xs font-bold text-[var(--spatial-text-title)]">
                         Amount ({currSym})
                       </span>
-                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="block text-[11px] text-[var(--spatial-text-muted)]">
                         Fixed rupee discount
                       </span>
                     </div>
@@ -2688,8 +2750,8 @@ export const JobDetail = () => {
 
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'PERCENTAGE'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <input

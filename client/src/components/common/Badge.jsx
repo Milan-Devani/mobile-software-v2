@@ -5,52 +5,52 @@ const STATUS_CONFIGS = {
   RECEIVED: {
     label: 'Received',
     bg: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800/60',
-    dot: 'bg-sky-500 dark:shadow-[0_0_8px_rgba(56,189,248,0.8)]'
+    dot: 'bg-sky-500'
   },
   DIAGNOSING: {
     label: 'Diagnosing',
     bg: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800/60',
-    dot: 'bg-indigo-500 dark:shadow-[0_0_8px_rgba(129,140,248,0.8)]'
+    dot: 'bg-indigo-500'
   },
   ESTIMATE_SENT: {
     label: 'Estimate Sent',
     bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
-    dot: 'bg-amber-500 dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+    dot: 'bg-amber-500'
   },
   AWAITING_APPROVAL: {
     label: 'Awaiting Approval',
     bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
-    dot: 'bg-amber-500 dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+    dot: 'bg-amber-500'
   },
   APPROVED: {
     label: 'Approved',
     bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800/60',
-    dot: 'bg-blue-500 dark:shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+    dot: 'bg-blue-500'
   },
   REJECTED: {
     label: 'Estimate Rejected',
     bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
-    dot: 'bg-rose-500 dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+    dot: 'bg-rose-500'
   },
   IN_PROGRESS: {
     label: 'In Progress',
     bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800/60',
-    dot: 'bg-purple-500 dark:shadow-[0_0_8px_rgba(168,85,247,0.8)]'
+    dot: 'bg-purple-500'
   },
   TESTING: {
     label: 'QC Testing',
     bg: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 dark:border-fuchsia-800/60',
-    dot: 'bg-fuchsia-500 dark:shadow-[0_0_8px_rgba(217,70,239,0.8)]'
+    dot: 'bg-fuchsia-500'
   },
   READY_FOR_PICKUP: {
     label: 'Ready for Pickup',
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    dot: 'bg-emerald-500 dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+    dot: 'bg-emerald-500'
   },
   DELIVERED: {
     label: 'Delivered',
     bg: 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/50 dark:text-teal-300 dark:border-teal-800/60',
-    dot: 'bg-teal-500 dark:shadow-[0_0_8px_rgba(20,184,166,0.8)]'
+    dot: 'bg-teal-500'
   },
   CANCELLED: {
     label: 'Cancelled',
@@ -62,29 +62,29 @@ const STATUS_CONFIGS = {
   PAID: {
     label: 'Fully Paid',
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    dot: 'bg-emerald-500 dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+    dot: 'bg-emerald-500'
   },
   PARTIAL: {
     label: 'Partially Paid',
     bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
-    dot: 'bg-amber-500 dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+    dot: 'bg-amber-500'
   },
   UNPAID: {
     label: 'Unpaid',
     bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
-    dot: 'bg-rose-500 dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+    dot: 'bg-rose-500'
   },
 
   // Test QC Results
   PASS: {
     label: 'PASS',
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    dot: 'bg-emerald-500 dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+    dot: 'bg-emerald-500'
   },
   FAIL: {
     label: 'FAIL',
     bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
-    dot: 'bg-rose-500 dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+    dot: 'bg-rose-500'
   },
   NOT_TESTED: {
     label: 'Not Tested',
@@ -96,34 +96,34 @@ const STATUS_CONFIGS = {
   ACTIVE: {
     label: 'In Stock',
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    dot: 'bg-emerald-500 dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+    dot: 'bg-emerald-500'
   },
   LOW_STOCK: {
     label: 'Low Stock',
     bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
-    dot: 'bg-amber-500 dark:shadow-[0_0_8px_rgba(245,158,11,0.8)]'
+    dot: 'bg-amber-500'
   },
   OUT_OF_STOCK: {
     label: 'Out of Stock',
     bg: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-300 dark:border-rose-800/60',
-    dot: 'bg-rose-500 dark:shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+    dot: 'bg-rose-500'
   },
 
   // Roles
   admin: {
     label: 'Shop Owner / Admin',
     bg: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800/60',
-    dot: 'bg-purple-500 dark:shadow-[0_0_8px_rgba(168,85,247,0.8)]'
+    dot: 'bg-purple-500'
   },
   technician: {
     label: 'Technician',
     bg: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800/60',
-    dot: 'bg-blue-500 dark:shadow-[0_0_8px_rgba(59,130,246,0.8)]'
+    dot: 'bg-blue-500'
   },
   staff: {
     label: 'Front Desk Staff',
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
-    dot: 'bg-emerald-500 dark:shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+    dot: 'bg-emerald-500'
   },
 };
 

@@ -444,7 +444,7 @@ export const saveEstimate = async (req, res, next) => {
         id,
         'ESTIMATE_SENT',
         'Repair Estimate Generated & Sent',
-        `Estimate of $${estimate.total_amount.toFixed(2)} prepared (Labor: $${estimate.labor_charge.toFixed(2)}, Parts: $${estimate.parts_subtotal.toFixed(2)}).`,
+        `Estimate of ₹${estimate.total_amount.toFixed(2)} prepared (Labor: ₹${estimate.labor_charge.toFixed(2)}, Parts: ₹${estimate.parts_subtotal.toFixed(2)}).`,
         req.user.id
       );
     }
@@ -465,7 +465,7 @@ export const saveEstimate = async (req, res, next) => {
       success: true,
       message: isFreeWarranty
         ? 'Free warranty rework estimate confirmed (₹0 balance, pre-approved).'
-        : `Estimate of $${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
+        : `Estimate of ₹${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
       data: { estimate, job: updatedJob },
     });
   } catch (err) {
@@ -558,6 +558,15 @@ export const publicSubmitApproval = async (req, res, next) => {
     const isApproved = decision === 'APPROVE';
     const newStatus = isApproved ? 'APPROVED' : 'REJECTED';
 
+    // Duplicate submission guard - return current status if already decided
+    if (job.approval_status === newStatus) {
+      return res.json({
+        success: true,
+        message: isApproved ? 'Thank you! Your repair authorization was already confirmed.' : 'Repair estimate rejection is already recorded.',
+        data: { job },
+      });
+    }
+
     await db.jobs.update(job.id, {
       approval_status: newStatus,
       approval_decision_at: new Date().toISOString(),
@@ -575,10 +584,22 @@ export const publicSubmitApproval = async (req, res, next) => {
     );
 
     const updatedJob = await db.jobs.findById(job.id);
+    const customer = await db.customers.findById(updatedJob.customer_id);
+
+    // Automatically send WhatsApp & Email notification acknowledging approval / rejection
+    if (customer) {
+      dispatchNotification({
+        job: updatedJob,
+        customer,
+        type: isApproved ? 'ESTIMATE_APPROVED' : 'ESTIMATE_REJECTED',
+        channels: ['EMAIL', 'WHATSAPP', 'SMS'],
+        metadata: { reason, clientUrl: extractClientUrl(req) },
+      }).catch(err => console.error('Estimate decision notification error:', err));
+    }
 
     res.json({
       success: true,
-      message: isApproved ? 'Thank you! Your repair authorization has been received.' : 'Repair estimate rejection recorded.',
+      message: isApproved ? 'Thank you! Your repair authorization has been received.' : 'Repair estimate rejection recorded and notification sent to customer.',
       data: { job: updatedJob },
     });
   } catch (err) {
@@ -762,10 +783,12 @@ export const recordPickup = async (req, res, next) => {
       throw new AppError('Customer device testing and confirmation are required before handover.', 400, 'CUSTOMER_CONFIRMATION_REQUIRED');
     }
 
-    // Check payment balance (waived for free warranty rework)
+    // Check payment balance (waived for free warranty rework AND rejected estimate returns)
+    const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED';
     const isFreeWarranty = job.warranty_same_issue || job.warranty_free_rework || (job.is_warranty_claim && (Number(job.balance_due) === 0 || Number(job.total_amount) === 0));
-    if (!isFreeWarranty && job.balance_due > 0) {
-      throw new AppError(`Outstanding balance of $${job.balance_due.toFixed(2)} must be settled before delivering device.`, 400, 'PAYMENT_PENDING');
+
+    if (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0) {
+      throw new AppError(`Outstanding balance of ₹${job.balance_due.toFixed(2)} must be settled before delivering device.`, 400, 'PAYMENT_PENDING');
     }
 
     await db.jobs.update(id, {
@@ -776,34 +799,41 @@ export const recordPickup = async (req, res, next) => {
       delivered_at: new Date().toISOString(),
       delivered_by_user_id: req.user.id,
       status: 'DELIVERED',
+      ...(isEstimateRejected ? { balance_due: 0 } : {}),
     });
 
     await db.jobs.updateStatus(
       id,
       'DELIVERED',
-      'Device Delivered to Customer',
-      `Customer tested phone and signed confirmation: "Device received and working properly." Handled by staff ${req.user.full_name}.`,
+      isEstimateRejected ? 'Device Handed Over Unrepaired (Estimate Declined)' : 'Device Delivered to Customer',
+      isEstimateRejected
+        ? `Device returned to customer in original intake condition without repair. Handled by staff ${req.user.full_name}.`
+        : `Customer tested phone and signed confirmation: "Device received and working properly." Handled by staff ${req.user.full_name}.`,
       req.user.id
     );
 
-    // Ensure final invoice is generated
-    await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id });
+    if (!isEstimateRejected) {
+      // Ensure final invoice is generated
+      await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id });
+    }
 
     const updatedJob = await db.jobs.findById(id);
     const customer = await db.customers.findById(updatedJob.customer_id);
 
-    // Automatically send final invoice & receipt via Email (Brevo), WhatsApp, and SMS
+    // Automatically send final receipt/handover notification via Email (Brevo), WhatsApp, and SMS
     dispatchNotification({
       job: updatedJob,
       customer,
-      type: 'INVOICE_GENERATED',
+      type: isEstimateRejected ? 'DEVICE_RETURNED_UNREPAIRED' : 'INVOICE_GENERATED',
       channels,
-      metadata: { isWarrantyHandover: isFreeWarranty, clientUrl: extractClientUrl(req) },
+      metadata: { isWarrantyHandover: isFreeWarranty, isRejectedReturn: isEstimateRejected, clientUrl: extractClientUrl(req) },
     }).catch(err => console.error('Invoice delivery notification error:', err));
 
     res.json({
       success: true,
-      message: 'Job completed and device successfully delivered to customer.',
+      message: isEstimateRejected
+        ? 'Device successfully returned to customer in original condition.'
+        : 'Job completed and device successfully delivered to customer.',
       data: { job: updatedJob },
     });
   } catch (err) {
@@ -864,9 +894,10 @@ export const reopenJob = async (req, res, next) => {
       );
     }
 
-    const validTargets = ['DIAGNOSING', 'IN_PROGRESS', 'RECEIVED', 'TESTING'];
+    const validTargets = ['DIAGNOSING', 'ESTIMATE_SENT', 'IN_PROGRESS', 'RECEIVED', 'TESTING'];
     const finalTargetStatus = validTargets.includes(target_status) ? target_status : 'DIAGNOSING';
-    const isWarrantyClaim = job.status === 'DELIVERED';
+    const isEstimateRejected = job.approval_status === 'REJECTED';
+    const isWarrantyClaim = job.status === 'DELIVERED' && !isEstimateRejected;
     const isSameIssue = isWarrantyClaim && (claim_type === 'SAME_ISSUE');
     const reopenCount = (job.reopen_count || 0) + 1;
 
@@ -876,10 +907,10 @@ export const reopenJob = async (req, res, next) => {
       reopened_by_user_id: req.user.id,
       reopen_count: reopenCount,
       is_warranty_claim: isWarrantyClaim,
-      warranty_claim_type: isSameIssue ? 'SAME_ISSUE' : (isWarrantyClaim ? 'NEW_ISSUE' : 'REGULAR'),
+      warranty_claim_type: isSameIssue ? 'SAME_ISSUE' : (isWarrantyClaim ? 'NEW_ISSUE' : null),
       warranty_same_issue: isSameIssue,
       warranty_free_rework: isSameIssue,
-      last_warranty_issue: reason || 'Customer returned under warranty',
+      last_warranty_issue: isWarrantyClaim ? (reason || 'Customer returned under warranty') : null,
       reopen_notes: notes || '',
       customer_tested_device: false,
       customer_acceptance_confirmed: false,
@@ -888,7 +919,22 @@ export const reopenJob = async (req, res, next) => {
       delivered_at: null,
     };
 
-    if (isSameIssue) {
+    if (isEstimateRejected) {
+      // Job was returned or closed without repair because estimate was declined.
+      // Reopening resets approval status to PENDING so owner can revise and resend quote to customer
+      updatePayload.approval_status = 'PENDING';
+      updatePayload.rejection_reason = null;
+      updatePayload.is_warranty_claim = false;
+      updatePayload.warranty_claim_type = null;
+      updatePayload.warranty_same_issue = false;
+      updatePayload.warranty_free_rework = false;
+      updatePayload.last_warranty_issue = null;
+      const estimate = await db.estimates.getByJobId(id);
+      if (estimate && Number(estimate.total_amount) > 0) {
+        updatePayload.total_amount = Number(estimate.total_amount);
+        updatePayload.balance_due = Number(estimate.total_amount) - Number(job.paid_amount || 0);
+      }
+    } else if (isSameIssue) {
       // 1. Same issue: Customer approval is pre-authorized, no approval required
       updatePayload.approval_status = 'APPROVED';
       updatePayload.approval_decision_at = new Date().toISOString();
@@ -906,13 +952,17 @@ export const reopenJob = async (req, res, next) => {
 
     await db.jobs.update(id, updatePayload);
 
-    const statusTitle = isSameIssue
+    const statusTitle = isEstimateRejected
+      ? `Job Reopened for Revised Estimate (${finalTargetStatus})`
+      : isSameIssue
       ? `Job Reopened (Free Warranty Claim #${reopenCount})`
       : isWarrantyClaim
       ? `Job Reopened (Warranty Claim #${reopenCount} - Chargeable)`
       : `Job Reopened (${finalTargetStatus})`;
 
-    const statusNotes = `Reason: ${reason || 'Customer reported issue under warranty period'}. Moved to ${finalTargetStatus}. Staff: ${req.user.full_name || req.user.email}.${isSameIssue ? ' Covered under warranty: ₹0 balance, no approval needed.' : ''}${notes ? ` Staff notes: ${notes}` : ''}`;
+    const statusNotes = isEstimateRejected
+      ? `Job reopened after estimate decline. Target: ${finalTargetStatus}. Notes: ${reason || 'Customer requested revised estimate'}. Staff: ${req.user.full_name || req.user.email}.`
+      : `Reason: ${reason || 'Customer reported issue under warranty period'}. Moved to ${finalTargetStatus}. Staff: ${req.user.full_name || req.user.email}.${isSameIssue ? ' Covered under warranty: ₹0 balance, no approval needed.' : ''}${notes ? ` Staff notes: ${notes}` : ''}`;
 
     await db.jobs.updateStatus(
       id,
@@ -924,21 +974,25 @@ export const reopenJob = async (req, res, next) => {
 
     const updatedJob = await db.jobs.findById(id);
 
-    try {
-      const customer = await db.customers.findById(updatedJob.customer_id);
-      dispatchNotification({
-        job: updatedJob,
-        customer,
-        type: 'JOB_REOPENED',
-        metadata: { clientUrl: extractClientUrl(req) },
-      }).catch((notifyErr) => console.warn('Reopen notification ignored:', notifyErr.message));
-    } catch (notifyErr) {
-      console.warn('Reopen notification error:', notifyErr.message);
+    if (!isEstimateRejected) {
+      try {
+        const customer = await db.customers.findById(updatedJob.customer_id);
+        dispatchNotification({
+          job: updatedJob,
+          customer,
+          type: 'JOB_REOPENED',
+          metadata: { clientUrl: extractClientUrl(req) },
+        }).catch((notifyErr) => console.warn('Reopen notification ignored:', notifyErr.message));
+      } catch (notifyErr) {
+        console.warn('Reopen notification error:', notifyErr.message);
+      }
     }
 
     res.json({
       success: true,
-      message: isSameIssue
+      message: isEstimateRejected
+        ? `Job #${job.job_number} reopened! You can now revise the estimate and send it to the customer.`
+        : isSameIssue
         ? `Job #${job.job_number} reopened under Warranty Claim! Free rework authorized (₹0 balance, pre-approved). Stage set to ${finalTargetStatus}.`
         : isWarrantyClaim
         ? `Job #${job.job_number} reopened under Warranty Claim! Stage set to ${finalTargetStatus}.`
@@ -1051,7 +1105,14 @@ export const updateJobStatus = async (req, res, next) => {
       jobUpdates.delivered_by_user_id = req.user.id;
       jobUpdates.customer_tested_device = true;
       jobUpdates.customer_acceptance_confirmed = true;
-    } else if (['RECEIVED', 'DIAGNOSING', 'APPROVED', 'IN_PROGRESS', 'TESTING'].includes(status)) {
+    } else if (status === 'REJECTED') {
+      jobUpdates.approval_status = 'REJECTED';
+      jobUpdates.rejection_reason = notes?.trim() || job.rejection_reason || 'Declined by customer';
+      jobUpdates.approval_decision_at = new Date().toISOString();
+    } else if (status === 'APPROVED') {
+      jobUpdates.approval_status = 'APPROVED';
+      jobUpdates.approval_decision_at = new Date().toISOString();
+    } else if (['RECEIVED', 'DIAGNOSING', 'IN_PROGRESS', 'TESTING'].includes(status)) {
       if (job.status === 'DELIVERED') {
         jobUpdates.customer_acceptance_confirmed = false;
         jobUpdates.delivered_at = null;
@@ -1076,19 +1137,22 @@ export const updateJobStatus = async (req, res, next) => {
 
     const updatedJob = await db.jobs.findById(id);
 
-    if (send_notification) {
+    if (send_notification || status === 'REJECTED') {
       try {
         const customer = await db.customers.findById(updatedJob.customer_id);
         const notificationType = status === 'DELIVERED'
-          ? 'INVOICE_GENERATED'
+          ? (updatedJob.approval_status === 'REJECTED' ? 'DEVICE_RETURNED_UNREPAIRED' : 'INVOICE_GENERATED')
           : status === 'READY_FOR_PICKUP'
           ? 'READY_FOR_PICKUP'
+          : status === 'REJECTED'
+          ? 'ESTIMATE_REJECTED'
           : 'STATUS_UPDATE';
 
         dispatchNotification({
           job: updatedJob,
           customer,
           type: notificationType,
+          metadata: { clientUrl: extractClientUrl(req) },
         }).catch((notifyErr) => console.warn('Status notification error:', notifyErr.message));
       } catch (err) {
         console.warn('Customer notification failed:', err.message);

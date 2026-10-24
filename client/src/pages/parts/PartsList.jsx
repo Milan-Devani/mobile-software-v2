@@ -18,11 +18,12 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { partsService } from '../../services/partsService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const partSchema = z.object({
@@ -61,6 +62,8 @@ export const PartsList = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(partSchema),
@@ -214,8 +217,8 @@ export const PartsList = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 tracking-tight">Parts & Inventory</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-2xl sm:text-3xl font-bold text-[var(--spatial-text-title)] tracking-tight">Parts & Inventory</h2>
+          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
             Manage replacement stock, wholesale costs, retail pricing, and threshold alerts
           </p>
         </div>
@@ -225,19 +228,19 @@ export const PartsList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
+      <div className="spatial-card p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 flex-1 max-w-lg">
           <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search part name, code, model (500ms debounce)..."
+              placeholder="Search part name, code, model..."
               value={search}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setPage(1);
               }}
-              className="w-full pl-8 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-primary-500"
+              className="w-full pl-8 pr-8 py-1.5 text-xs spatial-input rounded-xl"
             />
             {search && (
               <button
@@ -246,7 +249,7 @@ export const PartsList = () => {
                   setSearch('');
                   setPage(1);
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
                 title="Clear search"
               >
                 <X className="w-3.5 h-3.5" />
@@ -254,27 +257,31 @@ export const PartsList = () => {
             )}
           </div>
 
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <div className="w-44 sm:w-48">
+            <SpatialSelect
+              value={categoryFilter}
+              onChange={(val) => {
+                setCategoryFilter(val);
+                setPage(1);
+                setSelectedIds([]);
+              }}
+              options={[
+                { value: '', label: 'All Categories' },
+                ...categories.map((c) => ({ value: c, label: c })),
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs font-medium text-slate-600 cursor-pointer">
+          <label className="flex items-center gap-2 text-xs font-medium text-[var(--spatial-text-body)] cursor-pointer select-none">
             <input
               type="checkbox"
               checked={lowStockOnly}
               onChange={(e) => setLowStockOnly(e.target.checked)}
-              className="w-4 h-4 text-amber-600 rounded focus:ring-amber-500"
+              className="w-4 h-4 text-amber-500 rounded accent-amber-500 cursor-pointer"
             />
-            <span className="flex items-center gap-1">
+            <span className="flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
               Low Stock Only
             </span>
@@ -297,7 +304,7 @@ export const PartsList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching inventory parts..." />
+          <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
         ) : parts.length === 0 ? (
           <EmptyState
             icon={Package}
@@ -318,7 +325,7 @@ export const PartsList = () => {
                         checked={parts.length > 0 && parts.every((p) => selectedIds.includes(p.id))}
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
-                        className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                        className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
                       />
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Code</th>
@@ -340,7 +347,7 @@ export const PartsList = () => {
                       <tr
                         key={p.id}
                         className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors ${
-                          isSelected ? 'bg-sky-500/10' : ''
+                          isSelected ? 'bg-apple-blue/8' : ''
                         }`}
                       >
                         <td
@@ -352,10 +359,14 @@ export const PartsList = () => {
                             checked={isSelected}
                             onChange={() => toggleSelectRow(p.id)}
                             aria-label={`Select part ${p.name}`}
-                            className="w-4 h-4 rounded text-sky-500 cursor-pointer accent-sky-500"
+                            className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
                           />
                         </td>
-                        <td className="px-5 py-3.5 font-mono font-bold text-sky-400 whitespace-nowrap">{p.part_code}</td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          <span className="font-mono font-semibold text-xs px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
+                            {p.part_code}
+                          </span>
+                        </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-1.5 whitespace-nowrap">
                             <span className="font-semibold text-[var(--spatial-text-title)]">{p.name}</span>
@@ -383,17 +394,17 @@ export const PartsList = () => {
                           <Badge status={p.stock_quantity > 0 ? (isLow ? 'LOW_STOCK' : 'ACTIVE') : 'OUT_OF_STOCK'} size="sm" />
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-1">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => handleOpenAdjust(p)}
-                              className="px-2 py-1 bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] font-medium rounded-lg text-[11px] transition-colors"
+                              className="px-2.5 py-1 bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] font-medium rounded-lg text-[11px] transition-all active:scale-95 cursor-pointer"
                               title="Restock or adjust quantity"
                             >
                               Adjust
                             </button>
                             <button
                               onClick={() => handleDeletePart(p)}
-                              className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all active:scale-90 cursor-pointer"
                               title="Delete part"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -432,62 +443,59 @@ export const PartsList = () => {
       >
         <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Part Name *
             </label>
             <input
               type="text"
               placeholder="e.g. OLED Display Assembly (OEM)"
               {...register('name')}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
             {errors.name && <p className="text-[11px] text-rose-500 mt-1">{errors.name.message}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Category</label>
-              <select
-                {...register('category')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Category</label>
+              <SpatialSelect
+                value={watch('category') || 'Display'}
+                onChange={(val) => setValue('category', val, { shouldValidate: true })}
+                options={categories.map((c) => ({ value: c, label: c }))}
+              />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Brand</label>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Brand</label>
               <input
                 type="text"
                 placeholder="e.g. Apple / Samsung"
                 {...register('brand')}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Purchase Cost ($)
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                Purchase Cost (₹)
               </label>
               <input
                 type="number"
                 step="0.01"
                 {...register('purchase_cost', { valueAsNumber: true })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-                Selling Price ($) *
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                Selling Price (₹) *
               </label>
               <input
                 type="number"
                 step="0.01"
                 {...register('selling_price', { valueAsNumber: true })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono font-bold tabular-nums"
               />
               {errors.selling_price && <p className="text-[11px] text-rose-500 mt-1">{errors.selling_price.message}</p>}
             </div>
@@ -495,38 +503,38 @@ export const PartsList = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Initial Stock Qty
               </label>
               <input
                 type="number"
                 {...register('stock_quantity', { valueAsNumber: true })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Minimum Stock Alert
               </label>
               <input
                 type="number"
                 {...register('minimum_stock', { valueAsNumber: true })}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono focus:outline-none"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Compatible Models</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Compatible Models</label>
             <input
               type="text"
               placeholder="e.g. iPhone 14 Pro, iPhone 14 Pro Max"
               {...register('compatible_models')}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsAddModalOpen(false)}>Cancel</Button>
             <Button type="submit" size="sm" loading={isSubmitting}>Save Part</Button>
           </div>
@@ -542,7 +550,7 @@ export const PartsList = () => {
       >
         <form onSubmit={handleAdjustSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Quantity Change (+ to add, - to deduct) *
             </label>
             <input
@@ -550,25 +558,25 @@ export const PartsList = () => {
               required
               value={adjustQuantity}
               onChange={(e) => setAdjustQuantity(parseInt(e.target.value, 10) || 0)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-base font-bold font-mono focus:outline-none text-center"
+              className="w-full px-3 py-2.5 spatial-input rounded-xl text-base font-bold font-mono text-center tabular-nums"
             />
-            <p className="text-[11px] text-slate-500 mt-1 text-center">
-              New stock will be: <strong className="text-slate-900 font-mono">{(selectedPartForAdjust?.stock_quantity || 0) + adjustQuantity}</strong>
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5 text-center">
+              New stock will be: <strong className="text-[var(--spatial-text-title)] font-mono tabular-nums font-bold">{(selectedPartForAdjust?.stock_quantity || 0) + adjustQuantity}</strong>
             </p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">Reason / Notes</label>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Reason / Notes</label>
             <input
               type="text"
               placeholder="e.g. Supplier delivery invoice #481 or damaged component write-off"
               value={adjustNotes}
               onChange={(e) => setAdjustNotes(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsAdjustModalOpen(false)}>Cancel</Button>
             <Button type="submit" size="sm" loading={isSubmitting}>Update Stock</Button>
           </div>

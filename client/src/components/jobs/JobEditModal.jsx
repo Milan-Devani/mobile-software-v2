@@ -5,6 +5,7 @@ import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { SpatialSelect } from '../common/SpatialSelect';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
 export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
@@ -212,15 +213,15 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Device Info */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
-          <span className="text-xs font-bold text-slate-900 block flex items-center gap-1.5">
-            <Smartphone className="w-4 h-4 text-primary-600" />
+        <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl space-y-3">
+          <span className="text-xs font-bold text-[var(--spatial-text-title)] block flex items-center gap-1.5">
+            <Smartphone className="w-4 h-4 text-apple-blue" />
             Device Specifications
           </span>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-muted)] uppercase mb-1">
                 Brand *
               </label>
               <input
@@ -230,12 +231,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.brand}
                 onChange={handleDeviceChange}
                 placeholder="e.g. Apple, Samsung, OnePlus"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-muted)] uppercase mb-1">
                 Model *
               </label>
               <input
@@ -245,12 +246,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.model}
                 onChange={handleDeviceChange}
                 placeholder="e.g. iPhone 15 Pro, S24 Ultra"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-muted)] uppercase mb-1">
                 Passcode / Pattern / PIN
               </label>
               <input
@@ -259,12 +260,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.passcode}
                 onChange={handleDeviceChange}
                 placeholder="Required for testing"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs font-mono focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
                 Color
               </label>
               <input
@@ -273,12 +274,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.color}
                 onChange={handleDeviceChange}
                 placeholder="e.g. Space Black, Titanium"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
                 Storage
               </label>
               <input
@@ -287,12 +288,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.storage_capacity}
                 onChange={handleDeviceChange}
                 placeholder="e.g. 128GB, 256GB"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
                 IMEI / Serial Number
               </label>
               <input
@@ -301,7 +302,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 value={formData.device_data.imei}
                 onChange={handleDeviceChange}
                 placeholder="15-digit IMEI"
-                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs font-mono focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
           </div>
@@ -309,7 +310,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
 
         {/* Reported Complaint */}
         <div>
-          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1">
+          <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
             Customer Reported Issue / Complaint *
           </label>
           <textarea
@@ -318,20 +319,20 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
             value={formData.customer_complaint}
             onChange={(e) => setFormData({ ...formData, customer_complaint: e.target.value })}
             placeholder="Describe the exact fault or defect reported by the customer..."
-            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs text-slate-800 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
           />
         </div>
 
         {/* Inward Condition Checklist (12-Point Inspection) */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+        <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-900 block">
+            <span className="text-xs font-bold text-[var(--spatial-text-title)] block">
               Inward Condition Checklist (12-Point Inspection)
             </span>
             <button
               type="button"
               onClick={handleMarkAllFunctional}
-              className="text-[11px] font-semibold text-primary-600 hover:text-primary-700 bg-white px-2 py-0.5 rounded border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="text-[11px] font-semibold text-apple-blue bg-[var(--spatial-bg-card)] px-2.5 py-1 rounded-lg border border-[var(--spatial-border)] hover:bg-[var(--spatial-bg-card-hover)] transition-colors cursor-pointer"
             >
               ✓ All Functional / Good
             </button>
@@ -345,19 +346,19 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
               return (
                 <div
                   key={item.key}
-                  className="p-2 rounded-lg border border-slate-200 bg-white flex items-center justify-between gap-1.5 shadow-2xs"
+                  className="p-2.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] flex items-center justify-between gap-1.5 shadow-2xs"
                 >
-                  <span className="text-[11px] font-medium text-slate-800 leading-tight">{item.label}</span>
-                  <div className="flex items-center rounded p-0.5 bg-slate-100 border border-slate-200 shrink-0">
+                  <span className="text-[11px] font-medium text-[var(--spatial-text-title)] leading-tight">{item.label}</span>
+                  <div className="flex items-center rounded-lg p-0.5 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] shrink-0">
                     <button
                       type="button"
                       onClick={() => handleChecklistSet(item.key, 'Yes')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                         isYes
                           ? item.type === 'working'
                             ? 'bg-emerald-600 text-white shadow-2xs'
                             : 'bg-rose-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                          : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                       }`}
                     >
                       Yes
@@ -365,12 +366,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                     <button
                       type="button"
                       onClick={() => handleChecklistSet(item.key, 'No')}
-                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all cursor-pointer ${
                         isNo
                           ? item.type === 'working'
                             ? 'bg-rose-600 text-white shadow-2xs'
                             : 'bg-emerald-600 text-white shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
+                          : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)]'
                       }`}
                     >
                       No
@@ -383,8 +384,8 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
         </div>
 
         {/* Accessories Received */}
-        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-          <span className="text-xs font-bold text-slate-900 block">Accessories Kept in Shop</span>
+        <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl space-y-2">
+          <span className="text-xs font-bold text-[var(--spatial-text-title)] block">Accessories Kept in Shop</span>
           <div className="flex flex-wrap gap-2">
             {ACCESSORY_ITEMS.map((acc) => {
               const active = formData.accessories_received.includes(acc);
@@ -393,10 +394,10 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                   key={acc}
                   type="button"
                   onClick={() => handleAccessoryToggle(acc)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer ${
                     active
-                      ? 'bg-primary-600 text-white border-primary-600 shadow-xs'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      ? 'bg-apple-blue text-white border-apple-blue shadow-xs'
+                      : 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] border-[var(--spatial-border)] hover:bg-[var(--spatial-bg-card-hover)]'
                   }`}
                 >
                   {active ? `✓ ${acc}` : `+ ${acc}`}
@@ -409,77 +410,76 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
         {/* Status, Technician & Priority Assignment */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Job Status (Owner)
             </label>
-            <select
+            <SpatialSelect
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-primary-200 rounded-lg text-xs font-bold text-primary-700 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            >
-              <option value="RECEIVED">Received</option>
-              <option value="DIAGNOSING">Diagnosing</option>
-              <option value="ESTIMATE_SENT">Estimate Sent</option>
-              <option value="APPROVED">Approved</option>
-              <option value="REJECTED">Estimate Rejected</option>
-              <option value="IN_PROGRESS">In Progress</option>
-              <option value="TESTING">Testing</option>
-              <option value="READY_FOR_PICKUP">Ready for Pickup</option>
-              <option value="DELIVERED">Delivered</option>
-              <option value="CANCELLED">Cancelled</option>
-            </select>
+              onChange={(val) => setFormData({ ...formData, status: val })}
+              options={[
+                { value: 'RECEIVED', label: 'Received' },
+                { value: 'DIAGNOSING', label: 'Diagnosing' },
+                { value: 'ESTIMATE_SENT', label: 'Estimate Sent' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REJECTED', label: 'Estimate Rejected' },
+                { value: 'IN_PROGRESS', label: 'In Progress' },
+                { value: 'TESTING', label: 'Testing' },
+                { value: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
+                { value: 'DELIVERED', label: 'Delivered' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Assigned Technician
             </label>
-            <select
-              value={formData.assigned_technician_id}
-              onChange={(e) => setFormData({ ...formData, assigned_technician_id: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            >
-              <option value="">Unassigned / Pool</option>
-              {technicians.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.full_name} ({t.role_id})
-                </option>
-              ))}
-            </select>
+            <SpatialSelect
+              value={formData.assigned_technician_id || ''}
+              onChange={(val) => setFormData({ ...formData, assigned_technician_id: val })}
+              options={[
+                { value: '', label: 'Unassigned / Pool' },
+                ...technicians.map((t) => ({
+                  value: t.id,
+                  label: `${t.full_name} (${t.role_id})`,
+                })),
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Priority
             </label>
-            <select
+            <SpatialSelect
               value={formData.priority}
-              onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none font-bold"
-            >
-              <option value="LOW">Low</option>
-              <option value="NORMAL">Normal</option>
-              <option value="HIGH">High</option>
-              <option value="URGENT">Urgent (Express)</option>
-            </select>
+              onChange={(val) => setFormData({ ...formData, priority: val })}
+              options={[
+                { value: 'LOW', label: 'Low' },
+                { value: 'NORMAL', label: 'Normal' },
+                { value: 'HIGH', label: 'High' },
+                { value: 'URGENT', label: 'Urgent (Express)' },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Estimated Delivery
             </label>
             <input
               type="date"
               value={formData.estimated_delivery_date}
               onChange={(e) => setFormData({ ...formData, estimated_delivery_date: e.target.value })}
-              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
             />
           </div>
         </div>
 
         {/* Internal Remarks */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+          <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
             Internal Technician Notes / Remarks
           </label>
           <textarea
@@ -487,12 +487,12 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
             value={formData.internal_notes}
             onChange={(e) => setFormData({ ...formData, internal_notes: e.target.value })}
             placeholder="Special bench instructions, customer instructions, etc."
-            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+            className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
           />
         </div>
 
         {/* Buttons */}
-        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--spatial-border)]">
           <Button type="button" variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>

@@ -242,7 +242,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
   // Date Formatting helper matching the exact (29-03-2024 11:31) format in PDF
   const formatSignatureDate = (dateVal) => {
-    const d = dateVal ? new Date(dateVal) : new Date();
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
     const day = String(d.getDate()).padStart(2, '0');
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
@@ -253,7 +255,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
   // Format "29 Mar 2024 11:28:28"
   const formatInwardDate = (dateVal) => {
-    const d = dateVal ? new Date(dateVal) : new Date();
+    if (!dateVal) return '';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '';
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const day = d.getDate();
     const month = months[d.getMonth()];

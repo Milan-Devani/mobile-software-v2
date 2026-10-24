@@ -2,6 +2,26 @@ import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
 
+// In-memory short-window idempotency cache (4 seconds guard)
+const recentPaymentsCache = new Map();
+
+function isDuplicatePayment(jobId, amount, userId) {
+  const key = `${userId || 'anon'}_${jobId}_${amount}`;
+  const now = Date.now();
+  const lastTime = recentPaymentsCache.get(key);
+  if (lastTime && (now - lastTime) < 4000) {
+    return true;
+  }
+  recentPaymentsCache.set(key, now);
+  // Periodically prune stale entries
+  if (recentPaymentsCache.size > 200) {
+    for (const [k, time] of recentPaymentsCache.entries()) {
+      if (now - time > 10000) recentPaymentsCache.delete(k);
+    }
+  }
+  return false;
+}
+
 export const recordPayment = async (req, res, next) => {
   try {
     const { job_id, amount, payment_method = 'CASH', transaction_reference = '', notes = '' } = req.body;
@@ -13,6 +33,11 @@ export const recordPayment = async (req, res, next) => {
     const parsedAmount = parseFloat(amount);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       throw new AppError('Payment amount must be greater than zero.', 400, 'INVALID_AMOUNT');
+    }
+
+    // Backend duplicate submission guard against rapid double clicks / network retries
+    if (isDuplicatePayment(job_id, parsedAmount, req.user?.id)) {
+      throw new AppError('A payment for this job with the same amount was just submitted. Please wait a moment to avoid duplicate transactions.', 409, 'DUPLICATE_PAYMENT_SUBMISSION');
     }
 
     let paymentResult;
@@ -53,7 +78,7 @@ export const recordPayment = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: `Payment of $${parsedAmount.toFixed(2)} recorded successfully. Remaining balance: $${job.balance_due.toFixed(2)}.`,
+      message: `Payment of ₹${parsedAmount.toFixed(2)} recorded successfully. Remaining balance: ₹${job.balance_due.toFixed(2)}.`,
       data: {
         payment,
         job: fullJob,

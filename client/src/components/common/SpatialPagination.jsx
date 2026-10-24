@@ -1,5 +1,6 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { SpatialSelect } from './SpatialSelect';
 
 /**
  * Reusable Spatial Design Pagination Component
@@ -62,18 +63,14 @@ export const SpatialPagination = ({
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5 pl-2 sm:border-l border-[var(--spatial-border)]">
             <span className="text-[11px] font-medium">Show</span>
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              aria-label="Items per page"
-              className="px-2 py-1 rounded-lg text-xs font-semibold spatial-input bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-1 focus:ring-sky-500 cursor-pointer"
-            >
-              {pageSizeOptions.map((opt) => (
-                <option key={opt} value={opt} className="bg-[#0f172a] text-slate-100">
-                  {opt}
-                </option>
-              ))}
-            </select>
+            <div className="w-20">
+              <SpatialSelect
+                value={pageSize}
+                onChange={(val) => onPageSizeChange(Number(val))}
+                options={pageSizeOptions.map((opt) => ({ value: opt, label: String(opt) }))}
+                buttonClassName="py-1 px-2.5 text-xs font-semibold"
+              />
+            </div>
             <span className="text-[11px] font-medium">per page</span>
           </div>
         )}
@@ -124,9 +121,9 @@ export const SpatialPagination = ({
                 key={p}
                 type="button"
                 onClick={() => onPageChange(p)}
-                className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-bold transition-all ${
+                className={`min-w-[28px] h-7 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer active:scale-95 ${
                   isActive
-                    ? 'bg-sky-500 text-white shadow-sm shadow-sky-950/30'
+                    ? 'bg-[#0071e3] text-white shadow-xs dark:bg-[#0a84ff]'
                     : 'border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
                 }`}
               >
