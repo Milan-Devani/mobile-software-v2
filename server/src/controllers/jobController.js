@@ -345,6 +345,10 @@ export const saveDiagnosis = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
+    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
+      throw new AppError(`Cannot update diagnosis for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
+    }
+
     if (!technician_findings || !recommended_solution) {
       throw new AppError('Technician findings and recommended solution are required.', 400, 'DIAGNOSIS_DATA_REQUIRED');
     }
@@ -699,6 +703,10 @@ export const saveTests = async (req, res, next) => {
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
+      throw new AppError(`Cannot update tests for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
+    }
 
     const updatedTests = await db.tests.saveTests(id, tests, req.user.id);
 

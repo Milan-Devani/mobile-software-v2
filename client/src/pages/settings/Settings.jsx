@@ -435,7 +435,7 @@ export const Settings = () => {
   ];
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Page Title & Context */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -522,7 +522,7 @@ export const Settings = () => {
       {/* TAB 1: APPEARANCE & SPATIAL UI                                       */}
       {/* ==================================================================== */}
       {activeTab === 'appearance' && (
-        <div className="space-y-6 animate-in fade-in duration-200">
+        <div key="appearance" className="spatial-tab-pane space-y-6">
           {/* Style Selector Section */}
           <Card
             title="Spatial UI Design Styles"
@@ -702,10 +702,11 @@ export const Settings = () => {
       {/* TAB 2: SHOP PROFILE                                                  */}
       {/* ==================================================================== */}
       {activeTab === 'shop' && (
-        <Card
-          title="Shop Profile & Business Details"
-          subtitle="Printed on Job Sheets, Invoices, and sent in delivery notifications"
-        >
+        <div key="shop" className="spatial-tab-pane">
+          <Card
+            title="Shop Profile & Business Details"
+            subtitle="Printed on Job Sheets, Invoices, and sent in delivery notifications"
+          >
           <form onSubmit={handleSaveShopProfile} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -816,13 +817,14 @@ export const Settings = () => {
             </div>
           </form>
         </Card>
+        </div>
       )}
 
       {/* ==================================================================== */}
       {/* TAB 3: STAFF & TEAM USERS ("Add user on shop setting page")           */}
       {/* ==================================================================== */}
       {activeTab === 'users' && (
-        <div className="space-y-4">
+        <div key="users" className="spatial-tab-pane space-y-4">
           <Card
             title={`Shop Staff & Technician Accounts (${usersList.length})`}
             subtitle="Manage login credentials and authorization roles for technicians, front desk staff, and shop managers"
@@ -1082,10 +1084,11 @@ export const Settings = () => {
       {/* TAB 4: NOTIFICATIONS & WHATSAPP                                      */}
       {/* ==================================================================== */}
       {activeTab === 'notifications' && (
-        <Card
-          title="Notification Dispatchers"
-          subtitle="Customer notification pipelines (Email, WhatsApp, SMS)"
-        >
+        <div key="notifications" className="spatial-tab-pane">
+          <Card
+            title="Notification Dispatchers"
+            subtitle="Customer notification pipelines (Email, WhatsApp, SMS)"
+          >
           <div className="space-y-4 text-xs">
             {/* WhatsApp Linked Device */}
             <div className="p-4 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1277,13 +1280,16 @@ export const Settings = () => {
             </div>
           </div>
         </Card>
+        </div>
       )}
 
       {/* ==================================================================== */}
       {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY                          */}
       {/* ==================================================================== */}
       {activeTab === 'backups' && user?.role_id === 'admin' && (
-        <BackupManagementTab />
+        <div key="backups" className="spatial-tab-pane">
+          <BackupManagementTab />
+        </div>
       )}
 
       {/* ==================================================================== */}

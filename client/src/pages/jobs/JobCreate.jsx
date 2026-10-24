@@ -14,12 +14,16 @@ import {
   ShieldAlert,
   Camera,
   Layers,
-  FileCheck
+  FileCheck,
+  Usb,
+  X,
+  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
+import { deviceBridgeService } from '../../services/deviceBridgeService';
 import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -91,6 +95,10 @@ export const JobCreate = () => {
   const [newCustCity, setNewCustCity] = useState('');
   const [newCustState, setNewCustState] = useState('');
   const [newCustPostalCode, setNewCustPostalCode] = useState('');
+
+  // USB Mobile Device Auto-Detection States
+  const [detectingDevice, setDetectingDevice] = useState(false);
+  const [deviceDetectNotice, setDeviceDetectNotice] = useState(null);
 
   const {
     register,
@@ -176,6 +184,71 @@ export const JobCreate = () => {
       return;
     }
     setChecklist((prev) => ({ ...prev, [key]: val }));
+  };
+
+  const handleAutoDetectDevice = async () => {
+    try {
+      setDetectingDevice(true);
+      setDeviceDetectNotice(null);
+
+      const res = await deviceBridgeService.detectDevice();
+
+      if (res && res.connected) {
+        if (res.brand) {
+          setValue('device_brand', res.brand, { shouldValidate: true });
+        }
+        if (res.model) {
+          setValue('device_model', res.model, { shouldValidate: true });
+        }
+        if (res.serial_number) {
+          setValue('device_serial', res.serial_number, { shouldValidate: true });
+        }
+        if (res.imei) {
+          setValue('device_imei', res.imei, { shouldValidate: true });
+        }
+        if (res.platform === 'ios') {
+          setValue('device_os', 'iOS', { shouldValidate: true });
+        } else if (res.platform === 'android') {
+          setValue('device_os', 'Android', { shouldValidate: true });
+        }
+
+        if (res.device_status === 'authorized') {
+          toast.success(`Detected: ${res.brand} ${res.model}`, {
+            icon: '📱',
+            duration: 4000,
+          });
+          setDeviceDetectNotice({
+            type: 'success',
+            text: res.message || `Detected ${res.brand} ${res.model}`,
+            action: res.imei ? `IMEI: ${res.imei} • Serial: ${res.serial_number || 'N/A'}` : null,
+          });
+        } else {
+          toast(res.message || 'Device detected on USB', { icon: '⚠️', duration: 5000 });
+          setDeviceDetectNotice({
+            type: 'warning',
+            text: res.message || 'Device connected via USB',
+            action: res.action_required || 'Please unlock screen or tap Allow on phone to extract full hardware specs.',
+          });
+        }
+      } else {
+        toast.error(res?.message || 'No mobile device detected on USB ports', { duration: 4500 });
+        setDeviceDetectNotice({
+          type: 'warning',
+          text: res?.message || 'No mobile device detected on USB ports.',
+          action: res?.action_required || 'Connect phone using a USB data cable and tap Allow/Trust on phone screen.',
+        });
+      }
+    } catch (err) {
+      console.error('Device detection failed:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to detect device via USB');
+      setDeviceDetectNotice({
+        type: 'warning',
+        text: 'Device detection service unavailable or encountered an error.',
+        action: 'Ensure the server has permission to query USB devices.',
+      });
+    } finally {
+      setDetectingDevice(false);
+    }
   };
 
   const handleMarkAllFunctional = () => {
@@ -305,7 +378,7 @@ export const JobCreate = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 w-full">
       {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -467,7 +540,48 @@ export const JobCreate = () => {
           subtitle="Specifications and identification details"
           className="relative z-20"
           hover={false}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              icon={Usb}
+              loading={detectingDevice}
+              onClick={handleAutoDetectDevice}
+              className="bg-apple-blue/10 border-apple-blue/30 text-apple-blue dark:text-[#0a84ff] hover:bg-apple-blue/20 font-semibold cursor-pointer shadow-xs active:scale-95"
+              title="Connect smartphone via USB and click to auto-fill brand, model, IMEI, serial, and OS"
+            >
+              {detectingDevice ? 'Scanning USB...' : 'Auto-Detect via USB'}
+            </Button>
+          }
         >
+          {deviceDetectNotice && (
+            <div
+              className={`mb-4 p-3 rounded-xl border flex items-start justify-between gap-3 text-xs animate-in fade-in ${
+                deviceDetectNotice.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/25 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400'
+              }`}
+            >
+              <div className="flex items-start gap-2.5">
+                <Smartphone className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold">{deviceDetectNotice.text}</p>
+                  {deviceDetectNotice.action && (
+                    <p className="mt-0.5 text-[11px] opacity-90">{deviceDetectNotice.action}</p>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDeviceDetectNotice(null)}
+                className="p-1 opacity-70 hover:opacity-100 transition-opacity cursor-pointer shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">

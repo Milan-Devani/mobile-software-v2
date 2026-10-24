@@ -227,7 +227,7 @@ export default function VendorReports() {
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -388,7 +388,7 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 1: OVERVIEW */}
       {activeReportTab === 'overview' && (
-        <div className="space-y-6">
+        <div key="overview" className="space-y-6 spatial-tab-pane">
           {/* Executive KPI Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="spatial-card p-4 rounded-2xl">
@@ -505,7 +505,7 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 2: MOBILE REPAIR HISTORY & IMEI AUDIT */}
       {activeReportTab === 'mobile_history' && (
-        <div className="space-y-4">
+        <div key="mobile_history" className="space-y-4 spatial-tab-pane">
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)]" />
             <input
@@ -591,7 +591,7 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 3: VENDOR-WISE PERFORMANCE */}
       {activeReportTab === 'vendor_wise' && (
-        <div className="spatial-card rounded-2xl overflow-hidden">
+        <div key="vendor_wise" className="spatial-card rounded-2xl overflow-hidden spatial-tab-pane">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">
@@ -641,7 +641,7 @@ export default function VendorReports() {
 
       {/* TAB CONTENT 4: OUTSTANDING BALANCES & DUES */}
       {activeReportTab === 'balances' && (
-        <div className="spatial-card rounded-2xl overflow-hidden">
+        <div key="balances" className="spatial-card rounded-2xl overflow-hidden spatial-tab-pane">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] uppercase tracking-wider font-semibold">

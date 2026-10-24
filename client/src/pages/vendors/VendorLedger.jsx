@@ -169,7 +169,7 @@ export default function VendorLedger() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -443,7 +443,7 @@ export default function VendorLedger() {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto table-scrollbar w-full pb-2">
+          <div className="overflow-x-auto table-scrollbar w-full pb-2 spatial-tab-pane">
             <table className="w-full text-left text-xs min-w-[950px]">
               <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                 <tr>

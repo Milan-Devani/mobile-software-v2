@@ -82,7 +82,7 @@ export const VendorDashboard = () => {
   }, []);
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -139,7 +139,7 @@ export const VendorDashboard = () => {
           <TableSkeleton rows={5} columns={6} showHeader={false} />
         </div>
       ) : (
-        <>
+        <div className="spatial-tab-pane space-y-6">
           {/* =================================================================== */}
           {/* 8 DASHBOARD SUMMARY METRIC CARDS                                   */}
           {/* =================================================================== */}
@@ -468,7 +468,7 @@ export const VendorDashboard = () => {
               )}
             </Card>
           </div>
-        </>
+        </div>
       )}
 
       {/* Record Payment Voucher Modal */}

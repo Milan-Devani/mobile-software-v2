@@ -23,7 +23,7 @@ export const SpatialSelect = ({
 
   // Normalize options to { value, label, subtitle, badge }
   const normalizedOptions = useMemo(() => {
-    return options.map((opt) => {
+    const mapped = options.map((opt) => {
       if (typeof opt === 'object' && opt !== null) {
         return {
           value: opt.value !== undefined ? opt.value : opt.id,
@@ -41,7 +41,17 @@ export const SpatialSelect = ({
         raw: opt,
       };
     });
-  }, [options]);
+    if (value && !mapped.some((o) => String(o.value) === String(value))) {
+      mapped.unshift({
+        value: String(value),
+        label: String(value),
+        subtitle: null,
+        badge: null,
+        raw: value,
+      });
+    }
+    return mapped;
+  }, [options, value]);
 
   // Selected item
   const selectedOption = useMemo(() => {

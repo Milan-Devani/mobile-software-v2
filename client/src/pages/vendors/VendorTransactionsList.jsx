@@ -144,7 +144,7 @@ export const VendorTransactionsList = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -277,7 +277,7 @@ export const VendorTransactionsList = () => {
             onAction={() => navigate('/vendors/send')}
           />
         ) : (
-          <div>
+          <div className="spatial-tab-pane">
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1050px]">
                 <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">

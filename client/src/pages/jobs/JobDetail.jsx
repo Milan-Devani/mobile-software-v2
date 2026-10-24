@@ -321,6 +321,10 @@ export const JobDetail = () => {
   };
 
   const handleOpenEstimateModal = () => {
+    if (['DELIVERED', 'CANCELLED'].includes(job?.status)) {
+      toast.error('This repair job is marked Delivered and completed. Please reopen the job sheet before updating the estimate.');
+      return;
+    }
     if (isFreeWarranty) {
       toast.info('This job is covered under warranty for the same issue. Repair rework is 100% free with no estimate or approval needed.');
       return;
@@ -774,6 +778,7 @@ export const JobDetail = () => {
 
   const cond = job.device_condition || {};
   const accessories = job.accessories_received || [];
+  const isJobClosed = ['DELIVERED', 'CANCELLED'].includes(job.status);
 
   return (
     <div className={`space-y-6 ${isPrintInvoiceOpen || isPrintJobSheetOpen ? 'print:hidden' : ''}`}>
@@ -848,6 +853,8 @@ export const JobDetail = () => {
             variant="outline"
             size="sm"
             icon={Pencil}
+            disabled={isJobClosed}
+            title={isJobClosed ? "This job is delivered and closed. Reopen job sheet to edit details." : "Edit Job Sheet"}
             onClick={() => setIsJobEditModalOpen(true)}
           >
             Edit Job Sheet
@@ -1016,7 +1023,7 @@ export const JobDetail = () => {
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+        <div key="overview" className="spatial-tab-pane space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Customer Info Card */}
             <Card
@@ -1145,12 +1152,18 @@ export const JobDetail = () => {
 
       {/* TAB 2: DIAGNOSIS */}
       {activeTab === 'diagnosis' && (
-        <Card
+        <div key="diagnosis" className="spatial-tab-pane">
+          <Card
           title="Diagnostic Assessment"
           subtitle="Findings discovered by technician during inspection"
           action={
             ['admin', 'technician'].includes(user?.role_id) && (
-              <Button size="sm" onClick={() => setIsDiagnosisModalOpen(true)}>
+              <Button
+                size="sm"
+                onClick={() => setIsDiagnosisModalOpen(true)}
+                disabled={isJobClosed}
+                title={isJobClosed ? "This job is delivered and closed. Reopen job sheet to modify diagnosis." : ""}
+              >
                 {job.diagnosis ? 'Edit Diagnosis' : 'Log Diagnosis'}
               </Button>
             )
@@ -1192,16 +1205,23 @@ export const JobDetail = () => {
             />
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 3: ESTIMATE */}
       {activeTab === 'estimate' && (
-        <Card
+        <div key="estimate" className="spatial-tab-pane">
+          <Card
           title="Repair Estimate & Parts Quotation"
           subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
           action={
             ['admin', 'technician'].includes(user?.role_id) && !isFreeWarranty && (
-              <Button size="sm" onClick={handleOpenEstimateModal}>
+              <Button
+                size="sm"
+                onClick={handleOpenEstimateModal}
+                disabled={isJobClosed}
+                title={isJobClosed ? "This job is delivered and closed. Reopen job sheet to modify estimate." : ""}
+              >
                 {job.estimate ? 'Update Estimate' : 'Create Estimate'}
               </Button>
             )
@@ -1209,6 +1229,14 @@ export const JobDetail = () => {
         >
           {job.estimate ? (
             <div className="space-y-6 text-xs">
+              {isJobClosed && job.status === 'DELIVERED' && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-700 dark:text-amber-400 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+                    <span>This repair job is marked <strong>Delivered</strong>. Quotation and invoice are finalized. To modify parts or labor, click <strong>Reopen Job (Warranty)</strong> above.</span>
+                  </div>
+                </div>
+              )}
               {isFreeWarranty && (
                 <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
                   <div className="flex items-center gap-2.5">
@@ -1410,26 +1438,29 @@ export const JobDetail = () => {
             />
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 4: QUALITY CHECK TESTING */}
       {activeTab === 'testing' && (
-        <Card
-          title="Hardware Quality Assurance (QC)"
-          subtitle="Mandatory 16-point checklist verified before customer release"
-        >
-          <QualityChecklist
-            tests={job.tests || []}
-            onSave={handleSaveTests}
-            readOnly={!['admin', 'technician'].includes(user?.role_id)}
-            isSaving={isSaving}
-          />
-        </Card>
+        <div key="testing" className="spatial-tab-pane">
+          <Card
+            title="Hardware Quality Assurance (QC)"
+            subtitle="Mandatory 16-point checklist verified before customer release"
+          >
+            <QualityChecklist
+              tests={job.tests || []}
+              onSave={handleSaveTests}
+              readOnly={!['admin', 'technician'].includes(user?.role_id) || isJobClosed}
+              isSaving={isSaving}
+            />
+          </Card>
+        </div>
       )}
 
       {/* TAB 5: PAYMENTS & INVOICE */}
       {activeTab === 'payments' && (
-        <div className="space-y-6">
+        <div key="payments" className="spatial-tab-pane space-y-6">
           {/* Financial Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-white rounded-xl border border-slate-200">
@@ -1549,9 +1580,11 @@ export const JobDetail = () => {
 
       {/* TAB 6: TIMELINE */}
       {activeTab === 'timeline' && (
-        <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
-          <JobTimeline history={job.history || []} />
-        </Card>
+        <div key="timeline" className="spatial-tab-pane">
+          <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
+            <JobTimeline history={job.history || []} />
+          </Card>
+        </div>
       )}
 
       {/* MODAL 1: Diagnosis Modal */}

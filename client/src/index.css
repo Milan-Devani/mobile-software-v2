@@ -932,6 +932,83 @@ textarea.focus\:ring-primary-500:focus {
 }
 
 /* ========================================================================== */
+/* APPLE SPATIAL SKELETON LOADER & SHIMMER ANIMATION                          */
+/* ========================================================================== */
+@keyframes spatial-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.spatial-skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.06);
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: spatial-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+[data-theme="light"] .spatial-skeleton,
+:not(.dark) .spatial-skeleton {
+  background-color: rgba(0, 0, 0, 0.06);
+  background-image: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.06) 50%,
+    rgba(0, 0, 0, 0) 100%
+  );
+}
+
+/* ========================================================================== */
+/* FLUID PAGE & TAB TRANSITIONS (NO BLINK, ZERO JERK / JATKA)                 */
+/* ========================================================================== */
+@keyframes spatial-page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.spatial-page-transition {
+  animation: spatial-page-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+@keyframes spatial-tab-enter {
+  0% {
+    opacity: 0;
+    transform: scale(0.995) translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.spatial-tab-pane {
+  animation: spatial-tab-enter 180ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: opacity, transform;
+}
+
+/* Smooth container transitions */
+.spatial-smooth-section {
+  transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ========================================================================== */
 /* PRINT MEDIA STYLES FOR SALES BILLS & TAX INVOICES                          */
 /* ========================================================================== */
 @media print {

@@ -105,7 +105,7 @@ export const VendorDetail = () => {
   const isReceivable = balance < 0;
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 w-full pb-16">
       {/* Top Header with Back Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -278,7 +278,8 @@ export const VendorDetail = () => {
 
       {/* TAB 1: MOBILES & REPAIRS LIST */}
       {activeTab === 'mobiles' && (
-        <Card title={`All Mobiles Outsourced to ${vendor.name} (${mobiles.length})`} bodyClassName="p-0">
+        <div key="mobiles" className="spatial-tab-pane">
+          <Card title={`All Mobiles Outsourced to ${vendor.name} (${mobiles.length})`} bodyClassName="p-0">
           {mobiles.length === 0 ? (
             <EmptyState
               icon={Smartphone}
@@ -338,11 +339,13 @@ export const VendorDetail = () => {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 2: TRANSACTIONS HISTORY */}
       {activeTab === 'transactions' && (
-        <Card title={`Dispatch & Receive Transactions (${transactions.length})`} bodyClassName="p-0">
+        <div key="transactions" className="spatial-tab-pane">
+          <Card title={`Dispatch & Receive Transactions (${transactions.length})`} bodyClassName="p-0">
           {transactions.length === 0 ? (
             <EmptyState
               icon={ArrowUpRight}
@@ -418,13 +421,15 @@ export const VendorDetail = () => {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 3: LEDGER STATEMENT */}
       {activeTab === 'ledger' && (
-        <Card
-          title="Vendor Accounting Statement & Running Balance"
-          subtitle="Chronological audit of repair charges, advances, and settlements"
+        <div key="ledger" className="spatial-tab-pane">
+          <Card
+            title="Vendor Accounting Statement & Running Balance"
+            subtitle="Chronological audit of repair charges, advances, and settlements"
           action={
             <Button
               variant="primary"
@@ -510,11 +515,13 @@ export const VendorDetail = () => {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 4: PAYMENT VOUCHERS */}
       {activeTab === 'payments' && (
-        <Card title={`Payment Vouchers (${payments.length})`} bodyClassName="p-0">
+        <div key="payments" className="spatial-tab-pane">
+          <Card title={`Payment Vouchers (${payments.length})`} bodyClassName="p-0">
           {payments.length === 0 ? (
             <EmptyState
               icon={CreditCard}
@@ -564,6 +571,7 @@ export const VendorDetail = () => {
             </div>
           )}
         </Card>
+        </div>
       )}
 
       {/* Payment Modal */}
