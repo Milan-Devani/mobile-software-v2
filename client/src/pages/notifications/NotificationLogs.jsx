@@ -256,7 +256,7 @@ export const NotificationLogs = () => {
             description="When jobs are created, estimates sent, or devices marked ready for pickup, automated notifications will log here."
           />
         ) : (
-          <div>
+          <div className="spatial-tab-pane">
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1100px]">
                 <thead className="bg-[var(--spatial-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">

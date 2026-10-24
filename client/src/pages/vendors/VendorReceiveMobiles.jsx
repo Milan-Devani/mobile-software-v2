@@ -469,7 +469,7 @@ export const VendorReceiveMobiles = () => {
                 onAction={() => navigate(`/vendors/send?vendorId=${vendorId}`)}
               />
             ) : (
-              <div className="divide-y divide-[var(--spatial-border)]">
+              <div className="divide-y divide-[var(--spatial-border)] spatial-tab-pane">
                 {pendingMobiles.map((mob) => {
                   const isSelected = selectedMobileIds.includes(mob.id);
                   const itemData = receiveItemsData[mob.id] || {};

@@ -76,7 +76,11 @@ export const CustomerDetail = () => {
   }, [id]);
 
   if (loading) {
-    return <DetailSkeleton />;
+    return (
+      <div className="spatial-tab-pane">
+        <DetailSkeleton />
+      </div>
+    );
   }
 
   const customer = data?.customer;
@@ -85,7 +89,7 @@ export const CustomerDetail = () => {
   const stats = data?.stats || {};
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 spatial-tab-pane">
       {/* Top back button & Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

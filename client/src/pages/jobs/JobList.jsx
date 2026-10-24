@@ -412,7 +412,7 @@ export const JobList = () => {
             onAction={() => navigate('/jobs/new')}
           />
         ) : (
-          <div>
+          <div className="spatial-tab-pane">
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1250px]">
                 <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">

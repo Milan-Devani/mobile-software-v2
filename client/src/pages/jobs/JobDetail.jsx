@@ -1016,7 +1016,7 @@ export const JobDetail = () => {
 
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
-        <div className="space-y-6">
+        <div key="overview" className="spatial-tab-pane space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Customer Info Card */}
             <Card
@@ -1145,7 +1145,8 @@ export const JobDetail = () => {
 
       {/* TAB 2: DIAGNOSIS */}
       {activeTab === 'diagnosis' && (
-        <Card
+        <div key="diagnosis" className="spatial-tab-pane">
+          <Card
           title="Diagnostic Assessment"
           subtitle="Findings discovered by technician during inspection"
           action={
@@ -1192,11 +1193,13 @@ export const JobDetail = () => {
             />
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 3: ESTIMATE */}
       {activeTab === 'estimate' && (
-        <Card
+        <div key="estimate" className="spatial-tab-pane">
+          <Card
           title="Repair Estimate & Parts Quotation"
           subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
           action={
@@ -1410,26 +1413,29 @@ export const JobDetail = () => {
             />
           )}
         </Card>
+        </div>
       )}
 
       {/* TAB 4: QUALITY CHECK TESTING */}
       {activeTab === 'testing' && (
-        <Card
-          title="Hardware Quality Assurance (QC)"
-          subtitle="Mandatory 16-point checklist verified before customer release"
-        >
-          <QualityChecklist
-            tests={job.tests || []}
-            onSave={handleSaveTests}
-            readOnly={!['admin', 'technician'].includes(user?.role_id)}
-            isSaving={isSaving}
-          />
-        </Card>
+        <div key="testing" className="spatial-tab-pane">
+          <Card
+            title="Hardware Quality Assurance (QC)"
+            subtitle="Mandatory 16-point checklist verified before customer release"
+          >
+            <QualityChecklist
+              tests={job.tests || []}
+              onSave={handleSaveTests}
+              readOnly={!['admin', 'technician'].includes(user?.role_id)}
+              isSaving={isSaving}
+            />
+          </Card>
+        </div>
       )}
 
       {/* TAB 5: PAYMENTS & INVOICE */}
       {activeTab === 'payments' && (
-        <div className="space-y-6">
+        <div key="payments" className="spatial-tab-pane space-y-6">
           {/* Financial Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-white rounded-xl border border-slate-200">
@@ -1549,9 +1555,11 @@ export const JobDetail = () => {
 
       {/* TAB 6: TIMELINE */}
       {activeTab === 'timeline' && (
-        <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
-          <JobTimeline history={job.history || []} />
-        </Card>
+        <div key="timeline" className="spatial-tab-pane">
+          <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
+            <JobTimeline history={job.history || []} />
+          </Card>
+        </div>
       )}
 
       {/* MODAL 1: Diagnosis Modal */}

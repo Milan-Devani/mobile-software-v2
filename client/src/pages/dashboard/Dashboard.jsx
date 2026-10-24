@@ -73,7 +73,7 @@ export const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-in fade-in duration-200">
+      <div className="space-y-6 spatial-tab-pane">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-2">
             <Skeleton className="h-8 w-64" />
@@ -231,7 +231,7 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 spatial-tab-pane">
       {/* Welcome & Primary Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

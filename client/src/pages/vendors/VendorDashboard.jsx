@@ -139,7 +139,7 @@ export const VendorDashboard = () => {
           <TableSkeleton rows={5} columns={6} showHeader={false} />
         </div>
       ) : (
-        <>
+        <div className="spatial-tab-pane space-y-6">
           {/* =================================================================== */}
           {/* 8 DASHBOARD SUMMARY METRIC CARDS                                   */}
           {/* =================================================================== */}
@@ -468,7 +468,7 @@ export const VendorDashboard = () => {
               )}
             </Card>
           </div>
-        </>
+        </div>
       )}
 
       {/* Record Payment Voucher Modal */}
