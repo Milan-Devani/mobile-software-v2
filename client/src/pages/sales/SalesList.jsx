@@ -24,7 +24,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
@@ -431,7 +431,7 @@ export const SalesList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching sales ledger from database..." />
+          <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
         ) : sales.length === 0 ? (
           <EmptyState
             icon={Receipt}

@@ -20,7 +20,7 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { jobService } from '../../services/jobService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
@@ -400,7 +400,9 @@ export const JobList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching jobs from database..." />
+          <div className="p-4">
+            <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
+          </div>
         ) : jobs.length === 0 ? (
           <EmptyState
             icon={Wrench}

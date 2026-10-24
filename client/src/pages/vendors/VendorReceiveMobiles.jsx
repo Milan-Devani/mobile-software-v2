@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, FormSkeleton, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
@@ -306,7 +306,7 @@ export const VendorReceiveMobiles = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner fullPage label="Preparing receive from vendor engine..." />;
+    return <FormSkeleton fields={5} />;
   }
 
   return (
@@ -459,7 +459,7 @@ export const VendorReceiveMobiles = () => {
             bodyClassName="p-0"
           >
             {loadingPending ? (
-              <LoadingSpinner label="Fetching pending mobiles with vendor..." />
+              <TableSkeleton rows={4} columns={6} showHeader={false} showPagination={false} />
             ) : pendingMobiles.length === 0 ? (
               <EmptyState
                 icon={CheckCircle2}

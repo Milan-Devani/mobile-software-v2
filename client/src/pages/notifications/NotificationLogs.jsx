@@ -17,9 +17,10 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { notificationService } from '../../services/notificationService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const NotificationLogs = () => {
@@ -225,16 +226,18 @@ export const NotificationLogs = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={channelFilter}
-            onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-3 py-2 spatial-input rounded-xl text-xs font-semibold"
-          >
-            <option value="ALL">All Channels</option>
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="EMAIL">Email</option>
-            <option value="SMS">SMS</option>
-          </select>
+          <div className="w-40 sm:w-44">
+            <SpatialSelect
+              value={channelFilter}
+              onChange={(val) => handleFilterChange(val)}
+              options={[
+                { value: 'ALL', label: 'All Channels' },
+                { value: 'WHATSAPP', label: 'WhatsApp' },
+                { value: 'EMAIL', label: 'Email' },
+                { value: 'SMS', label: 'SMS' },
+              ]}
+            />
+          </div>
         </div>
       </div>
 
@@ -245,7 +248,7 @@ export const NotificationLogs = () => {
         bodyClassName="p-0"
       >
         {loading && logs.length === 0 ? (
-          <LoadingSpinner label="Fetching dispatch logs..." />
+          <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
         ) : logs.length === 0 ? (
           <EmptyState
             icon={Bell}

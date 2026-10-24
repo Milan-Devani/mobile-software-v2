@@ -6,7 +6,7 @@ import {
   CheckCircle2,
   AlertCircle,
   TrendingUp,
-  DollarSign,
+  IndianRupee,
   Plus,
   ArrowRight,
   Search,
@@ -22,7 +22,7 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { dashboardService } from '../../services/dashboardService';
 import { jobService } from '../../services/jobService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, StatsSkeleton, TableSkeleton, Skeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
@@ -60,7 +60,19 @@ export const Dashboard = () => {
   }, []);
 
   if (loading) {
-    return <LoadingSpinner fullPage label="Loading workshop statistics..." />;
+    return (
+      <div className="space-y-6 animate-in fade-in duration-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-80 opacity-70" />
+          </div>
+          <Skeleton className="h-10 w-36" rounded="rounded-xl" />
+        </div>
+        <StatsSkeleton count={4} />
+        <TableSkeleton rows={5} columns={6} showHeader={false} />
+      </div>
+    );
   }
 
   if (!data && fetchError) {
@@ -283,7 +295,7 @@ export const Dashboard = () => {
           <div className="flex items-center justify-between">
             <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Pending Balance</span>
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/15 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+              <IndianRupee className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3">

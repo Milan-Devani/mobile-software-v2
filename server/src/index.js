@@ -72,6 +72,16 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 // Rate limiting on API routes
 app.use('/api', apiRateLimiter);
 
+// Root endpoint (prevents 404 if external cron service or uptime monitor pings base URL)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    name: 'Mobotech Mobile Care API',
+    status: 'online',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Root Health check (for external cron services, uptime monitors, and Render health checks)
 app.get('/health', (req, res) => {
   res.status(200).json({

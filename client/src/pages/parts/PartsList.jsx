@@ -18,11 +18,12 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { partsService } from '../../services/partsService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const partSchema = z.object({
@@ -61,6 +62,8 @@ export const PartsList = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(partSchema),
@@ -254,16 +257,20 @@ export const PartsList = () => {
             )}
           </div>
 
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-1.5 spatial-input rounded-xl text-xs font-medium"
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <div className="w-44 sm:w-48">
+            <SpatialSelect
+              value={categoryFilter}
+              onChange={(val) => {
+                setCategoryFilter(val);
+                setPage(1);
+                setSelectedIds([]);
+              }}
+              options={[
+                { value: '', label: 'All Categories' },
+                ...categories.map((c) => ({ value: c, label: c })),
+              ]}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
@@ -297,7 +304,7 @@ export const PartsList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching inventory parts..." />
+          <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
         ) : parts.length === 0 ? (
           <EmptyState
             icon={Package}
@@ -451,14 +458,11 @@ export const PartsList = () => {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Category</label>
-              <select
-                {...register('category')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-              >
-                {categories.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <SpatialSelect
+                value={watch('category') || 'Display'}
+                onChange={(val) => setValue('category', val, { shouldValidate: true })}
+                options={categories.map((c) => ({ value: c, label: c }))}
+              />
             </div>
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Brand</label>

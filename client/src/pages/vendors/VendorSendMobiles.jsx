@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner } from '../../components/common/Card';
+import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
@@ -188,7 +188,7 @@ export const VendorSendMobiles = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner fullPage label="Preparing dispatch chalan generator..." />;
+    return <FormSkeleton fields={5} />;
   }
 
   return (

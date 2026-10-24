@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileText,
-  DollarSign,
+  IndianRupee,
   Printer,
   Share2,
   ExternalLink,
@@ -39,10 +39,11 @@ import { invoiceService } from '../../services/invoiceService';
 import { settingsService } from '../../services/settingsService';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
 import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
 import { NextActionBanner } from '../../components/jobs/NextActionBanner';
@@ -768,7 +769,7 @@ export const JobDetail = () => {
   };
 
   if (loading || !job) {
-    return <LoadingSpinner fullPage label="Loading repair job sheet..." />;
+    return <DetailSkeleton />;
   }
 
   const cond = job.device_condition || {};
@@ -1507,7 +1508,7 @@ export const JobDetail = () => {
             {job.payments && job.payments.length > 0 ? (
               <div className="overflow-x-auto table-scrollbar w-full pb-1">
                 <table className="w-full text-left text-xs min-w-[650px]">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                     <tr>
                       <th className="px-5 py-3 whitespace-nowrap">Receipt / Ref</th>
                       <th className="px-5 py-3 whitespace-nowrap">Payment Method</th>
@@ -1516,18 +1517,18 @@ export const JobDetail = () => {
                       <th className="px-5 py-3 whitespace-nowrap">Notes</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-[var(--spatial-border)]">
                     {job.payments.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50/80">
-                        <td className="px-5 py-3.5 font-mono font-bold text-slate-700">{p.payment_number}</td>
-                        <td className="px-5 py-3.5 font-semibold text-slate-900">{p.payment_method}</td>
-                        <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-600">
+                      <tr key={p.id} className="hover:bg-[var(--spatial-table-row-hover)] transition-colors">
+                        <td className="px-5 py-3.5 font-mono font-bold text-[var(--spatial-text-title)]">{p.payment_number}</td>
+                        <td className="px-5 py-3.5 font-semibold text-[var(--spatial-text-title)]">{p.payment_method}</td>
+                        <td className="px-5 py-3.5 text-right font-mono font-bold text-emerald-500">
                           {currSym}{Number(p.amount).toFixed(2)}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 font-mono">
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-mono">
                           {new Date(p.paid_at).toLocaleString()}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-600">{p.notes || '—'}</td>
+                        <td className="px-5 py-3.5 text-[var(--spatial-text-body)]">{p.notes || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2072,12 +2073,12 @@ export const JobDetail = () => {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         title="Record Customer Payment"
-        subtitle={`Remaining Balance: $${Number(job.balance_due || 0).toFixed(2)}`}
+        subtitle={`Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Payment Amount ($) *
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
+              Payment Amount ({currSym}) *
             </label>
             <input
               type="number"
@@ -2087,36 +2088,36 @@ export const JobDetail = () => {
               placeholder={String(job.balance_due)}
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold font-mono focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
             />
             <button
               type="button"
               onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
               className="text-[11px] text-primary-600 hover:underline font-medium mt-1 inline-block"
             >
-              Pay Full Remaining Balance (${Number(job.balance_due).toFixed(2)})
+              Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
             </button>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Payment Method *
             </label>
-            <select
+            <SpatialSelect
               value={paymentForm.payment_method}
-              onChange={(e) => setPaymentForm({ ...paymentForm, payment_method: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none"
-            >
-              <option value="CASH">Cash</option>
-              <option value="CARD">Credit / Debit Card</option>
-              <option value="UPI">UPI / Digital QR</option>
-              <option value="BANK_TRANSFER">Bank Wire / Transfer</option>
-              <option value="OTHER">Other Method</option>
-            </select>
+              onChange={(val) => setPaymentForm({ ...paymentForm, payment_method: val })}
+              options={[
+                { value: 'CASH', label: 'Cash' },
+                { value: 'CARD', label: 'Credit / Debit Card' },
+                { value: 'UPI', label: 'UPI / Digital QR' },
+                { value: 'BANK_TRANSFER', label: 'Bank Wire / Transfer' },
+                { value: 'OTHER', label: 'Other Method' },
+              ]}
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Transaction Reference / Receipt ID
             </label>
             <input
@@ -2124,12 +2125,12 @@ export const JobDetail = () => {
               placeholder="e.g. TXN-89410 or Card Slip #481"
               value={paymentForm.transaction_reference}
               onChange={(e) => setPaymentForm({ ...paymentForm, transaction_reference: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
               Notes
             </label>
             <input
@@ -2137,15 +2138,15 @@ export const JobDetail = () => {
               placeholder="Optional payment notes..."
               value={paymentForm.notes}
               onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsPaymentModalOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" size="sm" icon={DollarSign} loading={isSaving}>
+            <Button type="submit" size="sm" icon={IndianRupee} loading={isSaving}>
               Confirm Payment
             </Button>
           </div>
@@ -2490,29 +2491,27 @@ export const JobDetail = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1.5">
                 Target Workbench Stage
               </label>
-              <select
+              <SpatialSelect
                 value={reopenForm.target_status}
-                onChange={(e) => setReopenForm({ ...reopenForm, target_status: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-amber-500 focus:outline-none"
-              >
-                {job.approval_status === 'REJECTED' ? (
-                  <>
-                    <option value="ESTIMATE_SENT">Estimate Stage (Revise & Send Quotation)</option>
-                    <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
-                    <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
-                  </>
-                ) : (
-                  <>
-                    <option value="DIAGNOSING">Diagnosing (Inspection Bench)</option>
-                    <option value="IN_PROGRESS">In Progress (Hardware Workbench)</option>
-                    <option value="TESTING">Testing (Quality Check Bench)</option>
-                    <option value="RECEIVED">Received (Intake Awaiting)</option>
-                  </>
-                )}
-              </select>
+                onChange={(val) => setReopenForm({ ...reopenForm, target_status: val })}
+                options={
+                  job.approval_status === 'REJECTED'
+                    ? [
+                        { value: 'ESTIMATE_SENT', label: 'Estimate Stage (Revise & Send Quotation)' },
+                        { value: 'DIAGNOSING', label: 'Diagnosing (Inspection Bench)' },
+                        { value: 'IN_PROGRESS', label: 'In Progress (Hardware Workbench)' },
+                      ]
+                    : [
+                        { value: 'DIAGNOSING', label: 'Diagnosing (Inspection Bench)' },
+                        { value: 'IN_PROGRESS', label: 'In Progress (Hardware Workbench)' },
+                        { value: 'TESTING', label: 'Testing (Quality Check Bench)' },
+                        { value: 'RECEIVED', label: 'Received (Intake Awaiting)' },
+                      ]
+                }
+              />
             </div>
 
             {job.approval_status !== 'REJECTED' && (
@@ -2614,8 +2613,8 @@ export const JobDetail = () => {
                     type="button"
                     onClick={() => setSelectedStatus(opt.key)}
                     className={`py-2 px-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group ${isSelected
-                        ? 'border-primary-500 bg-primary-50/90 dark:bg-primary-950/70 ring-2 ring-primary-500/40 shadow-xs'
-                        : 'border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
+                        ? 'border-apple-blue bg-apple-blue/10 ring-2 ring-apple-blue/30 shadow-xs'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <div className="min-w-0 flex-1">
@@ -2727,8 +2726,8 @@ export const JobDetail = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'AMOUNT'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <input
@@ -2740,10 +2739,10 @@ export const JobDetail = () => {
                       className="w-4 h-4 text-emerald-600 accent-emerald-600 focus:ring-emerald-500"
                     />
                     <div>
-                      <span className="block text-xs font-bold text-slate-900 dark:text-slate-100">
+                      <span className="block text-xs font-bold text-[var(--spatial-text-title)]">
                         Amount ({currSym})
                       </span>
-                      <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="block text-[11px] text-[var(--spatial-text-muted)]">
                         Fixed rupee discount
                       </span>
                     </div>
@@ -2751,8 +2750,8 @@ export const JobDetail = () => {
 
                   <label
                     className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${discountModalForm.discount_type === 'PERCENTAGE'
-                        ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/40 ring-2 ring-emerald-500/30'
-                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50'
+                        ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/30'
+                        : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'
                       }`}
                   >
                     <input

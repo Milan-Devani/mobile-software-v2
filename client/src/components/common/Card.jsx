@@ -84,3 +84,13 @@ export const EmptyState = ({
     </div>
   );
 };
+
+export {
+  Skeleton,
+  TableSkeleton,
+  CardSkeleton,
+  StatsSkeleton,
+  DetailSkeleton,
+  FormSkeleton,
+} from './Skeleton';
+

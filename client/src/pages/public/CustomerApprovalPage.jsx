@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { jobService } from '../../services/jobService';
-import { LoadingSpinner } from '../../components/common/Card';
+import { LoadingSpinner, CardSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 
 export const CustomerApprovalPage = () => {
@@ -64,7 +64,9 @@ export const CustomerApprovalPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--spatial-bg-app)] flex items-center justify-center p-4">
-        <LoadingSpinner label="Loading repair estimate details..." />
+        <div className="max-w-xl w-full">
+          <CardSkeleton rows={5} />
+        </div>
       </div>
     );
   }
@@ -183,8 +185,8 @@ export const CustomerApprovalPage = () => {
                         <td className="px-3.5 py-2.5 font-medium text-[var(--spatial-text-title)]">Diagnostic Labor & Service</td>
                         <td className="px-3.5 py-2.5 text-center text-[var(--spatial-text-muted)] text-[10px]">—</td>
                         <td className="px-3.5 py-2.5 text-center text-[var(--spatial-text-body)]">1</td>
-                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums text-[var(--spatial-text-muted)]">${Number(est.labor_charge).toFixed(2)}</td>
-                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums font-semibold text-[var(--spatial-text-title)]">${Number(est.labor_charge).toFixed(2)}</td>
+                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums text-[var(--spatial-text-muted)]">₹{Number(est.labor_charge).toFixed(2)}</td>
+                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums font-semibold text-[var(--spatial-text-title)]">₹{Number(est.labor_charge).toFixed(2)}</td>
                       </tr>
                     )}
                     {(est.items || []).map((it, idx) => (
@@ -200,8 +202,8 @@ export const CustomerApprovalPage = () => {
                           )}
                         </td>
                         <td className="px-3.5 py-2.5 text-center text-[var(--spatial-text-body)]">{it.quantity}</td>
-                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums text-[var(--spatial-text-muted)]">${Number(it.unit_price).toFixed(2)}</td>
-                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums font-semibold text-[var(--spatial-text-title)]">${Number(it.total_price).toFixed(2)}</td>
+                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums text-[var(--spatial-text-muted)]">₹{Number(it.unit_price).toFixed(2)}</td>
+                        <td className="px-3.5 py-2.5 text-right font-mono tabular-nums font-semibold text-[var(--spatial-text-title)]">₹{Number(it.total_price).toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -214,7 +216,7 @@ export const CustomerApprovalPage = () => {
                     Discount Applied
                     {est.discount_type === 'PERCENTAGE' && est.discount_value ? ` (${est.discount_value}%)` : ''}:
                   </span>
-                  <span className="font-mono tabular-nums">-${Number(est.discount).toFixed(2)}</span>
+                  <span className="font-mono tabular-nums">-₹{Number(est.discount).toFixed(2)}</span>
                 </div>
               )}
 
@@ -222,7 +224,7 @@ export const CustomerApprovalPage = () => {
                 <div>
                   <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Estimated Total (Taxes incl.)</span>
                 </div>
-                <span className="text-2xl font-bold font-mono tabular-nums text-[var(--spatial-text-title)]">${Number(est.total_amount).toFixed(2)}</span>
+                <span className="text-2xl font-bold font-mono tabular-nums text-[var(--spatial-text-title)]">₹{Number(est.total_amount).toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -238,7 +240,7 @@ export const CustomerApprovalPage = () => {
                   loading={submitting}
                   onClick={() => handleDecision('APPROVE')}
                 >
-                  Approve Repair (${Number(est?.total_amount || 0).toFixed(2)})
+                  Approve Repair (₹{Number(est?.total_amount || 0).toFixed(2)})
                 </Button>
 
                 <Button

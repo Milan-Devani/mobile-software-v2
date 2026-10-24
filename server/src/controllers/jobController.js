@@ -444,7 +444,7 @@ export const saveEstimate = async (req, res, next) => {
         id,
         'ESTIMATE_SENT',
         'Repair Estimate Generated & Sent',
-        `Estimate of $${estimate.total_amount.toFixed(2)} prepared (Labor: $${estimate.labor_charge.toFixed(2)}, Parts: $${estimate.parts_subtotal.toFixed(2)}).`,
+        `Estimate of ₹${estimate.total_amount.toFixed(2)} prepared (Labor: ₹${estimate.labor_charge.toFixed(2)}, Parts: ₹${estimate.parts_subtotal.toFixed(2)}).`,
         req.user.id
       );
     }
@@ -465,7 +465,7 @@ export const saveEstimate = async (req, res, next) => {
       success: true,
       message: isFreeWarranty
         ? 'Free warranty rework estimate confirmed (₹0 balance, pre-approved).'
-        : `Estimate of $${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
+        : `Estimate of ₹${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
       data: { estimate, job: updatedJob },
     });
   } catch (err) {
@@ -557,6 +557,15 @@ export const publicSubmitApproval = async (req, res, next) => {
 
     const isApproved = decision === 'APPROVE';
     const newStatus = isApproved ? 'APPROVED' : 'REJECTED';
+
+    // Duplicate submission guard - return current status if already decided
+    if (job.approval_status === newStatus) {
+      return res.json({
+        success: true,
+        message: isApproved ? 'Thank you! Your repair authorization was already confirmed.' : 'Repair estimate rejection is already recorded.',
+        data: { job },
+      });
+    }
 
     await db.jobs.update(job.id, {
       approval_status: newStatus,

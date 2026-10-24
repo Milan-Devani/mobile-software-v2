@@ -16,9 +16,10 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { paymentService } from '../../services/paymentService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const PaymentsList = () => {
@@ -103,7 +104,7 @@ export const PaymentsList = () => {
   const handleDeletePayment = async (payment) => {
     const result = await Swal.fire({
       title: 'Delete Payment Record?',
-      text: `Remove receipt "${payment.payment_number}" ($${Number(payment.amount).toFixed(2)})? The job balance will be automatically recalculated.`,
+      text: `Remove receipt "${payment.payment_number}" (₹${Number(payment.amount).toFixed(2)})? The job balance will be automatically recalculated.`,
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#e11d48',
@@ -252,18 +253,20 @@ export const PaymentsList = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={methodFilter}
-            onChange={(e) => handleFilterChange(e.target.value)}
-            className="px-3 py-2 spatial-input rounded-xl text-xs font-semibold"
-          >
-            <option value="ALL">All Methods</option>
-            <option value="CASH">Cash</option>
-            <option value="CARD">Credit / Debit Card</option>
-            <option value="UPI">UPI / QR Digital</option>
-            <option value="BANK_TRANSFER">Bank Wire</option>
-            <option value="OTHER">Other</option>
-          </select>
+          <div className="w-44 sm:w-48">
+            <SpatialSelect
+              value={methodFilter}
+              onChange={(val) => handleFilterChange(val)}
+              options={[
+                { value: 'ALL', label: 'All Methods' },
+                { value: 'CASH', label: 'Cash' },
+                { value: 'CARD', label: 'Credit / Debit Card' },
+                { value: 'UPI', label: 'UPI / QR Digital' },
+                { value: 'BANK_TRANSFER', label: 'Bank Wire' },
+                { value: 'OTHER', label: 'Other' },
+              ]}
+            />
+          </div>
         </div>
       </div>
 
@@ -274,7 +277,7 @@ export const PaymentsList = () => {
         bodyClassName="p-0"
       >
         {loading && payments.length === 0 ? (
-          <LoadingSpinner label="Fetching payments ledger..." />
+          <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
         ) : payments.length === 0 ? (
           <EmptyState
             icon={CreditCard}

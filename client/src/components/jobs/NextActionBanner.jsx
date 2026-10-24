@@ -107,7 +107,7 @@ export const NextActionBanner = ({
         }
         return {
           title: 'Estimate Sent - Awaiting Customer Approval',
-          instruction: `Estimate ($${Number(job.total_amount).toFixed(2)}) sent to ${job.customer?.full_name || 'Customer'}. Waiting for authorization or manual phone approval.`,
+          instruction: `Estimate (₹${Number(job.total_amount).toFixed(2)}) sent to ${job.customer?.full_name || 'Customer'}. Waiting for authorization or manual phone approval.`,
           buttonLabel: 'Review Estimate & Status',
           icon: Clock,
           bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
@@ -167,7 +167,7 @@ export const NextActionBanner = ({
             : 'Device Ready for Customer Pickup',
           instruction: isFreeWarranty
             ? 'Customer notified. Quality checks passed. Free rework covered under warranty (No payment required).'
-            : `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance ($${Number(job.balance_due || 0).toFixed(2)}).`,
+            : `Customer notified. Upon arrival, customer must test device, confirm operation, and settle any balance (₹${Number(job.balance_due || 0).toFixed(2)}).`,
           buttonLabel: isFreeWarranty ? 'Process Warranty Handover' : 'Process Customer Pickup',
           icon: ShoppingBag,
           bg: 'bg-gradient-to-r from-emerald-500/10 via-emerald-500/5 to-transparent border-emerald-200',

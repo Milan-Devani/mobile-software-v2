@@ -21,11 +21,12 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { customerService } from '../../services/customerService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const customerSchema = z.object({
@@ -55,6 +56,7 @@ export const CustomerList = () => {
   const [pageSize, setPageSize] = useState(10);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addSameAsPhone, setAddSameAsPhone] = useState(true);
+  const [addHasAltPhone, setAddHasAltPhone] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -89,6 +91,8 @@ export const CustomerList = () => {
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: zodResolver(customerSchema),
@@ -177,12 +181,15 @@ export const CustomerList = () => {
       const payload = {
         ...data,
         whatsapp_number: addSameAsPhone ? data.phone : (data.whatsapp_number || data.phone),
+        alternate_phone: addHasAltPhone ? (data.alternate_phone || '') : '',
+        alternate_whatsapp: addHasAltPhone ? (data.alternate_whatsapp || '') : '',
       };
       const created = await customerService.createCustomer(payload);
       toast.success(`Customer "${created.full_name}" registered!`);
       setIsAddModalOpen(false);
       reset();
       setAddSameAsPhone(true);
+      setAddHasAltPhone(false);
       fetchCustomers();
     } catch (err) {
       toast.error(err.message || 'Failed to create customer');
@@ -247,7 +254,7 @@ export const CustomerList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching customer directory..." />
+          <TableSkeleton rows={7} columns={5} showHeader={false} showPagination={false} />
         ) : customers.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -416,22 +423,24 @@ export const CustomerList = () => {
                 Gender & User Type
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <select
-                  {...register('gender')}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs capitalize"
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <select
-                  {...register('user_type')}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs"
-                >
-                  <option value="End User">End User</option>
-                  <option value="Dealer">Dealer</option>
-                  <option value="Corporate">Corporate</option>
-                </select>
+                <SpatialSelect
+                  value={watch('gender') || 'male'}
+                  onChange={(val) => setValue('gender', val, { shouldValidate: true })}
+                  options={[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'other', label: 'Other' },
+                  ]}
+                />
+                <SpatialSelect
+                  value={watch('user_type') || 'End User'}
+                  onChange={(val) => setValue('user_type', val, { shouldValidate: true })}
+                  options={[
+                    { value: 'End User', label: 'End User' },
+                    { value: 'Dealer', label: 'Dealer' },
+                    { value: 'Corporate', label: 'Corporate' },
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -478,31 +487,53 @@ export const CustomerList = () => {
             )}
           </div>
 
-          {/* Alternate Phone & Alternate WhatsApp */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-[var(--spatial-bg-card-subtle)] border border-emerald-400/30 rounded-xl">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Alternate Phone Number
-              </label>
+          {/* Checkbox for Alternate Phone Number */}
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--spatial-text-title)] select-none font-medium">
               <input
-                type="tel"
-                placeholder="Secondary phone"
-                {...register('alternate_phone')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                type="checkbox"
+                checked={addHasAltPhone}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setAddHasAltPhone(checked);
+                  if (!checked) {
+                    setValue('alternate_phone', '');
+                    setValue('alternate_whatsapp', '');
+                  }
+                }}
+                className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3] cursor-pointer"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-emerald-400 uppercase mb-1">
-                Alternate WhatsApp (In-Repair)
-              </label>
-              <input
-                type="tel"
-                placeholder="Active WP number while phone in shop"
-                {...register('alternate_whatsapp')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
-              />
-            </div>
+              <span>Add Alternate Phone Number (In-Repair Contact)</span>
+            </label>
           </div>
+
+          {/* Alternate Phone & Alternate WhatsApp */}
+          {addHasAltPhone && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-400/30 rounded-2xl animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Alternate Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Secondary phone"
+                  {...register('alternate_phone')}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-emerald-400 uppercase mb-1">
+                  Alternate WhatsApp (In-Repair)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Active WP number while phone in shop"
+                  {...register('alternate_whatsapp')}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import {
   FileText,
-  DollarSign,
   Calendar,
   Download,
   Printer,

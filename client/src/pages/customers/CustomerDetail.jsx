@@ -9,7 +9,6 @@ import {
   Wrench,
   Clock,
   CheckCircle2,
-  DollarSign,
   Plus,
   ArrowLeft,
   Calendar,
@@ -21,7 +20,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { customerService } from '../../services/customerService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
@@ -77,7 +76,7 @@ export const CustomerDetail = () => {
   }, [id]);
 
   if (loading) {
-    return <LoadingSpinner fullPage label="Loading customer profile..." />;
+    return <DetailSkeleton />;
   }
 
   const customer = data?.customer;

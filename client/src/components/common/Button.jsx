@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export const Button = ({
@@ -7,13 +7,60 @@ export const Button = ({
   variant = 'primary', // primary, secondary, outline, danger, success, ghost
   size = 'md', // sm, md, lg
   loading = false,
+  loadingText,
   disabled = false,
   icon: Icon,
   className = '',
   onClick,
   ...props
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-140 ease-out focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 dark:focus:ring-[#0a84ff]/40 disabled:opacity-40 disabled:cursor-not-allowed select-none active:scale-[0.98] cursor-pointer';
+  const [internalLoading, setInternalLoading] = useState(false);
+  const isLockedRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const isBusy = loading || internalLoading;
+  const isDisabled = disabled || isBusy;
+
+  const handleClick = async (e) => {
+    // Synchronous guard against double-clicks and microtask queue spam
+    if (isDisabled || isLockedRef.current) {
+      if (e && typeof e.preventDefault === 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+
+    // Lock immediately synchronously
+    isLockedRef.current = true;
+
+    try {
+      if (onClick) {
+        const result = onClick(e);
+        // If the click handler returned a Promise, automatically handle loading state
+        if (result && typeof result.then === 'function') {
+          setInternalLoading(true);
+          await result;
+        }
+      }
+    } finally {
+      // Cooldown to prevent ghost clicks or rapid touch bounces
+      setTimeout(() => {
+        isLockedRef.current = false;
+        if (isMountedRef.current) {
+          setInternalLoading(false);
+        }
+      }, 300);
+    }
+  };
+
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-140 ease-out focus:outline-none focus:ring-2 focus:ring-[#0071e3]/30 dark:focus:ring-[#0a84ff]/40 disabled:opacity-45 disabled:cursor-not-allowed select-none active:scale-[0.98] cursor-pointer';
 
   const variantClasses = {
     primary: 'spatial-btn-primary',
@@ -33,17 +80,20 @@ export const Button = ({
   return (
     <button
       type={type}
-      disabled={disabled || loading}
-      onClick={onClick}
+      disabled={isDisabled}
+      onClick={handleClick}
+      aria-busy={isBusy}
       className={`${baseClasses} ${variantClasses[variant] || variantClasses.primary} ${sizeClasses[size] || sizeClasses.md} ${className}`}
       {...props}
     >
-      {loading ? (
+      {isBusy ? (
         <Loader2 className="w-4 h-4 animate-spin shrink-0" />
       ) : Icon ? (
         <Icon className="w-4 h-4 shrink-0" />
       ) : null}
-      <span>{children}</span>
+      <span>{isBusy && loadingText ? loadingText : children}</span>
     </button>
   );
 };
+
+export default Button;

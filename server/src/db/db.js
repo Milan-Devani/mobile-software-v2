@@ -1674,7 +1674,7 @@ export const db = {
 
       const currentBalance = job.balance_due !== undefined ? job.balance_due : (job.total_amount - (job.paid_amount || 0));
       if (parsedAmount > (currentBalance + 0.01)) {
-        throw new Error(`Payment amount ($${parsedAmount.toFixed(2)}) cannot exceed remaining balance ($${currentBalance.toFixed(2)})`);
+        throw new Error(`Payment amount (₹${parsedAmount.toFixed(2)}) cannot exceed remaining balance (₹${currentBalance.toFixed(2)})`);
       }
 
       const paymentCount = (localDb.payments || []).length + 1;
@@ -1712,8 +1712,8 @@ export const db = {
         job_id: jobId,
         from_status: job.status,
         to_status: job.status,
-        action_title: `Payment Received: $${parsedAmount.toFixed(2)} (${paymentMethod})`,
-        notes: `Recorded by staff. Total paid: $${newPaidAmount.toFixed(2)}, Remaining balance: $${newBalance.toFixed(2)}. Ref: ${transactionReference || 'N/A'}`,
+        action_title: `Payment Received: ₹${parsedAmount.toFixed(2)} (${paymentMethod})`,
+        notes: `Recorded by staff. Total paid: ₹${newPaidAmount.toFixed(2)}, Remaining balance: ₹${newBalance.toFixed(2)}. Ref: ${transactionReference || 'N/A'}`,
         performed_by_user_id: userId,
         created_at: new Date().toISOString()
       };

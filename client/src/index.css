@@ -592,8 +592,81 @@ select option:checked {
   transition: background-color 150ms ease;
 }
 
-.modal-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(142, 142, 147, 0.6);
+/* ==========================================================================
+   GLOBAL SKELETON LOADING SYSTEM (APPLE SPATIAL DESIGN)
+   Works seamlessly across Dark, Light, and Glass themes
+   ========================================================================== */
+@keyframes spatial-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.spatial-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 200% 100%;
+  animation: spatial-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  border-radius: 0.75rem;
+  pointer-events: none;
+}
+
+[data-theme="light"] .spatial-skeleton,
+.light .spatial-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.04) 0%,
+    rgba(0, 0, 0, 0.09) 50%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  background-size: 200% 100%;
+}
+
+/* ==========================================================================
+   DROPDOWN & SELECT SYSTEM (APPLE DESIGN SYSTEM)
+   ========================================================================== */
+.spatial-dropdown-panel {
+  background-color: var(--spatial-bg-card, #1c1c1e);
+  border: 1px solid var(--spatial-border, rgba(255, 255, 255, 0.08));
+  border-radius: 1rem;
+  backdrop-filter: blur(25px) saturate(180%);
+  -webkit-backdrop-filter: blur(25px) saturate(180%);
+  box-shadow: 0 20px 45px -10px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="light"] .spatial-dropdown-panel,
+.light .spatial-dropdown-panel {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 16px 36px -6px rgba(0, 0, 0, 0.12), 0 2px 8px -1px rgba(0, 0, 0, 0.04);
+}
+
+/* Global native HTML select & option styling fallback */
+select {
+  color-scheme: dark;
+}
+[data-theme="light"] select,
+.light select {
+  color-scheme: light;
+}
+
+select option {
+  background-color: #1c1c1e;
+  color: #f5f5f7;
+  padding: 8px 12px;
+}
+
+[data-theme="light"] select option,
+.light select option {
+  background-color: #ffffff;
+  color: #1d1d1f;
 }
 
 /* ==========================================================================

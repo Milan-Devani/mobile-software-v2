@@ -17,7 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { backupService } from '../../services/backupService';
-import { Card, LoadingSpinner, EmptyState } from '../common/Card';
+import { Card, LoadingSpinner, EmptyState, CardSkeleton } from '../common/Card';
 import { Button } from '../common/Button';
 
 export const BackupManagementTab = () => {
@@ -130,7 +130,7 @@ export const BackupManagementTab = () => {
   };
 
   if (loading && !status) {
-    return <LoadingSpinner minHeight="min-h-[380px]" label="Loading database backup configuration..." />;
+    return <CardSkeleton rows={4} />;
   }
 
   const isRunning = status?.isRunning;

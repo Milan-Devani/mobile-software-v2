@@ -33,12 +33,13 @@ import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { settingsService } from '../../services/settingsService';
 import { authService } from '../../services/authService';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
 import { WhatsAppQrModal } from '../../components/common/WhatsAppQrModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import { BackupManagementTab } from '../../components/settings/BackupManagementTab';
 import {
@@ -390,7 +391,7 @@ export const Settings = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner fullPage label="Loading workshop settings & spatial preferences..." />;
+    return <DetailSkeleton />;
   }
 
   // Visual card definitions for the three spatial styles
@@ -865,20 +866,22 @@ export const Settings = () => {
               </div>
 
               <div className="flex items-center gap-2">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => {
-                    setRoleFilter(e.target.value);
-                    setUserPage(1);
-                    setUserSelectedIds([]);
-                  }}
-                  className="px-3 py-1.5 spatial-input rounded-xl text-xs font-medium"
-                >
-                  <option value="ALL">All Roles ({usersList.length})</option>
-                  <option value="admin">Admins</option>
-                  <option value="technician">Technicians</option>
-                  <option value="staff">Front Desk Staff</option>
-                </select>
+                <div className="w-48 sm:w-52">
+                  <SpatialSelect
+                    value={roleFilter}
+                    onChange={(val) => {
+                      setRoleFilter(val);
+                      setUserPage(1);
+                      setUserSelectedIds([]);
+                    }}
+                    options={[
+                      { value: 'ALL', label: `All Roles (${usersList.length})` },
+                      { value: 'admin', label: 'Admins' },
+                      { value: 'technician', label: 'Technicians' },
+                      { value: 'staff', label: 'Front Desk Staff' },
+                    ]}
+                  />
+                </div>
 
                 {user?.role_id === 'admin' && (
                   <Button size="sm" icon={Plus} onClick={() => setIsAddUserOpen(true)} className="sm:hidden">
@@ -1355,15 +1358,15 @@ export const Settings = () => {
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Role Permission *
             </label>
-            <select
+            <SpatialSelect
               value={newUserRole}
-              onChange={(e) => setNewUserRole(e.target.value)}
-              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-medium"
-            >
-              <option value="technician">Technician (Diagnosis, Parts, Repairs, QC Testing)</option>
-              <option value="staff">Staff / Reception (Customer Check-in, Job Sheets, Pickup, Payments)</option>
-              <option value="admin">Admin / Shop Owner (Full System Access)</option>
-            </select>
+              onChange={setNewUserRole}
+              options={[
+                { value: 'technician', label: 'Technician (Diagnosis, Parts, Repairs, QC Testing)' },
+                { value: 'staff', label: 'Staff / Reception (Customer Check-in, Job Sheets, Pickup, Payments)' },
+                { value: 'admin', label: 'Admin / Shop Owner (Full System Access)' },
+              ]}
+            />
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">

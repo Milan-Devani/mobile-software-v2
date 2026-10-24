@@ -22,7 +22,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Card, LoadingSpinner } from '../../components/common/Card';
+import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
@@ -336,7 +336,7 @@ export const SalesInvoiceCreate = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner fullPage label="Preparing Sales Billing engine..." />;
+    return <FormSkeleton fields={6} />;
   }
 
   const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);

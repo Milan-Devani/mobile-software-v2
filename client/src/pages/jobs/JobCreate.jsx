@@ -20,7 +20,7 @@ import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
-import { Card, LoadingSpinner } from '../../components/common/Card';
+import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
@@ -82,6 +82,7 @@ export const JobCreate = () => {
   const [newCustEmail, setNewCustEmail] = useState('');
   const [newCustWhatsapp, setNewCustWhatsapp] = useState('');
   const [newCustSameAsPhone, setNewCustSameAsPhone] = useState(true);
+  const [newCustHasAltPhone, setNewCustHasAltPhone] = useState(false);
   const [newCustAltPhone, setNewCustAltPhone] = useState('');
   const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState('');
   const [newCustGender, setNewCustGender] = useState('male');
@@ -213,8 +214,8 @@ export const JobCreate = () => {
         phone: newCustPhone.trim(),
         email: newCustEmail.trim(),
         whatsapp_number: newCustSameAsPhone ? newCustPhone.trim() : (newCustWhatsapp.trim() || newCustPhone.trim()),
-        alternate_phone: newCustAltPhone,
-        alternate_whatsapp: newCustAltWhatsapp,
+        alternate_phone: newCustHasAltPhone ? newCustAltPhone.trim() : '',
+        alternate_whatsapp: newCustHasAltPhone ? newCustAltWhatsapp.trim() : '',
         gender: newCustGender,
         user_type: newCustUserType,
         address: newCustAddress,
@@ -232,6 +233,7 @@ export const JobCreate = () => {
       setNewCustEmail('');
       setNewCustWhatsapp('');
       setNewCustSameAsPhone(true);
+      setNewCustHasAltPhone(false);
       setNewCustAltPhone('');
       setNewCustAltWhatsapp('');
       setNewCustAddress('');
@@ -299,7 +301,7 @@ export const JobCreate = () => {
   };
 
   if (loadingInit) {
-    return <LoadingSpinner fullPage label="Preparing Job Sheet intake wizard..." />;
+    return <FormSkeleton fields={6} />;
   }
 
   return (
@@ -535,14 +537,15 @@ export const JobCreate = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Operating System</label>
-              <select
-                {...register('device_os')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-              >
-                <option value="iOS">iOS</option>
-                <option value="Android">Android</option>
-                <option value="Other">Other</option>
-              </select>
+              <SpatialSelect
+                value={watch('device_os') || 'Android'}
+                onChange={(val) => setValue('device_os', val, { shouldValidate: true })}
+                options={[
+                  { value: 'iOS', label: 'iOS' },
+                  { value: 'Android', label: 'Android' },
+                  { value: 'Other', label: 'Other' },
+                ]}
+              />
             </div>
 
             <div>
@@ -815,24 +818,24 @@ export const JobCreate = () => {
                 Gender & User Type
               </label>
               <div className="grid grid-cols-2 gap-2">
-                <select
+                <SpatialSelect
                   value={newCustGender}
-                  onChange={(e) => setNewCustGender(e.target.value)}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs capitalize"
-                >
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-                <select
+                  onChange={setNewCustGender}
+                  options={[
+                    { value: 'male', label: 'Male' },
+                    { value: 'female', label: 'Female' },
+                    { value: 'other', label: 'Other' },
+                  ]}
+                />
+                <SpatialSelect
                   value={newCustUserType}
-                  onChange={(e) => setNewCustUserType(e.target.value)}
-                  className="w-full px-2.5 py-2 spatial-input rounded-xl text-xs"
-                >
-                  <option value="End User">End User</option>
-                  <option value="Dealer">Dealer</option>
-                  <option value="Corporate">Corporate</option>
-                </select>
+                  onChange={setNewCustUserType}
+                  options={[
+                    { value: 'End User', label: 'End User' },
+                    { value: 'Dealer', label: 'Dealer' },
+                    { value: 'Corporate', label: 'Corporate' },
+                  ]}
+                />
               </div>
             </div>
           </div>
@@ -903,51 +906,73 @@ export const JobCreate = () => {
             )}
           </div>
 
-          {/* Alternate Phone & Alternate WhatsApp (Crucial Requirement!) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-500/30 rounded-xl">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
-                Alternate Phone Number
-              </label>
+          {/* Checkbox for Alternate Phone Number */}
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--spatial-text-title)] select-none font-medium">
               <input
-                type="tel"
-                placeholder="e.g. 8160751302"
-                value={newCustAltPhone}
+                type="checkbox"
+                checked={newCustHasAltPhone}
                 onChange={(e) => {
-                  setNewCustAltPhone(e.target.value);
-                  if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                  const checked = e.target.checked;
+                  setNewCustHasAltPhone(checked);
+                  if (!checked) {
+                    setNewCustAltPhone('');
+                    setNewCustAltWhatsapp('');
+                  }
                 }}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3] cursor-pointer"
               />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
-                  <span>Alternate WhatsApp *</span>
-                </label>
-                {newCustAltPhone && (
-                  <button
-                    type="button"
-                    onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
-                    className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline"
-                  >
-                    Same as Alt Phone
-                  </button>
-                )}
-              </div>
-              <input
-                type="tel"
-                placeholder="Active WP number during repair"
-                value={newCustAltWhatsapp}
-                onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono border-emerald-500/40 focus:border-emerald-500"
-              />
-              <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
-                Used for instant repair notifications while main phone is in shop
-              </p>
-            </div>
+              <span>Add Alternate Phone Number (In-Repair Contact)</span>
+            </label>
           </div>
+
+          {/* Alternate Phone & Alternate WhatsApp (Only shown when checkbox is checked) */}
+          {newCustHasAltPhone && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-500/30 rounded-2xl animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
+                  Alternate Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 8160751302"
+                  value={newCustAltPhone}
+                  onChange={(e) => {
+                    setNewCustAltPhone(e.target.value);
+                    if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                    <span>Alternate WhatsApp</span>
+                  </label>
+                  {newCustAltPhone && (
+                    <button
+                      type="button"
+                      onClick={() => setNewCustAltWhatsapp(newCustAltPhone)}
+                      className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      Same as Alt Phone
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="tel"
+                  placeholder="Active WP number during repair"
+                  value={newCustAltWhatsapp}
+                  onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono border-emerald-500/40 focus:border-emerald-500"
+                />
+                <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">
+                  Used for instant repair notifications while main phone is in shop
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Address Fields */}
           <div>

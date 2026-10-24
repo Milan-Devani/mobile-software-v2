@@ -138,7 +138,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
     msg += `⚠️ *Reported Issue:* ${job.customer_complaint || 'Diagnostic'}\n`;
     msg += `🔧 *Service:* ${job.service_type || 'Hardware Repair'}\n`;
     if (job.total_amount > 0) {
-      msg += `💰 *Estimated Total:* $${Number(job.total_amount).toFixed(2)}\n`;
+      msg += `💰 *Estimated Total:* ₹${Number(job.total_amount).toFixed(2)}\n`;
     }
     msg += `\n🔍 *Live Status & Track:* ${trackingUrl}\n\n`;
     msg += `Thank you for choosing ${shopName}! Queries: ${shop?.phone || ''}`;
@@ -239,7 +239,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
       `IMEI: ${dev.imei || 'N/A'}\n` +
       `Reported Fault: ${job.customer_complaint}\n` +
       `Service: ${job.service_type || 'Hardware Repair'}\n` +
-      `Estimate: $${Number(job.total_amount || 0).toFixed(2)}\n\n` +
+      `Estimate: ₹${Number(job.total_amount || 0).toFixed(2)}\n\n` +
       `Thank you,\n${shop?.name || 'Repair Shop'}\n${shop?.phone || ''}`
     );
     window.open(`mailto:${cust.email}?subject=${subject}&body=${body}`, '_blank');

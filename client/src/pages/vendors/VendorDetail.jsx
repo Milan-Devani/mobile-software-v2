@@ -24,7 +24,7 @@ import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
@@ -97,7 +97,7 @@ export const VendorDetail = () => {
   }, [id]);
 
   if (loading || !vendor) {
-    return <LoadingSpinner fullPage label="Loading vendor profile & ledger history..." />;
+    return <DetailSkeleton />;
   }
 
   const balance = vendor.current_balance || 0;

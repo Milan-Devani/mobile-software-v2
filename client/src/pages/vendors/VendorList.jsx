@@ -20,7 +20,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
@@ -255,7 +255,7 @@ export const VendorList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <LoadingSpinner label="Fetching vendor directory..." />
+          <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
         ) : vendors.length === 0 ? (
           <EmptyState
             icon={Building2}

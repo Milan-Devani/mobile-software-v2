@@ -23,7 +23,7 @@ import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
-import { Card, LoadingSpinner, EmptyState } from '../../components/common/Card';
+import { Card, LoadingSpinner, EmptyState, StatsSkeleton, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
@@ -133,7 +133,11 @@ export const VendorDashboard = () => {
       <VendorNavTabs activeTab="/vendors" />
 
       {loading ? (
-        <LoadingSpinner label="Compiling vendor metrics & active repair movements..." />
+        <div className="space-y-6">
+          <StatsSkeleton count={4} />
+          <StatsSkeleton count={4} />
+          <TableSkeleton rows={5} columns={6} showHeader={false} />
+        </div>
       ) : (
         <>
           {/* =================================================================== */}
