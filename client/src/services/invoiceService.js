@@ -11,8 +11,14 @@ export const invoiceService = {
     return res.data;
   },
 
-  resendInvoice: async (jobId, channels = ['EMAIL', 'WHATSAPP', 'SMS']) => {
-    const res = await api.post(`/invoices/job/${jobId}/resend`, { channels });
+  resendInvoice: async (jobId, options = ['EMAIL', 'WHATSAPP', 'SMS']) => {
+    let payload = {};
+    if (Array.isArray(options)) {
+      payload = { channels: options };
+    } else if (typeof options === 'object' && options !== null) {
+      payload = options;
+    }
+    const res = await api.post(`/invoices/job/${jobId}/resend`, payload);
     return res.data;
   },
 };

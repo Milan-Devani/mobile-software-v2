@@ -173,8 +173,9 @@ export const dispatchNotification = async ({
           </div>
         `;
       } else {
+        const downloadPdfLink = `${clientBaseUrl}/api/invoices/public/${job.id}/download-pdf`;
         subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
-        plainMessage = `Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. View: ${approvalUrl}. ${shopName}`;
+        plainMessage = `Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -190,7 +191,7 @@ export const dispatchNotification = async ({
               <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
             </table>
             <p style="font-size: 13px; color: #475569; margin: 15px 0;">
-              📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> Please keep this receipt for warranty claims.
+              📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> You can also <a href="${downloadPdfLink}" style="color: #0284c7; font-weight: bold;">download your vector PDF invoice directly here</a>.
             </p>
             <div style="text-align: center; margin: 20px 0;">
               <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>

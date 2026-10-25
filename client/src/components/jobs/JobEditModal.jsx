@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Smartphone, Save, AlertCircle } from 'lucide-react';
+import { Wrench, Smartphone, Save, AlertCircle, Cable } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
+import { deviceBridgeService } from '../../services/deviceBridgeService';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { SpatialSelect } from '../common/SpatialSelect';
@@ -17,14 +18,14 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
     assigned_technician_id: '',
     internal_notes: '',
     device_data: {
-      brand: '',
+      brand: 'Apple',
       model: '',
       color: '',
       storage_capacity: '',
       imei: '',
       serial_number: '',
       passcode: '',
-      operating_system: 'iOS/Android',
+      operating_system: 'iOS',
     },
     device_condition: {},
     accessories_received: [],
@@ -32,6 +33,34 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
 
   const [technicians, setTechnicians] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detectingDevice, setDetectingDevice] = useState(false);
+
+  const handleAutoDetectDevice = async () => {
+    try {
+      setDetectingDevice(true);
+      const res = await deviceBridgeService.detectDevice();
+      if (res && res.connected) {
+        setFormData((prev) => ({
+          ...prev,
+          device_data: {
+            ...prev.device_data,
+            brand: res.brand || prev.device_data.brand || 'Apple',
+            model: res.model || prev.device_data.model,
+            serial_number: res.serial_number || prev.device_data.serial_number,
+            imei: res.imei || prev.device_data.imei,
+            operating_system: res.platform === 'ios' ? 'iOS' : res.platform === 'android' ? 'Android' : prev.device_data.operating_system,
+          },
+        }));
+        toast.success(`Detected: ${res.brand} ${res.model}`, { icon: '📱' });
+      } else {
+        toast.error(res?.message || 'No mobile device detected on USB ports');
+      }
+    } catch (err) {
+      toast.error('Failed to detect device via USB');
+    } finally {
+      setDetectingDevice(false);
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -54,14 +83,14 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
         assigned_technician_id: job.assigned_technician_id || '',
         internal_notes: job.internal_notes || '',
         device_data: {
-          brand: dev.brand || '',
+          brand: dev.brand || 'Apple',
           model: dev.model || '',
           color: dev.color || '',
           storage_capacity: dev.storage_capacity || '',
           imei: dev.imei || '',
           serial_number: dev.serial_number || '',
           passcode: dev.passcode || '',
-          operating_system: dev.operating_system || 'iOS/Android',
+          operating_system: dev.operating_system || (dev.brand === 'Apple' || !dev.brand ? 'iOS' : 'Android'),
         },
         device_condition: { ...(job.device_condition || {}) },
         accessories_received: [...(job.accessories_received || [])],
@@ -214,10 +243,24 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Device Info */}
         <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl space-y-3">
-          <span className="text-xs font-bold text-[var(--spatial-text-title)] block flex items-center gap-1.5">
-            <Smartphone className="w-4 h-4 text-apple-blue" />
-            Device Specifications
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--spatial-text-title)] flex items-center gap-1.5">
+              <Smartphone className="w-4 h-4 text-apple-blue" />
+              Device Specifications
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              icon={Cable}
+              loading={detectingDevice}
+              onClick={handleAutoDetectDevice}
+              className="text-xs h-7 px-2.5 border-apple-blue/40 text-apple-blue hover:bg-apple-blue/10"
+              title="Detect connected iPhone or Android via USB cable"
+            >
+              {detectingDevice ? 'Scanning USB...' : 'Auto-Detect via USB'}
+            </Button>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
             <div>

@@ -411,6 +411,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
       <div
         ref={printAreaRef}
         className="service-order-document bg-white p-5 max-w-[800px] mx-auto border border-slate-400 print:border-none print:p-0 print:max-w-full text-black text-[11px] leading-tight font-sans"
+        style={{ backgroundColor: '#ffffff', color: '#000000', colorScheme: 'light' }}
       >
         {/* ============================================================== */}
         {/* HEADER: SHOP DETAILS (LEFT) & DEDICATED ORDER BOX (RIGHT)       */}

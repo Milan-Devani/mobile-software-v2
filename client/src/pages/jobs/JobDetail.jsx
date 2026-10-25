@@ -636,10 +636,35 @@ export const JobDetail = () => {
       setIsSaving(true);
       const updated = await jobService.recordPickup(job.id, pickupForm);
       setJob((prev) => ({ ...prev, ...updated }));
+
+      // Automatically trigger real official vector invoice PDF download for shop & customer
+      if (!isEstimateRejected) {
+        try {
+          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const token = localStorage.getItem('token');
+          const pdfRes = await fetch(`${apiBase}/invoices/job/${job.id}/download-pdf`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          });
+          if (pdfRes.ok) {
+            const blob = await pdfRes.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `Mobotech_Tax_Invoice_${job.job_number || 'FINAL'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(downloadUrl);
+          }
+        } catch (downloadErr) {
+          console.warn('Auto invoice PDF download failed:', downloadErr);
+        }
+      }
+
       toast.success(
         isEstimateRejected
           ? 'Device returned to customer in original condition!'
-          : 'Device delivered & final invoice sent to customer!'
+          : 'Device delivered & official real invoice PDF dispatched to customer!'
       );
       setIsPickupModalOpen(false);
     } catch (err) {
@@ -677,6 +702,11 @@ export const JobDetail = () => {
   };
 
   const handleOpenDiscountModal = () => {
+    const isSettled = (Number(job?.balance_due || 0) <= 0 && (Number(job?.paid_amount || 0) > 0 || Number(job?.total_amount || 0) > 0)) || ['DELIVERED', 'CANCELLED'].includes(job?.status);
+    if (isSettled) {
+      toast.error('Payment has already been settled in full. Discounts cannot be modified after settlement.');
+      return;
+    }
     const existingType = job?.discount_type || job?.estimate?.discount_type || 'AMOUNT';
     const existingVal = job?.discount_value !== undefined
       ? job.discount_value
@@ -765,6 +795,11 @@ export const JobDetail = () => {
   };
 
   const handleCopyApprovalLink = () => {
+    const isSettled = (Number(job?.balance_due || 0) <= 0 && (Number(job?.paid_amount || 0) > 0 || Number(job?.total_amount || 0) > 0)) || ['DELIVERED', 'CANCELLED'].includes(job?.status);
+    if (isSettled) {
+      toast.info('Customer payment is completed. Approval link is deactivated.');
+      return;
+    }
     const link = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token}`;
     navigator.clipboard.writeText(link);
     setCopiedLink(true);
@@ -779,6 +814,7 @@ export const JobDetail = () => {
   const cond = job.device_condition || {};
   const accessories = job.accessories_received || [];
   const isJobClosed = ['DELIVERED', 'CANCELLED'].includes(job.status);
+  const isPaymentDone = (Number(job.balance_due || 0) <= 0 && (Number(job.paid_amount || 0) > 0 || Number(job.total_amount || 0) > 0)) || isJobClosed;
 
   return (
     <div className={`space-y-6 ${isPrintInvoiceOpen || isPrintJobSheetOpen ? 'print:hidden' : ''}`}>
@@ -896,6 +932,13 @@ export const JobDetail = () => {
               size="sm"
               icon={copiedLink ? Check : Share2}
               onClick={handleCopyApprovalLink}
+              disabled={isPaymentDone || isJobClosed}
+              title={
+                isPaymentDone || isJobClosed
+                  ? 'Payment settled. Approval link is deactivated.'
+                  : 'Copy customer repair approval link'
+              }
+              className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
             >
               Approval Link
             </Button>
@@ -1049,39 +1092,39 @@ export const JobDetail = () => {
             >
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between">
-                  <p><span className="text-slate-500">Full Name:</span> <strong className="text-slate-900">{job.customer?.full_name}</strong></p>
-                  <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-semibold">
+                  <p><span className="text-slate-500 dark:text-slate-400">Full Name:</span> <strong className="text-slate-900 dark:text-slate-100">{job.customer?.full_name}</strong></p>
+                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-semibold border border-slate-200 dark:border-slate-700">
                     {job.customer?.user_type || 'End User'} • {job.customer?.gender || 'male'}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
-                  <p><span className="text-slate-500">Phone:</span> <span className="font-mono font-medium">{job.customer?.phone}</span></p>
-                  <p><span className="text-slate-500">WhatsApp:</span> <span className="font-mono">{job.customer?.whatsapp_number || job.customer?.phone}</span></p>
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+                  <p><span className="text-slate-500 dark:text-slate-400">Phone:</span> <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{job.customer?.phone}</span></p>
+                  <p><span className="text-slate-500 dark:text-slate-400">WhatsApp:</span> <span className="font-mono text-slate-800 dark:text-slate-200">{job.customer?.whatsapp_number || job.customer?.phone}</span></p>
                 </div>
-                <div className="grid grid-cols-2 gap-2 p-2 bg-emerald-50/70 border border-emerald-200/60 rounded-lg">
-                  <p><span className="text-slate-500">Alt Phone:</span> <span className="font-mono font-semibold text-slate-800">{job.customer?.alternate_phone || 'None'}</span></p>
-                  <p><span className="text-emerald-700 font-semibold">Alt WP (In-Repair):</span> <span className="font-mono font-bold text-emerald-900">{job.customer?.alternate_whatsapp || job.customer?.alternate_phone || 'None'}</span></p>
+                <div className="grid grid-cols-2 gap-2 p-2 bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-lg">
+                  <p><span className="text-slate-600 dark:text-slate-400">Alt Phone:</span> <span className="font-mono font-semibold text-slate-800 dark:text-slate-200">{job.customer?.alternate_phone || 'None'}</span></p>
+                  <p><span className="text-emerald-700 dark:text-emerald-400 font-semibold">Alt WP (In-Repair):</span> <span className="font-mono font-bold text-emerald-900 dark:text-emerald-200">{job.customer?.alternate_whatsapp || job.customer?.alternate_phone || 'None'}</span></p>
                 </div>
-                {job.customer?.email && <p><span className="text-slate-500">Mail ID:</span> {job.customer.email}</p>}
-                {job.customer?.address && <p><span className="text-slate-500">Address:</span> {job.customer.address}</p>}
+                {job.customer?.email && <p><span className="text-slate-500 dark:text-slate-400">Mail ID:</span> <span className="text-slate-800 dark:text-slate-200">{job.customer.email}</span></p>}
+                {job.customer?.address && <p><span className="text-slate-500 dark:text-slate-400">Address:</span> <span className="text-slate-800 dark:text-slate-200">{job.customer.address}</span></p>}
               </div>
             </Card>
 
             {/* Device Info Card */}
             <Card title="Device Specifications">
               <div className="space-y-2.5 text-xs">
-                <p><span className="text-slate-500">Model:</span> <strong className="text-slate-900">{job.device?.brand} {job.device?.model}</strong></p>
-                <p><span className="text-slate-500">IMEI:</span> <span className="font-mono font-medium">{job.device?.imei || 'Not provided'}</span></p>
-                <p><span className="text-slate-500">Passcode / PIN:</span> <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-800">{job.device?.passcode || 'None'}</span></p>
-                <p><span className="text-slate-500">Color / Storage:</span> {job.device?.color || 'N/A'} {job.device?.storage_capacity ? `• ${job.device.storage_capacity}` : ''}</p>
-                <p><span className="text-slate-500">Operating System:</span> {job.device?.operating_system || 'iOS/Android'}</p>
+                <p><span className="text-slate-500 dark:text-slate-400">Model:</span> <strong className="text-slate-900 dark:text-slate-100">{job.device?.brand} {job.device?.model}</strong></p>
+                <p><span className="text-slate-500 dark:text-slate-400">IMEI:</span> <span className="font-mono font-medium text-slate-800 dark:text-slate-200">{job.device?.imei || 'Not provided'}</span></p>
+                <p><span className="text-slate-500 dark:text-slate-400">Passcode / PIN:</span> <span className="font-mono bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded text-slate-800 dark:text-slate-200">{job.device?.passcode || 'None'}</span></p>
+                <p><span className="text-slate-500 dark:text-slate-400">Color / Storage:</span> <span className="text-slate-800 dark:text-slate-200">{job.device?.color || 'N/A'} {job.device?.storage_capacity ? `• ${job.device.storage_capacity}` : ''}</span></p>
+                <p><span className="text-slate-500 dark:text-slate-400">Operating System:</span> <span className="text-slate-800 dark:text-slate-200">{job.device?.operating_system || 'iOS/Android'}</span></p>
               </div>
             </Card>
           </div>
 
           {/* Reported Complaint */}
           <Card title="Customer Reported Complaint">
-            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl text-xs italic text-slate-800">
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs italic text-slate-800 dark:text-slate-200">
               "{job.customer_complaint}"
             </div>
           </Card>
@@ -1171,27 +1214,27 @@ export const JobDetail = () => {
         >
           {job.diagnosis ? (
             <div className="space-y-4 text-xs">
-              <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Technician Findings</span>
-                <p className="text-slate-800 text-sm font-medium leading-relaxed">{job.diagnosis.technician_findings}</p>
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">Technician Findings</span>
+                <p className="text-slate-800 dark:text-slate-100 text-sm font-medium leading-relaxed">{job.diagnosis.technician_findings}</p>
               </div>
 
               {job.diagnosis.root_cause && (
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Root Cause</span>
-                  <p className="text-slate-800 leading-relaxed">{job.diagnosis.root_cause}</p>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">Root Cause</span>
+                  <p className="text-slate-800 dark:text-slate-200 leading-relaxed">{job.diagnosis.root_cause}</p>
                 </div>
               )}
 
-              <div className="p-3.5 bg-primary-50/50 rounded-xl border border-primary-200">
-                <span className="text-[10px] uppercase font-bold text-primary-600 block mb-1">Recommended Solution / Repair Path</span>
-                <p className="text-primary-950 font-medium leading-relaxed">{job.diagnosis.recommended_solution}</p>
+              <div className="p-3.5 bg-primary-50/80 dark:bg-blue-950/40 rounded-xl border border-primary-200 dark:border-blue-800/60">
+                <span className="text-[10px] uppercase font-bold text-primary-600 dark:text-primary-400 block mb-1">Recommended Solution / Repair Path</span>
+                <p className="text-primary-950 dark:text-blue-100 font-semibold leading-relaxed text-sm">{job.diagnosis.recommended_solution}</p>
               </div>
 
               {job.diagnosis.internal_technician_notes && ['admin', 'technician'].includes(user?.role_id) && (
-                <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200 text-amber-900">
-                  <span className="text-[10px] uppercase font-bold text-amber-600 block mb-1">Internal Bench Notes</span>
-                  <p className="italic">{job.diagnosis.internal_technician_notes}</p>
+                <div className="p-3 bg-amber-50/60 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
+                  <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 block mb-1">Internal Bench Notes</span>
+                  <p className="italic text-slate-800 dark:text-amber-200">{job.diagnosis.internal_technician_notes}</p>
                 </div>
               )}
             </div>
@@ -1295,6 +1338,13 @@ export const JobDetail = () => {
                         size="sm"
                         icon={ExternalLink}
                         onClick={() => window.open(`/repair/${job.job_number}/approval?token=${job.approval_token}`, '_blank')}
+                        disabled={isPaymentDone || isJobClosed}
+                        title={
+                          isPaymentDone || isJobClosed
+                            ? 'Payment settled. Customer approval page is closed.'
+                            : 'Open Customer Approval Page'
+                        }
+                        className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
                       >
                         Open Customer Approval Page
                       </Button>
@@ -1303,6 +1353,13 @@ export const JobDetail = () => {
                         size="sm"
                         icon={copiedLink ? Check : Copy}
                         onClick={handleCopyApprovalLink}
+                        disabled={isPaymentDone || isJobClosed}
+                        title={
+                          isPaymentDone || isJobClosed
+                            ? 'Payment settled. Approval link is deactivated.'
+                            : 'Copy Link'
+                        }
+                        className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
                       >
                         Copy Link
                       </Button>
@@ -1509,8 +1566,17 @@ export const JobDetail = () => {
                     variant="outline"
                     icon={Tag}
                     onClick={handleOpenDiscountModal}
-                    className="border-emerald-500/50 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 font-semibold"
-                    title="Apply or edit flat/percentage discount"
+                    disabled={isPaymentDone || isJobClosed}
+                    className={`border-emerald-500/50 font-semibold ${
+                      isPaymentDone || isJobClosed
+                        ? 'opacity-50 cursor-not-allowed text-slate-400 border-slate-300 dark:border-slate-700'
+                        : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                    }`}
+                    title={
+                      isPaymentDone || isJobClosed
+                        ? 'Payment completed. Discounts cannot be modified after settlement.'
+                        : 'Apply or edit flat/percentage discount'
+                    }
                   >
                     {Number(job.discount || 0) > 0 ? 'Edit Discount' : 'Add Discount'}
                   </Button>
@@ -2299,6 +2365,7 @@ export const JobDetail = () => {
 
           <div
             className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            style={{ colorScheme: 'light', backgroundColor: '#ffffff' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Top Bar */}
@@ -2321,7 +2388,10 @@ export const JobDetail = () => {
             </div>
 
             {/* Document Content */}
-            <div className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white">
+            <div
+              className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white"
+              style={{ colorScheme: 'light', backgroundColor: '#f1f5f9' }}
+            >
               <JobSheetPrintable job={job} shop={shop} />
             </div>
           </div>
@@ -2340,6 +2410,7 @@ export const JobDetail = () => {
 
           <div
             className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            style={{ colorScheme: 'light', backgroundColor: '#ffffff' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Top Bar */}
@@ -2362,7 +2433,10 @@ export const JobDetail = () => {
             </div>
 
             {/* Document Content */}
-            <div className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white">
+            <div
+              className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white"
+              style={{ colorScheme: 'light', backgroundColor: '#f1f5f9' }}
+            >
               <InvoicePrintable invoice={job.invoice || { invoice_number: `INV-PREVIEW` }} job={job} shop={shop} />
             </div>
           </div>

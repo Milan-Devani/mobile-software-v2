@@ -729,6 +729,111 @@ select option {
 }
 
 /* ==========================================================================
+   OFFICIAL PRINTABLE INVOICES & SERVICE SHEETS: ALWAYS PURE PAPER WHITE
+   Regardless of whether the application theme is Dark, Spatial, or Light,
+   invoice bills, receipts, and service sheets represent real physical printed documents
+   and must ALWAYS render with pure white background (#ffffff) and black/slate typography.
+   ========================================================================== */
+.service-record-page,
+.service-order-document,
+#same-to-same-bill-sheet,
+.invoice-page-container,
+.invoice-bill-sheet,
+#print-invoice-portal .print-modal-card,
+#print-jobsheet-portal .print-modal-card {
+  color-scheme: light !important;
+}
+
+.service-record-page,
+.service-order-document,
+#same-to-same-bill-sheet,
+.invoice-bill-sheet {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.dark .service-record-page,
+.dark .service-order-document,
+.dark #same-to-same-bill-sheet,
+.dark .invoice-bill-sheet,
+.dark .service-record-page .bg-white,
+.dark .service-order-document .bg-white,
+.dark #same-to-same-bill-sheet .bg-white,
+.dark #print-invoice-portal .service-record-page,
+.dark #print-jobsheet-portal .service-order-document {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.dark .service-record-page .bg-slate-50,
+.dark .service-order-document .bg-slate-50,
+.dark #same-to-same-bill-sheet .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+.dark .service-record-page .bg-slate-100,
+.dark .service-order-document .bg-slate-100,
+.dark #same-to-same-bill-sheet .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
+
+.dark .service-record-page .text-black,
+.dark .service-order-document .text-black,
+.dark #same-to-same-bill-sheet .text-black {
+  color: #000000 !important;
+}
+
+.dark .service-record-page .text-slate-900,
+.dark .service-order-document .text-slate-900,
+.dark #same-to-same-bill-sheet .text-slate-900 {
+  color: #0f172a !important;
+}
+
+.dark .service-record-page .text-slate-800,
+.dark .service-order-document .text-slate-800,
+.dark #same-to-same-bill-sheet .text-slate-800 {
+  color: #1e293b !important;
+}
+
+.dark .service-record-page .text-slate-700,
+.dark .service-order-document .text-slate-700,
+.dark #same-to-same-bill-sheet .text-slate-700 {
+  color: #334155 !important;
+}
+
+.dark .service-record-page .text-slate-600,
+.dark .service-order-document .text-slate-600,
+.dark #same-to-same-bill-sheet .text-slate-600 {
+  color: #475569 !important;
+}
+
+.dark .service-record-page .text-slate-500,
+.dark .service-order-document .text-slate-500,
+.dark #same-to-same-bill-sheet .text-slate-500 {
+  color: #64748b !important;
+}
+
+.dark .service-record-page .border-black,
+.dark .service-order-document .border-black,
+.dark #same-to-same-bill-sheet .border-black {
+  border-color: #000000 !important;
+}
+
+.dark .service-record-page .border-slate-300,
+.dark .service-order-document .border-slate-300,
+.dark #same-to-same-bill-sheet .border-slate-300 {
+  border-color: #cbd5e1 !important;
+}
+
+.dark .service-record-page .border-slate-200,
+.dark .service-order-document .border-slate-200,
+.dark #same-to-same-bill-sheet .border-slate-200 {
+  border-color: #e2e8f0 !important;
+}
+
+/* ==========================================================================
    UNIVERSAL FORM CONTROLS: CRISP OUTLINES & NEVER-CLIPPED FOCUS RINGS
    ========================================================================== */
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):not([type="range"]),

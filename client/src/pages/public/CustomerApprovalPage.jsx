@@ -87,6 +87,7 @@ export const CustomerApprovalPage = () => {
 
   const est = job.estimate;
   const shop = job.shop;
+  const isPaymentDone = job && ((Number(job.balance_due || 0) <= 0 && (Number(job.paid_amount || 0) > 0 || Number(job.total_amount || 0) > 0)) || ['DELIVERED', 'CANCELLED'].includes(job.status));
 
   return (
     <div className="min-h-screen bg-[var(--spatial-bg-app)] py-10 px-4 sm:px-6">
@@ -104,8 +105,21 @@ export const CustomerApprovalPage = () => {
           </div>
         </div>
 
+        {/* Payment Settled / Finalized Banner */}
+        {isPaymentDone && (
+          <div className="p-5 rounded-2xl border text-center transition-all bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <ShieldCheck className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+              <h3 className="text-lg font-bold">Service Finalized & Payment Completed</h3>
+            </div>
+            <p className="text-xs opacity-90">
+              This repair order has been finalized and payment is settled in full. The customer approval link is deactivated.
+            </p>
+          </div>
+        )}
+
         {/* Decision Banner if already decided */}
-        {decisionDone && (
+        {!isPaymentDone && decisionDone && (
           <div className={`p-5 rounded-2xl border text-center transition-all ${decisionDone === 'APPROVED'
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300'
             : 'bg-rose-500/10 border-rose-500/20 text-rose-800 dark:text-rose-300'
@@ -230,7 +244,7 @@ export const CustomerApprovalPage = () => {
           )}
 
           {/* Action Choice Buttons */}
-          {!decisionDone && (
+          {!decisionDone && !isPaymentDone && (
             <div className="pt-6 border-t border-[var(--spatial-border)] space-y-4">
               <div className="flex flex-col sm:flex-row gap-3">
                 <Button

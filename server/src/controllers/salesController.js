@@ -334,12 +334,16 @@ export const sendSaleInvoice = async (req, res, next) => {
     const sale = await db.sales.findById(id);
     if (!sale) throw new AppError('Sale invoice not found.', 404, 'SALE_NOT_FOUND');
 
+    const { targetPhone, phone } = req.body || {};
+    const directPhone = (targetPhone || phone || '').trim();
+    const effectiveSale = directPhone ? { ...sale, customer_phone: directPhone } : sale;
+
     const shop = await db.shops.getProfile();
-    const result = await dispatchSaleInvoiceNotification({ sale, shop });
+    const result = await dispatchSaleInvoiceNotification({ sale: effectiveSale, shop });
 
     res.json({
       success: true,
-      message: `Original invoice PDF sent automatically to ${sale.customer_phone || 'customer'}.`,
+      message: `Original invoice PDF sent automatically to ${effectiveSale.customer_phone || 'customer'}.`,
       data: result,
     });
   } catch (err) {
