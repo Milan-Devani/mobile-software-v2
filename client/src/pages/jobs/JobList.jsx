@@ -14,12 +14,17 @@ import {
   RotateCcw,
   ShieldCheck,
   Clock,
-  X
+  X,
+  Send,
+  PhoneForwarded,
+  MessageSquare,
+  Receipt
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { jobService } from '../../services/jobService';
+import { invoiceService } from '../../services/invoiceService';
 import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
@@ -47,6 +52,12 @@ export const JobList = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+
+  // Direct Number Send Invoice Modal State
+  const [directSendJob, setDirectSendJob] = useState(null);
+  const [isDirectSendOpen, setIsDirectSendOpen] = useState(false);
+  const [directPhone, setDirectPhone] = useState('');
+  const [isSendingDirect, setIsSendingDirect] = useState(false);
 
   const currentStatus = searchParams.get('status') || 'ALL';
   const currentSearch = searchParams.get('search') || '';
@@ -289,6 +300,118 @@ export const JobList = () => {
     }
   };
 
+  // 1. Resend invoice to customer's registered number
+  const handleResendCustomerInvoice = async (e, job) => {
+    e.stopPropagation();
+    const phone = job.customer?.phone || job.customer?.whatsapp_number;
+    const customerName = job.customer?.full_name || 'Customer';
+
+    if (!phone) {
+      toast.error('No phone number recorded for this customer. Enter a number to send invoice.');
+      handleOpenDirectSendModal(e, job);
+      return;
+    }
+
+    const result = await Swal.fire({
+      title: `Resend Invoice #${job.job_number}?`,
+      html: `
+        <div style="text-align: left; font-size: 13px; line-height: 1.5; color: inherit;">
+          <p style="margin-bottom: 8px;">Dispatch official tax invoice PDF & service details to:</p>
+          <div style="margin: 10px 0; padding: 12px; border-radius: 10px; background: rgba(0, 113, 227, 0.08); border: 1px solid rgba(0, 113, 227, 0.2);">
+            <div style="font-weight: 600;">${customerName}</div>
+            <div style="font-family: monospace; font-size: 14px; font-weight: bold; color: #10b981; margin-top: 2px;">📞 ${phone}</div>
+            <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">
+              Device: ${job.device?.brand || ''} ${job.device?.model || 'Device'} • Total: ₹${Number(job.total_amount || 0).toLocaleString()}
+            </div>
+          </div>
+          <p style="font-size: 11px; opacity: 0.7; margin: 0;">Dispatches via WhatsApp & SMS with vector PDF invoice attached.</p>
+        </div>
+      `,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, Send Invoice',
+      confirmButtonColor: '#10b981',
+      cancelButtonColor: '#64748b',
+    });
+
+    if (result.isConfirmed) {
+      const toastId = toast.loading(`Sending invoice to ${phone}...`);
+      try {
+        await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP', 'SMS']);
+        toast.success(`Invoice sent to ${phone} successfully!`, { id: toastId });
+      } catch (err) {
+        toast.error(err.response?.data?.message || err.message || 'Failed to send invoice', { id: toastId });
+      }
+    }
+  };
+
+  // 2. Open Direct Phone Number Invoice Popup Modal
+  const handleOpenDirectSendModal = (e, job) => {
+    e.stopPropagation();
+    setDirectSendJob(job);
+    setDirectPhone(job.customer?.phone || job.customer?.whatsapp_number || '');
+    setIsDirectSendOpen(true);
+  };
+
+  const handleCloseDirectSendModal = () => {
+    setIsDirectSendOpen(false);
+    setDirectSendJob(null);
+    setDirectPhone('');
+  };
+
+  // 3. Send invoice to custom typed number
+  const handleSendDirectInvoice = async (e) => {
+    if (e) e.preventDefault();
+    if (!directSendJob) return;
+
+    const cleanDigits = directPhone.replace(/\D/g, '');
+    if (cleanDigits.length < 10) {
+      toast.error('Please enter a valid mobile number (at least 10 digits)');
+      return;
+    }
+
+    try {
+      setIsSendingDirect(true);
+      const toastId = toast.loading(`Dispatching invoice to ${directPhone.trim()}...`);
+      await invoiceService.resendInvoice(directSendJob.id, {
+        targetPhone: directPhone.trim(),
+        channels: ['WHATSAPP', 'SMS'],
+      });
+      toast.success(`Invoice sent to ${directPhone.trim()} successfully!`, { id: toastId });
+      handleCloseDirectSendModal();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to send invoice to direct number');
+    } finally {
+      setIsSendingDirect(false);
+    }
+  };
+
+  // 4. Open directly in WhatsApp Web / App chat
+  const handleOpenDirectWhatsAppChat = () => {
+    if (!directSendJob) return;
+    const cleanDigits = directPhone.replace(/\D/g, '');
+    if (cleanDigits.length < 10) {
+      toast.error('Please enter a valid phone number first');
+      return;
+    }
+    const intlPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
+    const trackingUrl = `${window.location.origin}/repair/${directSendJob.job_number}/approval?token=${directSendJob.approval_token || ''}`;
+    const downloadPdfLink = `${window.location.origin}/api/invoices/public/${directSendJob.id}/download-pdf`;
+
+    const text =
+      `*Service Record & Tax Invoice - Mobotech mobile care*\n` +
+      `Dear ${directSendJob.customer?.full_name || 'Customer'},\n` +
+      `Your repair invoice #${directSendJob.job_number} is ready.\n\n` +
+      `📱 *Device:* ${directSendJob.device?.brand || ''} ${directSendJob.device?.model || ''}\n` +
+      `💰 *Total Amount:* ₹${Number(directSendJob.total_amount || 0).toFixed(2)}\n` +
+      (directSendJob.balance_due > 0 ? `⚠️ *Balance Due:* ₹${Number(directSendJob.balance_due).toFixed(2)}\n` : `✓ *Paid in Full*\n`) +
+      `\n📄 *Download Invoice PDF:* ${downloadPdfLink}\n` +
+      `🌐 *View Repair Record Online:* ${trackingUrl}\n\n` +
+      `Thank you for choosing Mobotech mobile care!`;
+
+    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -316,11 +439,10 @@ export const JobList = () => {
               <button
                 key={tab.key}
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
-                  active
-                    ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
-                    : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${active
+                  ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
+                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -445,9 +567,8 @@ export const JobList = () => {
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-blue-500/[0.08]' : ''
-                        }`}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${isSelected ? 'bg-blue-500/[0.08]' : ''
+                          }`}
                       >
                         <td
                           className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
@@ -552,25 +673,57 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1">
+                            {/* Reopen Job Sheet */}
                             {['DELIVERED', 'CANCELLED', 'REJECTED'].includes(job.status) && (
                               <button
+                                type="button"
                                 onClick={(e) => handleQuickReopen(e, job)}
-                                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95"
+                                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                                 title={job.status === 'DELIVERED' ? 'Reopen Job (Warranty Claim)' : 'Reopen Repair Job'}
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </button>
                             )}
+
+                            {/* Resend Invoice to Customer Number */}
                             <button
+                              type="button"
+                              onClick={(e) => handleResendCustomerInvoice(e, job)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              title={
+                                job.customer?.phone || job.customer?.whatsapp_number
+                                  ? `Resend Invoice to ${job.customer?.phone || job.customer?.whatsapp_number}`
+                                  : 'Resend Invoice to Customer Number'
+                              }
+                            >
+                              <Send className="w-4 h-4" />
+                            </button>
+
+                            {/* Send Invoice to Direct / Custom Number (Opens Popup) */}
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenDirectSendModal(e, job)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              title="Send Invoice to Direct Number (Custom Phone)"
+                            >
+                              <PhoneForwarded className="w-4 h-4" />
+                            </button>
+
+                            {/* View / Edit Job Sheet */}
+                            <button
+                              type="button"
                               onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Open Job Sheet (Parts & Estimate)"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+
+                            {/* Delete Job Sheet */}
                             <button
+                              type="button"
                               onClick={(e) => handleDeleteJob(e, job)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all active:scale-95"
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Delete Job Sheet"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -596,6 +749,147 @@ export const JobList = () => {
           </div>
         )}
       </Card>
+
+      {/* Direct Phone Number Invoice Popup Modal */}
+      {isDirectSendOpen && directSendJob && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={handleCloseDirectSendModal}
+        >
+          <div
+            className="relative w-full max-w-md bg-[var(--spatial-bg-card,#18181b)] border border-[var(--spatial-border,#27272a)] rounded-2xl shadow-2xl p-6 overflow-hidden text-[var(--spatial-text-title,#fafafa)] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--spatial-border)]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+                  <PhoneForwarded className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-base">Send Invoice to Direct Number</h3>
+                  <p className="text-xs text-[var(--spatial-text-muted)]">
+                    Job #{directSendJob.job_number} • {directSendJob.customer?.full_name || 'Walk-in Customer'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseDirectSendModal}
+                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Job Details Pill */}
+            <div className="mt-4 p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Device</span>
+                <span className="font-medium text-[var(--spatial-text-title)]">
+                  {directSendJob.device?.brand} {directSendJob.device?.model || 'Device'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Status</span>
+                <Badge status={directSendJob.status} />
+              </div>
+              <div className="text-right">
+                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Total Amount</span>
+                <span className="font-semibold text-emerald-500">
+                  ₹{Number(directSendJob.total_amount || 0).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSendDirectInvoice} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[var(--spatial-text-title)] mb-1.5">
+                  Recipient Mobile / WhatsApp Number <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="tel"
+                    value={directPhone}
+                    onChange={(e) => setDirectPhone(e.target.value)}
+                    placeholder="Enter 10-digit phone number (e.g. 9876543210)"
+                    autoFocus
+                    className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
+                  />
+                </div>
+                <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
+                  Enter any direct phone number to dispatch this repair job's official invoice PDF & service details.
+                </p>
+
+                {/* Customer's saved numbers if available for quick filling */}
+                {(directSendJob.customer?.phone || directSendJob.customer?.whatsapp_number) && (
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <span className="text-[10px] text-[var(--spatial-text-muted)]">Saved:</span>
+                    {directSendJob.customer?.phone && (
+                      <button
+                        type="button"
+                        onClick={() => setDirectPhone(directSendJob.customer.phone)}
+                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
+                        title="Click to copy saved customer phone"
+                      >
+                        {directSendJob.customer.phone}
+                      </button>
+                    )}
+                    {directSendJob.customer?.whatsapp_number && directSendJob.customer.whatsapp_number !== directSendJob.customer?.phone && (
+                      <button
+                        type="button"
+                        onClick={() => setDirectPhone(directSendJob.customer.whatsapp_number)}
+                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                        title="Click to copy saved WhatsApp number"
+                      >
+                        WA: {directSendJob.customer.whatsapp_number}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--spatial-border)]">
+                {/* <button
+                  type="button"
+                  onClick={handleOpenDirectWhatsAppChat}
+                  disabled={!directPhone.trim()}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
+                  title="Open invoice message in WhatsApp Web / App"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>Open WhatsApp</span>
+                </button> */}
+
+                <div className="flex items-center justify-end w-full gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCloseDirectSendModal}
+                    disabled={isSendingDirect}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    icon={Send}
+                    loading={isSendingDirect}
+                    disabled={!directPhone.trim() || isSendingDirect}
+                  >
+                    Send Invoice
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

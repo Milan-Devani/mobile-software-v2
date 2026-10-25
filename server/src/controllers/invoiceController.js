@@ -66,23 +66,46 @@ export const generateInvoice = async (req, res, next) => {
 export const resendInvoice = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const { channels = ['EMAIL', 'WHATSAPP', 'SMS'] } = req.body;
+    const { channels = ['EMAIL', 'WHATSAPP', 'SMS'], targetPhone, customPhone, phone } = req.body || {};
 
     const job = await db.jobs.findById(jobId);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    const customer = await db.customers.findById(job.customer_id);
+    let customer = await db.customers.findById(job.customer_id);
+    if (!customer) {
+      customer = {
+        id: job.customer_id || 'unknown',
+        full_name: job.customer_name || 'Customer',
+        phone: targetPhone || customPhone || phone || '',
+      };
+    }
+
+    const directPhone = (targetPhone || customPhone || phone || '').trim();
+    let effectiveChannels = [...channels];
+    if (directPhone) {
+      customer = {
+        ...customer,
+        phone: directPhone,
+        whatsapp_number: directPhone,
+        alternate_whatsapp: null,
+      };
+      if (!req.body.channels) {
+        effectiveChannels = ['WHATSAPP', 'SMS'];
+      }
+    }
 
     const result = await dispatchNotification({
       job,
       customer,
       type: 'INVOICE_GENERATED',
-      channels,
+      channels: effectiveChannels,
     });
 
     res.json({
       success: true,
-      message: 'Invoice dispatched through selected channels.',
+      message: directPhone
+        ? `Invoice dispatched to ${directPhone} successfully.`
+        : 'Invoice dispatched through selected channels.',
       data: result,
     });
   } catch (err) {

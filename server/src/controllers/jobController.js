@@ -555,6 +555,12 @@ export const publicSubmitApproval = async (req, res, next) => {
       throw new AppError('Repair job not found or invalid approval link.', 404, 'JOB_NOT_FOUND');
     }
 
+    const isJobClosed = ['DELIVERED', 'CANCELLED'].includes(job.status);
+    const isPaymentSettled = (Number(job.balance_due || 0) <= 0 && (Number(job.paid_amount || 0) > 0 || Number(job.total_amount || 0) > 0)) || isJobClosed;
+    if (isPaymentSettled || isJobClosed) {
+      throw new AppError('Customer payment is already completed and this repair order has finalized. Approval link is deactivated.', 400, 'APPROVAL_LINK_CLOSED');
+    }
+
     if (!['APPROVE', 'REJECT'].includes(decision)) {
       throw new AppError('Decision must be either APPROVE or REJECT.', 400, 'INVALID_DECISION');
     }
@@ -1184,6 +1190,12 @@ export const applyDiscount = async (req, res, next) => {
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const isJobClosed = ['DELIVERED', 'CANCELLED'].includes(job.status);
+    const isPaymentSettled = (Number(job.balance_due || 0) <= 0 && (Number(job.paid_amount || 0) > 0 || Number(job.total_amount || 0) > 0)) || isJobClosed;
+    if (isPaymentSettled) {
+      throw new AppError('Payment has already been settled in full. Discounts cannot be modified after settlement.', 400, 'PAYMENT_ALREADY_SETTLED');
+    }
 
     const isPercentage = String(discount_type).toUpperCase() === 'PERCENTAGE';
     const numValue = Math.max(0, parseFloat(discount_value) || 0);

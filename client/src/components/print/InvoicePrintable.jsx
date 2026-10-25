@@ -407,7 +407,10 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   };
 
   return (
-    <div className="bg-slate-100 min-h-screen py-6 px-2 sm:px-4 text-black font-sans print:p-0 print:m-0 print:bg-white print:min-h-0">
+    <div
+      className="bg-slate-100 min-h-screen py-6 px-2 sm:px-4 text-black font-sans print:p-0 print:m-0 print:bg-white print:min-h-0"
+      style={{ colorScheme: 'light' }}
+    >
       {/* ============================================================== */}
       {/* PRINT CSS STYLES FOR EXACT MULTI-PAGE & SINGLE-PAGE ACCURACY   */}
       {/* ============================================================== */}
@@ -635,7 +638,10 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         {/* PAGE 1: SERVICE RECORD & INVOICE BREAKDOWN                   */}
         {/* ============================================================ */}
         {(viewMode === 'both' || viewMode === 'page1') && (
-          <div className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0">
+          <div
+            className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0"
+            style={{ backgroundColor: '#ffffff', color: '#000000', colorScheme: 'light' }}
+          >
             {/* 1. Header (Logo on Left, Service Record on Right) */}
             <div className="flex items-center justify-between pb-3">
               <MobotechLogo />
@@ -1072,7 +1078,10 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         {/* PAGE 2: COMPLETE TERMS & CONDITIONS CONTINUATION             */}
         {/* ============================================================ */}
         {(viewMode === 'both' || viewMode === 'page2') && (
-          <div className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0">
+          <div
+            className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0"
+            style={{ backgroundColor: '#ffffff', color: '#000000', colorScheme: 'light' }}
+          >
             {/* Page 2 Header */}
             <div className="flex items-center justify-between pb-2 border-b border-black">
               <MobotechLogo />
