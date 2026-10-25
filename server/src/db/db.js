@@ -1672,8 +1672,8 @@ export const db = {
         throw new Error('Payment amount must be a positive number');
       }
 
-      const currentBalance = job.balance_due !== undefined ? job.balance_due : (job.total_amount - (job.paid_amount || 0));
-      if (parsedAmount > (currentBalance + 0.01)) {
+      const currentBalance = job.balance_due !== undefined ? job.balance_due : ((job.total_amount || 0) - (job.paid_amount || 0));
+      if (Number(job.total_amount || 0) > 0 && parsedAmount > (currentBalance + 0.01)) {
         throw new Error(`Payment amount (₹${parsedAmount.toFixed(2)}) cannot exceed remaining balance (₹${currentBalance.toFixed(2)})`);
       }
 
@@ -1699,11 +1699,11 @@ export const db = {
 
       // Recalculate job paid amount and balance
       const newPaidAmount = parseFloat(((job.paid_amount || 0) + parsedAmount).toFixed(2));
-      const newBalance = Math.max(0, parseFloat((job.total_amount - newPaidAmount).toFixed(2)));
+      const newBalance = Math.max(0, parseFloat(((job.total_amount || 0) - newPaidAmount).toFixed(2)));
 
       job.paid_amount = newPaidAmount;
       job.balance_due = newBalance;
-      job.payment_status = newBalance === 0 ? 'PAID' : (newPaidAmount > 0 ? 'PARTIAL' : 'UNPAID');
+      job.payment_status = (Number(job.total_amount || 0) > 0 && newBalance === 0) ? 'PAID' : (newPaidAmount > 0 ? 'PARTIAL' : 'UNPAID');
       job.updated_at = new Date().toISOString();
 
       // Add timeline entry
@@ -1712,7 +1712,9 @@ export const db = {
         job_id: jobId,
         from_status: job.status,
         to_status: job.status,
-        action_title: `Payment Received: ₹${parsedAmount.toFixed(2)} (${paymentMethod})`,
+        action_title: Number(job.total_amount || 0) === 0
+          ? `Advance Deposit Received: ₹${parsedAmount.toFixed(2)} (${paymentMethod})`
+          : `Payment Received: ₹${parsedAmount.toFixed(2)} (${paymentMethod})`,
         notes: `Recorded by staff. Total paid: ₹${newPaidAmount.toFixed(2)}, Remaining balance: ₹${newBalance.toFixed(2)}. Ref: ${transactionReference || 'N/A'}`,
         performed_by_user_id: userId,
         created_at: new Date().toISOString()
@@ -1786,8 +1788,8 @@ export const db = {
         const remaining = (localDb.payments || []).filter(p => p.job_id === jobId);
         const totalPaid = remaining.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
         job.paid_amount = parseFloat(totalPaid.toFixed(2));
-        job.balance_due = Math.max(0, parseFloat((job.total_amount - totalPaid).toFixed(2)));
-        job.payment_status = job.balance_due === 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+        job.balance_due = Math.max(0, parseFloat(((job.total_amount || 0) - totalPaid).toFixed(2)));
+        job.payment_status = (Number(job.total_amount || 0) > 0 && job.balance_due === 0) ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
         job.updated_at = new Date().toISOString();
       }
 
@@ -1826,8 +1828,8 @@ export const db = {
           const remaining = (localDb.payments || []).filter(p => p.job_id === jobId);
           const totalPaid = remaining.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
           job.paid_amount = parseFloat(totalPaid.toFixed(2));
-          job.balance_due = Math.max(0, parseFloat((job.total_amount - totalPaid).toFixed(2)));
-          job.payment_status = job.balance_due === 0 ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
+          job.balance_due = Math.max(0, parseFloat(((job.total_amount || 0) - totalPaid).toFixed(2)));
+          job.payment_status = (Number(job.total_amount || 0) > 0 && job.balance_due === 0) ? 'PAID' : (totalPaid > 0 ? 'PARTIAL' : 'UNPAID');
           job.updated_at = new Date().toISOString();
         }
       }

@@ -112,11 +112,18 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const sigDate = `(${String(sigD.getDate()).padStart(2, '0')}-${String(sigD.getMonth() + 1).padStart(2, '0')}-${sigD.getFullYear()} ${String(sigD.getHours()).padStart(2, '0')}:${String(sigD.getMinutes()).padStart(2, '0')})`;
   const techName = job.technician?.full_name || 'Jaimini Patel';
 
-  const accessoriesReceived = job.accessories_received || [];
-  const hasEarPods = accessoriesReceived.some((a) => a.toLowerCase().includes('ear') || a.toLowerCase().includes('pod'));
-  const hasAdapter = accessoriesReceived.some((a) => a.toLowerCase().includes('adapter') || a.toLowerCase().includes('charger'));
-  const hasCable = accessoriesReceived.some((a) => a.toLowerCase().includes('cable') || a.toLowerCase().includes('lightning') || a.toLowerCase().includes('usb'));
-  const hasSimCard = accessoriesReceived.some((a) => a.toLowerCase().includes('sim'));
+  const rawAccessories = job.accessories_received || [];
+  let actualReceivedAccessories = [];
+  if (Array.isArray(rawAccessories)) {
+    actualReceivedAccessories = rawAccessories.filter(Boolean);
+  } else if (typeof rawAccessories === 'string' && rawAccessories.trim()) {
+    try {
+      const parsed = JSON.parse(rawAccessories);
+      actualReceivedAccessories = Array.isArray(parsed) ? parsed.filter(Boolean) : [rawAccessories];
+    } catch {
+      actualReceivedAccessories = rawAccessories.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
 
   const checklistRows = INWARD_CHECKLIST_CONFIG.map((item) => ({
     label: item.label,
@@ -289,7 +296,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           </div>
 
           <!-- Issue Reported -->
-          <div style="padding:4px 6px; border-bottom:1px solid #000; font-size:11px;">
+          <div style="padding:4px 6px; font-size:11px;">
             <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Issue Reported by Customer:</div>
             <div style="border:1px solid #000;">
               <div style="display:flex; background:#f1f5f9; border-bottom:1px solid #000; font-weight:700; padding:1px 3px;">
@@ -302,30 +309,10 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               </div>
             </div>
           </div>
-
-          <!-- Cosmetic Condition -->
-          <div style="padding:4px 6px; font-size:11px;">
-            <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Cosmetic Condition of Product:</div>
-            <div style="border:1px solid #000; background:#f8fafc; padding:3px 4px; font-weight:700;">
-              ${dev.cosmetic_condition || cond.body || 'Wear And Tear'}
-            </div>
-          </div>
         </div>
 
         <!-- RIGHT COLUMN -->
-        <div class="col-2" style="display:flex; flex-direction:column; justify-content:space-between;">
-          <!-- Provider Details -->
-          <div style="padding:4px 6px; border-bottom:1px solid #000; font-size:11.5px;">
-            <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Authorized Service Provider Details</div>
-            <div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Name:</span><b style="font-size:13px;">${shopObj.name}</b></div>
-            <div style="margin-top:1px;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Address:</span>${shopObj.address}, ${shopObj.city}, ${shopObj.state} ${shopObj.postal_code}</div>
-            <div style="display:flex; justify-content:space-between; margin-top:2px;">
-              <div style="width:50%;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Contact Number:</span><b>${shopObj.phone}</b></div>
-              <div style="width:50%;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Email ID:</span><b>${shopObj.email}</b></div>
-            </div>
-            <div style="margin-top:1px;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Timings:</span>${shopObj.timings || 'Mon - Sat: 10:30 AM to 06:30 PM'}</div>
-          </div>
-
+        <div class="col-2" style="display:flex; flex-direction:column;">
           <!-- Checklist -->
           <div style="border-bottom:1px solid #000;">
             <div style="display:flex; justify-content:space-between;" class="table-header">
@@ -335,13 +322,25 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             ${checklistRows.map((r) => `<div class="checklist-row"><span>${r.label}</span><b>${r.val}</b></div>`).join('')}
           </div>
 
+          <!-- Cosmetic Condition of Product -->
+          <div style="padding:3.5px 6px; border-bottom:1px solid #000; font-size:11px;">
+            <div style="font-weight:700; font-size:11.5px; text-transform:uppercase; margin-bottom:2px;">Cosmetic Condition of Product:</div>
+            <div style="border:1px solid #000; background:#f8fafc; padding:2.5px 4px; font-weight:700; font-size:11px;">
+              ${dev.cosmetic_condition || cond.body || 'Wear And Tear'}
+              ${cond.notes ? `<div style="font-size:10px; font-weight:500; font-style:italic; margin-top:2px; color:#334155;">Note: ${cond.notes}</div>` : ''}
+            </div>
+          </div>
+
           <!-- Accessories & Passcode -->
-          <div>
-            <div class="table-header">Accessories Received</div>
-            <div class="checklist-row"><span>Ear Pods</span><b>${hasEarPods ? 'Received' : 'NA'}</b></div>
-            <div class="checklist-row"><span>Power Adapter</span><b>${hasAdapter ? 'Received' : 'NA'}</b></div>
-            <div class="checklist-row"><span>Lightning to USB Cable</span><b>${hasCable ? 'Received' : 'NA'}</b></div>
-            <div class="checklist-row"><span>SIM Card</span><b>${hasSimCard ? 'Received' : 'NA'}</b></div>
+          <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div class="table-header">Accessories Received</div>
+              ${actualReceivedAccessories.length > 0 ? actualReceivedAccessories.map(acc => `
+                <div class="checklist-row"><span>${acc}</span><b>Received</b></div>
+              `).join('') : `
+                <div class="checklist-row" style="color:#64748b; font-style:italic;"><span>None / Handset Only</span><b>None</b></div>
+              `}
+            </div>
             <div style="padding:2.5px 5px; background:#f8fafc; border-top:1px solid #cbd5e1; display:flex; justify-content:space-between; font-size:11px;">
               <b>Device Passcode / PIN:</b>
               <b style="font-family:monospace; font-size:12px;">${dev.passcode || '789654'}</b>
@@ -383,7 +382,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               <tr>
                 <td style="text-align:center;">1</td>
                 <td><b>Standard Diagnostic / Service Fee</b></td>
-                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per items')}</td>
+                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per line items')}</td>
                 <td style="text-align:center;">SERVICE</td>
                 <td style="text-align:center;">1</td>
                 <td style="text-align:right;">${Number(job.total_amount || 0).toFixed(2)}</td>
@@ -398,7 +397,6 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           <div style="line-height:1.35;">
             <div>Payment Status: <b>${job.payment_status || 'SETTLED'}</b></div>
             <div>Paid Via: ${paidViaSummary}</div>
-            <div>Warranty Coverage: <b>${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per line items')}</b></div>
           </div>
           <div style="width:230px; font-family:monospace; font-size:11.5px; line-height:1.3;">
             <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><b>₹${Number(invoice?.subtotal || job.subtotal || 0).toFixed(2)}</b></div>

@@ -173,6 +173,7 @@ CREATE TABLE IF NOT EXISTS repair_jobs (
     delivery_notes TEXT,
     delivered_at TIMESTAMPTZ,
     delivered_by_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    payment_remaining_authorized BOOLEAN DEFAULT FALSE,
     
     -- Public token for customer online approval link
     approval_token VARCHAR(100) UNIQUE,

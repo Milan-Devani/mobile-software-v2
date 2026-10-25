@@ -49,6 +49,9 @@ import {
   ANIMATION_PREFERENCES,
 } from '../../context/ThemeContext';
 
+// Toggle to control Database Backups section visibility in Settings
+const SHOW_BACKUP_SECTION = false;
+
 export const Settings = () => {
   const { user } = useSelector((state) => state.auth);
   const [activeTab, setActiveTab] = useState('appearance'); // 'appearance' | 'shop' | 'users' | 'notifications'
@@ -502,7 +505,7 @@ export const Settings = () => {
           <span>Notifications & WhatsApp</span>
         </button>
 
-        {user?.role_id === 'admin' && (
+        {SHOW_BACKUP_SECTION && user?.role_id === 'admin' && (
           <button
             type="button"
             onClick={() => setActiveTab('backups')}
@@ -1284,9 +1287,9 @@ export const Settings = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY                          */}
+      {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY (HIDDEN FOR NOW)         */}
       {/* ==================================================================== */}
-      {activeTab === 'backups' && user?.role_id === 'admin' && (
+      {SHOW_BACKUP_SECTION && activeTab === 'backups' && user?.role_id === 'admin' && (
         <div key="backups" className="spatial-tab-pane">
           <BackupManagementTab />
         </div>

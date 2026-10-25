@@ -163,6 +163,7 @@ export const JobDetail = () => {
     customer_tested_device: true,
     customer_acceptance_confirmed: true,
     delivery_notes: '',
+    allow_payment_remaining: false,
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -856,7 +857,7 @@ export const JobDetail = () => {
 
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {['admin', 'staff'].includes(user?.role_id) && (
+          {['admin', 'staff'].includes(user?.role_id) && job.status !== 'DELIVERED' && (
             <Button
               variant="outline"
               size="sm"
@@ -1026,7 +1027,15 @@ export const JobDetail = () => {
         onCompleteRepair={handleCompleteRepair}
         onOpenTestingTab={() => setActiveTab('testing')}
         onMarkReadyForPickup={handleMarkReadyForPickup}
-        onOpenPickupModal={() => setIsPickupModalOpen(true)}
+        onOpenPickupModal={() => {
+          setPickupForm((prev) => ({
+            ...prev,
+            customer_tested_device: true,
+            customer_acceptance_confirmed: true,
+            allow_payment_remaining: false,
+          }));
+          setIsPickupModalOpen(true);
+        }}
         onOpenPaymentModal={() => setIsPaymentModalOpen(true)}
         onReopenJob={handleOpenReopenModal}
         onChangeStatus={() => {
@@ -1593,8 +1602,20 @@ export const JobDetail = () => {
                     Send Invoice
                   </Button>
                 )}
-                {!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && ['admin', 'staff'].includes(user?.role_id) && (
-                  <Button size="sm" icon={CreditCard} onClick={() => setIsPaymentModalOpen(true)}>
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                  <Button
+                    size="sm"
+                    icon={CreditCard}
+                    onClick={() => {
+                      setPaymentForm({
+                        amount: Number(job.balance_due || 0) > 0 ? String(job.balance_due) : '',
+                        payment_method: 'CASH',
+                        transaction_reference: '',
+                        notes: '',
+                      });
+                      setIsPaymentModalOpen(true);
+                    }}
+                  >
                     Record Payment
                   </Button>
                 )}
@@ -1636,8 +1657,16 @@ export const JobDetail = () => {
                 icon={CreditCard}
                 title="No payments recorded"
                 description="Record customer deposit or final payment to settle invoice."
-                actionLabel={job.balance_due > 0 ? "Record Payment" : null}
-                onAction={() => setIsPaymentModalOpen(true)}
+                actionLabel={!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) ? "Record Payment" : null}
+                onAction={() => {
+                  setPaymentForm({
+                    amount: Number(job.balance_due || 0) > 0 ? String(job.balance_due) : '',
+                    payment_method: 'CASH',
+                    transaction_reference: '',
+                    notes: '',
+                  });
+                  setIsPaymentModalOpen(true);
+                }}
               />
             )}
           </Card>
@@ -2172,7 +2201,13 @@ export const JobDetail = () => {
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
         title="Record Customer Payment"
-        subtitle={`Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
+        subtitle={
+          Number(job.balance_due || 0) > 0
+            ? `Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}`
+            : (Number(job.total_amount || 0) > 0
+                ? `Remaining Balance: ${currSym}0.00 (Fully Settled)`
+                : 'Customer Advance Deposit / Intake Payment')
+        }
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
@@ -2182,20 +2217,23 @@ export const JobDetail = () => {
             <input
               type="number"
               step="0.01"
-              max={job.balance_due}
+              min="0.01"
+              max={Number(job.balance_due || 0) > 0 ? job.balance_due : undefined}
               required
-              placeholder={String(job.balance_due)}
+              placeholder={Number(job.balance_due || 0) > 0 ? String(job.balance_due) : "Enter payment / deposit amount"}
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
               className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
             />
-            <button
-              type="button"
-              onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
-              className="text-[11px] text-primary-600 hover:underline font-medium mt-1 inline-block"
-            >
-              Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
-            </button>
+            {Number(job.balance_due || 0) > 0 && (
+              <button
+                type="button"
+                onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
+                className="text-[11px] text-primary-600 hover:underline font-medium mt-1 inline-block"
+              >
+                Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
+              </button>
+            )}
           </div>
 
           <div>
@@ -2300,9 +2338,25 @@ export const JobDetail = () => {
               <span>Covered under Warranty — Free Rework ({currSym}0.00 Balance Due. No payment required).</span>
             </div>
           ) : isEstimateRejected ? null : job.balance_due > 0 ? (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-800 font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-              <span>Warning: Outstanding balance of {currSym}{Number(job.balance_due).toFixed(2)} must be collected before handover.</span>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs space-y-2.5">
+              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Outstanding balance of {currSym}{Number(job.balance_due).toFixed(2)} is pending.</span>
+              </div>
+              <label className="flex items-start gap-2.5 p-2 bg-white/80 dark:bg-black/30 border border-amber-500/30 rounded-lg cursor-pointer hover:bg-amber-500/5 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={pickupForm.allow_payment_remaining || false}
+                  onChange={(e) => setPickupForm({ ...pickupForm, allow_payment_remaining: e.target.checked })}
+                  className="w-4 h-4 text-amber-600 rounded mt-0.5 cursor-pointer"
+                />
+                <span className="text-slate-800 dark:text-slate-200">
+                  <strong className="block font-semibold">Payment Remaining: Allow Delivery with Outstanding Balance</strong>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Enable this checkbox to authorize handover while {currSym}{Number(job.balance_due).toFixed(2)} remains due to be collected later.
+                  </span>
+                </span>
+              </label>
             </div>
           ) : null}
 
@@ -2342,7 +2396,11 @@ export const JobDetail = () => {
               size="sm"
               icon={CheckCircle2}
               loading={isSaving}
-              disabled={(!isFreeWarranty && !isEstimateRejected && job.balance_due > 0) || !pickupForm.customer_tested_device || !pickupForm.customer_acceptance_confirmed}
+              disabled={
+                (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && !pickupForm.allow_payment_remaining) ||
+                !pickupForm.customer_tested_device ||
+                !pickupForm.customer_acceptance_confirmed
+              }
             >
               {isEstimateRejected
                 ? 'Complete Return & Handover Device'

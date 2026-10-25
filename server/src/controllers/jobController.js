@@ -290,8 +290,28 @@ export const bulkUpdateJobStatus = async (req, res, next) => {
       throw new AppError('Status is required for bulk update.', 400, 'STATUS_REQUIRED');
     }
 
+    // Delivered jobs cannot have status changed directly without reopening
+    const validIds = [];
+    const skippedDelivered = [];
+    for (const id of ids) {
+      const j = await db.jobs.findById(id);
+      if (j && j.status === 'DELIVERED') {
+        skippedDelivered.push(j.job_number || id);
+      } else {
+        validIds.push(id);
+      }
+    }
+
+    if (validIds.length === 0 && skippedDelivered.length > 0) {
+      throw new AppError(
+        'Delivered jobs cannot have their status changed directly. Please reopen the job for warranty claims.',
+        400,
+        'DELIVERED_JOB_LOCKED'
+      );
+    }
+
     const updated = await db.jobs.bulkUpdateStatus({
-      ids,
+      ids: validIds,
       status,
       actionTitle: `Bulk Status Update to ${status}`,
       notes: notes || `Batch updated by staff ${req.user?.full_name || 'Staff'}.`,
@@ -300,8 +320,10 @@ export const bulkUpdateJobStatus = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: `Updated status to ${status} for ${updated.length} job(s).`,
-      data: { count: updated.length, updated },
+      message: skippedDelivered.length > 0
+        ? `Updated status to ${status} for ${updated.length} job(s). Note: ${skippedDelivered.length} delivered job(s) were skipped (must be reopened first).`
+        : `Updated status to ${status} for ${updated.length} job(s).`,
+      data: { count: updated.length, updated, skippedDelivered },
     });
   } catch (err) {
     next(err);
@@ -788,7 +810,14 @@ export const markReadyForPickup = async (req, res, next) => {
 export const recordPickup = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { customer_tested_device, customer_acceptance_confirmed, customer_signature, delivery_notes, channels = ['EMAIL', 'WHATSAPP', 'SMS'] } = req.body;
+    const {
+      customer_tested_device,
+      customer_acceptance_confirmed,
+      customer_signature,
+      delivery_notes,
+      allow_payment_remaining = false,
+      channels = ['EMAIL', 'WHATSAPP', 'SMS']
+    } = req.body;
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
@@ -797,12 +826,16 @@ export const recordPickup = async (req, res, next) => {
       throw new AppError('Customer device testing and confirmation are required before handover.', 400, 'CUSTOMER_CONFIRMATION_REQUIRED');
     }
 
-    // Check payment balance (waived for free warranty rework AND rejected estimate returns)
+    // Check payment balance (waived for free warranty rework AND rejected estimate returns, or if staff authorized payment remaining)
     const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED';
     const isFreeWarranty = job.warranty_same_issue || job.warranty_free_rework || (job.is_warranty_claim && (Number(job.balance_due) === 0 || Number(job.total_amount) === 0));
 
-    if (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0) {
-      throw new AppError(`Outstanding balance of ₹${job.balance_due.toFixed(2)} must be settled before delivering device.`, 400, 'PAYMENT_PENDING');
+    if (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && !allow_payment_remaining) {
+      throw new AppError(
+        `Outstanding balance of ₹${Number(job.balance_due).toFixed(2)} must be settled before delivering device (or check "Payment Remaining" to proceed).`,
+        400,
+        'PAYMENT_PENDING'
+      );
     }
 
     await db.jobs.update(id, {
@@ -813,6 +846,7 @@ export const recordPickup = async (req, res, next) => {
       delivered_at: new Date().toISOString(),
       delivered_by_user_id: req.user.id,
       status: 'DELIVERED',
+      ...(allow_payment_remaining ? { payment_remaining_authorized: true } : {}),
       ...(isEstimateRejected ? { balance_due: 0 } : {}),
     });
 
@@ -822,7 +856,7 @@ export const recordPickup = async (req, res, next) => {
       isEstimateRejected ? 'Device Handed Over Unrepaired (Estimate Declined)' : 'Device Delivered to Customer',
       isEstimateRejected
         ? `Device returned to customer in original intake condition without repair. Handled by staff ${req.user.full_name}.`
-        : `Customer tested phone and signed confirmation: "Device received and working properly." Handled by staff ${req.user.full_name}.`,
+        : `Customer tested phone and signed confirmation: "Device received and working properly." Handled by staff ${req.user.full_name}.${job.balance_due > 0 && allow_payment_remaining ? ` (Delivered with pending balance of ₹${Number(job.balance_due).toFixed(2)})` : ''}`,
       req.user.id
     );
 
@@ -1096,6 +1130,14 @@ export const updateJobStatus = async (req, res, next) => {
         `Invalid status "${status}". Allowed values: ${validStatuses.join(', ')}`,
         400,
         'INVALID_STATUS'
+      );
+    }
+
+    if (job.status === 'DELIVERED') {
+      throw new AppError(
+        'Device has already been delivered. Status cannot be changed directly. To process a warranty claim or return, please click "Reopen Job".',
+        400,
+        'DELIVERED_STATUS_LOCKED'
       );
     }
 
