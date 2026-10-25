@@ -18,7 +18,8 @@ import {
   Send,
   PhoneForwarded,
   MessageSquare,
-  Receipt
+  Receipt,
+  CreditCard
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -707,6 +708,16 @@ export const JobList = () => {
                               title="Send Invoice to Direct Number (Custom Phone)"
                             >
                               <PhoneForwarded className="w-4 h-4" />
+                            </button>
+
+                            {/* Record Payment / Open Payment Ledger */}
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/jobs/${job.id}?tab=payments`)}
+                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              title="Record Payment / Open Payments Tab"
+                            >
+                              <CreditCard className="w-4 h-4" />
                             </button>
 
                             {/* View / Edit Job Sheet */}

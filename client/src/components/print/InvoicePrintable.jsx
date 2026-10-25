@@ -278,11 +278,19 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
     val: resolveChecklistValue(item.key, cond),
   }));
 
-  // Accessories matching PDF
-  const accessoriesReceived = job.accessories_received || [];
-  const hasEarPods = accessoriesReceived.some((a) => a.toLowerCase().includes('ear') || a.toLowerCase().includes('pod'));
-  const hasAdapter = accessoriesReceived.some((a) => a.toLowerCase().includes('adapter') || a.toLowerCase().includes('charger'));
-  const hasCable = accessoriesReceived.some((a) => a.toLowerCase().includes('cable') || a.toLowerCase().includes('lightning') || a.toLowerCase().includes('usb'));
+  // Accessories actually received
+  const rawAccessories = job.accessories_received || [];
+  let actualReceivedAccessories = [];
+  if (Array.isArray(rawAccessories)) {
+    actualReceivedAccessories = rawAccessories.filter(Boolean);
+  } else if (typeof rawAccessories === 'string' && rawAccessories.trim()) {
+    try {
+      const parsed = JSON.parse(rawAccessories);
+      actualReceivedAccessories = Array.isArray(parsed) ? parsed.filter(Boolean) : [rawAccessories];
+    } catch {
+      actualReceivedAccessories = rawAccessories.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
 
   // WhatsApp share helpers
   const cleanPhoneForWhatsApp = (p) => {
@@ -793,69 +801,13 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       </div>
                     </div>
                   </div>
-
-                  {/* SECTION 5: Cosmetic Condition of Product */}
-                  <div className="p-2 text-[11.5px]">
-                    <h3 className="font-bold text-[13.5px] text-black uppercase tracking-wider mb-1">
-                      Cosmetic Condition of Product:
-                    </h3>
-                    <div className="p-1.5 border border-black bg-slate-50 rounded mt-0.5 min-h-[38px]">
-                      <p className="text-black font-bold text-[12px]">
-                        {dev.cosmetic_condition || cond.body || 'Wear And Tear'}
-                      </p>
-                      {cond.notes && (
-                        <p className="text-black text-[10.5px] mt-0.5 italic font-medium">
-                          Intake Note: {cond.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 {/* ==================================================== */}
-                {/* RIGHT COLUMN: Service Provider -> Checklist -> Accessories */}
+                {/* RIGHT COLUMN: Checklist -> Cosmetic Condition -> Accessories */}
                 {/* ==================================================== */}
-                <div className="divide-y divide-black flex flex-col justify-between">
-                  {/* SECTION 1: Authorized Service Provider Details */}
-                  <div className="p-2 space-y-1 text-[11.5px]">
-                    <h3 className="font-bold text-[13.5px] text-black uppercase tracking-wider mb-1">
-                      Authorized Service Provider Details
-                    </h3>
-
-                    <div className="space-y-1 text-[11.5px]">
-                      <div>
-                        <span className="text-black block text-[10.5px] uppercase font-bold">Name:</span>
-                        <strong className="text-black text-[13.5px] font-bold block">{shopName}</strong>
-                      </div>
-
-                      <div>
-                        <span className="text-black block text-[10.5px] uppercase font-bold">Address:</span>
-                        <p className="text-black font-medium leading-snug text-[11.5px]">
-                          {shopAddress}, {shopCity}, {shopState}, India {shopPostal}
-                        </p>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-2 pt-0.5">
-                        <div>
-                          <span className="text-black block text-[10.5px] uppercase font-bold">Contact Number:</span>
-                          <strong className="text-black font-mono font-bold text-[12px]">{shopPhone}</strong>
-                        </div>
-                        <div>
-                          <span className="text-black block text-[10.5px] uppercase font-bold">Email ID:</span>
-                          <span className="text-black font-mono font-semibold text-[11.5px] break-all leading-normal block">
-                            {shopEmail}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="pt-0.5">
-                        <span className="text-black block text-[10.5px] uppercase font-bold">Timings:</span>
-                        <p className="text-black font-medium text-[11.5px]">{shopTimings}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* SECTION 2: Checklist & Inward Check (12 items matching original) */}
+                <div className="divide-y divide-black flex flex-col">
+                  {/* SECTION 1: Checklist & Inward Check (12 items matching original) */}
                   <div className="text-[11px]">
                     <div className="flex items-center justify-between bg-slate-100 border-b border-black px-2 py-0.5 font-bold uppercase text-[11.5px]">
                       <span className="text-black">Checklist</span>
@@ -874,32 +826,44 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                     </div>
                   </div>
 
+                  {/* SECTION 2: Cosmetic Condition of Product */}
+                  <div className="p-2 text-[11px]">
+                    <h3 className="font-bold text-[12px] text-black uppercase tracking-wider mb-1">
+                      Cosmetic Condition of Product:
+                    </h3>
+                    <div className="p-1.5 border border-black bg-slate-50 rounded mt-0.5">
+                      <p className="text-black font-bold text-[11.5px]">
+                        {dev.cosmetic_condition || cond.body || 'Wear And Tear'}
+                      </p>
+                      {cond.notes && (
+                        <p className="text-black text-[10px] mt-0.5 italic font-medium">
+                          Intake Note: {cond.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
                   {/* SECTION 3: Accessories Received & Device Passcode */}
-                  <div className="text-[11px] flex flex-col justify-between">
+                  <div className="text-[11px] flex-1 flex flex-col justify-between">
                     <div>
                       <div className="bg-slate-100 border-b border-black px-2 py-0.5 font-bold uppercase text-[11.5px]">
                         Accessories Received
                       </div>
 
                       <div className="divide-y divide-slate-200">
-                        <div className="flex items-center justify-between px-2 py-0.5 leading-normal">
-                          <span className="text-black font-medium">Ear Pods</span>
-                          <span className="font-mono text-black">{hasEarPods ? 'Received' : 'NA'}</span>
-                        </div>
-                        <div className="flex items-center justify-between px-2 py-0.5 leading-normal">
-                          <span className="text-black font-medium">Power Adapter</span>
-                          <span className="font-mono text-black">{hasAdapter ? 'Received' : 'NA'}</span>
-                        </div>
-                        <div className="flex items-center justify-between px-2 py-0.5 leading-normal">
-                          <span className="text-black font-medium">Lightning to USB Cable</span>
-                          <span className="font-mono text-black">{hasCable ? 'Received' : 'NA'}</span>
-                        </div>
-                        <div className="flex items-center justify-between px-2 py-0.5 leading-normal">
-                          <span className="text-black font-medium">SIM Card</span>
-                          <span className="font-mono text-black">
-                            {accessoriesReceived.some(a => a.toLowerCase().includes('sim')) ? 'Received' : 'NA'}
-                          </span>
-                        </div>
+                        {actualReceivedAccessories.length > 0 ? (
+                          actualReceivedAccessories.map((accName, idx) => (
+                            <div key={idx} className="flex items-center justify-between px-2 py-0.5 leading-normal">
+                              <span className="text-black font-medium">{accName}</span>
+                              <span className="font-mono text-black font-semibold">Received</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex items-center justify-between px-2 py-0.5 leading-normal text-slate-600 italic">
+                            <span>None / Handset Only</span>
+                            <span className="font-mono text-[10.5px]">None</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -964,7 +928,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           </strong>
                         </p>
                       )}
-                      <p><span className="text-black font-semibold">Warranty Coverage:</span> <strong className="text-black font-bold">{invoice?.warranty_period || '90 Days Hardware Warranty'}</strong></p>
                     </div>
 
                     <div className="space-y-0.5 text-right font-mono text-[11.5px]">
