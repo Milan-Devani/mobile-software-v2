@@ -89,7 +89,6 @@ export const JobCreate = () => {
   const [newCustHasAltPhone, setNewCustHasAltPhone] = useState(false);
   const [newCustAltPhone, setNewCustAltPhone] = useState('');
   const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState('');
-  const [newCustGender, setNewCustGender] = useState('male');
   const [newCustUserType, setNewCustUserType] = useState('End User');
   const [newCustAddress, setNewCustAddress] = useState('');
   const [newCustCity, setNewCustCity] = useState('');
@@ -289,7 +288,7 @@ export const JobCreate = () => {
         whatsapp_number: newCustSameAsPhone ? newCustPhone.trim() : (newCustWhatsapp.trim() || newCustPhone.trim()),
         alternate_phone: newCustHasAltPhone ? newCustAltPhone.trim() : '',
         alternate_whatsapp: newCustHasAltPhone ? newCustAltWhatsapp.trim() : '',
-        gender: newCustGender,
+        gender: 'male',
         user_type: newCustUserType,
         address: newCustAddress,
         city: newCustCity,
@@ -309,6 +308,7 @@ export const JobCreate = () => {
       setNewCustHasAltPhone(false);
       setNewCustAltPhone('');
       setNewCustAltWhatsapp('');
+      setNewCustUserType('End User');
       setNewCustAddress('');
       setNewCustCity('');
       setNewCustState('');
@@ -464,18 +464,8 @@ export const JobCreate = () => {
                       <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.phone || 'N/A'}</p>
                     </div>
                     <div>
-                      <span className="text-[var(--spatial-text-muted)]">Primary WhatsApp:</span>
-                      <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.whatsapp_number || sel.phone || 'N/A'}</p>
-                    </div>
-                    <div>
                       <span className="text-[var(--spatial-text-muted)]">Alternate Phone:</span>
                       <p className="font-medium text-[var(--spatial-text-title)] tabular-nums">{sel.alternate_phone || 'None'}</p>
-                    </div>
-                    <div className="bg-emerald-500/10 border border-emerald-500/25 p-2 rounded-xl">
-                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">Alt WhatsApp (In-Repair):</span>
-                      <p className="font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
-                        {sel.alternate_whatsapp || sel.alternate_phone || 'Not recorded'}
-                      </p>
                     </div>
                   </div>
 
@@ -493,24 +483,7 @@ export const JobCreate = () => {
               );
             })()}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[var(--spatial-border)]">
-              <div>
-                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
-                  Priority Level
-                </label>
-                <SpatialSelect
-                  options={[
-                    { value: 'LOW', label: 'Low Priority' },
-                    { value: 'NORMAL', label: 'Normal Standard' },
-                    { value: 'HIGH', label: 'High Priority' },
-                    { value: 'URGENT', label: 'Urgent / Express Turnaround' },
-                  ]}
-                  value={watch('priority')}
-                  onChange={(val) => setValue('priority', val, { shouldValidate: true })}
-                />
-                <input type="hidden" {...register('priority')} />
-              </div>
-
+            <div className="pt-2 border-t border-[var(--spatial-border)]">
               <div>
                 <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
                   Assign Technician (Optional)
@@ -690,27 +663,6 @@ export const JobCreate = () => {
                 {...register('device_passcode')}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">Repair Service Type</label>
-              <SpatialSelect
-                options={[
-                  'Screen / Display Replacement',
-                  'Battery Replacement',
-                  'Face ID / Camera Repair',
-                  'Motherboard / Chip-Level Repair',
-                  'Charging Port / Audio / Mic',
-                  'Back Glass / Housing Replacement',
-                  'Diagnostic / Bench Inspection',
-                  'Software / Unlocking / Flashing',
-                  'General Hardware Repair',
-                ]}
-                value={watch('service_type')}
-                onChange={(val) => setValue('service_type', val, { shouldValidate: true })}
-                placeholder="-- Select Service Type --"
-              />
-              <input type="hidden" {...register('service_type')} />
             </div>
 
             <div>
@@ -929,28 +881,17 @@ export const JobCreate = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
-                Gender & User Type
+                User Type
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <SpatialSelect
-                  value={newCustGender}
-                  onChange={setNewCustGender}
-                  options={[
-                    { value: 'male', label: 'Male' },
-                    { value: 'female', label: 'Female' },
-                    { value: 'other', label: 'Other' },
-                  ]}
-                />
-                <SpatialSelect
-                  value={newCustUserType}
-                  onChange={setNewCustUserType}
-                  options={[
-                    { value: 'End User', label: 'End User' },
-                    { value: 'Dealer', label: 'Dealer' },
-                    { value: 'Corporate', label: 'Corporate' },
-                  ]}
-                />
-              </div>
+              <SpatialSelect
+                value={newCustUserType}
+                onChange={setNewCustUserType}
+                options={[
+                  { value: 'End User', label: 'End User' },
+                  { value: 'Dealer', label: 'Dealer' },
+                  { value: 'Corporate', label: 'Corporate' },
+                ]}
+              />
             </div>
           </div>
 

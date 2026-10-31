@@ -3,16 +3,29 @@ import api from './api';
 export const settingsService = {
   getSettings: async () => {
     const res = await api.get('/settings');
-    return res.data;
+    const data = res?.data || res;
+    return {
+      ...data,
+      data,
+    };
   },
 
   updateShopProfile: async (shopData) => {
     const res = await api.put('/settings/profile', shopData);
-    return res.data.shop;
+    return res?.shop || res?.data?.shop || res;
   },
 
   updateNotifications: async (config) => {
     const res = await api.put('/settings/notifications', config);
-    return res.data.settings;
+    return res?.settings || res?.data?.settings || res;
+  },
+
+  uploadImage: async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res?.data || res;
   },
 };

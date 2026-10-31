@@ -20,6 +20,7 @@ import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../component
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const PaymentsList = () => {
@@ -28,6 +29,9 @@ export const PaymentsList = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [methodFilter, setMethodFilter] = useState('ALL');
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
@@ -44,12 +48,16 @@ export const PaymentsList = () => {
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await paymentService.getPayments({
+      const params = {
         method: methodFilter,
         search: debouncedSearch,
         limit: pageSize,
         offset: (page - 1) * pageSize,
-      });
+      };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const res = await paymentService.getPayments(params);
 
       setPayments(res.payments || []);
       setTotal(res.total ?? (res.payments ? res.payments.length : 0));
@@ -61,11 +69,19 @@ export const PaymentsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [methodFilter, debouncedSearch, page, pageSize]);
+  }, [methodFilter, debouncedSearch, page, pageSize, startDate, endDate]);
 
   useEffect(() => {
     fetchPayments();
   }, [fetchPayments]);
+
+  const handleDateFilterChange = ({ preset, startDate: s, endDate: e }) => {
+    setDatePreset(preset || 'ALL');
+    setStartDate(s || '');
+    setEndDate(e || '');
+    setPage(1);
+    setSelectedIds([]);
+  };
 
   // Reset page to 1 when filters change
   const handleFilterChange = (newMethod) => {
@@ -226,7 +242,7 @@ export const PaymentsList = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="spatial-card p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="spatial-card relative z-20 p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -252,8 +268,17 @@ export const PaymentsList = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="w-44 sm:w-48">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Spatial Date Filter */}
+          <SpatialDateFilter
+            preset={datePreset}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateFilterChange}
+            align="right"
+          />
+
+          <div className="w-40 sm:w-44">
             <SpatialSelect
               value={methodFilter}
               onChange={(val) => handleFilterChange(val)}

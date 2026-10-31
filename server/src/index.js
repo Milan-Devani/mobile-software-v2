@@ -1,5 +1,14 @@
 // Mobotech mobile care Server - Supabase Connected
 import express from 'express';
+
+// Prevent transient background socket/network errors (e.g. Baileys WS, SMTP, DNS) from crashing the HTTP server
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [Uncaught Exception] Server kept alive:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ [Unhandled Rejection] Server kept alive:', reason?.message || reason);
+});
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';

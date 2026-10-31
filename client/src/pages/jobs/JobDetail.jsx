@@ -310,7 +310,15 @@ export const JobDetail = () => {
     e.preventDefault();
     try {
       setIsSaving(true);
-      const res = await jobService.saveDiagnosis(job.id, diagnosisForm);
+      const payload = {
+        ...diagnosisForm,
+        technician_findings:
+          diagnosisForm.technician_findings?.trim() ||
+          diagnosisForm.root_cause?.trim() ||
+          diagnosisForm.recommended_solution?.trim() ||
+          'Diagnosed',
+      };
+      const res = await jobService.saveDiagnosis(job.id, payload);
       setJob(res.job);
       toast.success('Diagnosis findings saved successfully.');
       setIsDiagnosisModalOpen(false);
@@ -1223,10 +1231,7 @@ export const JobDetail = () => {
         >
           {job.diagnosis ? (
             <div className="space-y-4 text-xs">
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
-                <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 block mb-1">Technician Findings</span>
-                <p className="text-slate-800 dark:text-slate-100 text-sm font-medium leading-relaxed">{job.diagnosis.technician_findings}</p>
-              </div>
+
 
               {job.diagnosis.root_cause && (
                 <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800">
@@ -1690,20 +1695,6 @@ export const JobDetail = () => {
         subtitle="Record technician evaluation, root cause, and proposed repair solution"
       >
         <form onSubmit={handleSaveDiagnosis} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
-              Technician Findings *
-            </label>
-            <textarea
-              rows={3}
-              required
-              placeholder="e.g. Display backlight is dead due to blown inductor on mainboard. Charging port pins are oxidized."
-              value={diagnosisForm.technician_findings}
-              onChange={(e) => setDiagnosisForm({ ...diagnosisForm, technician_findings: e.target.value })}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            />
-          </div>
-
           <div>
             <label className="block text-xs font-semibold text-slate-700 uppercase mb-1">
               Discovered Root Cause

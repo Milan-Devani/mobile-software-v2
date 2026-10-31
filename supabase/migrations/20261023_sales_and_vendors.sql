@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS sales (
     customer_phone VARCHAR(50),
     customer_email VARCHAR(255),
     customer_address TEXT,
-    place_of_supply VARCHAR(100) DEFAULT 'Gujarat ( 24 )',
+    place_of_supply VARCHAR(100) DEFAULT 'Gujarat',
     customer_gstin VARCHAR(50),
     items JSONB NOT NULL DEFAULT '[]'::jsonb,
     subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,

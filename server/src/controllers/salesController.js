@@ -5,12 +5,14 @@ import { generateSaleInvoicePdfBuffer } from '../services/pdfService.js';
 
 export const getSales = async (req, res, next) => {
   try {
-    const { search, limit = 50, offset = 0, status, sortBy, sortDir } = req.query;
+    const { search, limit = 50, offset = 0, status, sortBy, sortDir, startDate = '', endDate = '' } = req.query;
     const result = await db.sales.list({
       search,
       status,
       sortBy,
       sortDir,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });
@@ -66,7 +68,7 @@ export const createSale = async (req, res, next) => {
       customer_phone,
       customer_email = '',
       customer_address = '',
-      place_of_supply = 'Gujarat ( 24 )',
+      place_of_supply = 'Gujarat',
       customer_gstin = '',
       items = [],
       gst_enabled = true,
@@ -217,7 +219,7 @@ export const createSale = async (req, res, next) => {
       customer_phone: customer_phone.trim(),
       customer_email: customer_email.trim(),
       customer_address: customer_address.trim(),
-      place_of_supply: place_of_supply || 'Gujarat ( 24 )',
+      place_of_supply: place_of_supply || 'Gujarat',
       customer_gstin: customer_gstin.trim(),
       items: formattedItems,
       subtotal: rawSubtotal,

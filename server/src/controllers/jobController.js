@@ -22,6 +22,8 @@ export const getJobs = async (req, res, next) => {
       customerId,
       technicianId,
       search = '',
+      startDate = '',
+      endDate = '',
       limit = 50,
       offset = 0,
       sortBy = 'created_at',
@@ -33,6 +35,8 @@ export const getJobs = async (req, res, next) => {
       customerId,
       technicianId,
       search,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,
@@ -371,14 +375,16 @@ export const saveDiagnosis = async (req, res, next) => {
       throw new AppError(`Cannot update diagnosis for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
     }
 
-    if (!technician_findings || !recommended_solution) {
-      throw new AppError('Technician findings and recommended solution are required.', 400, 'DIAGNOSIS_DATA_REQUIRED');
+    if (!recommended_solution) {
+      throw new AppError('Recommended solution is required.', 400, 'DIAGNOSIS_DATA_REQUIRED');
     }
+
+    const effectiveFindings = technician_findings || root_cause || recommended_solution || '';
 
     const diagnosis = await db.diagnoses.upsert({
       jobId: id,
       reportedIssue: reported_issue || job.customer_complaint,
-      technicianFindings: technician_findings,
+      technicianFindings: effectiveFindings,
       rootCause: root_cause || '',
       recommendedSolution: recommended_solution,
       internalNotes: internal_technician_notes || '',
@@ -389,7 +395,7 @@ export const saveDiagnosis = async (req, res, next) => {
       id,
       job.status === 'RECEIVED' ? 'DIAGNOSING' : job.status,
       'Diagnosis Findings Recorded',
-      `Technician noted: ${technician_findings.slice(0, 100)}... Solution: ${recommended_solution.slice(0, 100)}...`,
+      `Root cause: ${(root_cause || 'N/A').slice(0, 100)}. Solution: ${recommended_solution.slice(0, 100)}...`,
       req.user.id
     );
 

@@ -54,20 +54,25 @@ export const VendorDashboard = () => {
         settingsService.getSettings(),
       ]);
 
-      if (statsRes.status === 'fulfilled' && statsRes.value?.data) {
-        setStats(statsRes.value.data);
+      if (statsRes.status === 'fulfilled') {
+        const statsData = statsRes.value?.data || statsRes.value;
+        if (statsData) setStats(statsData);
       }
-      if (txnsRes.status === 'fulfilled' && txnsRes.value?.data) {
-        setRecentTxns(txnsRes.value.data.transactions || []);
+      if (txnsRes.status === 'fulfilled') {
+        const list = txnsRes.value?.data?.transactions || txnsRes.value?.transactions || [];
+        setRecentTxns(list);
       }
-      if (mobilesRes.status === 'fulfilled' && mobilesRes.value?.data) {
-        setPendingMobiles(mobilesRes.value.data.mobiles || []);
+      if (mobilesRes.status === 'fulfilled') {
+        const list = mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
+        setPendingMobiles(list);
       }
-      if (vendorsRes.status === 'fulfilled' && vendorsRes.value?.data) {
-        setVendors(vendorsRes.value.data.vendors || []);
+      if (vendorsRes.status === 'fulfilled') {
+        const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+        setVendors(list);
       }
-      if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-        setShopProfile(settingsRes.value.data.shop);
+      if (settingsRes.status === 'fulfilled') {
+        const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
+        if (shop) setShopProfile(shop);
       }
     } catch (err) {
       console.error('Failed to load vendor dashboard:', err);

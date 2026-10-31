@@ -57,9 +57,10 @@ export const VendorPaymentModal = ({
         date,
       });
 
-      if (res.success) {
-        toast.success(`Payment voucher #${res.data.payment.voucher_no} recorded!`);
-        onPaymentRecorded?.(res.data.payment);
+      const payment = res?.data?.payment || res?.payment;
+      if (res?.success || payment) {
+        toast.success(`Payment voucher #${payment?.voucher_no || 'recorded'} recorded!`);
+        if (payment) onPaymentRecorded?.(payment);
         onClose();
         // Reset
         setAmount('');

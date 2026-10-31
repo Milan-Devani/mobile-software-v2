@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Receipt,
@@ -10,6 +11,7 @@ import {
   Smartphone,
   Package,
   Calendar,
+  Clock,
   CreditCard,
   IndianRupee,
   Share2,
@@ -20,6 +22,7 @@ import {
   Tag,
   Building,
   Download,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -29,10 +32,16 @@ import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { salesService } from '../../services/salesService';
 import { settingsService } from '../../services/settingsService';
 import { SameToSameBillPrintable } from '../../components/sales/SameToSameBillPrintable';
-import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
+import {
+  formatIndianCurrency,
+  formatInvoiceDate,
+  cleanWarrantyText,
+  calculatePendingWarranty,
+} from '../../utils/billFormatters';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'All Bills' },
@@ -57,6 +66,26 @@ export const SalesList = () => {
   const [selectedSale, setSelectedSale] = useState(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Lock body scroll and listen for Escape when invoice preview modal is open
+  useEffect(() => {
+    if (isPrintModalOpen) {
+      document.body.classList.add('print-modal-active');
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+          setIsPrintModalOpen(false);
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.classList.remove('print-modal-active');
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isPrintModalOpen]);
+
   // URL query state
   const currentStatus = searchParams.get('status') || 'ALL';
   const currentSearch = searchParams.get('search') || '';
@@ -64,6 +93,9 @@ export const SalesList = () => {
   const currentDir = searchParams.get('sortDir') || 'desc';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = parseInt(searchParams.get('pageSize') || '15', 10);
+  const currentDatePreset = searchParams.get('datePreset') || 'ALL';
+  const currentStartDate = searchParams.get('startDate') || '';
+  const currentEndDate = searchParams.get('endDate') || '';
 
   const [searchInput, setSearchInput] = useState(currentSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -103,6 +135,12 @@ export const SalesList = () => {
       if (currentSearch) {
         params.search = currentSearch;
       }
+      if (currentStartDate) {
+        params.startDate = currentStartDate;
+      }
+      if (currentEndDate) {
+        params.endDate = currentEndDate;
+      }
 
       const res = await salesService.getSales(params);
       const list = res?.data?.sales || res?.sales || [];
@@ -119,17 +157,35 @@ export const SalesList = () => {
 
   useEffect(() => {
     fetchSales();
-  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize]);
+  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
+
+  const handleDateFilterChange = ({ preset, startDate, endDate }) => {
+    const params = new URLSearchParams(searchParams);
+    if (!preset || preset === 'ALL') {
+      params.delete('datePreset');
+      params.delete('startDate');
+      params.delete('endDate');
+    } else {
+      params.set('datePreset', preset);
+      if (startDate) params.set('startDate', startDate);
+      else params.delete('startDate');
+      if (endDate) params.set('endDate', endDate);
+      else params.delete('endDate');
+    }
+    params.set('page', '1');
+    setSearchParams(params);
+  };
 
   useEffect(() => {
     settingsService
       .getSettings()
       .then((res) => {
-        if (res?.data?.shop) {
-          setShopProfile(res.data.shop);
+        const shop = res?.shop || res?.data?.shop;
+        if (shop) {
+          setShopProfile(shop);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const handlePageChange = (newPage) => {
@@ -337,7 +393,7 @@ export const SalesList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-3.5 sm:p-4 rounded-2xl space-y-3">
+      <div className="spatial-card relative z-20 p-3.5 sm:p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
@@ -347,11 +403,10 @@ export const SalesList = () => {
                 key={tab.key}
                 type="button"
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
-                  active
-                    ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
-                    : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
-                }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${active
+                  ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
+                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+                  }`}
               >
                 {tab.label}
               </button>
@@ -360,7 +415,7 @@ export const SalesList = () => {
         </div>
 
         {/* Search input & Sort Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -388,29 +443,40 @@ export const SalesList = () => {
             )}
           </form>
 
-          <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
-            <span className="shrink-0 font-medium">Sort by:</span>
-            <div className="w-40">
-              <SpatialSelect
-                value={`${currentSort}:${currentDir}`}
-                onChange={(val) => {
-                  const [sortBy, sortDir] = val.split(':');
-                  const params = new URLSearchParams(searchParams);
-                  params.set('sortBy', sortBy);
-                  params.set('sortDir', sortDir);
-                  params.set('page', '1');
-                  setSearchParams(params);
-                }}
-                options={[
-                  { value: 'created_at:desc', label: 'Newest First' },
-                  { value: 'created_at:asc', label: 'Oldest First' },
-                  { value: 'total_amount:desc', label: 'Highest Amount' },
-                  { value: 'total_amount:asc', label: 'Lowest Amount' },
-                  { value: 'customer_name:asc', label: 'Customer A-Z' },
-                ]}
-                size="sm"
-                searchable={false}
-              />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
+            {/* Spatial Date Filter */}
+            <SpatialDateFilter
+              preset={currentDatePreset}
+              startDate={currentStartDate}
+              endDate={currentEndDate}
+              onChange={handleDateFilterChange}
+              align="right"
+            />
+
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 font-medium">Sort by:</span>
+              <div className="w-36 sm:w-40">
+                <SpatialSelect
+                  value={`${currentSort}:${currentDir}`}
+                  onChange={(val) => {
+                    const [sortBy, sortDir] = val.split(':');
+                    const params = new URLSearchParams(searchParams);
+                    params.set('sortBy', sortBy);
+                    params.set('sortDir', sortDir);
+                    params.set('page', '1');
+                    setSearchParams(params);
+                  }}
+                  options={[
+                    { value: 'created_at:desc', label: 'Newest First' },
+                    { value: 'created_at:asc', label: 'Oldest First' },
+                    { value: 'total_amount:desc', label: 'Highest Amount' },
+                    { value: 'total_amount:asc', label: 'Lowest Amount' },
+                    { value: 'customer_name:asc', label: 'Customer A-Z' },
+                  ]}
+                  size="sm"
+                  searchable={false}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -431,7 +497,7 @@ export const SalesList = () => {
         bodyClassName="p-0"
       >
         {loading ? (
-          <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
+          <TableSkeleton rows={7} columns={11} showHeader={false} showPagination={false} />
         ) : sales.length === 0 ? (
           <EmptyState
             icon={Receipt}
@@ -443,7 +509,7 @@ export const SalesList = () => {
         ) : (
           <div className="spatial-tab-pane">
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
-              <table className="w-full text-left text-xs min-w-[1250px]">
+              <table className="w-full text-left text-xs min-w-[1320px]">
                 <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">
                   <tr>
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
@@ -459,7 +525,8 @@ export const SalesList = () => {
                     <th className="px-5 py-3 whitespace-nowrap">Date</th>
                     <th className="px-5 py-3 whitespace-nowrap">Customer</th>
                     <th className="px-5 py-3 whitespace-nowrap">Customer Phone</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Sold Products & IMEIs</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Sold Products</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Warranty Status</th>
                     <th className="px-5 py-3 text-center whitespace-nowrap">Tax Status</th>
                     <th className="px-5 py-3 text-center whitespace-nowrap">Payment</th>
                     <th className="px-5 py-3 text-right whitespace-nowrap">Total Amount</th>
@@ -477,9 +544,8 @@ export const SalesList = () => {
                       <tr
                         key={sale.id}
                         onClick={() => handleOpenPrint(sale)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-blue-500/[0.08]' : ''
-                        }`}
+                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${isSelected ? 'bg-blue-500/[0.08]' : ''
+                          }`}
                       >
                         {/* 1. Checkbox */}
                         <td
@@ -535,24 +601,13 @@ export const SalesList = () => {
                           </div>
                         </td>
 
-                        {/* 6. Sold Products, IMEI, & Warranty badges */}
-                        <td className="px-5 py-3.5 max-w-md">
+                        {/* 6. Sold Products (IMEI removed) */}
+                        <td className="px-5 py-3.5 max-w-xs">
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
                               <span className="font-medium text-[var(--spatial-text-title)] truncate">
                                 {firstItem.name || firstItem.item_name || 'Item'}
                               </span>
-                              {firstItem.imei && (
-                                <span className="px-1.5 py-0.5 rounded font-mono text-[10px] bg-[var(--spatial-bg-card-subtle)] text-[#0071e3] dark:text-[#0a84ff] border border-[var(--spatial-border)]">
-                                  IMEI: {firstItem.imei}
-                                </span>
-                              )}
-                              {firstItem.warranty && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center gap-1">
-                                  <ShieldCheck className="w-3 h-3" />
-                                  {firstItem.warranty}
-                                </span>
-                              )}
                             </div>
 
                             {remainingItemsCount > 0 && (
@@ -564,14 +619,61 @@ export const SalesList = () => {
                           </div>
                         </td>
 
-                        {/* 7. Tax Status Badge */}
+                        {/* 7. Warranty StatusPending Warranty (Separate Column) */}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {(() => {
+                            const warrantyStr = firstItem.warranty;
+                            const info = calculatePendingWarranty(warrantyStr, sale.invoice_date || sale.created_at);
+
+                            if (info.status === 'NO_WARRANTY') {
+                              return (
+                                <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
+                                  No Warranty
+                                </span>
+                              );
+                            }
+
+                            if (info.status === 'EXPIRED') {
+                              return (
+                                <div className="flex flex-col gap-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-500 border border-rose-500/20 w-fit">
+                                    <Clock className="w-3 h-3 text-rose-500 shrink-0" />
+                                    Expired
+                                  </span>
+                                  <span className="text-[10px] text-[var(--spatial-text-muted)]">
+                                    Total {cleanWarrantyText(warrantyStr)} • Ended {formatInvoiceDate(info.expiryDate)}
+                                  </span>
+                                </div>
+                              );
+                            }
+
+                            const isNearExpiry = info.daysLeft <= 15;
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold w-fit ${isNearExpiry
+                                    ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                    : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                                    }`}
+                                >
+                                  <ShieldCheck className="w-3 h-3 shrink-0" />
+                                  {info.daysLeft} {info.daysLeft === 1 ? 'Day' : 'Days'} Left
+                                </span>
+                                <span className="text-[10px] text-[var(--spatial-text-muted)]">
+                                  Total {cleanWarrantyText(warrantyStr)} • Till {formatInvoiceDate(info.expiryDate)}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </td>
+
+                        {/* 8. Tax Status Badge */}
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
                           <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                              sale.gst_enabled
-                                ? 'bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20'
-                                : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
-                            }`}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${sale.gst_enabled
+                              ? 'bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20'
+                              : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
+                              }`}
                           >
                             {sale.gst_enabled
                               ? sale.gst_type === 'CGST_SGST'
@@ -581,7 +683,7 @@ export const SalesList = () => {
                           </span>
                         </td>
 
-                        {/* 8. Payment Mode Badge */}
+                        {/* 9. Payment Mode Badge */}
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-semibold uppercase">
                             <CheckCircle2 className="w-3 h-3" />
@@ -589,12 +691,12 @@ export const SalesList = () => {
                           </span>
                         </td>
 
-                        {/* 9. Total Amount */}
+                        {/* 10. Total Amount */}
                         <td className="px-5 py-3.5 text-right tabular-nums font-semibold text-sm text-[var(--spatial-text-title)] whitespace-nowrap">
                           {formatIndianCurrency(sale.total_amount, true)}
                         </td>
 
-                        {/* 10. Actions */}
+                        {/* 11. Actions */}
                         <td
                           className="px-5 py-3.5 text-center whitespace-nowrap"
                           onClick={(e) => e.stopPropagation()}
@@ -663,26 +765,64 @@ export const SalesList = () => {
       </Card>
 
       {/* ===================================================================== */}
-      {/* SAME TO SAME PRINT / PREVIEW MODAL                                   */}
+      {/* SAME TO SAME PRINT / PREVIEW MODAL PORTAL                             */}
       {/* ===================================================================== */}
-      {isPrintModalOpen && selectedSale && (
-        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8 animate-in fade-in zoom-in-95">
-            <button
-              type="button"
-              onClick={() => setIsPrintModalOpen(false)}
-              className="absolute -top-10 right-0 text-white hover:text-rose-400 flex items-center gap-1.5 text-xs font-bold cursor-pointer print:hidden transition-colors"
+      {isPrintModalOpen && selectedSale && createPortal(
+        <div
+          id="print-sale-invoice-portal"
+          className="print-modal-portal fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static"
+        >
+          {/* Click outside backdrop */}
+          <div
+            className="fixed inset-0 bg-transparent no-print cursor-pointer"
+            onClick={() => setIsPrintModalOpen(false)}
+          />
+
+          <div
+            className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            style={{ colorScheme: 'light', backgroundColor: '#ffffff' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div className="no-print flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-xs">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">
+                    {shopProfile?.name || 'Mobotech mobile care'} — Sales & Quick Billing
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Invoice: #{selectedSale.invoice_no_seq || selectedSale.invoice_number || '26'} • Customer: {selectedSale.customer_name || 'Walk-in Customer'} • Date: {formatInvoiceDate(selectedSale.invoice_date || new Date())}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsPrintModalOpen(false)}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 cursor-pointer"
+              >
+                <span>✕ Close</span>
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div
+              className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white flex flex-col items-center"
+              style={{ colorScheme: 'light', backgroundColor: '#f1f5f9' }}
             >
-              <X className="w-4 h-4" /> Close
-            </button>
-            <SameToSameBillPrintable
-              sale={selectedSale}
-              shop={shopProfile}
-              isPreview={false}
-              onPrint={() => window.print()}
-            />
+              <SameToSameBillPrintable
+                sale={selectedSale}
+                shop={shopProfile}
+                isPreview={false}
+                onPrint={() => window.print()}
+                onClose={() => setIsPrintModalOpen(false)}
+              />
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

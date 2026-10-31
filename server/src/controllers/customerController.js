@@ -3,9 +3,11 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getCustomers = async (req, res, next) => {
   try {
-    const { search = '', limit = 50, offset = 0 } = req.query;
+    const { search = '', limit = 50, offset = 0, startDate = '', endDate = '' } = req.query;
     const result = await db.customers.list({
       search,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });

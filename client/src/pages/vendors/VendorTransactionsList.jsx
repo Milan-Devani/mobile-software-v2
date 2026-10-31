@@ -19,6 +19,7 @@ import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../component
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
@@ -43,6 +44,9 @@ export const VendorTransactionsList = () => {
   const currentDir = searchParams.get('sortDir') || 'desc';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = parseInt(searchParams.get('pageSize') || '15', 10);
+  const currentDatePreset = searchParams.get('datePreset') || 'ALL';
+  const currentStartDate = searchParams.get('startDate') || '';
+  const currentEndDate = searchParams.get('endDate') || '';
 
   const [transactions, setTransactions] = useState([]);
   const [total, setTotal] = useState(0);
@@ -81,12 +85,21 @@ export const VendorTransactionsList = () => {
       };
       if (currentType !== 'ALL') params.txnType = currentType;
       if (currentSearch) params.search = currentSearch;
+      if (currentStartDate) params.startDate = currentStartDate;
+      if (currentEndDate) params.endDate = currentEndDate;
 
       const res = await vendorService.getVendorTransactions(params);
-      if (res?.data) {
-        setTransactions(res.data.transactions || []);
-        setTotal(res.data.total || 0);
-      }
+      const list = res?.data?.transactions || res?.transactions || [];
+      const totalCount =
+        res?.data?.total !== undefined
+          ? res.data.total
+          : res?.total !== undefined
+          ? res.total
+          : Array.isArray(list)
+          ? list.length
+          : 0;
+      setTransactions(list);
+      setTotal(totalCount);
     } catch (err) {
       console.error('Failed to load transactions:', err);
       toast.error('Failed to load vendor transactions');
@@ -97,7 +110,24 @@ export const VendorTransactionsList = () => {
 
   useEffect(() => {
     fetchTransactions();
-  }, [currentType, currentSearch, currentSort, currentDir, page, pageSize]);
+  }, [currentType, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
+
+  const handleDateFilterChange = ({ preset, startDate, endDate }) => {
+    const params = new URLSearchParams(searchParams);
+    if (!preset || preset === 'ALL') {
+      params.delete('datePreset');
+      params.delete('startDate');
+      params.delete('endDate');
+    } else {
+      params.set('datePreset', preset);
+      if (startDate) params.set('startDate', startDate);
+      else params.delete('startDate');
+      if (endDate) params.set('endDate', endDate);
+      else params.delete('endDate');
+    }
+    params.set('page', '1');
+    setSearchParams(params);
+  };
 
   useEffect(() => {
     settingsService.getSettings().then((res) => {
@@ -182,7 +212,7 @@ export const VendorTransactionsList = () => {
       <VendorNavTabs activeTab="/vendors/transactions" />
 
       {/* Filter and Search Bar with Ergonomic h-11 Height */}
-      <div className="spatial-card p-4 rounded-2xl space-y-3">
+      <div className="spatial-card relative z-20 p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {TYPE_TABS.map((tab) => {
@@ -204,8 +234,8 @@ export const VendorTransactionsList = () => {
           })}
         </div>
 
-        {/* Search input with h-11 height & Sort By */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        {/* Search input with h-11 height, Date Filter & Sort By */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
@@ -233,21 +263,31 @@ export const VendorTransactionsList = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
-            <span className="shrink-0 font-medium">Sort by:</span>
-            <div className="w-40">
-              <SpatialSelect
-                value={`${currentSort}:${currentDir}`}
-                onChange={(val) => {
-                  const [sortBy, sortDir] = val.split(':');
-                  const params = new URLSearchParams(searchParams);
-                  params.set('sortBy', sortBy);
-                  params.set('sortDir', sortDir);
-                  params.set('page', '1');
-                  setSearchParams(params);
-                }}
-                options={[
-                  { value: 'created_at:desc', label: 'Newest First' },
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
+            {/* Spatial Date Filter */}
+            <SpatialDateFilter
+              preset={currentDatePreset}
+              startDate={currentStartDate}
+              endDate={currentEndDate}
+              onChange={handleDateFilterChange}
+              align="right"
+            />
+
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 font-medium">Sort by:</span>
+              <div className="w-36 sm:w-40">
+                <SpatialSelect
+                  value={`${currentSort}:${currentDir}`}
+                  onChange={(val) => {
+                    const [sortBy, sortDir] = val.split(':');
+                    const params = new URLSearchParams(searchParams);
+                    params.set('sortBy', sortBy);
+                    params.set('sortDir', sortDir);
+                    params.set('page', '1');
+                    setSearchParams(params);
+                  }}
+                  options={[
+                    { value: 'created_at:desc', label: 'Newest First' },
                   { value: 'created_at:asc', label: 'Oldest First' },
                   { value: 'total_cost:desc', label: 'Highest Amount' },
                   { value: 'total_cost:asc', label: 'Lowest Amount' },
@@ -259,6 +299,7 @@ export const VendorTransactionsList = () => {
           </div>
         </div>
       </div>
+    </div>
 
       {/* Main Transactions Table */}
       <Card

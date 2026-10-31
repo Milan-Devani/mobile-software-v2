@@ -3,11 +3,13 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getParts = async (req, res, next) => {
   try {
-    const { category, search, lowStockOnly, limit = 50, offset = 0 } = req.query;
+    const { category, search, lowStockOnly, startDate = '', endDate = '', limit = 50, offset = 0 } = req.query;
     const result = await db.parts.list({
       category,
       search,
       lowStockOnly: lowStockOnly === 'true',
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });

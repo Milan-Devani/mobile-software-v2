@@ -7,7 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) => {
   const { safeInsert, safeUpdate, safeDelete, safeUpsert } = supabaseHelpers;
-  // Ensure vendor collections exist in localDb
+  // Ensure vendor collections exist in in-memory Supabase mirror
   const ensureCollections = () => {
     const db = getLocalDb();
     if (!db) return;
@@ -17,247 +17,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
     db.vendor_status_history = db.vendor_status_history || [];
     db.vendor_ledger = db.vendor_ledger || [];
     db.vendor_payments = db.vendor_payments || [];
-
-    // Seed initial sample vendors if completely empty
-    if (db.vendors.length === 0) {
-      const now = new Date();
-      const past2Days = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      const past5Days = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
-
-      const v1Id = 'a0000001-0000-0000-0000-000000000001';
-      const v2Id = 'a0000002-0000-0000-0000-000000000002';
-      const v3Id = 'a0000003-0000-0000-0000-000000000003';
-
-      db.vendors.push(
-        {
-          id: v1Id,
-          vendor_code: 'VND-001',
-          name: 'Ramesh Bhai',
-          shop_name: 'Shree Sai Chip Level Repair Lab',
-          mobile: '9825123456',
-          whatsapp: '9825123456',
-          address: '402, Ring Road Electronics Market, Surat, Gujarat',
-          gst_number: '24AAACS1234A1Z1',
-          opening_balance: 1500,
-          current_balance: 3500,
-          notes: 'Specialist in iPhone Motherboard, CPU reballing, and Dead phone recovery.',
-          status: 'ACTIVE',
-          created_at: past5Days.toISOString(),
-          updated_at: past5Days.toISOString(),
-        },
-        {
-          id: v2Id,
-          vendor_code: 'VND-002',
-          name: 'Karan Patel',
-          shop_name: 'Apex Touch & OLED Hub',
-          mobile: '9978123456',
-          whatsapp: '9978123456',
-          address: 'Shop 12, Prime Complex, Varachha, Surat',
-          gst_number: '24AAPCK5678B1Z2',
-          opening_balance: 0,
-          current_balance: 1800,
-          notes: 'Specialist in OLED display OCA glass replacement and flex bonding.',
-          status: 'ACTIVE',
-          created_at: past5Days.toISOString(),
-          updated_at: past5Days.toISOString(),
-        },
-        {
-          id: v3Id,
-          vendor_code: 'VND-003',
-          name: 'Mukesh Sharma',
-          shop_name: 'Prime B2B Mobile Solutions',
-          mobile: '9712345678',
-          whatsapp: '9712345678',
-          address: 'A-22, Millenium Market, Ring Road, Surat',
-          gst_number: '',
-          opening_balance: 0,
-          current_balance: -2400, // Receivable: vendor owes us for repairs done at our shop
-          notes: 'Sends retail customer phones to our shop for software flashing and speaker repairs.',
-          status: 'ACTIVE',
-          created_at: past5Days.toISOString(),
-          updated_at: past5Days.toISOString(),
-        }
-      );
-
-      // Initial sample ledger entry for opening balance
-      db.vendor_ledger.push({
-        id: uuidv4(),
-        vendor_id: v1Id,
-        date: past5Days.toISOString().split('T')[0],
-        entry_type: 'OPENING_BALANCE',
-        txn_id: null,
-        vendor_mobile_id: null,
-        debit: 0,
-        credit: 1500,
-        amount: 1500,
-        running_balance: 1500,
-        payment_mode: 'NONE',
-        reference_no: 'OPN-BAL',
-        description: 'Opening Balance Payable',
-        created_by: 'System',
-        created_at: past5Days.toISOString(),
-      });
-
-      // Sample Sent Transaction
-      const txnSendId = 'b0000001-0000-0000-0000-000000000001';
-      const m1Id = 'c0000001-0000-0000-0000-000000000001';
-      const m2Id = 'c0000002-0000-0000-0000-000000000002';
-      const m3Id = 'c0000003-0000-0000-0000-000000000003';
-
-      db.vendor_transactions.push({
-        id: txnSendId,
-        txn_number: `VND-OUT-${now.getFullYear()}-0001`,
-        vendor_id: v1Id,
-        txn_type: 'SEND_TO_VENDOR',
-        txn_date: past2Days.toISOString().split('T')[0],
-        total_mobiles: 3,
-        total_cost: 6500,
-        paid_amount: 0,
-        payment_mode: 'NONE',
-        payment_ref: '',
-        notes: 'Urgent motherboard diagnosis for customer VIP handsets.',
-        created_by: 'Shop Owner',
-        created_at: past2Days.toISOString(),
-        updated_at: past2Days.toISOString(),
-      });
-
-      db.vendor_mobiles.push(
-        {
-          id: m1Id,
-          vendor_id: v1Id,
-          send_txn_id: txnSendId,
-          return_txn_id: 'b0000002-0000-0000-0000-000000000001',
-          flow_type: 'SENT_TO_VENDOR',
-          brand: 'Apple',
-          model: 'iPhone 13 Pro',
-          imei: '356789123456789',
-          customer_name: 'Amit Shah',
-          repair_problem: 'Dead / Water Damage / Audio IC issue',
-          condition: 'Minor scratches on back glass',
-          accessories: 'Device Only',
-          expected_return_date: now.toISOString().split('T')[0],
-          estimated_cost: 2500,
-          actual_cost: 2500,
-          repair_result: 'REPAIRED',
-          current_status: 'RETURNED',
-          sent_date: past2Days.toISOString().split('T')[0],
-          received_date: now.toISOString().split('T')[0],
-          returned_date: now.toISOString().split('T')[0],
-          notes: 'Audio IC replaced successfully. 90 days warranty.',
-          created_at: past2Days.toISOString(),
-          updated_at: now.toISOString(),
-        },
-        {
-          id: m2Id,
-          vendor_id: v1Id,
-          send_txn_id: txnSendId,
-          return_txn_id: null,
-          flow_type: 'SENT_TO_VENDOR',
-          brand: 'OnePlus',
-          model: 'OnePlus 11',
-          imei: '864521098765432',
-          customer_name: 'Pooja Verma',
-          repair_problem: 'No Display / Green line after drop',
-          condition: 'Good condition',
-          accessories: 'SIM Tray attached',
-          expected_return_date: now.toISOString().split('T')[0],
-          estimated_cost: 2200,
-          actual_cost: 0,
-          repair_result: 'PENDING',
-          current_status: 'IN_REPAIR',
-          sent_date: past2Days.toISOString().split('T')[0],
-          received_date: null,
-          returned_date: null,
-          notes: 'Display flex soldering in progress at vendor lab.',
-          created_at: past2Days.toISOString(),
-          updated_at: past2Days.toISOString(),
-        },
-        {
-          id: m3Id,
-          vendor_id: v1Id,
-          send_txn_id: txnSendId,
-          return_txn_id: null,
-          flow_type: 'SENT_TO_VENDOR',
-          brand: 'Samsung',
-          model: 'Galaxy S22 Ultra',
-          imei: '359871234098765',
-          customer_name: 'Vikram Joshi',
-          repair_problem: 'Auto restart loop / Exynos CPU dry solder',
-          condition: 'Camera lens intact, edge dent',
-          accessories: 'S-Pen included',
-          expected_return_date: now.toISOString().split('T')[0],
-          estimated_cost: 1800,
-          actual_cost: 0,
-          repair_result: 'PENDING',
-          current_status: 'WAITING_PARTS',
-          sent_date: past2Days.toISOString().split('T')[0],
-          received_date: null,
-          returned_date: null,
-          notes: 'Waiting for original PMIC chip.',
-          created_at: past2Days.toISOString(),
-          updated_at: past2Days.toISOString(),
-        }
-      );
-
-      // Sample Return Transaction for m1
-      const txnRcvId = 'b0000002-0000-0000-0000-000000000001';
-      db.vendor_transactions.push({
-        id: txnRcvId,
-        txn_number: `VND-IN-${now.getFullYear()}-0001`,
-        vendor_id: v1Id,
-        txn_type: 'RECEIVE_FROM_VENDOR',
-        txn_date: now.toISOString().split('T')[0],
-        total_mobiles: 1,
-        total_cost: 2500,
-        paid_amount: 500,
-        payment_mode: 'UPI',
-        payment_ref: 'UPI/9825123456/RECV01',
-        notes: 'Partial return: Received iPhone 13 Pro repaired. Paid ₹500 advance.',
-        created_by: 'Shop Owner',
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-      });
-
-      // Sample Ledger entries for m1 repair charge and ₹500 payment
-      db.vendor_ledger.push(
-        {
-          id: uuidv4(),
-          vendor_id: v1Id,
-          date: now.toISOString().split('T')[0],
-          entry_type: 'REPAIR_CHARGE',
-          txn_id: txnRcvId,
-          vendor_mobile_id: m1Id,
-          debit: 0,
-          credit: 2500,
-          amount: 2500,
-          running_balance: 4000,
-          payment_mode: 'NONE',
-          reference_no: `VND-IN-${now.getFullYear()}-0001`,
-          description: 'Repair Charge: iPhone 13 Pro (Audio IC replaced)',
-          created_by: 'Shop Owner',
-          created_at: now.toISOString(),
-        },
-        {
-          id: uuidv4(),
-          vendor_id: v1Id,
-          date: now.toISOString().split('T')[0],
-          entry_type: 'PAYMENT_MADE',
-          txn_id: txnRcvId,
-          vendor_mobile_id: m1Id,
-          debit: 500,
-          credit: 0,
-          amount: 500,
-          running_balance: 3500,
-          payment_mode: 'UPI',
-          reference_no: 'UPI/9825123456/RECV01',
-          description: 'Payment made on receive via UPI',
-          created_by: 'Shop Owner',
-          created_at: now.toISOString(),
-        }
-      );
-
-      saveLocalDb();
-    }
   };
 
   // Next Code & Sequence Generators
@@ -331,13 +90,23 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
     // VENDORS MASTER
     // -------------------------------------------------------------
     vendors: {
-      list: async ({ search = '', status = 'ALL', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
+      list: async ({ search = '', status = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendors || [])];
 
         if (status && status !== 'ALL') {
           list = list.filter((v) => v.status === status);
+        }
+
+        if (startDate) {
+          const sTime = new Date(`${startDate}T00:00:00.000Z`).getTime();
+          list = list.filter((v) => new Date(v.created_at || 0).getTime() >= sTime);
+        }
+
+        if (endDate) {
+          const eTime = new Date(`${endDate}T23:59:59.999Z`).getTime();
+          list = list.filter((v) => new Date(v.created_at || 0).getTime() <= eTime);
         }
 
         if (search) {
@@ -1302,6 +1071,8 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         flowType = 'ALL',
         status = 'ALL',
         imei = '',
+        startDate = '',
+        endDate = '',
         limit = 50,
         offset = 0,
         sortBy = 'created_at',
@@ -1321,6 +1092,22 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
 
         if (status && status !== 'ALL') {
           list = list.filter((m) => m.current_status === status);
+        }
+
+        if (startDate) {
+          const sTime = new Date(`${startDate}T00:00:00.000Z`).getTime();
+          list = list.filter((m) => {
+            const d = new Date(m.sent_date || m.created_at || 0).getTime();
+            return d >= sTime;
+          });
+        }
+
+        if (endDate) {
+          const eTime = new Date(`${endDate}T23:59:59.999Z`).getTime();
+          list = list.filter((m) => {
+            const d = new Date(m.sent_date || m.created_at || 0).getTime();
+            return d <= eTime;
+          });
         }
 
         if (imei) {

@@ -24,6 +24,7 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const partSchema = z.object({
@@ -42,6 +43,9 @@ export const PartsList = () => {
   const [parts, setParts] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -83,13 +87,17 @@ export const PartsList = () => {
   const fetchParts = async (pageNum = page, sizeNum = pageSize) => {
     try {
       setLoading(true);
-      const res = await partsService.getParts({
+      const params = {
         search: debouncedSearch,
         category: categoryFilter,
         lowStockOnly: lowStockOnly ? 'true' : undefined,
         limit: sizeNum,
         offset: (pageNum - 1) * sizeNum,
-      });
+      };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const res = await partsService.getParts(params);
       const items = res.parts || res || [];
       setParts(items);
       setTotal(res.total ?? (Array.isArray(res) ? res.length : items.length));
@@ -102,7 +110,15 @@ export const PartsList = () => {
 
   useEffect(() => {
     fetchParts(page, pageSize);
-  }, [debouncedSearch, categoryFilter, lowStockOnly, page, pageSize]);
+  }, [debouncedSearch, categoryFilter, lowStockOnly, page, pageSize, startDate, endDate]);
+
+  const handleDateFilterChange = ({ preset, startDate: s, endDate: e }) => {
+    setDatePreset(preset || 'ALL');
+    setStartDate(s || '');
+    setEndDate(e || '');
+    setPage(1);
+    setSelectedIds([]);
+  };
 
   const toggleSelectAll = () => {
     const pageIds = parts.map((p) => p.id);
@@ -228,9 +244,9 @@ export const PartsList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2 flex-1 max-w-lg">
-          <div className="relative flex-1">
+      <div className="spatial-card relative z-20 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 flex-1 max-w-2xl">
+          <div className="relative flex-1 min-w-[200px]">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -257,7 +273,16 @@ export const PartsList = () => {
             )}
           </div>
 
-          <div className="w-44 sm:w-48">
+          {/* Spatial Date Filter */}
+          <SpatialDateFilter
+            preset={datePreset}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateFilterChange}
+            align="right"
+          />
+
+          <div className="w-40 sm:w-44">
             <SpatialSelect
               value={categoryFilter}
               onChange={(val) => {

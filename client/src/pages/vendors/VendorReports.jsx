@@ -22,6 +22,7 @@ import {
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 
 export default function VendorReports() {
@@ -37,6 +38,7 @@ export default function VendorReports() {
 
   // Filters
   const [selectedVendorId, setSelectedVendorId] = useState('ALL');
+  const [datePreset, setDatePreset] = useState('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -47,7 +49,7 @@ export default function VendorReports() {
   const fetchVendors = async () => {
     try {
       const res = await vendorService.getVendors({ limit: 100 });
-      setVendors(res.vendors || []);
+      setVendors(res?.data?.vendors || res?.vendors || []);
     } catch (err) {
       console.error('Failed to load vendors', err);
     }
@@ -81,25 +83,11 @@ export default function VendorReports() {
     fetchReports();
   }, [fetchReports]);
 
-  // Quick Date Helpers
-  const handleQuickDate = (preset) => {
-    const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const format = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-    if (preset === 'ALL') {
-      setStartDate('');
-      setEndDate('');
-    } else if (preset === 'THIS_MONTH') {
-      const first = new Date(today.getFullYear(), today.getMonth(), 1);
-      setStartDate(format(first));
-      setEndDate(format(today));
-    } else if (preset === 'LAST_MONTH') {
-      const first = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const last = new Date(today.getFullYear(), today.getMonth(), 0);
-      setStartDate(format(first));
-      setEndDate(format(last));
-    }
+  // Date filter handler
+  const handleDateFilterChange = ({ preset, startDate: start, endDate: end }) => {
+    setDatePreset(preset);
+    setStartDate(start);
+    setEndDate(end);
   };
 
   // Filtered Mobiles for Mobile History tab
@@ -281,7 +269,7 @@ export default function VendorReports() {
       <VendorNavTabs activeTab="reports" />
 
       {/* Filter and Date Bar */}
-      <div className="spatial-card p-4 rounded-2xl space-y-4">
+      <div className="spatial-card p-4 rounded-2xl space-y-4 relative z-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
           {/* Vendor */}
           <div className="lg:col-span-4">
@@ -295,30 +283,8 @@ export default function VendorReports() {
             />
           </div>
 
-          {/* Start Date */}
-          <div className="lg:col-span-2">
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">From Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
-            />
-          </div>
-
-          {/* End Date */}
-          <div className="lg:col-span-2">
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">To Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
-            />
-          </div>
-
           {/* Direction Flow */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Flow Direction</label>
             <SpatialSelect
               options={[
@@ -331,30 +297,15 @@ export default function VendorReports() {
             />
           </div>
 
-          {/* Date Presets */}
-          <div className="lg:col-span-2 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-            <button
-              onClick={() => handleQuickDate('ALL')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                !startDate && !endDate
-                  ? 'bg-apple-blue text-white shadow-xs'
-                  : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => handleQuickDate('THIS_MONTH')}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => handleQuickDate('LAST_MONTH')}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
-            >
-              Last Month
-            </button>
+          {/* Date Range Filter */}
+          <div className="lg:col-span-5">
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Date Range</label>
+            <SpatialDateFilter
+              preset={datePreset}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateFilterChange}
+            />
           </div>
         </div>
       </div>

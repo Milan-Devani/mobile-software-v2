@@ -9,7 +9,6 @@ import { SpatialSelect } from '../common/SpatialSelect';
 export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave }) => {
   const [formData, setFormData] = useState({
     full_name: '',
-    gender: 'male',
     user_type: 'End User',
     phone: '',
     whatsapp_number: '',
@@ -33,7 +32,6 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
       setHasAltPhone(Boolean(customer.alternate_phone || customer.alternate_whatsapp));
       setFormData({
         full_name: customer.full_name || '',
-        gender: customer.gender || 'male',
         user_type: customer.user_type || 'End User',
         phone: customer.phone || '',
         whatsapp_number: customer.whatsapp_number || customer.phone || '',
@@ -132,28 +130,17 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
 
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              Gender & User Type
+              User Type
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <SpatialSelect
-                value={formData.gender || 'male'}
-                onChange={(val) => setFormData((prev) => ({ ...prev, gender: val }))}
-                options={[
-                  { value: 'male', label: 'Male' },
-                  { value: 'female', label: 'Female' },
-                  { value: 'other', label: 'Other' },
-                ]}
-              />
-              <SpatialSelect
-                value={formData.user_type || 'End User'}
-                onChange={(val) => setFormData((prev) => ({ ...prev, user_type: val }))}
-                options={[
-                  { value: 'End User', label: 'End User' },
-                  { value: 'Dealer', label: 'Dealer' },
-                  { value: 'Corporate', label: 'Corporate' },
-                ]}
-              />
-            </div>
+            <SpatialSelect
+              value={formData.user_type || 'End User'}
+              onChange={(val) => setFormData((prev) => ({ ...prev, user_type: val }))}
+              options={[
+                { value: 'End User', label: 'End User' },
+                { value: 'Dealer', label: 'Dealer' },
+                { value: 'Corporate', label: 'Corporate' },
+              ]}
+            />
           </div>
         </div>
 

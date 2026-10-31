@@ -23,6 +23,7 @@ import {
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { vendorService } from '../../services/vendorService';
 import SpatialSelect from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Active Statuses' },
@@ -55,6 +56,9 @@ export default function VendorPendingRepairs() {
   const [selectedVendor, setSelectedVendor] = useState(searchParams.get('vendorId') || 'ALL');
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || 'ALL');
   const [selectedFlow, setSelectedFlow] = useState(searchParams.get('flow') || 'SENT_TO_VENDOR');
+  const [datePreset, setDatePreset] = useState(searchParams.get('datePreset') || 'ALL');
+  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
+  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
 
   // Status Update Modal State
   const [statusModalMobile, setStatusModalMobile] = useState(null);
@@ -68,7 +72,7 @@ export default function VendorPendingRepairs() {
   const fetchVendors = async () => {
     try {
       const res = await vendorService.getVendors({ limit: 100 });
-      setVendors(res.vendors || []);
+      setVendors(res?.data?.vendors || res?.vendors || []);
     } catch (err) {
       console.error('Failed to load vendors', err);
     }
@@ -86,11 +90,13 @@ export default function VendorPendingRepairs() {
       if (selectedFlow && selectedFlow !== 'ALL') params.flowType = selectedFlow;
       if (selectedStatus && selectedStatus !== 'ALL') params.status = selectedStatus;
       if (search.trim()) params.search = search.trim();
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
       const res = await vendorService.getVendorMobiles(params);
       
       // Filter out RETURNED and CANCELLED by default unless specifically selected
-      let items = res.mobiles || [];
+      let items = res?.data?.mobiles || res?.mobiles || [];
       if (selectedStatus === 'ALL') {
         items = items.filter((m) => !['RETURNED'].includes(m.current_status));
       }
@@ -102,7 +108,7 @@ export default function VendorPendingRepairs() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedVendor, selectedFlow, selectedStatus, search]);
+  }, [selectedVendor, selectedFlow, selectedStatus, search, startDate, endDate]);
 
   useEffect(() => {
     fetchVendors();
@@ -269,10 +275,10 @@ export default function VendorPendingRepairs() {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-4 rounded-2xl space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="spatial-card p-4 rounded-2xl space-y-4 relative z-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
           {/* Search */}
-          <div className="relative">
+          <div className="lg:col-span-3 relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)]" />
             <input
               type="text"
@@ -284,7 +290,7 @@ export default function VendorPendingRepairs() {
           </div>
 
           {/* Vendor Filter */}
-          <div>
+          <div className="lg:col-span-3">
             <SpatialSelect
               options={vendorSelectOptions}
               value={selectedVendor}
@@ -294,7 +300,7 @@ export default function VendorPendingRepairs() {
           </div>
 
           {/* Status Filter */}
-          <div>
+          <div className="lg:col-span-2">
             <SpatialSelect
               options={STATUS_OPTIONS}
               value={selectedStatus}
@@ -304,12 +310,26 @@ export default function VendorPendingRepairs() {
           </div>
 
           {/* Flow Filter */}
-          <div>
+          <div className="lg:col-span-2">
             <SpatialSelect
               options={FLOW_OPTIONS}
               value={selectedFlow}
               onChange={setSelectedFlow}
               placeholder="Filter by Flow"
+            />
+          </div>
+
+          {/* Date Filter */}
+          <div className="lg:col-span-2">
+            <SpatialDateFilter
+              preset={datePreset}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={({ preset, startDate: start, endDate: end }) => {
+                setDatePreset(preset);
+                setStartDate(start);
+                setEndDate(end);
+              }}
             />
           </div>
         </div>

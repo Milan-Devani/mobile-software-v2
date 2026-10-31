@@ -93,26 +93,40 @@ const BarcodeSvg = ({ value = 'REF12345', height = 24, showText = true, align = 
 };
 
 // Mobotech Brand Logo Component matching iVenus aesthetic
-const MobotechLogo = () => (
-  <div className="flex items-center gap-1.5 select-none">
-    {/* Stylized Modern Emblem */}
-    <div className="relative flex items-center justify-center">
-      <svg className="w-8 h-8 text-black" viewBox="0 0 32 32" fill="none">
-        <rect x="3" y="3" width="26" height="26" rx="6" stroke="currentColor" strokeWidth="2.5" />
-        <path d="M9 22V10L16 17L23 10V22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="16" cy="7" r="1.5" fill="currentColor" />
-      </svg>
+const MobotechLogo = ({ logoUrl, shopName = 'mobotech' }) => {
+  if (logoUrl) {
+    return (
+      <div className="flex items-center select-none max-h-12 max-w-[180px]">
+        <img
+          src={logoUrl}
+          alt={shopName}
+          className="max-h-12 max-w-[180px] object-contain"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 select-none">
+      {/* Stylized Modern Emblem */}
+      <div className="relative flex items-center justify-center">
+        <svg className="w-8 h-8 text-black" viewBox="0 0 32 32" fill="none">
+          <rect x="3" y="3" width="26" height="26" rx="6" stroke="currentColor" strokeWidth="2.5" />
+          <path d="M9 22V10L16 17L23 10V22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <circle cx="16" cy="7" r="1.5" fill="currentColor" />
+        </svg>
+      </div>
+      <div className="leading-none">
+        <span className="text-2xl font-black tracking-tight text-black font-sans">
+          mobotech
+        </span>
+        <span className="block text-[9px] font-bold uppercase tracking-widest text-slate-800 -mt-0.5">
+          mobile care
+        </span>
+      </div>
     </div>
-    <div className="leading-none">
-      <span className="text-2xl font-black tracking-tight text-black font-sans">
-        mobotech
-      </span>
-      <span className="block text-[9px] font-bold uppercase tracking-widest text-slate-800 -mt-0.5">
-        mobile care
-      </span>
-    </div>
-  </div>
-);
+  );
+};
 
 // Realistic Handwritten Signature SVG stroke
 const SignatureStroke = () => (
@@ -652,7 +666,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
           >
             {/* 1. Header (Logo on Left, Service Record on Right) */}
             <div className="flex items-center justify-between pb-3">
-              <MobotechLogo />
+              <MobotechLogo logoUrl={shop?.logo_url} shopName={shopName} />
               <div className="text-right">
                 <h2 className="text-2xl font-black text-black tracking-tight font-sans">
                   Service Record
@@ -1047,7 +1061,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
           >
             {/* Page 2 Header */}
             <div className="flex items-center justify-between pb-2 border-b border-black">
-              <MobotechLogo />
+              <MobotechLogo logoUrl={shop?.logo_url} shopName={shopName} />
               <div className="text-right">
                 <h2 className="text-xl font-black text-black tracking-tight font-sans">
                   Service Record

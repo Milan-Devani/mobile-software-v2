@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
   Smartphone,
   Package,
@@ -20,20 +21,25 @@ import {
   CreditCard,
   Building,
   CheckCircle2,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
-import { SpatialSelect } from '../../components/common/SpatialSelect';
-import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
-import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
-import { Modal } from '../../components/common/Modal';
-import { customerService } from '../../services/customerService';
-import { partsService } from '../../services/partsService';
-import { settingsService } from '../../services/settingsService';
-import { salesService } from '../../services/salesService';
-import { SameToSameBillPrintable } from '../../components/sales/SameToSameBillPrintable';
-import { formatIndianCurrency } from '../../utils/billFormatters';
+  FileText,
+} from "lucide-react";
+import toast from "react-hot-toast";
+import {
+  Card,
+  LoadingSpinner,
+  FormSkeleton,
+} from "../../components/common/Card";
+import { Button } from "../../components/common/Button";
+import { SpatialSelect } from "../../components/common/SpatialSelect";
+import { SpatialWarrantyInput } from "../../components/common/SpatialWarrantyInput";
+import { SpatialPartsPicker } from "../../components/common/SpatialPartsPicker";
+import { Modal } from "../../components/common/Modal";
+import { customerService } from "../../services/customerService";
+import { partsService } from "../../services/partsService";
+import { settingsService } from "../../services/settingsService";
+import { salesService } from "../../services/salesService";
+import { SameToSameBillPrintable } from "../../components/sales/SameToSameBillPrintable";
+import { formatIndianCurrency, formatInvoiceDate } from "../../utils/billFormatters";
 
 export const SalesInvoiceCreate = () => {
   const navigate = useNavigate();
@@ -46,50 +52,59 @@ export const SalesInvoiceCreate = () => {
   const [customers, setCustomers] = useState([]);
 
   // Customer state (Same like Create Repair Job Sheet)
-  const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerEmail, setCustomerEmail] = useState('');
-  const [customerAddress, setCustomerAddress] = useState('');
-  const [placeOfSupply, setPlaceOfSupply] = useState('Gujarat ( 24 )');
-  const [customerGstin, setCustomerGstin] = useState('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerAddress, setCustomerAddress] = useState("");
+  const [placeOfSupply, setPlaceOfSupply] = useState("Gujarat");
+  const [customerGstin, setCustomerGstin] = useState("");
 
-  // Quick New Customer Modal (Same like Create Repair Job Sheet)
+  // Quick New Customer Modal (Same like Add New Customer / Create Repair Job Sheet)
   const [isNewCustModalOpen, setIsNewCustModalOpen] = useState(false);
-  const [newCustName, setNewCustName] = useState('');
-  const [newCustPhone, setNewCustPhone] = useState('');
-  const [newCustEmail, setNewCustEmail] = useState('');
-  const [newCustWhatsapp, setNewCustWhatsapp] = useState('');
+  const [newCustName, setNewCustName] = useState("");
+  const [newCustUserType, setNewCustUserType] = useState("End User");
+  const [newCustPhone, setNewCustPhone] = useState("");
+  const [newCustEmail, setNewCustEmail] = useState("");
+  const [newCustWhatsapp, setNewCustWhatsapp] = useState("");
   const [newCustSameAsPhone, setNewCustSameAsPhone] = useState(true);
-  const [newCustAltPhone, setNewCustAltPhone] = useState('');
-  const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState('');
-  const [newCustAddress, setNewCustAddress] = useState('');
+  const [newCustHasAltPhone, setNewCustHasAltPhone] = useState(false);
+  const [newCustAltPhone, setNewCustAltPhone] = useState("");
+  const [newCustAltWhatsapp, setNewCustAltWhatsapp] = useState("");
+  const [newCustAddress, setNewCustAddress] = useState("");
+  const [newCustCity, setNewCustCity] = useState("");
+  const [newCustState, setNewCustState] = useState("");
+  const [newCustPostalCode, setNewCustPostalCode] = useState("");
+  const [newCustNotes, setNewCustNotes] = useState("");
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
   // Bill Meta
-  const [invoiceNumber, setInvoiceNumber] = useState('47');
-  const [invoiceDate, setInvoiceDate] = useState(() => new Date().toISOString().split('T')[0]);
-  const [paymentMode, setPaymentMode] = useState('CASH');
+  const [invoiceNumber, setInvoiceNumber] = useState("47");
+  const [invoiceDate, setInvoiceDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
+  const [paymentMode, setPaymentMode] = useState("CASH");
 
   // Discount Card (Same like Prepare Repair Estimate: AMOUNT vs PERCENTAGE)
-  const [discountType, setDiscountType] = useState('AMOUNT'); // 'AMOUNT' or 'PERCENTAGE'
+  const [discountType, setDiscountType] = useState("AMOUNT"); // 'AMOUNT' or 'PERCENTAGE'
   const [discountValue, setDiscountValue] = useState(0);
 
   // GST / Tax Toggle & Rate Control (Same like Prepare Repair Estimate)
   const [applyTax, setApplyTax] = useState(false);
-  const [gstType, setGstType] = useState('IGST'); // 'IGST' or 'CGST_SGST'
+  const [gstType, setGstType] = useState("IGST"); // 'IGST' or 'CGST_SGST'
   const [taxRate, setTaxRate] = useState(18);
 
   // Products & Items for Sale (Initially empty)
   const [items, setItems] = useState([
     {
-      id: 'item-1',
-      item_name: '',
-      description: '',
-      warranty: '',
-      hsn: '8517',
+      id: "item-1",
+      item_name: "",
+      description: "",
+      warranty: "",
+      hsn: "8517",
       quantity: 1,
-      unit: 'NOS',
-      unit_price: '',
+      unit: "NOS",
+      unit_price: "",
       part_id: null,
     },
   ]);
@@ -98,36 +113,63 @@ export const SalesInvoiceCreate = () => {
   const [savedBillData, setSavedBillData] = useState(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
+  // Lock body scroll and listen for Escape when invoice preview modal is open
+  useEffect(() => {
+    if (isPrintModalOpen) {
+      document.body.classList.add('print-modal-active');
+      const originalOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e) => {
+        if (e.key === "Escape") {
+          setIsPrintModalOpen(false);
+          navigate("/sales");
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.classList.remove('print-modal-active');
+        document.body.style.overflow = originalOverflow;
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    }
+  }, [isPrintModalOpen, navigate]);
+
   // 1. Initial Load
   useEffect(() => {
     const loadInit = async () => {
       try {
         setLoadingInit(true);
-        const [settingsRes, nextNoRes, partsRes, custRes] = await Promise.allSettled([
-          settingsService.getSettings(),
-          salesService.getNextInvoiceNumber(),
-          partsService.getParts({ limit: 150 }),
-          customerService.getCustomers({ limit: 200 }),
-        ]);
+        const [settingsRes, nextNoRes, partsRes, custRes] =
+          await Promise.allSettled([
+            settingsService.getSettings(),
+            salesService.getNextInvoiceNumber(),
+            partsService.getParts({ limit: 150 }),
+            customerService.getCustomers({ limit: 200 }),
+          ]);
 
-        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-          setShopProfile(settingsRes.value.data.shop);
+        if (settingsRes.status === "fulfilled") {
+          const shop = settingsRes.value?.shop || settingsRes.value?.data?.shop;
+          if (shop) setShopProfile(shop);
         }
-        if (nextNoRes.status === 'fulfilled' && nextNoRes.value?.data) {
-          const seq = nextNoRes.value.data.seqNumber || '47';
+        if (nextNoRes.status === "fulfilled" && nextNoRes.value?.data) {
+          const seq = nextNoRes.value.data.seqNumber || "47";
           setInvoiceNumber(String(seq));
         }
-        if (partsRes.status === 'fulfilled' && partsRes.value) {
-          const list = Array.isArray(partsRes.value) ? partsRes.value : partsRes.value.parts || [];
+        if (partsRes.status === "fulfilled" && partsRes.value) {
+          const list = Array.isArray(partsRes.value)
+            ? partsRes.value
+            : partsRes.value.parts || [];
           setAvailableParts(list);
         }
-        if (custRes.status === 'fulfilled' && custRes.value) {
-          const custList = Array.isArray(custRes.value) ? custRes.value : custRes.value.customers || [];
+        if (custRes.status === "fulfilled" && custRes.value) {
+          const custList = Array.isArray(custRes.value)
+            ? custRes.value
+            : custRes.value.customers || [];
           setCustomers(custList);
           // Left unselected initially so user can choose or enter customer
         }
       } catch (err) {
-        console.error('Failed to init billing engine:', err);
+        console.error("Failed to init billing engine:", err);
       } finally {
         setLoadingInit(false);
       }
@@ -141,10 +183,10 @@ export const SalesInvoiceCreate = () => {
     if (!selectedCustomerId) return;
     const found = customers.find((c) => c.id === selectedCustomerId);
     if (found) {
-      setCustomerName(found.full_name || '');
-      setCustomerPhone(found.phone || '');
-      setCustomerEmail(found.email || '');
-      setCustomerAddress(found.address || '');
+      setCustomerName(found.full_name || "");
+      setCustomerPhone(found.phone || "");
+      setCustomerEmail(found.email || "");
+      setCustomerAddress(found.address || "");
     }
   }, [selectedCustomerId, customers]);
 
@@ -152,21 +194,43 @@ export const SalesInvoiceCreate = () => {
   const handleQuickCustomerCreate = async (e) => {
     e.preventDefault();
     if (!newCustName.trim() || !newCustPhone.trim()) {
-      toast.error('Customer name and primary phone are required');
+      toast.error("Customer name and primary phone are required");
+      return;
+    }
+    if (!newCustEmail.trim()) {
+      toast.error("Customer email address (Mail ID) is required");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newCustEmail.trim())) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+    if (!newCustSameAsPhone && !newCustWhatsapp.trim()) {
+      toast.error(
+        'Please enter a Primary WhatsApp number or check "WhatsApp number is same as Phone"',
+      );
       return;
     }
 
     try {
+      setIsCreatingCustomer(true);
       const created = await customerService.createCustomer({
         full_name: newCustName.trim(),
+        gender: "male",
+        user_type: newCustUserType,
         phone: newCustPhone.trim(),
-        email: newCustEmail.trim() || null,
-        whatsapp_number: newCustSameAsPhone ? newCustPhone.trim() : (newCustWhatsapp.trim() || newCustPhone.trim()),
-        alternate_phone: newCustAltPhone.trim() || null,
-        alternate_whatsapp: newCustAltWhatsapp.trim() || null,
-        address: newCustAddress.trim() || null,
-        user_type: 'End User',
-        notes: 'Created from Sales Billing',
+        email: newCustEmail.trim(),
+        whatsapp_number: newCustSameAsPhone
+          ? newCustPhone.trim()
+          : newCustWhatsapp.trim() || newCustPhone.trim(),
+        alternate_phone: newCustHasAltPhone ? newCustAltPhone.trim() : "",
+        alternate_whatsapp: newCustHasAltPhone ? newCustAltWhatsapp.trim() : "",
+        address: newCustAddress.trim() || "",
+        city: newCustCity.trim() || "",
+        state: newCustState.trim() || "",
+        postal_code: newCustPostalCode.trim() || "",
+        notes: newCustNotes.trim() || "Created from Sales Billing",
       });
 
       toast.success(`Customer "${created.full_name}" registered!`);
@@ -175,15 +239,24 @@ export const SalesInvoiceCreate = () => {
       setIsNewCustModalOpen(false);
 
       // Reset
-      setNewCustName('');
-      setNewCustPhone('');
-      setNewCustEmail('');
-      setNewCustWhatsapp('');
-      setNewCustAltPhone('');
-      setNewCustAltWhatsapp('');
-      setNewCustAddress('');
+      setNewCustName("");
+      setNewCustUserType("End User");
+      setNewCustPhone("");
+      setNewCustEmail("");
+      setNewCustWhatsapp("");
+      setNewCustSameAsPhone(true);
+      setNewCustHasAltPhone(false);
+      setNewCustAltPhone("");
+      setNewCustAltWhatsapp("");
+      setNewCustAddress("");
+      setNewCustCity("");
+      setNewCustState("");
+      setNewCustPostalCode("");
+      setNewCustNotes("");
     } catch (err) {
-      toast.error(err.message || 'Failed to create customer');
+      toast.error(err.message || "Failed to create customer");
+    } finally {
+      setIsCreatingCustomer(false);
     }
   };
 
@@ -193,13 +266,13 @@ export const SalesInvoiceCreate = () => {
       ...prev,
       {
         id: `item-${Date.now()}`,
-        item_name: '',
-        description: '',
-        warranty: '',
-        hsn: '8517',
+        item_name: "",
+        description: "",
+        warranty: "",
+        hsn: "8517",
         quantity: 1,
-        unit: 'NOS',
-        unit_price: '',
+        unit: "NOS",
+        unit_price: "",
         part_id: null,
       },
     ]);
@@ -215,7 +288,7 @@ export const SalesInvoiceCreate = () => {
 
   const handleRemoveEstimateItem = (index) => {
     if (items.length <= 1) {
-      toast.error('Bill must have at least one item');
+      toast.error("Bill must have at least one item");
       return;
     }
     setItems((prev) => prev.filter((_, i) => i !== index));
@@ -231,16 +304,20 @@ export const SalesInvoiceCreate = () => {
       const newItem = {
         id: `part-${Date.now()}`,
         item_name: part.name,
-        description: part.brand ? `Brand: ${part.brand}` : '',
-        warranty: '90 Days Warranty',
-        hsn: '8517',
+        description: part.brand ? `Brand: ${part.brand}` : "",
+        warranty: "90 Days",
+        hsn: "8517",
         quantity: 1,
-        unit: 'NOS',
+        unit: "NOS",
         unit_price: part.selling_price || 0,
         part_id: part.id,
       };
 
-      if (lastIdx >= 0 && !prev[lastIdx].item_name && (!prev[lastIdx].unit_price || prev[lastIdx].unit_price === '')) {
+      if (
+        lastIdx >= 0 &&
+        !prev[lastIdx].item_name &&
+        (!prev[lastIdx].unit_price || prev[lastIdx].unit_price === "")
+      ) {
         const copy = [...prev];
         copy[lastIdx] = newItem;
         return copy;
@@ -255,32 +332,37 @@ export const SalesInvoiceCreate = () => {
   const rawSubtotal = items.reduce((sum, it) => {
     const q = Math.max(1, parseInt(it.quantity, 10) || 1);
     const p = Math.max(0, parseFloat(it.unit_price) || 0);
-    return sum + (q * p);
+    return sum + q * p;
   }, 0);
 
   const numDiscountVal = Math.max(0, parseFloat(discountValue) || 0);
   let discountAmount = 0;
-  if (discountType === 'PERCENTAGE') {
-    discountAmount = Math.round((rawSubtotal * numDiscountVal) / 100 * 100) / 100;
+  if (discountType === "PERCENTAGE") {
+    discountAmount =
+      Math.round(((rawSubtotal * numDiscountVal) / 100) * 100) / 100;
   } else {
     discountAmount = Math.min(rawSubtotal, numDiscountVal);
   }
 
   const taxableAmount = Math.max(0, rawSubtotal - discountAmount);
-  const effectiveGstRate = applyTax ? (parseFloat(taxRate) || 18) : 0;
-  const totalTax = applyTax ? Math.round((taxableAmount * effectiveGstRate) / 100 * 100) / 100 : 0;
+  const effectiveGstRate = applyTax ? parseFloat(taxRate) || 18 : 0;
+  const totalTax = applyTax
+    ? Math.round(((taxableAmount * effectiveGstRate) / 100) * 100) / 100
+    : 0;
   const grandTotal = Math.round((taxableAmount + totalTax) * 100) / 100;
 
   // Save Bill API Call
   const handleSaveBill = async (shouldOpenPrint = false) => {
     if (!customerName.trim() || !customerPhone.trim()) {
-      toast.error('Please select or enter customer name and phone');
+      toast.error("Please select or enter customer name and phone");
       return;
     }
 
-    const validItems = items.filter((it) => it.item_name && it.item_name.trim());
+    const validItems = items.filter(
+      (it) => it.item_name && it.item_name.trim(),
+    );
     if (validItems.length === 0) {
-      toast.error('Please enter at least one item name and price');
+      toast.error("Please enter at least one item name and price");
       return;
     }
 
@@ -295,9 +377,9 @@ export const SalesInvoiceCreate = () => {
         customer_gstin: customerGstin,
         items: validItems.map((it) => ({
           name: it.item_name,
-          imei: it.description || '', // Stores IMEI / Serial / Description
-          warranty: it.warranty || '',
-          hsn: it.hsn || '8517',
+          imei: it.description || "", // Stores IMEI / Serial / Description
+          warranty: it.warranty || "",
+          hsn: it.hsn || "8517",
           quantity: parseInt(it.quantity, 10) || 1,
           rate: parseFloat(it.unit_price) || 0,
           part_id: it.part_id || null,
@@ -317,19 +399,25 @@ export const SalesInvoiceCreate = () => {
       if (createdSale || res?.success) {
         const finalSale = createdSale || res?.data?.sale || res;
         setSavedBillData(finalSale);
-        const invNum = finalSale.invoice_no_seq || finalSale.invoice_number || invoiceNumber;
-        toast.success(`Bill #${invNum} saved & real PDF invoice sent to customer!`, { duration: 4000 });
+        const invNum =
+          finalSale.invoice_no_seq || finalSale.invoice_number || invoiceNumber;
+        toast.success(
+          `Bill #${invNum} saved & real PDF invoice sent to customer!`,
+          { duration: 4000 },
+        );
 
         if (shouldOpenPrint) {
           setIsPrintModalOpen(true);
         } else {
           // Immediately navigate back to sales list page
-          navigate('/sales');
+          navigate("/sales");
         }
       }
     } catch (err) {
-      console.error('Failed to save sales bill:', err);
-      toast.error(err.response?.data?.message || err.message || 'Failed to save bill');
+      console.error("Failed to save sales bill:", err);
+      toast.error(
+        err.response?.data?.message || err.message || "Failed to save bill",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -339,7 +427,9 @@ export const SalesInvoiceCreate = () => {
     return <FormSkeleton fields={6} />;
   }
 
-  const selectedCustomerObj = customers.find((c) => c.id === selectedCustomerId);
+  const selectedCustomerObj = customers.find(
+    (c) => c.id === selectedCustomerId,
+  );
 
   return (
     <div className="space-y-6 w-full pb-16">
@@ -348,7 +438,7 @@ export const SalesInvoiceCreate = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/sales')}
+            onClick={() => navigate("/sales")}
             className="p-2 rounded-xl text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] transition-all cursor-pointer active:scale-95"
             title="Back to sales"
           >
@@ -362,7 +452,8 @@ export const SalesInvoiceCreate = () => {
               Generate Bill (Sell Phone & Parts)
             </h2>
             <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
-              Record sales, itemize phone IMEIs and replacement parts, configure GST tax & discounts
+              Record sales, itemize phone IMEIs and replacement parts, configure
+              GST tax & discounts
             </p>
           </div>
         </div>
@@ -396,7 +487,7 @@ export const SalesInvoiceCreate = () => {
                     value: c.id,
                     label: c.full_name,
                     subtitle: c.phone,
-                    badge: c.customer_code || 'CUST',
+                    badge: c.customer_code || "CUST",
                   }))}
                   value={selectedCustomerId}
                   onChange={(val) => setSelectedCustomerId(val)}
@@ -423,42 +514,70 @@ export const SalesInvoiceCreate = () => {
               <div className="p-3.5 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] hover:border-sky-400/40 text-xs space-y-2 mt-2 transition-all">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-[var(--spatial-text-title)]">{selectedCustomerObj.full_name}</span>
+                    <span className="font-bold text-[var(--spatial-text-title)]">
+                      {selectedCustomerObj.full_name}
+                    </span>
                     <span className="px-1.5 py-0.5 rounded bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] text-[10px] font-semibold">
-                      {selectedCustomerObj.user_type || 'End User'}
+                      {selectedCustomerObj.user_type || "End User"}
                     </span>
                   </div>
-                  <span className="font-mono text-sky-400 text-[11px] font-semibold">{selectedCustomerObj.customer_code || 'CUST'}</span>
+                  <span className="font-mono text-sky-400 text-[11px] font-semibold">
+                    {selectedCustomerObj.customer_code || "CUST"}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-1 text-[11px]">
                   <div>
-                    <span className="text-[var(--spatial-text-muted)]">Primary Phone:</span>
-                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{selectedCustomerObj.phone || 'N/A'}</p>
+                    <span className="text-[var(--spatial-text-muted)]">
+                      Primary Phone:
+                    </span>
+                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">
+                      {selectedCustomerObj.phone || "N/A"}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-[var(--spatial-text-muted)]">WhatsApp Number:</span>
-                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{selectedCustomerObj.whatsapp_number || selectedCustomerObj.phone || 'N/A'}</p>
+                    <span className="text-[var(--spatial-text-muted)]">
+                      WhatsApp Number:
+                    </span>
+                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">
+                      {selectedCustomerObj.whatsapp_number ||
+                        selectedCustomerObj.phone ||
+                        "N/A"}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-[var(--spatial-text-muted)]">Alternate Phone:</span>
-                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">{selectedCustomerObj.alternate_phone || 'None'}</p>
+                    <span className="text-[var(--spatial-text-muted)]">
+                      Alternate Phone:
+                    </span>
+                    <p className="font-mono font-semibold text-[var(--spatial-text-title)]">
+                      {selectedCustomerObj.alternate_phone || "None"}
+                    </p>
                   </div>
                   <div className="bg-emerald-500/10 border border-emerald-500/30 p-1.5 rounded-lg">
-                    <span className="text-emerald-400 font-semibold">Alt Contact:</span>
+                    <span className="text-emerald-400 font-semibold">
+                      Alt Contact:
+                    </span>
                     <p className="font-mono font-bold text-emerald-300">
-                      {selectedCustomerObj.alternate_whatsapp || selectedCustomerObj.alternate_phone || 'None recorded'}
+                      {selectedCustomerObj.alternate_whatsapp ||
+                        selectedCustomerObj.alternate_phone ||
+                        "None recorded"}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] pt-1 border-t border-[var(--spatial-border)] flex-wrap gap-2">
                   <div>
-                    <span>Mail ID:</span> <span className="text-[var(--spatial-text-title)] font-medium">{selectedCustomerObj.email || 'None'}</span>
+                    <span>Mail ID:</span>{" "}
+                    <span className="text-[var(--spatial-text-title)] font-medium">
+                      {selectedCustomerObj.email || "None"}
+                    </span>
                   </div>
                   {selectedCustomerObj.address && (
                     <div className="truncate max-w-sm">
-                      <span>Address:</span> <span className="text-[var(--spatial-text-title)] font-medium">{selectedCustomerObj.address}</span>
+                      <span>Address:</span>{" "}
+                      <span className="text-[var(--spatial-text-title)] font-medium">
+                        {selectedCustomerObj.address}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -503,7 +622,7 @@ export const SalesInvoiceCreate = () => {
                   type="text"
                   value={placeOfSupply}
                   onChange={(e) => setPlaceOfSupply(e.target.value)}
-                  placeholder="e.g. Gujarat ( 24 )"
+                  placeholder="e.g. Gujarat"
                   className="w-full h-11 px-3.5 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
                 />
               </div>
@@ -515,7 +634,9 @@ export const SalesInvoiceCreate = () => {
                 <input
                   type="text"
                   value={customerGstin}
-                  onChange={(e) => setCustomerGstin(e.target.value.toUpperCase())}
+                  onChange={(e) =>
+                    setCustomerGstin(e.target.value.toUpperCase())
+                  }
                   placeholder="e.g. 24ABCDE1234F1Z5"
                   className="w-full h-11 px-3.5 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs uppercase"
                 />
@@ -529,10 +650,10 @@ export const SalesInvoiceCreate = () => {
                   value={paymentMode}
                   onChange={(val) => setPaymentMode(val)}
                   options={[
-                    { value: 'CASH', label: 'Cash' },
-                    { value: 'UPI', label: 'UPI / QR Code' },
-                    { value: 'CARD', label: 'Credit / Debit Card' },
-                    { value: 'BANK_TRANSFER', label: 'Bank Transfer / NEFT' },
+                    { value: "CASH", label: "Cash" },
+                    { value: "UPI", label: "UPI / QR Code" },
+                    { value: "CARD", label: "Credit / Debit Card" },
+                    { value: "BANK_TRANSFER", label: "Bank Transfer / NEFT" },
                   ]}
                   placeholder="Select Payment Mode"
                   searchable={false}
@@ -565,8 +686,8 @@ export const SalesInvoiceCreate = () => {
                     type="radio"
                     name="discount_mode"
                     value="AMOUNT"
-                    checked={discountType === 'AMOUNT'}
-                    onChange={() => setDiscountType('AMOUNT')}
+                    checked={discountType === "AMOUNT"}
+                    onChange={() => setDiscountType("AMOUNT")}
                     className="w-4 h-4 text-sky-500 border-[var(--spatial-border)] focus:ring-sky-500 cursor-pointer"
                   />
                   <span>Amount (₹)</span>
@@ -576,8 +697,8 @@ export const SalesInvoiceCreate = () => {
                     type="radio"
                     name="discount_mode"
                     value="PERCENTAGE"
-                    checked={discountType === 'PERCENTAGE'}
-                    onChange={() => setDiscountType('PERCENTAGE')}
+                    checked={discountType === "PERCENTAGE"}
+                    onChange={() => setDiscountType("PERCENTAGE")}
                     className="w-4 h-4 text-sky-500 border-[var(--spatial-border)] focus:ring-sky-500 cursor-pointer"
                   />
                   <span>Percentage (%)</span>
@@ -587,7 +708,7 @@ export const SalesInvoiceCreate = () => {
 
             <div className="max-w-md">
               <div className="relative">
-                {discountType === 'AMOUNT' ? (
+                {discountType === "AMOUNT" ? (
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--spatial-text-muted)] font-mono text-sm">
                     ₹
                   </span>
@@ -598,22 +719,25 @@ export const SalesInvoiceCreate = () => {
                 )}
                 <input
                   type="number"
-                  step={discountType === 'PERCENTAGE' ? '0.1' : '1'}
+                  step={discountType === "PERCENTAGE" ? "0.1" : "1"}
                   min="0"
-                  max={discountType === 'PERCENTAGE' ? '100' : undefined}
-                  placeholder={discountType === 'PERCENTAGE' ? 'e.g. 10 (%)' : '0.00'}
+                  max={discountType === "PERCENTAGE" ? "100" : undefined}
+                  placeholder={
+                    discountType === "PERCENTAGE" ? "e.g. 10 (%)" : "0.00"
+                  }
                   value={discountValue}
                   onChange={(e) => setDiscountValue(e.target.value)}
-                  className={`w-full h-11 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none ${discountType === 'AMOUNT' ? 'pl-8 pr-3' : 'pl-3 pr-8'
-                    }`}
+                  className={`w-full h-11 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none ${
+                    discountType === "AMOUNT" ? "pl-8 pr-3" : "pl-3 pr-8"
+                  }`}
                 />
               </div>
 
               <div className="flex items-center justify-between text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
                 <span>
-                  {discountType === 'PERCENTAGE'
-                    ? 'Promotional or loyalty percentage discount'
-                    : 'Fixed currency discount deduction'}
+                  {discountType === "PERCENTAGE"
+                    ? "Promotional or loyalty percentage discount"
+                    : "Fixed currency discount deduction"}
                 </span>
                 {discountAmount > 0 && (
                   <span className="font-semibold text-emerald-500 font-mono">
@@ -635,7 +759,8 @@ export const SalesInvoiceCreate = () => {
                     onChange={(e) => {
                       const checked = e.target.checked;
                       setApplyTax(checked);
-                      if (checked && (!taxRate || taxRate === 0)) setTaxRate(18);
+                      if (checked && (!taxRate || taxRate === 0))
+                        setTaxRate(18);
                     }}
                     className="sr-only peer"
                   />
@@ -643,12 +768,14 @@ export const SalesInvoiceCreate = () => {
                 </label>
                 <div>
                   <span className="text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wide block">
-                    {applyTax ? 'GST / Tax is Applied (ON - Tax Invoice)' : 'GST / Tax is Disabled (OFF - Retail Bill)'}
+                    {applyTax
+                      ? "GST / Tax is Applied (ON - Tax Invoice)"
+                      : "GST / Tax is Disabled (OFF - Retail Bill)"}
                   </span>
                   <p className="text-[11px] text-[var(--spatial-text-muted)]">
                     {applyTax
-                      ? 'Tax will be computed and itemized on the final invoice'
-                      : 'Customer will only pay subtotal without additional GST'}
+                      ? "Tax will be computed and itemized on the final invoice"
+                      : "Customer will only pay subtotal without additional GST"}
                   </p>
                 </div>
               </div>
@@ -661,8 +788,8 @@ export const SalesInvoiceCreate = () => {
                       <input
                         type="radio"
                         name="tax_jurisdiction"
-                        checked={gstType === 'IGST'}
-                        onChange={() => setGstType('IGST')}
+                        checked={gstType === "IGST"}
+                        onChange={() => setGstType("IGST")}
                         className="text-sky-500"
                       />
                       <span>IGST</span>
@@ -671,8 +798,8 @@ export const SalesInvoiceCreate = () => {
                       <input
                         type="radio"
                         name="tax_jurisdiction"
-                        checked={gstType === 'CGST_SGST'}
-                        onChange={() => setGstType('CGST_SGST')}
+                        checked={gstType === "CGST_SGST"}
+                        onChange={() => setGstType("CGST_SGST")}
                         className="text-sky-500"
                       />
                       <span>CGST + SGST</span>
@@ -680,7 +807,9 @@ export const SalesInvoiceCreate = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg px-3 py-1.5 shadow-2xs">
-                    <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">Rate:</span>
+                    <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
+                      Rate:
+                    </span>
                     <input
                       type="number"
                       step="0.5"
@@ -690,7 +819,9 @@ export const SalesInvoiceCreate = () => {
                       onChange={(e) => setTaxRate(e.target.value)}
                       className="w-12 text-xs font-mono font-bold text-[var(--spatial-text-title)] bg-transparent focus:outline-none text-right"
                     />
-                    <span className="text-xs font-bold text-[var(--spatial-text-title)]">%</span>
+                    <span className="text-xs font-bold text-[var(--spatial-text-title)]">
+                      %
+                    </span>
                   </div>
                 </div>
               )}
@@ -698,16 +829,19 @@ export const SalesInvoiceCreate = () => {
 
             {applyTax && (
               <div className="flex items-center gap-1.5 pt-2 border-t border-[var(--spatial-border)]">
-                <span className="text-[10px] text-[var(--spatial-text-muted)] font-semibold uppercase">Presets:</span>
+                <span className="text-[10px] text-[var(--spatial-text-muted)] font-semibold uppercase">
+                  Presets:
+                </span>
                 {[5, 12, 18, 28].map((rate) => (
                   <button
                     key={rate}
                     type="button"
                     onClick={() => setTaxRate(rate)}
-                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors cursor-pointer ${Number(taxRate) === rate
-                      ? 'bg-emerald-600 text-white shadow-2xs'
-                      : 'bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
-                      }`}
+                    className={`px-2.5 py-0.5 rounded text-[11px] font-mono font-semibold transition-colors cursor-pointer ${
+                      Number(taxRate) === rate
+                        ? "bg-emerald-600 text-white shadow-2xs"
+                        : "bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] text-[var(--spatial-text-title)] border border-[var(--spatial-border)]"
+                    }`}
                   >
                     {rate}% GST
                   </button>
@@ -724,7 +858,7 @@ export const SalesInvoiceCreate = () => {
                   Parts & Repair Details
                 </label>
                 <span className="px-2 py-0.5 text-[11px] font-semibold bg-sky-500/10 text-sky-500 dark:text-sky-400 border border-sky-500/20 rounded-full">
-                  {items.length} {items.length === 1 ? 'item' : 'items'}
+                  {items.length} {items.length === 1 ? "item" : "items"}
                 </span>
               </div>
 
@@ -769,8 +903,10 @@ export const SalesInvoiceCreate = () => {
                         <input
                           type="text"
                           placeholder="e.g. iPhone 15 Pro Max, Original AMOLED Screen, Battery..."
-                          value={item.item_name || ''}
-                          onChange={(e) => handleUpdateItem(idx, 'item_name', e.target.value)}
+                          value={item.item_name || ""}
+                          onChange={(e) =>
+                            handleUpdateItem(idx, "item_name", e.target.value)
+                          }
                           className="w-full h-11 px-3.5 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-medium"
                         />
                       </div>
@@ -781,8 +917,10 @@ export const SalesInvoiceCreate = () => {
                           Warranty
                         </label>
                         <SpatialWarrantyInput
-                          value={item.warranty || ''}
-                          onChange={(val) => handleUpdateItem(idx, 'warranty', val)}
+                          value={item.warranty || ""}
+                          onChange={(val) =>
+                            handleUpdateItem(idx, "warranty", val)
+                          }
                           placeholder="e.g. 1 Year, 6 Months..."
                           heightClass="h-11"
                         />
@@ -797,7 +935,9 @@ export const SalesInvoiceCreate = () => {
                           type="number"
                           min="1"
                           value={item.quantity || 1}
-                          onChange={(e) => handleUpdateItem(idx, 'quantity', e.target.value)}
+                          onChange={(e) =>
+                            handleUpdateItem(idx, "quantity", e.target.value)
+                          }
                           className="w-full h-11 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-center font-bold text-[var(--spatial-text-title)] focus:ring-2 focus:ring-sky-500 focus:outline-none"
                         />
                       </div>
@@ -817,7 +957,13 @@ export const SalesInvoiceCreate = () => {
                             min="0"
                             placeholder="0.00"
                             value={item.unit_price}
-                            onChange={(e) => handleUpdateItem(idx, 'unit_price', e.target.value)}
+                            onChange={(e) =>
+                              handleUpdateItem(
+                                idx,
+                                "unit_price",
+                                e.target.value,
+                              )
+                            }
                             className="w-full h-11 pl-6 pr-2.5 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-right font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:outline-none"
                           />
                         </div>
@@ -849,8 +995,10 @@ export const SalesInvoiceCreate = () => {
                         <input
                           type="text"
                           placeholder="e.g. IMEI 358901234567890 / Serial Number / Storage / Color / Device Notes..."
-                          value={item.description || ''}
-                          onChange={(e) => handleUpdateItem(idx, 'description', e.target.value)}
+                          value={item.description || ""}
+                          onChange={(e) =>
+                            handleUpdateItem(idx, "description", e.target.value)
+                          }
                           className="flex-1 h-10 px-3.5 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none font-mono"
                         />
                       </div>
@@ -895,12 +1043,16 @@ export const SalesInvoiceCreate = () => {
                 {discountAmount > 0 && (
                   <div className="flex items-center gap-4 text-emerald-400">
                     <span>Discount Applied:</span>
-                    <span className="font-mono font-bold">-{formatIndianCurrency(discountAmount, true)}</span>
+                    <span className="font-mono font-bold">
+                      -{formatIndianCurrency(discountAmount, true)}
+                    </span>
                   </div>
                 )}
                 {applyTax && (
                   <div className="flex items-center gap-4 text-[var(--spatial-text-muted)]">
-                    <span>GST ({taxRate}% {gstType}):</span>
+                    <span>
+                      GST ({taxRate}% {gstType}):
+                    </span>
                     <span className="font-mono font-bold text-[var(--spatial-text-title)]">
                       +{formatIndianCurrency(totalTax, true)}
                     </span>
@@ -923,7 +1075,7 @@ export const SalesInvoiceCreate = () => {
                 type="button"
                 variant="outline"
                 size="md"
-                onClick={() => navigate('/sales')}
+                onClick={() => navigate("/sales")}
               >
                 Cancel
               </Button>
@@ -954,15 +1106,25 @@ export const SalesInvoiceCreate = () => {
       </div>
 
       {/* ===================================================================== */}
-      {/* MODAL: NEW CUSTOMER REGISTRATION (Exact like Create Repair Job Sheet) */}
+      {/* MODAL: NEW CUSTOMER REGISTRATION (Same as Add New Customer Modal)     */}
       {/* ===================================================================== */}
       <Modal
         isOpen={isNewCustModalOpen}
         onClose={() => setIsNewCustModalOpen(false)}
-        title="Register New Customer"
-        subtitle="Quick registration for direct sales billing"
+        title="Add New Customer"
+        subtitle="Register customer details & alternate WhatsApp for repair updates"
       >
-        <form onSubmit={handleQuickCustomerCreate} className="space-y-4 text-left">
+        <form
+          onSubmit={handleQuickCustomerCreate}
+          className="space-y-3.5 text-left"
+        >
+          <div className="p-3 bg-amber-500/10 border border-amber-400/30 rounded-xl text-[11px] text-amber-300 leading-snug">
+            <strong>⚠️ Note:</strong> Since customer leaves their phone for
+            repair, make sure to collect an{" "}
+            <strong>Alternate WhatsApp Number</strong> so they can receive
+            status alerts while their phone is in the shop.
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
@@ -971,38 +1133,146 @@ export const SalesInvoiceCreate = () => {
               <input
                 type="text"
                 required
-                placeholder="e.g. Ronak Panchal"
+                placeholder="e.g. Milan Devani"
                 value={newCustName}
                 onChange={(e) => setNewCustName(e.target.value)}
-                className="spatial-input text-xs font-semibold"
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
               />
             </div>
 
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Primary Phone *
+                User Type
               </label>
-              <input
-                type="tel"
-                required
-                placeholder="e.g. 9876543210"
-                value={newCustPhone}
-                onChange={(e) => setNewCustPhone(e.target.value)}
-                className="spatial-input text-xs font-semibold font-mono"
+              <SpatialSelect
+                value={newCustUserType}
+                onChange={setNewCustUserType}
+                options={[
+                  { value: "End User", label: "End User" },
+                  { value: "Dealer", label: "Dealer" },
+                  { value: "Corporate", label: "Corporate" },
+                ]}
               />
             </div>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                required
+                placeholder="Primary phone number"
+                value={newCustPhone}
+                onChange={(e) => {
+                  setNewCustPhone(e.target.value);
+                  if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
+                }}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+              />
+              <label className="flex items-center gap-2 mt-2 cursor-pointer text-xs text-[var(--spatial-text-body)] select-none">
+                <input
+                  type="checkbox"
+                  checked={newCustSameAsPhone}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setNewCustSameAsPhone(checked);
+                    if (checked) {
+                      setNewCustWhatsapp(newCustPhone);
+                    } else {
+                      setNewCustWhatsapp("");
+                    }
+                  }}
+                  className="w-4 h-4 text-sky-500 rounded border-slate-300"
+                />
+                <span className="font-medium">
+                  WhatsApp number is same as Phone
+                </span>
+              </label>
+            </div>
+
+            {!newCustSameAsPhone && (
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Primary WhatsApp Number *
+                </label>
+                <input
+                  type="tel"
+                  required={!newCustSameAsPhone}
+                  placeholder="Enter separate WhatsApp number"
+                  value={newCustWhatsapp}
+                  onChange={(e) => setNewCustWhatsapp(e.target.value)}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="pt-0.5">
+            <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--spatial-text-title)] select-none font-medium">
+              <input
+                type="checkbox"
+                checked={newCustHasAltPhone}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setNewCustHasAltPhone(checked);
+                  if (!checked) {
+                    setNewCustAltPhone("");
+                    setNewCustAltWhatsapp("");
+                  }
+                }}
+                className="w-4 h-4 text-[#0071e3] rounded accent-[#0071e3] cursor-pointer"
+              />
+              <span>Add Alternate Phone Number (In-Repair Contact)</span>
+            </label>
+          </div>
+
+          {newCustHasAltPhone && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[var(--spatial-bg-card-subtle)] border border-emerald-400/30 rounded-2xl animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Alternate Phone Number
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Secondary phone"
+                  value={newCustAltPhone}
+                  onChange={(e) => {
+                    setNewCustAltPhone(e.target.value);
+                    if (!newCustAltWhatsapp)
+                      setNewCustAltWhatsapp(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-emerald-400 uppercase mb-1">
+                  Alternate WhatsApp (In-Repair)
+                </label>
+                <input
+                  type="tel"
+                  placeholder="Active WP number while phone in shop"
+                  value={newCustAltWhatsapp}
+                  onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              Mail ID (Email)
+              Email Address (Mail ID) *
             </label>
             <input
               type="email"
-              placeholder="e.g. ronak@gmail.com"
+              required
+              placeholder="customer@example.com"
               value={newCustEmail}
               onChange={(e) => setNewCustEmail(e.target.value)}
-              className="spatial-input text-xs"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
             />
           </div>
 
@@ -1012,14 +1282,66 @@ export const SalesInvoiceCreate = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. G/119, Varachha, Surat, Gujarat"
+              placeholder="123 Main St"
               value={newCustAddress}
               onChange={(e) => setNewCustAddress(e.target.value)}
-              className="spatial-input text-xs"
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                City
+              </label>
+              <input
+                type="text"
+                placeholder="City"
+                value={newCustCity}
+                onChange={(e) => setNewCustCity(e.target.value)}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                State
+              </label>
+              <input
+                type="text"
+                placeholder="State"
+                value={newCustState}
+                onChange={(e) => setNewCustState(e.target.value)}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                Postal Code
+              </label>
+              <input
+                type="text"
+                placeholder="Zip"
+                value={newCustPostalCode}
+                onChange={(e) => setNewCustPostalCode(e.target.value)}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+              Internal Notes
+            </label>
+            <textarea
+              rows={2}
+              placeholder="Any special customer notes or preferences..."
+              value={newCustNotes}
+              onChange={(e) => setNewCustNotes(e.target.value)}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--spatial-border)]">
             <Button
               type="button"
               variant="outline"
@@ -1032,6 +1354,7 @@ export const SalesInvoiceCreate = () => {
               type="submit"
               variant="primary"
               size="sm"
+              loading={isCreatingCustomer}
             >
               Save Customer
             </Button>
@@ -1040,28 +1363,73 @@ export const SalesInvoiceCreate = () => {
       </Modal>
 
       {/* ===================================================================== */}
-      {/* MODAL: SAME TO SAME PRINTABLE BILL ON SAVE & PRINT                    */}
+      {/* MODAL: SAME TO SAME PRINTABLE BILL ON SAVE & PRINT (PORTAL)           */}
       {/* ===================================================================== */}
-      {isPrintModalOpen && savedBillData && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8">
-            <button
-              onClick={() => {
-                setIsPrintModalOpen(false);
-                navigate('/sales');
-              }}
-              className="absolute -top-10 right-0 text-white hover:text-rose-400 flex items-center gap-1 text-xs font-semibold cursor-pointer print:hidden"
+      {isPrintModalOpen && savedBillData && createPortal(
+        <div
+          id="print-sale-invoice-portal"
+          className="print-modal-portal fixed inset-0 z-[9999] overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-start justify-center p-2 sm:p-4 md:p-6 print:p-0 print:bg-white print:static"
+        >
+          {/* Click outside backdrop */}
+          <div
+            className="fixed inset-0 bg-transparent no-print cursor-pointer"
+            onClick={() => {
+              setIsPrintModalOpen(false);
+              navigate("/sales");
+            }}
+          />
+
+          <div
+            className="print-modal-card relative w-full max-w-5xl my-4 sm:my-8 bg-white rounded-2xl shadow-2xl border border-slate-300 z-10 overflow-hidden flex flex-col print:border-none print:shadow-none print:m-0 print:p-0 print:max-w-none"
+            style={{ colorScheme: 'light', backgroundColor: '#ffffff' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Top Bar */}
+            <div className="no-print flex items-center justify-between px-5 py-3.5 bg-slate-900 text-white border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-xs">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold tracking-tight">
+                    {shopProfile?.name || 'Mobotech mobile care'} — Sales & Quick Billing
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Invoice: #{savedBillData.invoice_no_seq || savedBillData.invoice_number || 'FINAL'} • Customer: {savedBillData.customer_name || 'Walk-in Customer'} • Date: {formatInvoiceDate(savedBillData.invoice_date || new Date())}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsPrintModalOpen(false);
+                  navigate("/sales");
+                }}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700 cursor-pointer"
+              >
+                <span>✕ Close & View Sales</span>
+              </button>
+            </div>
+
+            {/* Document Content */}
+            <div
+              className="p-3 sm:p-6 overflow-y-auto max-h-[82vh] bg-slate-100 print:max-h-none print:overflow-visible print:p-0 print:bg-white flex flex-col items-center"
+              style={{ colorScheme: 'light', backgroundColor: '#f1f5f9' }}
             >
-              <X className="w-4 h-4" /> Close & View Sales
-            </button>
-            <SameToSameBillPrintable
-              sale={savedBillData}
-              shop={shopProfile}
-              isPreview={false}
-              onPrint={() => window.print()}
-            />
+              <SameToSameBillPrintable
+                sale={savedBillData}
+                shop={shopProfile}
+                isPreview={false}
+                onPrint={() => window.print()}
+                onClose={() => {
+                  setIsPrintModalOpen(false);
+                  navigate("/sales");
+                }}
+              />
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

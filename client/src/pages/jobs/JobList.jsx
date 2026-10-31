@@ -32,6 +32,7 @@ import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'All Jobs' },
@@ -66,6 +67,9 @@ export const JobList = () => {
   const currentDir = searchParams.get('sortDir') || 'desc';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+  const currentDatePreset = searchParams.get('datePreset') || 'ALL';
+  const currentStartDate = searchParams.get('startDate') || '';
+  const currentEndDate = searchParams.get('endDate') || '';
 
   const [searchInput, setSearchInput] = useState(currentSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -105,6 +109,12 @@ export const JobList = () => {
       if (currentSearch) {
         params.search = currentSearch;
       }
+      if (currentStartDate) {
+        params.startDate = currentStartDate;
+      }
+      if (currentEndDate) {
+        params.endDate = currentEndDate;
+      }
 
       const res = await jobService.getJobs(params);
       setJobs(res.jobs || []);
@@ -118,7 +128,7 @@ export const JobList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize]);
+  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
 
   const handlePageChange = (newPage) => {
     const params = new URLSearchParams(searchParams);
@@ -139,6 +149,29 @@ export const JobList = () => {
       params.delete('status');
     } else {
       params.set('status', status);
+    }
+    params.set('page', '1');
+    setSearchParams(params);
+  };
+
+  const handleDateFilterChange = ({ preset, startDate, endDate }) => {
+    const params = new URLSearchParams(searchParams);
+    if (!preset || preset === 'ALL') {
+      params.delete('datePreset');
+      params.delete('startDate');
+      params.delete('endDate');
+    } else {
+      params.set('datePreset', preset);
+      if (startDate) {
+        params.set('startDate', startDate);
+      } else {
+        params.delete('startDate');
+      }
+      if (endDate) {
+        params.set('endDate', endDate);
+      } else {
+        params.delete('endDate');
+      }
     }
     params.set('page', '1');
     setSearchParams(params);
@@ -431,7 +464,7 @@ export const JobList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-3.5 sm:p-4 rounded-2xl space-y-3">
+      <div className="spatial-card relative z-20 p-3.5 sm:p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
@@ -451,8 +484,8 @@ export const JobList = () => {
           })}
         </div>
 
-        {/* Search input & Sort */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
+        {/* Search input, Date Filter & Sort */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -480,27 +513,39 @@ export const JobList = () => {
             )}
           </form>
 
-          <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
-            <span className="shrink-0 font-medium">Sort by:</span>
-            <div className="w-40">
-              <SpatialSelect
-                value={`${currentSort}:${currentDir}`}
-                onChange={(val) => {
-                  const [sortBy, sortDir] = val.split(':');
-                  const params = new URLSearchParams(searchParams);
-                  params.set('sortBy', sortBy);
-                  params.set('sortDir', sortDir);
-                  setSearchParams(params);
-                }}
-                options={[
-                  { value: 'created_at:desc', label: 'Newest First' },
-                  { value: 'created_at:asc', label: 'Oldest First' },
-                  { value: 'total_amount:desc', label: 'Highest Cost' },
-                  { value: 'total_amount:asc', label: 'Lowest Cost' },
-                ]}
-                size="sm"
-                searchable={false}
-              />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
+            {/* Apple Themed Date Range Filter */}
+            <SpatialDateFilter
+              preset={currentDatePreset}
+              startDate={currentStartDate}
+              endDate={currentEndDate}
+              onChange={handleDateFilterChange}
+              align="right"
+            />
+
+            {/* Sort by Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 font-medium">Sort by:</span>
+              <div className="w-36 sm:w-40">
+                <SpatialSelect
+                  value={`${currentSort}:${currentDir}`}
+                  onChange={(val) => {
+                    const [sortBy, sortDir] = val.split(':');
+                    const params = new URLSearchParams(searchParams);
+                    params.set('sortBy', sortBy);
+                    params.set('sortDir', sortDir);
+                    setSearchParams(params);
+                  }}
+                  options={[
+                    { value: 'created_at:desc', label: 'Newest First' },
+                    { value: 'created_at:asc', label: 'Oldest First' },
+                    { value: 'total_amount:desc', label: 'Highest Cost' },
+                    { value: 'total_amount:asc', label: 'Lowest Cost' },
+                  ]}
+                  size="sm"
+                  searchable={false}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -530,7 +575,7 @@ export const JobList = () => {
           <EmptyState
             icon={Wrench}
             title="No repair jobs found"
-            description="No jobs match your search or status criteria. Try clearing filters or create a new job."
+            description="No jobs match your search, date, or status criteria. Try clearing filters or create a new job."
             actionLabel="Create Job Sheet"
             onAction={() => navigate('/jobs/new')}
           />

@@ -93,15 +93,18 @@ export const VendorReceiveMobiles = () => {
           settingsService.getSettings(),
         ]);
 
-        if (vendorsRes.status === 'fulfilled' && vendorsRes.value?.data?.vendors) {
-          const list = vendorsRes.value.data.vendors;
-          setVendors(list);
-          if (!vendorId && list.length > 0) {
-            setVendorId(list[0].id);
+        if (vendorsRes.status === 'fulfilled') {
+          const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+          if (list.length > 0) {
+            setVendors(list);
+            if (!vendorId) {
+              setVendorId(list[0].id);
+            }
           }
         }
-        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-          setShopProfile(settingsRes.value.data.shop);
+        if (settingsRes.status === 'fulfilled') {
+          const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
+          if (shop) setShopProfile(shop);
         }
       } catch (err) {
         console.error('Failed to init receive page:', err);
@@ -125,7 +128,7 @@ export const VendorReceiveMobiles = () => {
       try {
         setLoadingPending(true);
         const res = await vendorService.getPendingMobilesWithVendor(vendorId);
-        const list = res?.data?.mobiles || [];
+        const list = res?.data?.mobiles || res?.mobiles || [];
         setPendingMobiles(list);
 
         // Prepopulate default receive data for each pending mobile

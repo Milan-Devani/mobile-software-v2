@@ -80,17 +80,22 @@ export const VendorSendMobiles = () => {
           settingsService.getSettings(),
         ]);
 
-        if (nextNoRes.status === 'fulfilled' && nextNoRes.value?.data?.txnNumber) {
-          setTxnNumber(nextNoRes.value.data.txnNumber);
+        if (nextNoRes.status === 'fulfilled') {
+          const num = nextNoRes.value?.data?.txnNumber || nextNoRes.value?.txnNumber;
+          if (num) setTxnNumber(num);
         }
-        if (vendorsRes.status === 'fulfilled' && vendorsRes.value?.data?.vendors) {
-          setVendors(vendorsRes.value.data.vendors);
-          if (!vendorId && vendorsRes.value.data.vendors.length > 0) {
-            setVendorId(vendorsRes.value.data.vendors[0].id);
+        if (vendorsRes.status === 'fulfilled') {
+          const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+          if (list.length > 0) {
+            setVendors(list);
+            if (!vendorId) {
+              setVendorId(list[0].id);
+            }
           }
         }
-        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-          setShopProfile(settingsRes.value.data.shop);
+        if (settingsRes.status === 'fulfilled') {
+          const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
+          if (shop) setShopProfile(shop);
         }
       } catch (err) {
         console.error('Failed to init Send Mobiles:', err);

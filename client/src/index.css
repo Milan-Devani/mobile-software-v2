@@ -833,6 +833,15 @@ select option {
   border-color: #e2e8f0 !important;
 }
 
+/* Ensure all borders in the Sales & Quick Billing Same-to-Same sheet are pure black */
+#same-to-same-bill-sheet table,
+#same-to-same-bill-sheet tr,
+#same-to-same-bill-sheet th,
+#same-to-same-bill-sheet td,
+#same-to-same-bill-sheet div[style*="border"] {
+  border-color: #000000 !important;
+}
+
 /* ==========================================================================
    UNIVERSAL FORM CONTROLS: CRISP OUTLINES & NEVER-CLIPPED FOCUS RINGS
    ========================================================================== */
@@ -885,30 +894,47 @@ textarea.focus\:ring-primary-500:focus {
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3) !important;
 }
 
-/* Print Styles for Job Sheets and Invoices */
+/* ========================================================================== */
+/* PRINT MEDIA STYLES FOR ALL INVOICES, BILLS & JOB SHEETS                   */
+/* ========================================================================== */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
 
   html,
   body {
     background: #ffffff !important;
+    background-image: none !important;
     color: #000000 !important;
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
     height: auto !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
+  /* Completely hide the background application UI when any print modal portal exists */
   body.print-modal-active #root,
+  body:has(#print-sale-invoice-portal) #root,
+  body:has(#print-invoice-portal) #root,
+  body:has(#print-jobsheet-portal) #root,
   .print-modal-active #root,
   #root.print-hidden-root {
     display: none !important;
     visibility: hidden !important;
     height: 0 !important;
+    max-height: 0 !important;
     overflow: hidden !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .no-print,
+  .print\:hidden,
   header,
   aside,
   nav,
@@ -925,20 +951,50 @@ textarea.focus\:ring-primary-500:focus {
     border-color: #cbd5e1 !important;
   }
 
+  /* Modal portals should flow as static, full-width blocks on print */
+  #print-sale-invoice-portal,
   #print-invoice-portal,
-  #print-jobsheet-portal {
+  #print-jobsheet-portal,
+  .print-modal-portal {
     display: block !important;
     position: static !important;
+    inset: auto !important;
     width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
     overflow: visible !important;
   }
 
-  @page {
-    margin: 4mm 6mm;
-    size: A4 portrait;
+  .print-modal-card {
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  #same-to-same-bill-sheet {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 48px !important;
+    box-sizing: border-box !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    page-break-after: avoid !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    break-after: avoid !important;
   }
 }
 
@@ -1113,33 +1169,3 @@ textarea.focus\:ring-primary-500:focus {
   transition: opacity 180ms cubic-bezier(0.16, 1, 0.3, 1), transform 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* ========================================================================== */
-/* PRINT MEDIA STYLES FOR SALES BILLS & TAX INVOICES                          */
-/* ========================================================================== */
-@media print {
-  body {
-    background-color: #ffffff !important;
-    background-image: none !important;
-    color: #000000 !important;
-  }
-
-  .print\:hidden {
-    display: none !important;
-  }
-
-  #same-to-same-bill-sheet {
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: #ffffff !important;
-    color: #111827 !important;
-  }
-
-  @page {
-    size: A4 portrait;
-    margin: 6mm 8mm;
-  }
-}

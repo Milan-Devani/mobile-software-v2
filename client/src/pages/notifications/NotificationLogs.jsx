@@ -21,6 +21,7 @@ import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../component
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const NotificationLogs = () => {
@@ -28,6 +29,9 @@ export const NotificationLogs = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [channelFilter, setChannelFilter] = useState('ALL');
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [page, setPage] = useState(1);
@@ -41,6 +45,8 @@ export const NotificationLogs = () => {
       const res = await notificationService.getLogs({
         channel: channelFilter,
         search: debouncedSearch,
+        startDate,
+        endDate,
         limit: pageSize,
         offset: (page - 1) * pageSize,
       });
@@ -55,7 +61,7 @@ export const NotificationLogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [channelFilter, debouncedSearch, page, pageSize]);
+  }, [channelFilter, debouncedSearch, startDate, endDate, page, pageSize]);
 
   useEffect(() => {
     fetchLogs();
@@ -63,6 +69,14 @@ export const NotificationLogs = () => {
 
   const handleFilterChange = (newChannel) => {
     setChannelFilter(newChannel);
+    setPage(1);
+    setSelectedIds([]);
+  };
+
+  const handleDateFilterChange = ({ preset, startDate: start, endDate: end }) => {
+    setDatePreset(preset);
+    setStartDate(start);
+    setEndDate(end);
     setPage(1);
     setSelectedIds([]);
   };
@@ -199,7 +213,7 @@ export const NotificationLogs = () => {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="spatial-card p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="spatial-card p-3 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 relative z-20">
         <div className="relative flex-1 max-w-md">
           <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
@@ -225,7 +239,13 @@ export const NotificationLogs = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <SpatialDateFilter
+            preset={datePreset}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateFilterChange}
+          />
           <div className="w-40 sm:w-44">
             <SpatialSelect
               value={channelFilter}

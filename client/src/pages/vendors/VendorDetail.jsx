@@ -61,28 +61,33 @@ export const VendorDetail = () => {
         settingsService.getSettings(),
       ]);
 
-      if (vendorRes.status === 'fulfilled' && vendorRes.value?.data?.vendor) {
-        setVendor(vendorRes.value.data.vendor);
+      const vendorData = vendorRes.status === 'fulfilled' ? (vendorRes.value?.data?.vendor || vendorRes.value?.vendor) : null;
+      if (vendorData) {
+        setVendor(vendorData);
       } else {
         toast.error('Vendor not found');
         navigate('/vendors/list');
         return;
       }
 
-      if (mobilesRes.status === 'fulfilled' && mobilesRes.value?.data) {
-        setMobiles(mobilesRes.value.data.mobiles || []);
+      if (mobilesRes.status === 'fulfilled') {
+        const list = mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
+        setMobiles(list);
       }
-      if (txnsRes.status === 'fulfilled' && txnsRes.value?.data) {
-        setTransactions(txnsRes.value.data.transactions || []);
+      if (txnsRes.status === 'fulfilled') {
+        const list = txnsRes.value?.data?.transactions || txnsRes.value?.transactions || [];
+        setTransactions(list);
       }
-      if (ledgerRes.status === 'fulfilled' && ledgerRes.value?.data) {
-        setLedgerData(ledgerRes.value.data);
+      if (ledgerRes.status === 'fulfilled') {
+        setLedgerData(ledgerRes.value?.data || ledgerRes.value || {});
       }
-      if (paymentsRes.status === 'fulfilled' && paymentsRes.value?.data) {
-        setPayments(paymentsRes.value.data.payments || []);
+      if (paymentsRes.status === 'fulfilled') {
+        const list = paymentsRes.value?.data?.payments || paymentsRes.value?.payments || [];
+        setPayments(list);
       }
-      if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-        setShopProfile(settingsRes.value.data.shop);
+      if (settingsRes.status === 'fulfilled') {
+        const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
+        if (shop) setShopProfile(shop);
       }
     } catch (err) {
       console.error('Failed to load vendor profile:', err);

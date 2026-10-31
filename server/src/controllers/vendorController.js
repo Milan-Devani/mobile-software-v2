@@ -12,10 +12,12 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getVendors = async (req, res, next) => {
   try {
-    const { search = '', status = 'ALL', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = req.query;
+    const { search = '', status = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = req.query;
     const result = await db.vendors.list({
       search,
       status,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,
@@ -341,6 +343,8 @@ export const getVendorMobiles = async (req, res, next) => {
       flowType = 'ALL',
       status = 'ALL',
       imei = '',
+      startDate = '',
+      endDate = '',
       limit = 50,
       offset = 0,
       sortBy = 'created_at',
@@ -353,6 +357,8 @@ export const getVendorMobiles = async (req, res, next) => {
       flowType,
       status,
       imei,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,

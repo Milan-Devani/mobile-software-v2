@@ -19,6 +19,7 @@ import {
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 
@@ -28,6 +29,7 @@ export default function VendorLedger() {
 
   const [vendors, setVendors] = useState([]);
   const [selectedVendorId, setSelectedVendorId] = useState(searchParams.get('vendorId') || '');
+  const [datePreset, setDatePreset] = useState(searchParams.get('datePreset') || 'ALL');
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +42,7 @@ export default function VendorLedger() {
   const loadVendors = async () => {
     try {
       const res = await vendorService.getVendors({ limit: 100 });
-      const list = res.vendors || [];
+      const list = res?.data?.vendors || res?.vendors || [];
       setVendors(list);
       if (!selectedVendorId && list.length > 0) {
         setSelectedVendorId(list[0].id);
@@ -80,10 +82,11 @@ export default function VendorLedger() {
   useEffect(() => {
     const params = {};
     if (selectedVendorId) params.vendorId = selectedVendorId;
+    if (datePreset && datePreset !== 'ALL') params.datePreset = datePreset;
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
     setSearchParams(params, { replace: true });
-  }, [selectedVendorId, startDate, endDate, setSearchParams]);
+  }, [selectedVendorId, datePreset, startDate, endDate, setSearchParams]);
 
   // Filter entries based on search term
   const filteredEntries = useMemo(() => {
@@ -113,29 +116,11 @@ export default function VendorLedger() {
     }));
   }, [vendors]);
 
-  // Quick date filters
-  const setQuickDate = (type) => {
-    const today = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const format = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-
-    if (type === 'ALL') {
-      setStartDate('');
-      setEndDate('');
-    } else if (type === 'TODAY') {
-      const nowStr = format(today);
-      setStartDate(nowStr);
-      setEndDate(nowStr);
-    } else if (type === 'THIS_MONTH') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      setStartDate(format(firstDay));
-      setEndDate(format(today));
-    } else if (type === 'LAST_MONTH') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-      const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
-      setStartDate(format(firstDay));
-      setEndDate(format(lastDay));
-    }
+  // Date filter handler
+  const handleDateFilterChange = ({ preset, startDate: start, endDate: end }) => {
+    setDatePreset(preset);
+    setStartDate(start);
+    setEndDate(end);
   };
 
   // CSV Export
@@ -234,10 +219,10 @@ export default function VendorLedger() {
       <VendorNavTabs activeTab="ledger" />
 
       {/* Filter and Vendor Select Bar */}
-      <div className="spatial-card p-4 rounded-2xl space-y-4">
+      <div className="spatial-card p-4 rounded-2xl space-y-4 relative z-20">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
           {/* Vendor Selector */}
-          <div className="md:col-span-5">
+          <div className="md:col-span-6">
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Select Vendor Account
             </label>
@@ -250,62 +235,17 @@ export default function VendorLedger() {
             />
           </div>
 
-          {/* Date Range Start */}
-          <div className="md:col-span-2">
+          {/* Date Filter */}
+          <div className="md:col-span-6">
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              From Date
+              Ledger Date Range
             </label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
+            <SpatialDateFilter
+              preset={datePreset}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateFilterChange}
             />
-          </div>
-
-          {/* Date Range End */}
-          <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              To Date
-            </label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm font-mono"
-            />
-          </div>
-
-          {/* Quick Filter Buttons */}
-          <div className="md:col-span-3 flex items-center gap-1.5 overflow-x-auto pb-0.5">
-            <button
-              onClick={() => setQuickDate('ALL')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
-                !startDate && !endDate
-                  ? 'bg-apple-blue text-white shadow-xs'
-                  : 'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)]'
-              }`}
-            >
-              All Time
-            </button>
-            <button
-              onClick={() => setQuickDate('TODAY')}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
-            >
-              Today
-            </button>
-            <button
-              onClick={() => setQuickDate('THIS_MONTH')}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
-            >
-              This Month
-            </button>
-            <button
-              onClick={() => setQuickDate('LAST_MONTH')}
-              className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] border border-[var(--spatial-border)] transition-all whitespace-nowrap cursor-pointer"
-            >
-              Last Month
-            </button>
           </div>
         </div>
 

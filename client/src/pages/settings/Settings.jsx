@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import {
   Palette,
@@ -27,7 +27,10 @@ import {
   Edit2,
   LogOut,
   Database,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
+import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -87,6 +90,124 @@ export const Settings = () => {
   const [isEditingSenderEmail, setIsEditingSenderEmail] = useState(false);
   const [senderEmailInput, setSenderEmailInput] = useState('');
   const [isSavingSenderEmail, setIsSavingSenderEmail] = useState(false);
+
+  // Shop Logo & Instagram QR Upload state
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingInstagramQr, setIsUploadingInstagramQr] = useState(false);
+  const [instagramQrPreview, setInstagramQrPreview] = useState('');
+  const [isGeneratingQr, setIsGeneratingQr] = useState(false);
+  const logoInputRef = useRef(null);
+  const instagramQrInputRef = useRef(null);
+
+  // Automatically resolve Instagram QR preview from direct image OR auto-generate from profile link/handle
+  useEffect(() => {
+    const raw = (shop.instagram_qr_url || '').trim();
+    if (!raw) {
+      setInstagramQrPreview('');
+      return;
+    }
+
+    const pathWithoutQuery = raw.split('?')[0].toLowerCase();
+    const isDirectImage =
+      raw.startsWith('data:image/') ||
+      raw.includes('/uploads/') ||
+      raw.includes('/api/upload') ||
+      /\.(png|jpe?g|webp|svg|gif|bmp)$/i.test(pathWithoutQuery);
+
+    if (isDirectImage) {
+      setInstagramQrPreview(raw);
+      return;
+    }
+
+    // It's an Instagram web link, profile URL, or handle -> generate scannable QR code!
+    let targetLink = raw;
+    if (targetLink.startsWith('@')) {
+      targetLink = `https://www.instagram.com/${targetLink.slice(1)}/`;
+    } else if (!targetLink.startsWith('http://') && !targetLink.startsWith('https://')) {
+      targetLink = `https://${targetLink}`;
+    }
+
+    setIsGeneratingQr(true);
+    QRCode.toDataURL(targetLink, {
+      width: 240,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+    })
+      .then((dataUrl) => {
+        setInstagramQrPreview(dataUrl);
+      })
+      .catch((err) => {
+        console.error('Failed to generate Instagram QR from link:', err);
+        setInstagramQrPreview('');
+      })
+      .finally(() => {
+        setIsGeneratingQr(false);
+      });
+  }, [shop.instagram_qr_url]);
+
+  const validateAndUploadImage = async (file, fieldName) => {
+    if (!file) return;
+
+    // Validate file type
+    const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/jpg'];
+    if (!validMimeTypes.includes(file.type)) {
+      toast.error('Invalid file type! Please upload PNG, JPG, WEBP, or SVG.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast.error('File too large! Max file size allowed is 5MB.');
+      return;
+    }
+
+    try {
+      if (fieldName === 'logo_url') {
+        setIsUploadingLogo(true);
+      } else {
+        setIsUploadingInstagramQr(true);
+      }
+
+      const res = await settingsService.uploadImage(file);
+      const uploadedUrl = res?.file_url || res?.data?.file_url || (typeof res === 'string' ? res : '');
+
+      if (!uploadedUrl) {
+        throw new Error('Upload succeeded but no image URL was returned.');
+      }
+
+      setShop((prev) => ({
+        ...prev,
+        [fieldName]: uploadedUrl,
+      }));
+
+      toast.success(
+        fieldName === 'logo_url'
+          ? 'Shop logo uploaded successfully! Click "Save Shop Profile" to save.'
+          : 'Instagram QR code uploaded successfully! Click "Save Shop Profile" to save.'
+      );
+    } catch (err) {
+      console.error('Image upload failed:', err);
+      toast.error(err.response?.data?.message || err.message || 'Failed to upload image. Please try again.');
+    } finally {
+      if (fieldName === 'logo_url') {
+        setIsUploadingLogo(false);
+      } else {
+        setIsUploadingInstagramQr(false);
+      }
+    }
+  };
+
+  const handleRemoveImage = (fieldName) => {
+    setShop((prev) => ({
+      ...prev,
+      [fieldName]: '',
+    }));
+    toast.success(fieldName === 'logo_url' ? 'Shop logo cleared' : 'Instagram QR cleared');
+  };
 
   // Theme Context
   const {
@@ -798,6 +919,180 @@ export const Settings = () => {
                   onChange={(e) => setShop({ ...shop, currency_symbol: e.target.value })}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
+              </div>
+
+              {/* Branding Assets: Shop Logo & Instagram Profile QR Code */}
+              <div className="sm:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+                {/* 1. Shop Logo Input & Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Shop Logo</span>
+                    </label>
+                    {shop.logo_url && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage('logo_url')}
+                        className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" /> Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* Logo Preview */}
+                    <div className="w-16 h-16 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {shop.logo_url ? (
+                        <img
+                          src={shop.logo_url}
+                          alt="Shop Logo"
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-[var(--spatial-text-muted)] opacity-40" />
+                      )}
+                    </div>
+
+                    {/* Logo Upload & URL */}
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        type="file"
+                        ref={logoInputRef}
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) validateAndUploadImage(file, 'logo_url');
+                          e.target.value = '';
+                        }}
+                      />
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isUploadingLogo}
+                          onClick={() => logoInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-apple-blue text-white hover:bg-apple-blue/90 transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
+                        >
+                          {isUploadingLogo ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload Logo</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="Or paste image URL (https://...)"
+                        value={shop.logo_url || ''}
+                        onChange={(e) => setShop({ ...shop, logo_url: e.target.value })}
+                        className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-[11px] font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[var(--spatial-text-muted)] leading-tight">
+                    PNG, JPG, WEBP, SVG (Max 5MB). Printed on sales bills, invoices & job sheets.
+                  </p>
+                </div>
+
+                {/* 2. Instagram Profile QR Code Input & Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
+                      <QrCode className="w-3.5 h-3.5 text-pink-500" />
+                      <span>Instagram Profile QR</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-pink-500/15 text-pink-500 border border-pink-500/20">
+                        Bill Header
+                      </span>
+                    </label>
+                    {shop.instagram_qr_url && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage('instagram_qr_url')}
+                        className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" /> Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    {/* QR Preview */}
+                    <div className="w-16 h-16 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {isGeneratingQr ? (
+                        <RefreshCw className="w-5 h-5 text-pink-500 animate-spin" />
+                      ) : instagramQrPreview ? (
+                        <img
+                          src={instagramQrPreview}
+                          alt="Instagram QR"
+                          className="w-full h-full object-contain p-1"
+                          onError={() => setInstagramQrPreview('')}
+                        />
+                      ) : (
+                        <QrCode className="w-6 h-6 text-pink-500/40" />
+                      )}
+                    </div>
+
+                    {/* QR Upload & URL */}
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        type="file"
+                        ref={instagramQrInputRef}
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) validateAndUploadImage(file, 'instagram_qr_url');
+                          e.target.value = '';
+                        }}
+                      />
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isUploadingInstagramQr}
+                          onClick={() => instagramQrInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-95 transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
+                        >
+                          {isUploadingInstagramQr ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload QR Image</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="Paste Instagram profile link (https://...) or QR URL"
+                        value={shop.instagram_qr_url || ''}
+                        onChange={(e) => setShop({ ...shop, instagram_qr_url: e.target.value })}
+                        className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-[11px] font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[var(--spatial-text-muted)] leading-tight">
+                    Paste your Instagram link (e.g. https://instagram.com/username) or upload a QR image. Auto-converts to a scannable QR code!
+                  </p>
+                </div>
               </div>
 
               <div className="sm:col-span-2">

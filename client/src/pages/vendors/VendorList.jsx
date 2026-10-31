@@ -24,6 +24,7 @@ import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../component
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { vendorService } from '../../services/vendorService';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -38,6 +39,9 @@ export const VendorList = () => {
   // Filters & Pagination
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
@@ -65,14 +69,24 @@ export const VendorList = () => {
       const res = await vendorService.getVendors({
         search: debouncedSearch,
         status: statusFilter,
+        startDate,
+        endDate,
         limit: pageSize,
         offset: (page - 1) * pageSize,
       });
 
-      if (res?.data) {
-        setVendors(res.data.vendors || []);
-        setTotal(res.data.total || 0);
-      }
+      const list = res?.data?.vendors || res?.vendors || [];
+      const totalCount =
+        res?.data?.total !== undefined
+          ? res.data.total
+          : res?.total !== undefined
+          ? res.total
+          : Array.isArray(list)
+          ? list.length
+          : 0;
+
+      setVendors(list);
+      setTotal(totalCount);
     } catch (err) {
       console.error('Failed to load vendors:', err);
       toast.error('Failed to load vendor records');
@@ -83,7 +97,14 @@ export const VendorList = () => {
 
   useEffect(() => {
     fetchVendors();
-  }, [debouncedSearch, statusFilter, page, pageSize]);
+  }, [debouncedSearch, statusFilter, startDate, endDate, page, pageSize]);
+
+  const handleDateFilterChange = ({ preset, startDate: start, endDate: end }) => {
+    setDatePreset(preset);
+    setStartDate(start);
+    setEndDate(end);
+    setPage(1);
+  };
 
   const handleOpenAddModal = () => {
     setEditingVendor(null);
@@ -135,6 +156,7 @@ export const VendorList = () => {
         toast.success(`New vendor "${formData.name}" registered!`);
       }
       setIsModalOpen(false);
+      setPage(1);
       fetchVendors();
     } catch (err) {
       toast.error(err.message || 'Failed to save vendor');
@@ -190,7 +212,7 @@ export const VendorList = () => {
       <VendorNavTabs activeTab="/vendors/list" />
 
       {/* Search & Filter Bar with Ergonomic h-11 Height */}
-      <div className="spatial-card p-4 rounded-2xl space-y-3">
+      <div className="spatial-card p-4 rounded-2xl space-y-3 relative z-20">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {[
@@ -219,32 +241,41 @@ export const VendorList = () => {
           })}
         </div>
 
-        {/* Search input with h-11 height */}
-        <div className="relative max-w-md">
-          <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search vendor name, shop name, phone, code, or GSTIN..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            className="w-full h-11 pl-10 pr-9 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/20 transition-all shadow-xs"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearch('');
+        {/* Search input with h-11 height and SpatialDateFilter */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search vendor name, shop name, phone, code, or GSTIN..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
                 setPage(1);
               }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
-              title="Clear search"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+              className="w-full h-11 pl-10 pr-9 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-apple-blue focus:ring-2 focus:ring-apple-blue/20 transition-all shadow-xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <SpatialDateFilter
+            preset={datePreset}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateFilterChange}
+          />
         </div>
       </div>
 
