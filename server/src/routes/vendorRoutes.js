@@ -51,7 +51,7 @@ router.patch('/mobiles/:id/status', requireAnyRole, updateMobileStatus);
 router.get('/payments', requireAnyRole, getVendorPayments);
 router.post('/payments', requireAnyRole, recordVendorPayment);
 
-// Vendor Master CRUD & sub-resources
+// Vendor List CRUD & sub-resources
 router.get('/', requireAnyRole, getVendors);
 router.post('/', requireAnyRole, createVendor);
 router.get('/:id', requireAnyRole, getVendorById);

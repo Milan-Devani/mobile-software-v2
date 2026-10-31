@@ -21,6 +21,7 @@ import {
   Info
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
+import { Button } from '../../components/common/Button';
 import { vendorService } from '../../services/vendorService';
 import SpatialSelect from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
@@ -375,7 +376,7 @@ export default function VendorPendingRepairs() {
                       <td className="py-3.5 px-4">
                         <div className="font-semibold text-[var(--spatial-text-title)] flex items-center gap-2">
                           <span>{mob.brand} {mob.model}</span>
-                          {mob.flow_type === 'VENDOR_JOB_INWARD' ? (
+                          {mob.flow_type === 'VENDOR_JOB_INWARD' || mob.flow_type === 'RECEIVED_FROM_VENDOR' ? (
                             <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 font-semibold">
                               B2B Client Job
                             </span>

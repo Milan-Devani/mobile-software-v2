@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Plus,
+  Smartphone,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';

@@ -1087,7 +1087,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         }
 
         if (flowType && flowType !== 'ALL') {
-          list = list.filter((m) => m.flow_type === flowType);
+          if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
+            list = list.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD');
+          } else {
+            list = list.filter((m) => m.flow_type === flowType);
+          }
         }
 
         if (status && status !== 'ALL') {
@@ -1437,7 +1441,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         }
 
         if (flowType && flowType !== 'ALL') {
-          mobiles = mobiles.filter((m) => m.flow_type === flowType);
+          if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
+            mobiles = mobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD');
+          } else {
+            mobiles = mobiles.filter((m) => m.flow_type === flowType);
+          }
         }
 
         if (startDate) {

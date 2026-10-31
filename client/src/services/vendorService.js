@@ -57,76 +57,77 @@ export const vendorService = {
     return normalize(res);
   },
 
-  getPendingMobilesWithVendor: async (vendorId) => {
-    const res = await api.get(`/vendors/${vendorId}/pending-mobiles`);
-    return normalize(res);
-  },
+    getPendingMobilesWithVendor: async (vendorId, type = '') => {
+      const query = type ? `?type=${type}` : '';
+      const res = await api.get(`/vendors/${vendorId}/pending-mobiles${query}`);
+      return normalize(res);
+    },
 
-  sendMobilesToVendor: async (data) => {
-    const res = await api.post('/vendors/transactions/send', data);
-    return normalize(res);
-  },
+      sendMobilesToVendor: async (data) => {
+        const res = await api.post('/vendors/transactions/send', data);
+        return normalize(res);
+      },
 
-  receiveMobilesFromVendor: async (data) => {
-    const res = await api.post('/vendors/transactions/receive', data);
-    return normalize(res);
-  },
+        receiveMobilesFromVendor: async (data) => {
+          const res = await api.post('/vendors/transactions/receive', data);
+          return normalize(res);
+        },
 
-  recordVendorJobInward: async (data) => {
-    const res = await api.post('/vendors/transactions/vendor-job-inward', data);
-    return normalize(res);
-  },
+          recordVendorJobInward: async (data) => {
+            const res = await api.post('/vendors/transactions/vendor-job-inward', data);
+            return normalize(res);
+          },
 
-  recordVendorJobReturn: async (data) => {
-    const res = await api.post('/vendors/transactions/vendor-job-return', data);
-    return normalize(res);
-  },
+            recordVendorJobReturn: async (data) => {
+              const res = await api.post('/vendors/transactions/vendor-job-return', data);
+              return normalize(res);
+            },
 
-  getVendorTransactions: async (params = {}) => {
-    const res = await api.get('/vendors/transactions', { params });
-    return normalize(res);
-  },
+              getVendorTransactions: async (params = {}) => {
+                const res = await api.get('/vendors/transactions', { params });
+                return normalize(res);
+              },
 
-  getTransactionById: async (id) => {
-    const res = await api.get(`/vendors/transactions/${id}`);
-    return normalize(res);
-  },
+                getTransactionById: async (id) => {
+                  const res = await api.get(`/vendors/transactions/${id}`);
+                  return normalize(res);
+                },
 
-  // 3. Mobiles & Status Tracking
-  getVendorMobiles: async (params = {}) => {
-    const res = await api.get('/vendors/mobiles', { params });
-    return normalize(res);
-  },
+                  // 3. Mobiles & Status Tracking
+                  getVendorMobiles: async (params = {}) => {
+                    const res = await api.get('/vendors/mobiles', { params });
+                    return normalize(res);
+                  },
 
-  getMobileById: async (id) => {
-    const res = await api.get(`/vendors/mobiles/${id}`);
-    return normalize(res);
-  },
+                    getMobileById: async (id) => {
+                      const res = await api.get(`/vendors/mobiles/${id}`);
+                      return normalize(res);
+                    },
 
-  updateMobileStatus: async (id, status, remarks = '') => {
-    const res = await api.patch(`/vendors/mobiles/${id}/status`, { status, remarks });
-    return normalize(res);
-  },
+                      updateMobileStatus: async (id, status, remarks = '') => {
+                        const res = await api.patch(`/vendors/mobiles/${id}/status`, { status, remarks });
+                        return normalize(res);
+                      },
 
-  // 4. Ledger & Payments
-  getVendorLedger: async (vendorId, params = {}) => {
-    const res = await api.get(`/vendors/${vendorId}/ledger`, { params });
-    return normalize(res);
-  },
+                        // 4. Ledger & Payments
+                        getVendorLedger: async (vendorId, params = {}) => {
+                          const res = await api.get(`/vendors/${vendorId}/ledger`, { params });
+                          return normalize(res);
+                        },
 
-  recordVendorPayment: async (data) => {
-    const res = await api.post('/vendors/payments', data);
-    return normalize(res);
-  },
+                          recordVendorPayment: async (data) => {
+                            const res = await api.post('/vendors/payments', data);
+                            return normalize(res);
+                          },
 
-  getVendorPayments: async (params = {}) => {
-    const res = await api.get('/vendors/payments', { params });
-    return normalize(res);
-  },
+                            getVendorPayments: async (params = {}) => {
+                              const res = await api.get('/vendors/payments', { params });
+                              return normalize(res);
+                            },
 
-  // 5. Reports
-  getVendorReports: async (params = {}) => {
-    const res = await api.get('/vendors/reports/summary', { params });
-    return normalize(res);
-  },
+                              // 5. Reports
+                              getVendorReports: async (params = {}) => {
+                                const res = await api.get('/vendors/reports/summary', { params });
+                                return normalize(res);
+                              },
 };

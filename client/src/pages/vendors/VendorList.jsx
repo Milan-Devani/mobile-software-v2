@@ -23,6 +23,7 @@ import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
 import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import { VendorModal } from '../../components/vendors/VendorModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { vendorService } from '../../services/vendorService';
@@ -50,18 +51,7 @@ export const VendorList = () => {
   // Add / Edit Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    shop_name: '',
-    mobile: '',
-    whatsapp: '',
-    address: '',
-    gst_number: '',
-    opening_balance: '0',
-    notes: '',
-    status: 'ACTIVE',
-  });
-  const [submitting, setSubmitting] = useState(false);
+  const [selectedVendors, setSelectedVendors] = useState([]);
 
   const fetchVendors = async () => {
     try {
@@ -96,8 +86,23 @@ export const VendorList = () => {
   };
 
   useEffect(() => {
+    setSelectedVendors([]);
     fetchVendors();
   }, [debouncedSearch, statusFilter, startDate, endDate, page, pageSize]);
+
+  const toggleSelectVendor = (id) => {
+    setSelectedVendors((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAllVendors = () => {
+    if (selectedVendors.length === vendors.length) {
+      setSelectedVendors([]);
+    } else {
+      setSelectedVendors(vendors.map((v) => v.id));
+    }
+  };
 
   const handleDateFilterChange = ({ preset, startDate: start, endDate: end }) => {
     setDatePreset(preset);
@@ -108,61 +113,13 @@ export const VendorList = () => {
 
   const handleOpenAddModal = () => {
     setEditingVendor(null);
-    setFormData({
-      name: '',
-      shop_name: '',
-      mobile: '',
-      whatsapp: '',
-      address: '',
-      gst_number: '',
-      opening_balance: '0',
-      notes: '',
-      status: 'ACTIVE',
-    });
     setIsModalOpen(true);
   };
 
   const handleOpenEditModal = (vendor, e) => {
     e?.stopPropagation();
     setEditingVendor(vendor);
-    setFormData({
-      name: vendor.name || '',
-      shop_name: vendor.shop_name || '',
-      mobile: vendor.mobile || '',
-      whatsapp: vendor.whatsapp || vendor.mobile || '',
-      address: vendor.address || '',
-      gst_number: vendor.gst_number || '',
-      opening_balance: String(vendor.opening_balance || 0),
-      notes: vendor.notes || '',
-      status: vendor.status || 'ACTIVE',
-    });
     setIsModalOpen(true);
-  };
-
-  const handleSubmitVendor = async (e) => {
-    e.preventDefault();
-    if (!formData.name.trim() || !formData.mobile.trim()) {
-      toast.error('Vendor Contact Name and Mobile Number are required.');
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      if (editingVendor) {
-        await vendorService.updateVendor(editingVendor.id, formData);
-        toast.success(`Vendor "${formData.name}" updated!`);
-      } else {
-        await vendorService.createVendor(formData);
-        toast.success(`New vendor "${formData.name}" registered!`);
-      }
-      setIsModalOpen(false);
-      setPage(1);
-      fetchVendors();
-    } catch (err) {
-      toast.error(err.message || 'Failed to save vendor');
-    } finally {
-      setSubmitting(false);
-    }
   };
 
   const handleDeleteVendor = (vendor, e) => {
@@ -196,7 +153,7 @@ export const VendorList = () => {
         <div>
           <h1 className="text-2xl sm:text-3xl font-black text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
             <Building2 className="w-7 h-7 text-sky-400" />
-            Vendor Master
+            Vendor List
           </h1>
           <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
             Manage authorized service centers, motherboard labs, chip-level partners, and contact profiles
@@ -297,10 +254,33 @@ export const VendorList = () => {
           />
         ) : (
           <div className="spatial-tab-pane">
+            {selectedVendors.length > 0 && (
+              <div className="mx-4 mt-3 mb-1 p-2.5 rounded-xl bg-apple-blue/10 border border-apple-blue/30 text-xs flex items-center justify-between text-apple-blue animate-in fade-in">
+                <span className="font-semibold">
+                  {selectedVendors.length} of {vendors.length} vendor(s) selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedVendors([])}
+                  className="font-bold hover:underline cursor-pointer text-xs"
+                >
+                  Clear Selection
+                </button>
+              </div>
+            )}
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
               <table className="w-full text-left text-xs min-w-[1100px]">
                 <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
                   <tr>
+                    <th className="w-12 px-4 py-3 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={vendors.length > 0 && selectedVendors.length === vendors.length}
+                        onChange={toggleSelectAllVendors}
+                        className="w-4 h-4 rounded text-sky-500 accent-sky-500 cursor-pointer"
+                        title="Select All Vendors"
+                      />
+                    </th>
                     <th className="px-5 py-3 whitespace-nowrap">Vendor Code</th>
                     <th className="px-5 py-3 whitespace-nowrap">Vendor Name & Shop</th>
                     <th className="px-5 py-3 whitespace-nowrap">Contact Numbers</th>
@@ -316,13 +296,31 @@ export const VendorList = () => {
                   {vendors.map((vendor) => {
                     const balance = vendor.current_balance || 0;
                     const currentlyAtVendor = vendor.mobiles_currently_at_vendor || 0;
+                    const isSelected = selectedVendors.includes(vendor.id);
 
                     return (
                       <tr
                         key={vendor.id}
                         onClick={() => navigate(`/vendors/${vendor.id}`)}
-                        className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer group"
+                        className={`transition-colors cursor-pointer group ${
+                          isSelected
+                            ? 'bg-sky-500/[0.08] dark:bg-sky-500/[0.12]'
+                            : 'hover:bg-[var(--spatial-bg-card-subtle)]'
+                        }`}
                       >
+                        {/* Checkbox */}
+                        <td
+                          className="w-12 px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectVendor(vendor.id)}
+                            className="w-4 h-4 rounded text-sky-500 accent-sky-500 cursor-pointer"
+                          />
+                        </td>
+
                         {/* 1. Code */}
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className="font-mono font-semibold text-xs px-2 py-0.5 rounded-md bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
@@ -487,138 +485,20 @@ export const VendorList = () => {
       </Card>
 
       {/* Add / Edit Vendor Modal */}
-      <Modal
+      <VendorModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        title={editingVendor ? `Edit Vendor: ${editingVendor.name}` : 'Register New Vendor / Lab Partner'}
-        subtitle="Manage contact coordinates, workshop location, and opening balance"
-        maxWidth="max-w-xl"
-      >
-        <form onSubmit={handleSubmitVendor} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Contact Person Name <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Ramesh Bhai"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Shop / Company / Lab Name
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Shree Sai Chip Level Lab"
-                value={formData.shop_name}
-                onChange={(e) => setFormData({ ...formData, shop_name: e.target.value })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Mobile Number <span className="text-rose-400">*</span>
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. 9825123456"
-                value={formData.mobile}
-                onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                WhatsApp Number
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 9825123456"
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                GST Number (Optional)
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. 24AAACS1234A1Z1"
-                value={formData.gst_number}
-                onChange={(e) => setFormData({ ...formData, gst_number: e.target.value.toUpperCase() })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 uppercase"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Opening Balance (₹)
-              </label>
-              <input
-                type="number"
-                step="any"
-                disabled={Boolean(editingVendor)} // Cannot alter initial opening balance after creation
-                placeholder="0.00 (Positive: We owe vendor, Negative: Vendor owes us)"
-                value={formData.opening_balance}
-                onChange={(e) => setFormData({ ...formData, opening_balance: e.target.value })}
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:opacity-50"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              Workshop / Lab Address
-            </label>
-            <input
-              type="text"
-              placeholder="e.g. Shop 402, Ring Road Electronics Market, Surat"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              Notes / Specialization
-            </label>
-            <textarea
-              rows={2}
-              placeholder="e.g. Handles CPU reballing, Face ID repair, iPad glass lamination..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full p-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
-            />
-          </div>
-
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--spatial-border)]">
-            <Button type="button" variant="outline" size="sm" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" variant="primary" size="sm" loading={submitting}>
-              {editingVendor ? 'Save Changes' : 'Register Vendor'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        editingVendor={editingVendor}
+        existingVendors={vendors}
+        onSuccess={() => {
+          setIsModalOpen(false);
+          setPage(1);
+          fetchVendors();
+        }}
+        onSelectExisting={(existing) => {
+          handleOpenEditModal(existing);
+        }}
+      />
     </div>
   );
 };

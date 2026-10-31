@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
+import { Button } from '../../components/common/Button';
 import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';

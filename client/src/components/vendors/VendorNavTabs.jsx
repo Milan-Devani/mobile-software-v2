@@ -13,7 +13,7 @@ import {
 
 const TABS = [
   { path: '/vendors', label: 'Dashboard', icon: LayoutDashboard, exact: true },
-  { path: '/vendors/list', label: 'Vendor Master', icon: Building2 },
+  { path: '/vendors/list', label: 'Vendor List', icon: Building2 },
   { path: '/vendors/send', label: 'Send Mobiles', icon: ArrowUpRight },
   { path: '/vendors/receive', label: 'Receive Mobiles', icon: ArrowDownLeft },
   { path: '/vendors/transactions', label: 'Transactions', icon: Receipt },

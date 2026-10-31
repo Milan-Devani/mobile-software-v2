@@ -139,7 +139,10 @@ export const getNextTxnNumber = async (req, res, next) => {
 export const getPendingMobilesWithVendor = async (req, res, next) => {
   try {
     const { vendorId } = req.params;
-    const mobiles = await db.vendor_mobiles.getPendingWithVendor(vendorId);
+    const { type } = req.query;
+    const mobiles = (type === 'at_shop' || type === 'inward')
+      ? await db.vendor_mobiles.getPendingAtMyShop(vendorId)
+      : await db.vendor_mobiles.getPendingWithVendor(vendorId);
     res.json({
       success: true,
       data: { mobiles },
