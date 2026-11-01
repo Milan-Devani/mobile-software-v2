@@ -150,6 +150,14 @@ export const JobDetail = () => {
     target_status: 'DIAGNOSING',
     notes: '',
     claim_type: 'SAME_ISSUE',
+    warranty_rework_reason: '',
+  });
+
+  const [isEditWarrantyModalOpen, setIsEditWarrantyModalOpen] = useState(false);
+  const [warrantyEditForm, setWarrantyEditForm] = useState({
+    last_warranty_issue: '',
+    warranty_rework_reason: '',
+    reopen_notes: '',
   });
 
   const currSym = shop?.currency_symbol || '₹';
@@ -484,6 +492,35 @@ export const JobDetail = () => {
       setActiveTab(getDefaultTabForStatus(selectedStatus));
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to update job status');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenWarrantyEditModal = () => {
+    setWarrantyEditForm({
+      last_warranty_issue: job?.last_warranty_issue || '',
+      warranty_rework_reason: job?.warranty_rework_reason || job?.reopen_notes || '',
+      reopen_notes: job?.reopen_notes || '',
+    });
+    setIsEditWarrantyModalOpen(true);
+  };
+
+  const handleSaveWarrantyDetails = async (e) => {
+    e.preventDefault();
+    try {
+      setIsSaving(true);
+      const res = await jobService.updateWarrantyDetails(job.id, {
+        last_warranty_issue: (warrantyEditForm.last_warranty_issue || '').trim(),
+        warranty_rework_reason: (warrantyEditForm.warranty_rework_reason || '').trim(),
+        reopen_notes: (warrantyEditForm.reopen_notes || '').trim(),
+      });
+      setJob(res.data?.job || res.job || { ...job, ...warrantyEditForm });
+      toast.success('Warranty rework audit trail updated successfully!');
+      setIsEditWarrantyModalOpen(false);
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update warranty details');
     } finally {
       setIsSaving(false);
     }
