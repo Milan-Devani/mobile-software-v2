@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { Button } from '../../components/common/Button';
+import { Modal } from '../../components/common/Modal';
 import { vendorService } from '../../services/vendorService';
 import SpatialSelect from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
@@ -38,9 +39,9 @@ const STATUS_OPTIONS = [
 ];
 
 const FLOW_OPTIONS = [
-  { value: 'ALL', label: 'All Direction Flows' },
-  { value: 'SENT_TO_VENDOR', label: 'Sent to Vendor (Outward Lab)' },
-  { value: 'VENDOR_JOB_INWARD', label: 'Received from Vendor (Inward B2B)' },
+  { value: 'ALL', label: 'All Repairs' },
+  { value: 'SENT_TO_VENDOR', label: 'Phones Sent to Outside Lab' },
+  { value: 'VENDOR_JOB_INWARD', label: 'Phones Other Shops Sent to Us' },
 ];
 
 export default function VendorPendingRepairs() {
@@ -208,10 +209,10 @@ export default function VendorPendingRepairs() {
             </div>
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--spatial-text-title)] flex items-center gap-2">
-                Pending Vendor Repairs & Queue
+                Pending Repairs & Outside Lab Tracker
               </h1>
               <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
-                Track all handsets actively dispatched to third-party labs or received from vendors for repair
+                Track all handsets currently dispatched to outside specialist labs or received from other shops
               </p>
             </div>
           </div>
@@ -243,13 +244,13 @@ export default function VendorPendingRepairs() {
             icon={CheckCircle}
             onClick={() => navigate('/vendors/receive')}
           >
-            Receive / Inward
+            Receive Mobiles
           </Button>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <VendorNavTabs activeTab="pending" />
+      <VendorNavTabs activeTab="/vendors/pending" />
 
       {/* Summary KPI Pills */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
@@ -534,162 +535,137 @@ export default function VendorPendingRepairs() {
       </div>
 
       {/* Status Update Modal */}
-      {statusModalMobile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md spatial-card rounded-2xl p-6 space-y-4 shadow-2xl max-h-[calc(100vh-2rem)] overflow-y-auto modal-scrollbar">
-            <div className="flex items-center justify-between border-b border-[var(--spatial-border)] pb-3">
-              <div>
-                <h3 className="text-base font-bold text-[var(--spatial-text-title)] flex items-center gap-2">
-                  <Wrench className="w-4 h-4 text-apple-blue" />
-                  Update Repair Status
-                </h3>
-                <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
-                  {statusModalMobile.brand} {statusModalMobile.model} (IMEI: {statusModalMobile.imei || 'N/A'})
-                </p>
-              </div>
-              <button
-                onClick={() => setStatusModalMobile(null)}
-                className="p-1 rounded-lg text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveStatus} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1.5">
-                  New Status <span className="text-rose-500">*</span>
-                </label>
-                <SpatialSelect
-                  options={[
-                    { value: 'PENDING', label: 'Pending (In Queue)' },
-                    { value: 'IN_REPAIR', label: 'In Repair (Work in Progress)' },
-                    { value: 'WAITING_PARTS', label: 'Waiting for Parts / Spares' },
-                    { value: 'REPAIR_COMPLETED', label: 'Repair Completed' },
-                    { value: 'READY_FOR_RETURN', label: 'Ready for Collection / Return' },
-                    { value: 'NOT_REPAIRABLE', label: 'Not Repairable' },
-                    { value: 'CANCELLED', label: 'Cancelled' },
-                  ]}
-                  value={newStatus}
-                  onChange={setNewStatus}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1.5">
-                  Remarks / Technician Update
-                </label>
-                <textarea
-                  rows={3}
-                  value={statusRemarks}
-                  onChange={(e) => setStatusRemarks(e.target.value)}
-                  placeholder="e.g. Display ordered, motherboard IC reballed, tested ok..."
-                  className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm"
-                />
-              </div>
-
-              <div className="p-3 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] flex items-start gap-2">
-                <Info className="w-4 h-4 text-apple-blue shrink-0 mt-0.5" />
-                <span>
-                  This change will be logged in the permanent status history with date, time, and your username.
-                </span>
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setStatusModalMobile(null)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="sm"
-                  loading={updatingStatus}
-                  icon={CheckCircle}
-                >
-                  Save Status
-                </Button>
-              </div>
-            </form>
+      <Modal
+        isOpen={Boolean(statusModalMobile)}
+        onClose={() => setStatusModalMobile(null)}
+        title="Update Repair Status"
+        subtitle={
+          statusModalMobile
+            ? `${statusModalMobile.brand} ${statusModalMobile.model} (IMEI: ${statusModalMobile.imei || 'N/A'})`
+            : ''
+        }
+        maxWidth="max-w-md"
+      >
+        <form onSubmit={handleSaveStatus} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1.5">
+              New Status <span className="text-rose-500">*</span>
+            </label>
+            <SpatialSelect
+              options={[
+                { value: 'PENDING', label: 'Pending (In Queue)' },
+                { value: 'IN_REPAIR', label: 'In Repair (Work in Progress)' },
+                { value: 'WAITING_PARTS', label: 'Waiting for Parts / Spares' },
+                { value: 'REPAIR_COMPLETED', label: 'Repair Completed' },
+                { value: 'READY_FOR_RETURN', label: 'Ready for Collection / Return' },
+                { value: 'NOT_REPAIRABLE', label: 'Not Repairable' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+              ]}
+              value={newStatus}
+              onChange={setNewStatus}
+            />
           </div>
-        </div>
-      )}
+
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1.5">
+              Remarks / Technician Update
+            </label>
+            <textarea
+              rows={3}
+              value={statusRemarks}
+              onChange={(e) => setStatusRemarks(e.target.value)}
+              placeholder="e.g. Display ordered, motherboard IC reballed, tested ok..."
+              className="w-full px-3 py-2 rounded-xl spatial-input text-xs sm:text-sm"
+            />
+          </div>
+
+          <div className="p-3 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-xs text-[var(--spatial-text-muted)] flex items-start gap-2">
+            <Info className="w-4 h-4 text-apple-blue shrink-0 mt-0.5" />
+            <span>
+              This change will be logged in the permanent status history with date, time, and your username.
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setStatusModalMobile(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              loading={updatingStatus}
+              icon={CheckCircle}
+            >
+              Save Status
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Status History Timeline Modal */}
-      {historyMobile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-lg spatial-card rounded-2xl p-6 space-y-4 max-h-[85vh] flex flex-col shadow-2xl">
-            <div className="flex items-center justify-between border-b border-[var(--spatial-border)] pb-3">
-              <div>
-                <h3 className="text-base font-bold text-[var(--spatial-text-title)] flex items-center gap-2">
-                  <History className="w-4 h-4 text-apple-blue" />
-                  Status Movement History
-                </h3>
-                <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
-                  {historyMobile.brand} {historyMobile.model} (IMEI: {historyMobile.imei || 'N/A'})
-                </p>
-              </div>
-              <button
-                onClick={() => setHistoryMobile(null)}
-                className="p-1 rounded-lg text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+      <Modal
+        isOpen={Boolean(historyMobile)}
+        onClose={() => setHistoryMobile(null)}
+        title="Status Movement History"
+        subtitle={
+          historyMobile
+            ? `${historyMobile.brand} ${historyMobile.model} (IMEI: ${historyMobile.imei || 'N/A'})`
+            : ''
+        }
+        maxWidth="max-w-lg"
+        footer={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setHistoryMobile(null)}
+          >
+            Close
+          </Button>
+        }
+      >
+        <div className="space-y-4 pr-1">
+          {!historyMobile?.status_history || historyMobile.status_history.length === 0 ? (
+            <div className="p-8 text-center text-[var(--spatial-text-muted)] text-sm">
+              No previous status updates recorded.
             </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              {!historyMobile.status_history || historyMobile.status_history.length === 0 ? (
-                <div className="p-8 text-center text-[var(--spatial-text-muted)] text-sm">
-                  No previous status updates recorded.
-                </div>
-              ) : (
-                <div className="relative border-l-2 border-[var(--spatial-border)] ml-3 pl-5 space-y-5">
-                  {historyMobile.status_history.map((hist, idx) => (
-                    <div key={hist.id || idx} className="relative group">
-                      <div className="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full bg-apple-blue ring-4 ring-[var(--spatial-bg-card)]" />
-                      <div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-semibold text-[var(--spatial-text-title)] px-2 py-0.5 rounded-md bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
-                            {hist.new_status}
-                          </span>
-                          <span className="text-[11px] text-[var(--spatial-text-muted)]">
-                            by {hist.changed_by || 'Staff'}
-                          </span>
-                          <span className="text-[11px] text-[var(--spatial-text-muted)] ml-auto font-mono">
-                            {new Date(hist.created_at).toLocaleString('en-IN', {
-                              dateStyle: 'medium',
-                              timeStyle: 'short',
-                            })}
-                          </span>
-                        </div>
-                        {hist.remarks && (
-                          <p className="text-xs text-[var(--spatial-text-body)] mt-1.5 p-2 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
-                            {hist.remarks}
-                          </p>
-                        )}
-                      </div>
+          ) : (
+            <div className="relative border-l-2 border-[var(--spatial-border)] ml-3 pl-5 space-y-5">
+              {historyMobile.status_history.map((hist, idx) => (
+                <div key={hist.id || idx} className="relative group">
+                  <div className="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full bg-apple-blue ring-4 ring-[var(--spatial-bg-card)]" />
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-semibold text-[var(--spatial-text-title)] px-2 py-0.5 rounded-md bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+                        {hist.new_status}
+                      </span>
+                      <span className="text-[11px] text-[var(--spatial-text-muted)]">
+                        by {hist.changed_by || 'Staff'}
+                      </span>
+                      <span className="text-[11px] text-[var(--spatial-text-muted)] ml-auto font-mono">
+                        {new Date(hist.created_at).toLocaleString('en-IN', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </span>
                     </div>
-                  ))}
+                    {hist.remarks && (
+                      <p className="text-xs text-[var(--spatial-text-body)] mt-1.5 p-2 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+                        {hist.remarks}
+                      </p>
+                    )}
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-
-            <div className="pt-2 border-t border-[var(--spatial-border)] flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setHistoryMobile(null)}
-              >
-                Close
-              </Button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

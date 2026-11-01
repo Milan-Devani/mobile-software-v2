@@ -109,7 +109,7 @@ export const updateVendor = async (req, res, next) => {
 export const deleteVendor = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await db.vendors.delete(id);
+    await db.vendors.delete(id, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: 'Vendor deleted successfully.',
@@ -419,10 +419,10 @@ export const bulkDeleteVendorMobiles = async (req, res, next) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
-      throw new AppError('Select at least one dispatched mobile to delete.', 400, 'IDS_REQUIRED');
+      throw new AppError('Select at least one mobile record to delete.', 400, 'IDS_REQUIRED');
     }
-    const count = await db.vendor_mobiles.bulkDelete(ids);
-    res.json({ success: true, message: `${count} dispatched mobile(s) deleted.`, count });
+    const count = await db.vendor_mobiles.bulkDelete(ids, req.user?.full_name || 'Staff');
+    res.json({ success: true, message: `${count} mobile record(s) deleted.`, count });
   } catch (err) {
     next(err);
   }

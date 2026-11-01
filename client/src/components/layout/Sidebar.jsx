@@ -14,6 +14,7 @@ import {
   PlusCircle,
   Receipt,
   Building2,
+  Trash2,
 } from 'lucide-react';
 import { logout } from '../../store/authSlice';
 import Swal from 'sweetalert2';
@@ -50,6 +51,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Payments', path: '/payments', icon: CreditCard, roles: ['admin', 'staff'] },
     { label: 'Notifications', path: '/notifications', icon: Bell, roles: ['admin', 'staff', 'technician'] },
     { label: 'Shop Settings', path: '/settings', icon: Settings, roles: ['admin'] },
+    { label: 'Recycle Bin', path: '/recycle-bin', icon: Trash2, roles: ['admin', 'technician', 'staff'] },
   ];
 
   const filteredNav = navItems.filter((item) => !item.roles || item.roles.includes(user?.role_id));

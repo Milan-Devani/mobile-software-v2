@@ -256,7 +256,7 @@ export const deleteJob = async (req, res, next) => {
       throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
     }
 
-    await db.jobs.delete(id);
+    await db.jobs.delete(id, req.user?.full_name || 'Staff');
 
     res.json({
       success: true,
@@ -273,7 +273,7 @@ export const bulkDeleteJobs = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new AppError('No job IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
     }
-    const count = await db.jobs.bulkDelete(ids);
+    const count = await db.jobs.bulkDelete(ids, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Successfully deleted ${count} job(s).`,

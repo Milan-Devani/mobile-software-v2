@@ -123,7 +123,7 @@ export const deletePart = async (req, res, next) => {
     const existing = await db.parts.findById(id);
     if (!existing) throw new AppError('Part not found.', 404, 'PART_NOT_FOUND');
 
-    await db.parts.delete(id);
+    await db.parts.delete(id, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: 'Part deleted successfully from catalog.',
@@ -139,7 +139,7 @@ export const bulkDeleteParts = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new AppError('No part IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
     }
-    const count = await db.parts.bulkDelete(ids);
+    const count = await db.parts.bulkDelete(ids, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Successfully deleted ${count} part(s).`,

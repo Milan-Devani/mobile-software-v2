@@ -298,7 +298,7 @@ export const createSale = async (req, res, next) => {
 export const deleteSale = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deleted = await db.sales.delete(id);
+    const deleted = await db.sales.delete(id, req.user?.full_name || 'Staff');
     if (!deleted) throw new AppError('Sale not found.', 404, 'SALE_NOT_FOUND');
 
     res.json({
@@ -316,7 +316,7 @@ export const bulkDeleteSales = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new AppError('No sale invoice IDs provided.', 400, 'VALIDATION_ERROR');
     }
-    const count = await db.sales.bulkDelete(ids);
+    const count = await db.sales.bulkDelete(ids, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Deleted ${count} sales invoices successfully.`,

@@ -217,7 +217,7 @@ export default function VendorLedger() {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <VendorNavTabs activeTab="ledger" />
+      <VendorNavTabs activeTab="/vendors/ledger" />
 
       {/* Filter and Vendor Select Bar */}
       <div className="spatial-card p-4 rounded-2xl space-y-4 relative z-20">

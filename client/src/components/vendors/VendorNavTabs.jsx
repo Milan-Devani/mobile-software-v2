@@ -16,9 +16,9 @@ const TABS = [
   { path: '/vendors/list', label: 'Vendor List', icon: Building2 },
   { path: '/vendors/send', label: 'Send Mobiles', icon: ArrowUpRight },
   { path: '/vendors/receive', label: 'Receive Mobiles', icon: ArrowDownLeft },
-  { path: '/vendors/transactions', label: 'Transactions', icon: Receipt },
   { path: '/vendors/pending', label: 'Pending Repairs', icon: Clock },
-  { path: '/vendors/ledger', label: 'Vendor Ledger', icon: CreditCard },
+  { path: '/vendors/ledger', label: 'Vendor Ledger (Khata)', icon: CreditCard },
+  { path: '/vendors/transactions', label: 'Transactions', icon: Receipt },
   { path: '/vendors/reports', label: 'Reports', icon: BarChart3 },
 ];
 
@@ -33,10 +33,10 @@ export const VendorNavTabs = ({ activeTab }) => {
             to={tab.path}
             end={tab.exact}
             className={({ isActive }) =>
-              `flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-140 select-none cursor-pointer active:scale-95 ${
+              `flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs whitespace-nowrap transition-all duration-140 select-none cursor-pointer active:scale-95 ${
                 isActive
-                  ? 'bg-white dark:bg-[#2c2c2e] text-[#0071e3] dark:text-[#0a84ff] shadow-sm font-semibold'
-                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
+                  ? 'bg-[var(--spatial-bg-card)] text-[#0071e3] dark:text-[#0a84ff] shadow-sm font-bold border border-[var(--spatial-border)]'
+                  : 'font-medium text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-hover)]'
               }`
             }
           >

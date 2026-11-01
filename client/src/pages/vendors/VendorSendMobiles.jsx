@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
@@ -1244,9 +1245,9 @@ export const VendorSendMobiles = () => {
       </SpatialDrawer>
 
       {/* Result Printable / WhatsApp Modal */}
-      {savedResult && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8">
+      {savedResult && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative max-w-4xl w-full my-auto mx-auto">
             <VendorReceiptPrintable
               transaction={savedResult}
               shop={shopProfile}
@@ -1255,7 +1256,8 @@ export const VendorSendMobiles = () => {
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Register New Vendor Modal */}

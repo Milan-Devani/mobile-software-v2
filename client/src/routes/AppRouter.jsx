@@ -29,6 +29,7 @@ import { VendorTransactionsList } from '../pages/vendors/VendorTransactionsList'
 import { VendorPendingRepairs } from '../pages/vendors/VendorPendingRepairs';
 import { VendorLedger } from '../pages/vendors/VendorLedger';
 import { VendorReports } from '../pages/vendors/VendorReports';
+import { RecycleBin } from '../pages/recycle/RecycleBin';
 
 export const AppRouter = () => {
   return (
@@ -90,6 +91,9 @@ export const AppRouter = () => {
 
         {/* Notifications */}
         <Route path="notifications" element={<NotificationLogs />} />
+
+        {/* Recycle Bin (Soft Delete & 30-Day Auto Purge) */}
+        <Route path="recycle-bin" element={<RecycleBin />} />
 
         {/* Settings (Admin Only) */}
         <Route

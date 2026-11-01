@@ -146,11 +146,15 @@ export const safeSupabaseUpsert = async (table, data, onConflict = 'id') => {
   }
 };
 
+let lastSyncTimestamp = 0;
+let isSyncInProgress = false;
+
 export const syncFromSupabase = async () => {
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured() || isSyncInProgress) return;
   const supabase = getSupabase();
   if (!supabase) return;
 
+  isSyncInProgress = true;
   try {
     const coreTables = [
       'shops',
@@ -180,6 +184,7 @@ export const syncFromSupabase = async () => {
       'vendor_status_history',
       'vendor_ledger',
       'vendor_payments',
+      'recycle_bin',
     ];
 
     const seedFallbackTables = new Set(['shops', 'roles', 'users']);
@@ -198,9 +203,19 @@ export const syncFromSupabase = async () => {
         }
       })
     );
+    lastSyncTimestamp = Date.now();
     console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
   } catch (err) {
     console.warn('⚠️ Supabase live sync warning:', err.message);
+  } finally {
+    isSyncInProgress = false;
+  }
+};
+
+export const ensureFreshSync = async (maxAgeMs = 5000) => {
+  if (!isSupabaseConfigured()) return;
+  if (Date.now() - lastSyncTimestamp > maxAgeMs) {
+    await syncFromSupabase();
   }
 };
 
@@ -217,6 +232,7 @@ export const initDb = async () => {
   localDb.sales = localDb.sales || [];
   localDb.attachments = localDb.attachments || [];
   localDb.backup_logs = localDb.backup_logs || [];
+  localDb.recycle_bin = localDb.recycle_bin || [];
 
   if (isSupabaseConfigured()) {
     console.log('✅ Supabase PostgreSQL is connected as permanent primary database. Syncing live tables...');
@@ -366,7 +382,13 @@ const {
   generateNextVendorTxnNumber,
   generateNextVendorVoucherNumber,
   vendorDbMethods,
-} = setupVendorRepo(() => localDb, () => saveLocalDb(), supabaseHelpers);
+} = setupVendorRepo(
+  () => localDb,
+  () => saveLocalDb(),
+  supabaseHelpers,
+  () => db.recycle_bin,
+  () => ensureFreshSync(5000)
+);
 
 export {
   generateNextVendorCode,
@@ -663,17 +685,31 @@ export const db = {
       }
       return idx !== -1 ? localDb.customers[idx] : null;
     },
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.customers || []).findIndex(c => c.id === id);
-      if (idx !== -1) {
-        localDb.customers.splice(idx, 1);
+      if (idx === -1) return false;
+      const customer = localDb.customers[idx];
+
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'customer',
+            original_id: id,
+            title: `Customer: ${customer.full_name || 'Customer'}`,
+            subtitle: `Phone: ${customer.phone || 'N/A'} • Email: ${customer.email || 'N/A'} • City: ${customer.city || 'N/A'}`,
+            data: { customer: { ...customer } },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive customer warning:', err.message);
       }
-      if (isSupabaseConfigured()) {
-        await safeSupabaseDelete('customers', id);
-      }
+
+      localDb.customers.splice(idx, 1);
+      saveLocalDb();
       return true;
     },
-    bulkDelete: async (ids = [], force = false) => {
+    bulkDelete: async (ids = [], force = false, deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
@@ -681,21 +717,13 @@ export const db = {
           // Remove associated jobs
           const customerJobs = (localDb.repair_jobs || []).filter(j => j.customer_id === id);
           for (const cj of customerJobs) {
-            await db.jobs.delete(cj.id);
+            await db.jobs.delete(cj.id, deletedBy);
           }
         }
-        const idx = (localDb.customers || []).findIndex(c => c.id === id);
-        if (idx !== -1) {
-          localDb.customers.splice(idx, 1);
-          count++;
-        }
+        const deleted = await db.customers.delete(id, deletedBy);
+        if (deleted) count++;
       }
-      if (isSupabaseConfigured() && ids.length > 0) {
-        try {
-          await getSupabase().from('customers').delete().in('id', ids);
-        } catch (_) {}
-      }
-      return count || ids.length;
+      return count;
     }
   },
 
@@ -751,6 +779,7 @@ export const db = {
   // REPAIR JOBS
   jobs: {
     list: async ({ status, customerId, technicianId, search, startDate, endDate, limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
+      await ensureFreshSync(5000);
       // In local engine
       let jobs = [...(localDb.repair_jobs || [])];
 
@@ -1039,56 +1068,67 @@ export const db = {
       return localDb.repair_jobs[idx];
     },
 
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.repair_jobs || []).findIndex(j => j.id === id);
       if (idx === -1) return false;
+
+      const job = localDb.repair_jobs[idx];
+      const customer = (localDb.customers || []).find(c => c.id === job.customer_id);
+      const device = (localDb.devices || []).find(d => d.id === job.device_id);
+
+      const tests = (localDb.repair_tests || []).filter(t => t.job_id === id);
+      const diagnoses = (localDb.diagnoses || []).filter(d => d.job_id === id);
+      const statusHistory = (localDb.job_status_history || []).filter(h => h.job_id === id);
+      const estimates = (localDb.repair_estimates || []).filter(e => e.job_id === id);
+      const estimateIds = new Set(estimates.map(e => e.id));
+      const estimateItems = (localDb.repair_estimate_items || []).filter(i => estimateIds.has(i.estimate_id));
+      const invoices = (localDb.invoices || []).filter(i => i.job_id === id);
+      const invoiceIds = new Set(invoices.map(i => i.id));
+      const invoiceItems = (localDb.invoice_items || []).filter(i => invoiceIds.has(i.invoice_id));
+      const payments = (localDb.payments || []).filter(p => p.job_id === id);
+
+      // Archive into Recycle Bin
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'job',
+            original_id: id,
+            title: `Job #${job.job_number || 'JOB'} — ${device ? `${device.brand} ${device.model}` : 'Device Repair'}`,
+            subtitle: `Customer: ${customer?.full_name || 'Walk-in'} • Problem: ${job.problem_description || 'General Repair'} • Amount: ₹${job.total_amount || 0}`,
+            data: {
+              job: { ...job },
+              device: device ? { ...device } : null,
+              tests,
+              diagnoses,
+              statusHistory,
+              estimates,
+              estimateItems,
+              invoices,
+              invoiceItems,
+              payments,
+            },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive job warning:', err.message);
+      }
 
       // Remove from repair_jobs
       localDb.repair_jobs.splice(idx, 1);
 
-      // Clean up related records
+      // Clean up related records from active state
       localDb.repair_tests = (localDb.repair_tests || []).filter(t => t.job_id !== id);
       localDb.diagnoses = (localDb.diagnoses || []).filter(d => d.job_id !== id);
       localDb.job_status_history = (localDb.job_status_history || []).filter(h => h.job_id !== id);
-
-      // Remove associated estimate & items
-      const estIdx = (localDb.repair_estimates || []).findIndex(e => e.job_id === id);
-      if (estIdx !== -1) {
-        const estId = localDb.repair_estimates[estIdx].id;
-        localDb.repair_estimate_items = (localDb.repair_estimate_items || []).filter(i => i.estimate_id !== estId);
-        localDb.repair_estimates.splice(estIdx, 1);
-      }
-
-      // Remove associated invoice & items
-      const invIdx = (localDb.invoices || []).findIndex(i => i.job_id === id);
-      if (invIdx !== -1) {
-        const invId = localDb.invoices[invIdx].id;
-        localDb.invoice_items = (localDb.invoice_items || []).filter(i => i.invoice_id !== invId);
-        localDb.invoices.splice(invIdx, 1);
-      }
-
-      // Remove associated payments
+      localDb.repair_estimates = (localDb.repair_estimates || []).filter(e => e.job_id !== id);
+      localDb.repair_estimate_items = (localDb.repair_estimate_items || []).filter(i => !estimateIds.has(i.estimate_id));
+      localDb.invoices = (localDb.invoices || []).filter(i => i.job_id !== id);
+      localDb.invoice_items = (localDb.invoice_items || []).filter(i => !invoiceIds.has(i.invoice_id));
       localDb.payments = (localDb.payments || []).filter(p => p.job_id !== id);
-
-      // Remove associated notifications
       localDb.notifications = (localDb.notifications || []).filter(n => n.job_id !== id);
 
       saveLocalDb();
-
-      // Cascade delete in Supabase
-      if (isSupabaseConfigured()) {
-        try {
-          const supabase = getSupabase();
-          await supabase.from('repair_tests').delete().eq('job_id', id);
-          await supabase.from('job_status_history').delete().eq('job_id', id);
-          await supabase.from('diagnoses').delete().eq('job_id', id);
-          await supabase.from('payments').delete().eq('job_id', id);
-          await supabase.from('repair_jobs').delete().eq('id', id);
-        } catch (err) {
-          console.warn('⚠️ Supabase repair_jobs delete error:', err.message);
-        }
-      }
-
       return true;
     },
 
@@ -1120,11 +1160,11 @@ export const db = {
       return localDb.repair_jobs[idx];
     },
 
-    bulkDelete: async (ids = []) => {
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
-        const deleted = await db.jobs.delete(id);
+        const deleted = await db.jobs.delete(id, deletedBy);
         if (deleted) count++;
       }
       return count;
@@ -1361,6 +1401,7 @@ export const db = {
   // PARTS & INVENTORY
   parts: {
     list: async ({ category, search, lowStockOnly = false, startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
+      await ensureFreshSync(5000);
       let parts = [...(localDb.parts || [])];
 
       if (startDate) {
@@ -1483,29 +1524,36 @@ export const db = {
       await safeSupabaseInsert('part_stock_movements', movementRecord);
       return part;
     },
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.parts || []).findIndex(p => p.id === id);
       if (idx === -1) return false;
+      const part = localDb.parts[idx];
+
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'part',
+            original_id: id,
+            title: `Part: ${part.name || 'Component'}`,
+            subtitle: `SKU: ${part.sku || 'N/A'} • Stock: ${part.stock_quantity ?? part.quantity ?? 0} • Price: ₹${part.selling_price ?? part.cost_price ?? 0}`,
+            data: { part: { ...part } },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive part warning:', err.message);
+      }
+
       localDb.parts.splice(idx, 1);
       saveLocalDb();
-      await safeSupabaseDelete('parts', id);
       return true;
     },
-    bulkDelete: async (ids = []) => {
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
-        const idx = (localDb.parts || []).findIndex(p => p.id === id);
-        if (idx !== -1) {
-          localDb.parts.splice(idx, 1);
-          count++;
-        }
-      }
-      saveLocalDb();
-      if (isSupabaseConfigured() && ids.length > 0) {
-        try {
-          await getSupabase().from('parts').delete().in('id', ids);
-        } catch (_) {}
+        const deleted = await db.parts.delete(id, deletedBy);
+        if (deleted) count++;
       }
       return count;
     }
@@ -1909,6 +1957,7 @@ export const db = {
   // SALES (DIRECT INVOICES FOR PHONES & PARTS)
   sales: {
     list: async ({ search, status, sortBy = 'created_at', sortDir = 'desc', startDate, endDate, limit = 50, offset = 0 } = {}) => {
+      await ensureFreshSync(5000);
       let sales = [...(localDb.sales || [])];
 
       if (startDate) {
@@ -2013,29 +2062,40 @@ export const db = {
       await safeSupabaseInsert('sales', newSale);
       return newSale;
     },
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       localDb.sales = localDb.sales || [];
       const idx = localDb.sales.findIndex((s) => s.id === id);
       if (idx !== -1) {
+        const sale = localDb.sales[idx];
+        try {
+          if (db?.recycle_bin) {
+            await db.recycle_bin.add({
+              entity_type: 'sale',
+              original_id: id,
+              title: `Invoice #${sale.invoice_no_seq || sale.invoice_number || 'Sale'} — ${sale.customer_name || 'Walk-in Customer'}`,
+              subtitle: `Amount: ₹${sale.grand_total || sale.final_amount || 0} • Items: ${sale.items?.length || 0} • Date: ${sale.invoice_date?.slice(0, 10) || 'N/A'}`,
+              data: { sale: { ...sale } },
+              deleted_by: deletedBy,
+            });
+          }
+        } catch (err) {
+          console.warn('Recycle bin archive sale warning:', err.message);
+        }
+
         localDb.sales.splice(idx, 1);
         saveLocalDb();
-        await safeSupabaseDelete('sales', id);
         return true;
       }
       return false;
     },
-    bulkDelete: async (ids = []) => {
-      localDb.sales = localDb.sales || [];
-      const idSet = new Set(ids);
-      const beforeCount = localDb.sales.length;
-      localDb.sales = localDb.sales.filter((s) => !idSet.has(s.id));
-      saveLocalDb();
-      if (isSupabaseConfigured() && ids.length > 0) {
-        try {
-          await getSupabase().from('sales').delete().in('id', ids);
-        } catch (_) {}
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        const deleted = await db.sales.delete(id, deletedBy);
+        if (deleted) count++;
       }
-      return beforeCount - localDb.sales.length;
+      return count;
     },
   },
 
@@ -2337,5 +2397,327 @@ export const db = {
     }
   },
 
+  // -------------------------------------------------------------
+  // RECYCLE BIN (SOFT DELETE WITH 30-DAY RETENTION)
+  // -------------------------------------------------------------
+  recycle_bin: {
+    add: async ({ entity_type, original_id, title, subtitle, data, deleted_by }) => {
+      if (!localDb) return null;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const now = new Date();
+      const purgeAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const record = {
+        id: uuidv4(),
+        entity_type, // 'job' | 'sale' | 'vendor' | 'vendor_mobile' | 'customer' | 'part'
+        original_id,
+        title: title || 'Deleted Record',
+        subtitle: subtitle || '',
+        data: data || {},
+        deleted_by: deleted_by || 'Staff',
+        deleted_at: now.toISOString(),
+        purge_at: purgeAt.toISOString(),
+      };
+      localDb.recycle_bin.unshift(record);
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').insert([record]).then(() => {});
+        } catch (_) {}
+      }
+      return record;
+    },
+
+    purgeExpired: () => {
+      if (!localDb || !Array.isArray(localDb.recycle_bin)) return 0;
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const initial = localDb.recycle_bin.length;
+      localDb.recycle_bin = localDb.recycle_bin.filter((item) => {
+        const deletedTime = new Date(item.deleted_at).getTime();
+        return (now - deletedTime) < THIRTY_DAYS_MS;
+      });
+      const purged = initial - localDb.recycle_bin.length;
+      if (purged > 0) saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          const cutoff = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
+          getSupabase().from('recycle_bin').delete().lt('deleted_at', cutoff).then(() => {});
+        } catch (_) {}
+      }
+      return purged;
+    },
+
+    list: async ({ type = 'ALL', search = '' } = {}) => {
+      if (!localDb) return { items: [], total: 0, counts: {} };
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      db.recycle_bin.purgeExpired();
+
+      const all = localDb.recycle_bin;
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+      const counts = {
+        total: all.length,
+        jobs: all.filter((i) => i.entity_type === 'job').length,
+        sales: all.filter((i) => i.entity_type === 'sale').length,
+        vendors: all.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile').length,
+        customers: all.filter((i) => i.entity_type === 'customer').length,
+        parts: all.filter((i) => i.entity_type === 'part').length,
+      };
+
+      let filtered = [...all];
+
+      if (type && type !== 'ALL') {
+        if (type === 'vendor') {
+          filtered = filtered.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile');
+        } else {
+          filtered = filtered.filter((i) => i.entity_type === type);
+        }
+      }
+
+      if (search && search.trim()) {
+        const q = search.toLowerCase().trim();
+        filtered = filtered.filter(
+          (i) =>
+            (i.title && i.title.toLowerCase().includes(q)) ||
+            (i.subtitle && i.subtitle.toLowerCase().includes(q)) ||
+            (i.deleted_by && i.deleted_by.toLowerCase().includes(q))
+        );
+      }
+
+      const items = filtered.map((item) => {
+        const deletedTime = new Date(item.deleted_at).getTime();
+        const expireTime = deletedTime + THIRTY_DAYS_MS;
+        const msLeft = Math.max(0, expireTime - now);
+        const daysRemaining = Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+        return {
+          ...item,
+          days_remaining: daysRemaining,
+        };
+      });
+
+      return {
+        items,
+        total: items.length,
+        counts,
+      };
+    },
+
+    restore: async (id) => {
+      if (!localDb) return null;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idx = localDb.recycle_bin.findIndex((i) => i.id === id);
+      if (idx === -1) throw new Error('Recycle bin record not found or already permanently deleted.');
+
+      const item = localDb.recycle_bin[idx];
+      const { entity_type, data } = item;
+
+      if (entity_type === 'job' && data.job) {
+        localDb.repair_jobs = localDb.repair_jobs || [];
+        const exists = localDb.repair_jobs.some((j) => j.id === data.job.id);
+        if (!exists) localDb.repair_jobs.unshift(data.job);
+
+        if (Array.isArray(data.tests)) {
+          localDb.repair_tests = localDb.repair_tests || [];
+          data.tests.forEach((t) => {
+            if (!localDb.repair_tests.some((x) => x.id === t.id)) localDb.repair_tests.push(t);
+          });
+        }
+        if (Array.isArray(data.diagnoses)) {
+          localDb.diagnoses = localDb.diagnoses || [];
+          data.diagnoses.forEach((d) => {
+            if (!localDb.diagnoses.some((x) => x.id === d.id)) localDb.diagnoses.push(d);
+          });
+        }
+        if (Array.isArray(data.statusHistory)) {
+          localDb.job_status_history = localDb.job_status_history || [];
+          data.statusHistory.forEach((h) => {
+            if (!localDb.job_status_history.some((x) => x.id === h.id)) localDb.job_status_history.push(h);
+          });
+        }
+        if (Array.isArray(data.estimates)) {
+          localDb.repair_estimates = localDb.repair_estimates || [];
+          data.estimates.forEach((e) => {
+            if (!localDb.repair_estimates.some((x) => x.id === e.id)) localDb.repair_estimates.push(e);
+          });
+        }
+        if (Array.isArray(data.estimateItems)) {
+          localDb.repair_estimate_items = localDb.repair_estimate_items || [];
+          data.estimateItems.forEach((ei) => {
+            if (!localDb.repair_estimate_items.some((x) => x.id === ei.id)) localDb.repair_estimate_items.push(ei);
+          });
+        }
+        if (Array.isArray(data.invoices)) {
+          localDb.invoices = localDb.invoices || [];
+          data.invoices.forEach((inv) => {
+            if (!localDb.invoices.some((x) => x.id === inv.id)) localDb.invoices.push(inv);
+          });
+        }
+        if (Array.isArray(data.invoiceItems)) {
+          localDb.invoice_items = localDb.invoice_items || [];
+          data.invoiceItems.forEach((ii) => {
+            if (!localDb.invoice_items.some((x) => x.id === ii.id)) localDb.invoice_items.push(ii);
+          });
+        }
+        if (Array.isArray(data.payments)) {
+          localDb.payments = localDb.payments || [];
+          data.payments.forEach((p) => {
+            if (!localDb.payments.some((x) => x.id === p.id)) localDb.payments.push(p);
+          });
+        }
+      } else if (entity_type === 'sale' && data.sale) {
+        localDb.sales = localDb.sales || [];
+        const exists = localDb.sales.some((s) => s.id === data.sale.id);
+        if (!exists) localDb.sales.unshift(data.sale);
+      } else if (entity_type === 'vendor' && data.vendor) {
+        localDb.vendors = localDb.vendors || [];
+        const exists = localDb.vendors.some((v) => v.id === data.vendor.id);
+        if (!exists) localDb.vendors.unshift(data.vendor);
+      } else if (entity_type === 'vendor_mobile' && data.mobile) {
+        localDb.vendor_mobiles = localDb.vendor_mobiles || [];
+        const exists = localDb.vendor_mobiles.some((m) => m.id === data.mobile.id);
+        if (!exists) localDb.vendor_mobiles.unshift(data.mobile);
+        if (Array.isArray(data.history)) {
+          localDb.vendor_status_history = localDb.vendor_status_history || [];
+          data.history.forEach((h) => {
+            if (!localDb.vendor_status_history.some((x) => x.id === h.id)) localDb.vendor_status_history.push(h);
+          });
+        }
+      } else if (entity_type === 'customer' && data.customer) {
+        localDb.customers = localDb.customers || [];
+        const exists = localDb.customers.some((c) => c.id === data.customer.id);
+        if (!exists) localDb.customers.unshift(data.customer);
+      } else if (entity_type === 'part' && data.part) {
+        localDb.parts = localDb.parts || [];
+        const exists = localDb.parts.some((p) => p.id === data.part.id);
+        if (!exists) localDb.parts.unshift(data.part);
+      }
+
+      localDb.recycle_bin.splice(idx, 1);
+      saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = getSupabase();
+          supabase.from('recycle_bin').delete().eq('id', id).then(() => {});
+          if (entity_type === 'job' && data.job) {
+            supabase.from('repair_jobs').upsert([data.job]).then(() => {});
+          } else if (entity_type === 'sale' && data.sale) {
+            supabase.from('sales').upsert([data.sale]).then(() => {});
+          } else if (entity_type === 'vendor' && data.vendor) {
+            supabase.from('vendors').upsert([data.vendor]).then(() => {});
+          } else if (entity_type === 'vendor_mobile' && data.mobile) {
+            supabase.from('vendor_mobiles').upsert([data.mobile]).then(() => {});
+          } else if (entity_type === 'customer' && data.customer) {
+            supabase.from('customers').upsert([data.customer]).then(() => {});
+          } else if (entity_type === 'part' && data.part) {
+            supabase.from('parts').upsert([data.part]).then(() => {});
+          }
+        } catch (_) {}
+      }
+
+      return item;
+    },
+
+    bulkRestore: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        try {
+          await db.recycle_bin.restore(id);
+          count++;
+        } catch (_) {}
+      }
+      return count;
+    },
+
+    delete: async (id) => {
+      if (!localDb) return false;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idx = localDb.recycle_bin.findIndex((i) => i.id === id);
+      if (idx === -1) return false;
+      localDb.recycle_bin.splice(idx, 1);
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').delete().eq('id', id).then(() => {});
+        } catch (_) {}
+      }
+      return true;
+    },
+
+    bulkDelete: async (ids = []) => {
+      if (!localDb || !Array.isArray(ids) || ids.length === 0) return 0;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idSet = new Set(ids);
+      const before = localDb.recycle_bin.length;
+      localDb.recycle_bin = localDb.recycle_bin.filter((i) => !idSet.has(i.id));
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').delete().in('id', ids).then(() => {});
+        } catch (_) {}
+      }
+      return before - localDb.recycle_bin.length;
+    },
+
+    empty: async (type = 'ALL') => {
+      if (!localDb) return 0;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      let deletedIds = [];
+      if (type === 'ALL') {
+        const count = localDb.recycle_bin.length;
+        deletedIds = localDb.recycle_bin.map(i => i.id);
+        localDb.recycle_bin = [];
+        saveLocalDb();
+        if (isSupabaseConfigured()) {
+          try {
+            getSupabase().from('recycle_bin').delete().neq('id', '00000000-0000-0000-0000-000000000000').then(() => {});
+          } catch (_) {}
+        }
+        return count;
+      } else {
+        const idSet = new Set(
+          type === 'vendor'
+            ? localDb.recycle_bin.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile').map((i) => i.id)
+            : localDb.recycle_bin.filter((i) => i.entity_type === type).map((i) => i.id)
+        );
+        const before = localDb.recycle_bin.length;
+        localDb.recycle_bin = localDb.recycle_bin.filter((i) => !idSet.has(i.id));
+        saveLocalDb();
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            if (type === 'vendor') {
+              supabase.from('recycle_bin').delete().in('entity_type', ['vendor', 'vendor_mobile']).then(() => {});
+            } else {
+              supabase.from('recycle_bin').delete().eq('entity_type', type).then(() => {});
+            }
+          } catch (_) {}
+        }
+        return before - localDb.recycle_bin.length;
+      }
+    },
+  },
+
   ...vendorDbMethods,
 };
+
+// Periodic auto-purge of records older than 30 days every hour
+setInterval(() => {
+  try {
+    if (db?.recycle_bin) {
+      const purged = db.recycle_bin.purgeExpired();
+      if (purged > 0) {
+        console.log(`[Recycle Bin] 🗑️ Automatically purged ${purged} expired record(s) (>30 days old).`);
+      }
+    }
+  } catch (_) {}
+}, 60 * 60 * 1000);
+
+// Periodic background sync from Supabase PostgreSQL every 60 seconds
+setInterval(() => {
+  if (isSupabaseConfigured()) {
+    syncFromSupabase().catch(() => {});
+  }
+}, 60 * 1000);

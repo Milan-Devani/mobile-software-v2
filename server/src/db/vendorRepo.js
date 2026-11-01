@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
  * Provides unified data access for Vendors, Transactions, Mobiles, Ledger, Payments, and Reports.
  */
 
-export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) => {
+export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, getRecycleBin = null, ensureFreshSync = null) => {
   const { safeInsert, safeUpdate, safeDelete, safeUpsert } = supabaseHelpers;
   // Ensure vendor collections exist in in-memory Supabase mirror
   const ensureCollections = () => {
@@ -91,6 +91,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
     // -------------------------------------------------------------
     vendors: {
       list: async ({ search = '', status = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
+        if (ensureFreshSync) {
+          try { await ensureFreshSync(); } catch (_) {}
+        }
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendors || [])];
@@ -271,11 +274,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         return updated;
       },
 
-      delete: async (id) => {
+      delete: async (id, deletedBy = 'Staff') => {
         ensureCollections();
         const db = getLocalDb();
         const idx = (db.vendors || []).findIndex((v) => v.id === id);
         if (idx === -1) return false;
+
+        const vendor = db.vendors[idx];
 
         // Check if there are mobiles currently at vendor
         const activeMobiles = (db.vendor_mobiles || []).filter(
@@ -288,9 +293,25 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
           );
         }
 
+        // Archive into Recycle Bin
+        try {
+          const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
+          if (recycleBin && typeof recycleBin.add === 'function') {
+            await recycleBin.add({
+              entity_type: 'vendor',
+              original_id: id,
+              title: `Vendor: ${vendor.name} (${vendor.shop_name || 'Repair Partner'})`,
+              subtitle: `Code: ${vendor.vendor_code} • Phone: ${vendor.mobile || 'N/A'} • Balance: ₹${vendor.current_balance || 0}`,
+              data: { vendor: { ...vendor } },
+              deleted_by: deletedBy,
+            });
+          }
+        } catch (recycleErr) {
+          console.warn('Recycle bin vendor archive error:', recycleErr);
+        }
+
         db.vendors.splice(idx, 1);
         saveLocalDb();
-        if (safeDelete) await safeDelete('vendors', id);
         return true;
       },
 
@@ -350,6 +371,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         sortBy = 'created_at',
         sortDir = 'desc',
       } = {}) => {
+        if (ensureFreshSync) {
+          try { await ensureFreshSync(); } catch (_) {}
+        }
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendor_transactions || [])];
@@ -1078,6 +1102,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         sortBy = 'created_at',
         sortDir = 'desc',
       } = {}) => {
+        if (ensureFreshSync) {
+          try { await ensureFreshSync(); } catch (_) {}
+        }
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendor_mobiles || [])];
@@ -1252,30 +1279,39 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
         };
       },
 
-      bulkDelete: async (ids = []) => {
+      bulkDelete: async (ids = [], deletedBy = 'Staff') => {
         ensureCollections();
         const db = getLocalDb();
         const idSet = new Set(ids);
         const selected = (db.vendor_mobiles || []).filter((mobile) => idSet.has(mobile.id));
-        if (selected.length !== ids.length) throw new Error('One or more dispatched mobiles were not found.');
+        if (selected.length === 0) return 0;
 
-        const protectedMobile = selected.find((mobile) => !['PENDING', 'CANCELLED'].includes(mobile.current_status));
-        if (protectedMobile) {
-          throw new Error('Only pending or cancelled dispatches can be deleted. Update or return active repairs first.');
+        // Archive into Recycle Bin
+        try {
+          const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
+          if (recycleBin && typeof recycleBin.add === 'function') {
+            for (const m of selected) {
+              const vendor = (db.vendors || []).find((v) => v.id === m.vendor_id);
+              await recycleBin.add({
+                entity_type: 'vendor_mobile',
+                original_id: m.id,
+                title: `Handset: ${m.brand} ${m.model}`,
+                subtitle: `IMEI: ${m.imei || 'N/A'} • Lab: ${vendor?.name || 'Vendor'} • Flow: ${m.flow_type === 'SENT_TO_VENDOR' ? 'Dispatched' : 'Received Inward'} • Problem: ${m.repair_problem || 'N/A'}`,
+                data: {
+                  mobile: { ...m },
+                  history: (db.vendor_status_history || []).filter((h) => h.vendor_mobile_id === m.id),
+                },
+                deleted_by: deletedBy,
+              });
+            }
+          }
+        } catch (recycleErr) {
+          console.warn('Recycle bin vendor mobile archive error:', recycleErr);
         }
 
         db.vendor_mobiles = db.vendor_mobiles.filter((mobile) => !idSet.has(mobile.id));
         db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
         saveLocalDb();
-
-        if (safeDelete) {
-          await Promise.all([
-            ...selected.map((mobile) => safeDelete('vendor_mobiles', mobile.id)),
-            ...selected.flatMap((mobile) => (db.vendor_status_history || [])
-              .filter((history) => history.vendor_mobile_id === mobile.id)
-              .map((history) => safeDelete('vendor_status_history', history.id))),
-          ]);
-        }
         return selected.length;
       },
     },

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Receipt,
@@ -28,10 +29,10 @@ import { useDebounce } from '../../hooks/useDebounce';
 
 const TYPE_TABS = [
   { key: 'ALL', label: 'All Transactions' },
-  { key: 'SEND_TO_VENDOR', label: 'Mobiles Sent (Outward)' },
-  { key: 'RECEIVE_FROM_VENDOR', label: 'Mobiles Received (Inward)' },
-  { key: 'VENDOR_JOB_INWARD', label: 'Vendor B2B Jobs (Inward)' },
-  { key: 'VENDOR_JOB_RETURN', label: 'Vendor B2B Returns (Outward)' },
+  { key: 'SEND_TO_VENDOR', label: 'Mobiles Sent to Lab' },
+  { key: 'RECEIVE_FROM_VENDOR', label: 'Mobiles Received from Lab' },
+  { key: 'VENDOR_JOB_INWARD', label: 'Jobs from Other Shops' },
+  { key: 'VENDOR_JOB_RETURN', label: 'Returned to Other Shops' },
 ];
 
 export const VendorTransactionsList = () => {
@@ -478,16 +479,17 @@ export const VendorTransactionsList = () => {
       </Card>
 
       {/* Printable Receipt Modal */}
-      {selectedTxn && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8">
+      {selectedTxn && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative max-w-4xl w-full my-auto mx-auto">
             <VendorReceiptPrintable
               transaction={selectedTxn}
               shop={shopProfile}
               onClose={() => setSelectedTxn(null)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

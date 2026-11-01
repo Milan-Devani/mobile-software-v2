@@ -266,7 +266,7 @@ export default function VendorReports() {
       </div>
 
       {/* Navigation Sub-Tabs */}
-      <VendorNavTabs activeTab="reports" />
+      <VendorNavTabs activeTab="/vendors/reports" />
 
       {/* Filter and Date Bar */}
       <div className="spatial-card p-4 rounded-2xl space-y-4 relative z-20">
