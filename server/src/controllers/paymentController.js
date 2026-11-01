@@ -106,10 +106,12 @@ export const getJobPayments = async (req, res, next) => {
 
 export const getPayments = async (req, res, next) => {
   try {
-    const { search = '', method = 'ALL', limit = 50, offset = 0 } = req.query;
+    const { search = '', method = 'ALL', limit = 50, offset = 0, startDate = '', endDate = '' } = req.query;
     const result = await db.payments.list({
       search,
       method,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });

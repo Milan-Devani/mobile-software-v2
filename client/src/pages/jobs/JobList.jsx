@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
@@ -32,6 +33,7 @@ import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'All Jobs' },
@@ -66,6 +68,9 @@ export const JobList = () => {
   const currentDir = searchParams.get('sortDir') || 'desc';
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
+  const currentDatePreset = searchParams.get('datePreset') || 'ALL';
+  const currentStartDate = searchParams.get('startDate') || '';
+  const currentEndDate = searchParams.get('endDate') || '';
 
   const [searchInput, setSearchInput] = useState(currentSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -105,6 +110,12 @@ export const JobList = () => {
       if (currentSearch) {
         params.search = currentSearch;
       }
+      if (currentStartDate) {
+        params.startDate = currentStartDate;
+      }
+      if (currentEndDate) {
+        params.endDate = currentEndDate;
+      }
 
       const res = await jobService.getJobs(params);
       setJobs(res.jobs || []);
@@ -118,7 +129,7 @@ export const JobList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize]);
+  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
 
   const handlePageChange = (newPage) => {
     const params = new URLSearchParams(searchParams);
@@ -139,6 +150,29 @@ export const JobList = () => {
       params.delete('status');
     } else {
       params.set('status', status);
+    }
+    params.set('page', '1');
+    setSearchParams(params);
+  };
+
+  const handleDateFilterChange = ({ preset, startDate, endDate }) => {
+    const params = new URLSearchParams(searchParams);
+    if (!preset || preset === 'ALL') {
+      params.delete('datePreset');
+      params.delete('startDate');
+      params.delete('endDate');
+    } else {
+      params.set('datePreset', preset);
+      if (startDate) {
+        params.set('startDate', startDate);
+      } else {
+        params.delete('startDate');
+      }
+      if (endDate) {
+        params.set('endDate', endDate);
+      } else {
+        params.delete('endDate');
+      }
     }
     params.set('page', '1');
     setSearchParams(params);
@@ -431,7 +465,7 @@ export const JobList = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="spatial-card p-3.5 sm:p-4 rounded-2xl space-y-3">
+      <div className="spatial-card relative z-20 p-3.5 sm:p-4 rounded-2xl space-y-3">
         {/* Status Scrollable Tabs */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-2 border-b border-[var(--spatial-border)] no-scrollbar">
           {STATUS_TABS.map((tab) => {
@@ -451,8 +485,8 @@ export const JobList = () => {
           })}
         </div>
 
-        {/* Search input & Sort */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-0.5">
+        {/* Search input, Date Filter & Sort */}
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -480,27 +514,39 @@ export const JobList = () => {
             )}
           </form>
 
-          <div className="flex items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
-            <span className="shrink-0 font-medium">Sort by:</span>
-            <div className="w-40">
-              <SpatialSelect
-                value={`${currentSort}:${currentDir}`}
-                onChange={(val) => {
-                  const [sortBy, sortDir] = val.split(':');
-                  const params = new URLSearchParams(searchParams);
-                  params.set('sortBy', sortBy);
-                  params.set('sortDir', sortDir);
-                  setSearchParams(params);
-                }}
-                options={[
-                  { value: 'created_at:desc', label: 'Newest First' },
-                  { value: 'created_at:asc', label: 'Oldest First' },
-                  { value: 'total_amount:desc', label: 'Highest Cost' },
-                  { value: 'total_amount:asc', label: 'Lowest Cost' },
-                ]}
-                size="sm"
-                searchable={false}
-              />
+          <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--spatial-text-muted)]">
+            {/* Apple Themed Date Range Filter */}
+            <SpatialDateFilter
+              preset={currentDatePreset}
+              startDate={currentStartDate}
+              endDate={currentEndDate}
+              onChange={handleDateFilterChange}
+              align="right"
+            />
+
+            {/* Sort by Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 font-medium">Sort by:</span>
+              <div className="w-36 sm:w-40">
+                <SpatialSelect
+                  value={`${currentSort}:${currentDir}`}
+                  onChange={(val) => {
+                    const [sortBy, sortDir] = val.split(':');
+                    const params = new URLSearchParams(searchParams);
+                    params.set('sortBy', sortBy);
+                    params.set('sortDir', sortDir);
+                    setSearchParams(params);
+                  }}
+                  options={[
+                    { value: 'created_at:desc', label: 'Newest First' },
+                    { value: 'created_at:asc', label: 'Oldest First' },
+                    { value: 'total_amount:desc', label: 'Highest Cost' },
+                    { value: 'total_amount:asc', label: 'Lowest Cost' },
+                  ]}
+                  size="sm"
+                  searchable={false}
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -530,7 +576,7 @@ export const JobList = () => {
           <EmptyState
             icon={Wrench}
             title="No repair jobs found"
-            description="No jobs match your search or status criteria. Try clearing filters or create a new job."
+            description="No jobs match your search, date, or status criteria. Try clearing filters or create a new job."
             actionLabel="Create Job Sheet"
             onAction={() => navigate('/jobs/new')}
           />
@@ -604,7 +650,7 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex flex-col gap-1 items-start">
-                            <div className="flex items-center gap-1.5 flex-nowrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge status={job.status} />
                               {job.is_warranty_claim && (
                                 <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
@@ -762,144 +808,139 @@ export const JobList = () => {
       </Card>
 
       {/* Direct Phone Number Invoice Popup Modal */}
-      {isDirectSendOpen && directSendJob && (
+      {isDirectSendOpen && directSendJob && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+          className="fixed inset-0 z-[9999] overflow-y-auto"
           onClick={handleCloseDirectSendModal}
         >
-          <div
-            className="relative w-full max-w-md bg-[var(--spatial-bg-card,#18181b)] border border-[var(--spatial-border,#27272a)] rounded-2xl shadow-2xl p-6 overflow-hidden text-[var(--spatial-text-title,#fafafa)] animate-in zoom-in-95 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[var(--spatial-border)]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
-                  <PhoneForwarded className="w-5 h-5" />
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-4 text-center">
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-200" />
+
+            <div
+              className="relative w-full max-w-md bg-[var(--spatial-bg-card,#18181b)] border border-[var(--spatial-border,#27272a)] rounded-2xl shadow-2xl p-6 overflow-hidden text-[var(--spatial-text-title,#fafafa)] animate-in zoom-in-95 duration-200 my-auto mx-auto z-10 text-left"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-[var(--spatial-border)]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+                    <PhoneForwarded className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base">Send Invoice to Direct Number</h3>
+                    <p className="text-xs text-[var(--spatial-text-muted)]">
+                      Job #{directSendJob.job_number} • {directSendJob.customer?.full_name || 'Walk-in Customer'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseDirectSendModal}
+                  className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Job Details Pill */}
+              <div className="mt-4 p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Device</span>
+                  <span className="font-medium text-[var(--spatial-text-title)]">
+                    {directSendJob.device?.brand} {directSendJob.device?.model || 'Device'}
+                  </span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-base">Send Invoice to Direct Number</h3>
-                  <p className="text-xs text-[var(--spatial-text-muted)]">
-                    Job #{directSendJob.job_number} • {directSendJob.customer?.full_name || 'Walk-in Customer'}
-                  </p>
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Status</span>
+                  <Badge status={directSendJob.status} />
+                </div>
+                <div className="text-right">
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Total Amount</span>
+                  <span className="font-semibold text-emerald-500">
+                    ₹{Number(directSendJob.total_amount || 0).toLocaleString()}
+                  </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleCloseDirectSendModal}
-                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                title="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Job Details Pill */}
-            <div className="mt-4 p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] flex items-center justify-between text-xs">
-              <div>
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Device</span>
-                <span className="font-medium text-[var(--spatial-text-title)]">
-                  {directSendJob.device?.brand} {directSendJob.device?.model || 'Device'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Status</span>
-                <Badge status={directSendJob.status} />
-              </div>
-              <div className="text-right">
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Total Amount</span>
-                <span className="font-semibold text-emerald-500">
-                  ₹{Number(directSendJob.total_amount || 0).toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSendDirectInvoice} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-[var(--spatial-text-title)] mb-1.5">
-                  Recipient Mobile / WhatsApp Number <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="tel"
-                    value={directPhone}
-                    onChange={(e) => setDirectPhone(e.target.value)}
-                    placeholder="Enter 10-digit phone number (e.g. 9876543210)"
-                    autoFocus
-                    className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
-                  />
-                </div>
-                <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
-                  Enter any direct phone number to dispatch this repair job's official invoice PDF & service details.
-                </p>
-
-                {/* Customer's saved numbers if available for quick filling */}
-                {(directSendJob.customer?.phone || directSendJob.customer?.whatsapp_number) && (
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-[10px] text-[var(--spatial-text-muted)]">Saved:</span>
-                    {directSendJob.customer?.phone && (
-                      <button
-                        type="button"
-                        onClick={() => setDirectPhone(directSendJob.customer.phone)}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
-                        title="Click to copy saved customer phone"
-                      >
-                        {directSendJob.customer.phone}
-                      </button>
-                    )}
-                    {directSendJob.customer?.whatsapp_number && directSendJob.customer.whatsapp_number !== directSendJob.customer?.phone && (
-                      <button
-                        type="button"
-                        onClick={() => setDirectPhone(directSendJob.customer.whatsapp_number)}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
-                        title="Click to copy saved WhatsApp number"
-                      >
-                        WA: {directSendJob.customer.whatsapp_number}
-                      </button>
-                    )}
+              {/* Form */}
+              <form onSubmit={handleSendDirectInvoice} className="mt-4 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--spatial-text-title)] mb-1.5">
+                    Recipient Mobile / WhatsApp Number <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={directPhone}
+                      onChange={(e) => setDirectPhone(e.target.value)}
+                      placeholder="Enter 10-digit phone number (e.g. 9876543210)"
+                      autoFocus
+                      className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
+                    />
                   </div>
-                )}
-              </div>
+                  <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
+                    Enter any direct phone number to dispatch this repair job's official invoice PDF & service details.
+                  </p>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--spatial-border)]">
-                {/* <button
-                  type="button"
-                  onClick={handleOpenDirectWhatsAppChat}
-                  disabled={!directPhone.trim()}
-                  className="px-3 py-2 rounded-xl text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
-                  title="Open invoice message in WhatsApp Web / App"
-                >
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Open WhatsApp</span>
-                </button> */}
-
-                <div className="flex items-center justify-end w-full gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCloseDirectSendModal}
-                    disabled={isSendingDirect}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    icon={Send}
-                    loading={isSendingDirect}
-                    disabled={!directPhone.trim() || isSendingDirect}
-                  >
-                    Send Invoice
-                  </Button>
+                  {/* Customer's saved numbers if available for quick filling */}
+                  {(directSendJob.customer?.phone || directSendJob.customer?.whatsapp_number) && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-[10px] text-[var(--spatial-text-muted)]">Saved:</span>
+                      {directSendJob.customer?.phone && (
+                        <button
+                          type="button"
+                          onClick={() => setDirectPhone(directSendJob.customer.phone)}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
+                          title="Click to copy saved customer phone"
+                        >
+                          {directSendJob.customer.phone}
+                        </button>
+                      )}
+                      {directSendJob.customer?.whatsapp_number && directSendJob.customer.whatsapp_number !== directSendJob.customer?.phone && (
+                        <button
+                          type="button"
+                          onClick={() => setDirectPhone(directSendJob.customer.whatsapp_number)}
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                          title="Click to copy saved WhatsApp number"
+                        >
+                          WA: {directSendJob.customer.whatsapp_number}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </form>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--spatial-border)]">
+                  <div className="flex items-center justify-end w-full gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCloseDirectSendModal}
+                      disabled={isSendingDirect}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      icon={Send}
+                      loading={isSendingDirect}
+                      disabled={!directPhone.trim() || isSendingDirect}
+                    >
+                      Send Invoice
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

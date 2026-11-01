@@ -3,7 +3,67 @@ import path from 'path';
 import os from 'os';
 import { execSync } from 'child_process';
 import QRCode from 'qrcode';
+import axios from 'axios';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
+
+/**
+ * Converts local or remote image URLs to inlined base64 data URIs
+ * so Chromium headless renders them immediately without network delays or local file resolution failures.
+ */
+export async function imageSourceToDataUrl(source) {
+  if (!source || typeof source !== 'string') return '';
+  const trimmed = source.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('data:image/')) return trimmed;
+
+  // 1. Check if it's a local upload in server/uploads or relative path
+  const uploadsDir = path.resolve(process.cwd(), 'uploads');
+  let localFilename = '';
+  if (trimmed.includes('/uploads/')) {
+    localFilename = trimmed.split('/uploads/')[1].split('?')[0];
+  } else if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    localFilename = trimmed;
+  }
+
+  if (localFilename) {
+    const fullLocalPath = path.join(uploadsDir, localFilename);
+    if (fs.existsSync(fullLocalPath)) {
+      try {
+        const ext = path.extname(fullLocalPath).toLowerCase();
+        const mimeMap = {
+          '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.webp': 'image/webp',
+          '.svg': 'image/svg+xml',
+          '.gif': 'image/gif',
+        };
+        const mime = mimeMap[ext] || 'image/png';
+        const fileBuf = fs.readFileSync(fullLocalPath);
+        return `data:${mime};base64,${fileBuf.toString('base64')}`;
+      } catch (err) {
+        console.warn('⚠️ Error reading local upload image:', err.message);
+      }
+    }
+  }
+
+  // 2. If it's an HTTP/HTTPS URL, fetch it and convert to base64 Data URL
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const response = await axios.get(trimmed, {
+        responseType: 'arraybuffer',
+        timeout: 5000,
+      });
+      const mime = response.headers['content-type'] || 'image/jpeg';
+      const b64 = Buffer.from(response.data).toString('base64');
+      return `data:${mime};base64,${b64}`;
+    } catch (netErr) {
+      console.warn('⚠️ Error converting image URL to base64 for PDF:', trimmed, netErr.message);
+    }
+  }
+
+  return '';
+}
 
 // Code 39 Barcode Generator for crisp vector barcodes in PDF
 const CODE39_PATTERNS = {
@@ -87,6 +147,9 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   } catch (e) {
     console.error('QR code generation warning:', e);
   }
+
+  // Convert shop logo to inline base64 Data URL so Chromium headless embeds it reliably
+  const shopLogoDataUrl = await imageSourceToDataUrl(shop?.logo_url);
 
   const dev = job.device || {};
   const cust = job.customer || {};
@@ -225,15 +288,21 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   <div>
     <!-- Top Header -->
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:4px;">
-      <div style="display:flex; align-items:center; gap:6px;">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-          <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
-          <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="16" cy="7" r="1.5" fill="#000" />
-        </svg>
+      <div style="display:flex; align-items:center; gap:8px;">
+        ${shopLogoDataUrl ? `
+          <div style="width:36px; height:36px; border-radius:6px; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; padding:2px;">
+            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          </div>
+        ` : `
+          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+            <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
+            <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="16" cy="7" r="1.5" fill="#000" />
+          </svg>
+        `}
         <div>
-          <div style="font-size:24px; font-weight:900; line-height:1; letter-spacing:-0.5px;">mobotech</div>
-          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">mobile care</div>
+          <div style="font-size:22px; font-weight:900; line-height:1; letter-spacing:-0.5px;">${shopObj.name.toLowerCase()}</div>
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">${shop?.tagline || 'mobile care'}</div>
         </div>
       </div>
       <div style="text-align:right;">
@@ -463,13 +532,19 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   <div>
     <!-- Page 2 Header -->
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:3px; border-bottom:1px solid #000;">
-      <div style="display:flex; align-items:center; gap:6px;">
-        <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
-          <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
-          <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="16" cy="7" r="1.5" fill="#000" />
-        </svg>
-        <span style="font-size:20px; font-weight:900;">mobotech mobile care</span>
+      <div style="display:flex; align-items:center; gap:8px;">
+        ${shopLogoDataUrl ? `
+          <div style="width:28px; height:28px; border-radius:4px; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; padding:1px;">
+            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          </div>
+        ` : `
+          <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
+            <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
+            <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+            <circle cx="16" cy="7" r="1.5" fill="#000" />
+          </svg>
+        `}
+        <span style="font-size:20px; font-weight:900;">${shopObj.name.toLowerCase()}</span>
       </div>
       <div style="text-align:right;">
         <div style="font-size:19px; font-weight:900;">Service Record</div>
@@ -553,8 +628,8 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     const pdfBuffer = fs.readFileSync(pdfPath);
     return pdfBuffer;
   } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) {}
-    try { fs.unlinkSync(pdfPath); } catch (e) {}
+    try { fs.unlinkSync(htmlPath); } catch (e) { }
+    try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
 }
 
@@ -606,11 +681,11 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   const shopAddress = shop?.address || 'G/456, Basant Lok Comm., Vasant Vihar, Tardeo Road, Maharashtra - 400001';
   const shopPhone = shop?.phone || 'Ph. 111 2222 3333';
   const shopTaxNo = shop?.tax_number || '26CORPP3939N1ZA';
-  const bankName = sale?.bank_details?.bank_name || 'ICICI Bank';
-  const branch = sale?.bank_details?.branch || 'Surat';
-  const accNo = sale?.bank_details?.account_number || '2715500356';
-  const ifsc = sale?.bank_details?.ifsc || 'ICIC045F';
-  const upiId = sale?.bank_details?.upi_id || 'ifox@icici';
+  const shopLogoRaw = (shop?.logo_url || '').trim();
+  const instagramQrRaw = (shop?.instagram_qr_url || '').trim();
+
+  // Convert shop logo to inline base64 Data URL so Chromium headless embeds it reliably
+  const shopLogoDataUrl = await imageSourceToDataUrl(shopLogoRaw);
 
   const invoiceNumber = sale?.invoice_no_seq || sale?.invoice_number || '47';
   const invoiceDate = sale?.invoice_date ? String(sale.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0];
@@ -621,17 +696,53 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   const isIgst = sale?.gst_type !== 'CGST_SGST';
   const totalInWords = saleNumberToWords(grandTotal);
 
-  // Generate UPI QR Code Data URL
-  let qrDataUrl = '';
-  try {
-    const upiUrl = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(shopName)}&am=${grandTotal.toFixed(2)}&cu=INR&tn=${encodeURIComponent(`Bill #${invoiceNumber}`)}`;
-    qrDataUrl = await QRCode.toDataURL(upiUrl, { width: 140, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-  } catch (err) {
-    console.warn('⚠️ UPI QR generation warning:', err.message);
+  // Generate Instagram QR Code Data URL if configured
+  let instagramQrDataUrl = '';
+  if (instagramQrRaw) {
+    const pathWithoutQuery = instagramQrRaw.split('?')[0].toLowerCase();
+    const isDirectImage =
+      instagramQrRaw.startsWith('data:image/') ||
+      instagramQrRaw.includes('/uploads/') ||
+      instagramQrRaw.includes('/api/upload') ||
+      /\.(png|jpe?g|webp|svg|gif|bmp)$/i.test(pathWithoutQuery);
+
+    if (isDirectImage) {
+      instagramQrDataUrl = await imageSourceToDataUrl(instagramQrRaw);
+    } else {
+      let targetLink = instagramQrRaw;
+      if (targetLink.startsWith('@')) {
+        targetLink = `https://www.instagram.com/${targetLink.slice(1)}/`;
+      } else if (!targetLink.startsWith('http://') && !targetLink.startsWith('https://')) {
+        targetLink = `https://${targetLink}`;
+      }
+      try {
+        instagramQrDataUrl = await QRCode.toDataURL(targetLink, {
+          width: 160,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' },
+        });
+      } catch (err) {
+        console.warn('⚠️ Instagram QR generation warning:', err.message);
+      }
+    }
   }
 
   const items = sale?.items || [];
   const totalQty = items.reduce((sum, it) => sum + (parseInt(it.quantity, 10) || 1), 0);
+
+  const cleanWarrantyText = (w) => {
+    if (!w) return '-';
+    const str = String(w).trim();
+    if (!str || str.toLowerCase() === 'no warranty' || str.toLowerCase() === 'no' || str.toLowerCase() === 'none' || str === '-') {
+      return '-';
+    }
+    const cleaned = str
+      .replace(/\b(brand|testing)\s+warranty\b/gi, '')
+      .replace(/\b(warranty|replacement)\b/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    return cleaned || '-';
+  };
 
   const htmlContent = `<!DOCTYPE html>
 <html>
@@ -641,7 +752,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 <style>
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm;
+    margin: 0;
   }
   * {
     box-sizing: border-box;
@@ -650,22 +761,23 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   }
   body {
     margin: 0;
-    padding: 0;
+    padding: 48px !important;
+    box-sizing: border-box !important;
     background: #ffffff;
-    color: #111827;
+    color: #000000;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     font-size: 11px;
     line-height: 1.25;
   }
-  .blue-box {
-    border: 2px solid #1e73be;
+  .black-box {
+    border: 2px solid #000000 !important;
     width: 100%;
     box-sizing: border-box;
   }
-  .border-b-blue { border-bottom: 1.5px solid #1e73be; }
-  .border-r-blue { border-right: 1.5px solid #1e73be; }
-  .border-b-thin { border-bottom: 1px solid #1e73be; }
-  .border-r-thin { border-right: 1px solid #1e73be; }
+  .border-b-black { border-bottom: 1.5px solid #000000 !important; }
+  .border-r-black { border-right: 1.5px solid #000000 !important; }
+  .border-b-thin { border-bottom: 1px solid #000000 !important; }
+  .border-r-thin { border-right: 1px solid #000000 !important; }
   table.items-table {
     width: 100%;
     border-collapse: collapse;
@@ -674,17 +786,18 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   }
   table.items-table th, table.items-table td {
     padding: 3px 5px;
-    border-right: 1px solid #1e73be;
+    border-right: 1px solid #000000;
   }
   table.items-table th:last-child, table.items-table td:last-child {
     border-right: none;
   }
   table.items-table th {
     background: #ffffff;
-    font-weight: 700;
+    font-weight: 900;
+    color: #000000;
     text-transform: uppercase;
-    font-size: 9.5px;
-    border-bottom: 1.5px solid #1e73be;
+    font-size: 10px;
+    border-bottom: 1.5px solid #000000;
   }
   .brand-badge {
     display: inline-flex;
@@ -704,69 +817,75 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   <!-- 1. TOP HEADER -->
   <div style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:6px;">
     <!-- Left: Logo & Shop Details -->
-    <div style="display:flex; align-items:flex-start; gap:10px; max-width:58%;">
-      <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
-        <div style="width:42px; height:46px; border-radius:6px; background:#0ea5e9; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(-8deg);">
-          <svg style="width:24px; height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
-            <line x1="12" y1="18" x2="12.01" y2="18"/>
-          </svg>
+    <div style="display:flex; align-items:flex-start; gap:10px; max-width:60%;">
+      ${shopLogoDataUrl ? `
+        <div style="width:58px; height:58px; border-radius:6px; border:1px solid #000000; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; background:#fff; padding:2px;">
+          <img src="${shopLogoDataUrl}" alt="${shopName}" style="max-width:100%; max-height:100%; object-fit:contain;" />
         </div>
-        <span style="font-size:7px; font-weight:900; text-transform:uppercase; margin-top:2px;">PHONE SHOP</span>
-        <span style="font-size:6px; color:#64748b; text-transform:uppercase;">SLOGAN HERE</span>
-      </div>
+      ` : `
+        <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
+          <div style="width:42px; height:46px; border-radius:6px; background:#0ea5e9; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(-8deg);">
+            <svg style="width:24px; height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+              <line x1="12" y1="18" x2="12.01" y2="18"/>
+            </svg>
+          </div>
+          <span style="font-size:7px; font-weight:900; text-transform:uppercase; margin-top:2px;">PHONE SHOP</span>
+          <span style="font-size:6px; color:#64748b; text-transform:uppercase;">SLOGAN HERE</span>
+        </div>
+      `}
       <div>
-        <h1 style="font-size:20px; font-weight:900; color:#1e73be; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>
-        <p style="font-size:10.5px; color:#334155; margin:0 0 2px 0; line-height:1.2;">${shopAddress}</p>
-        <p style="font-size:10.5px; font-weight:700; color:#1e293b; margin:0;">${shopPhone}</p>
+        <h1 style="font-size:20px; font-weight:900; color:#000000; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>
+        <p style="font-size:10.5px; color:#000000; margin:0 0 2px 0; line-height:1.2;">${shopAddress}</p>
+        <p style="font-size:10.5px; font-weight:700; color:#000000; margin:0;">${shopPhone}</p>
       </div>
     </div>
 
-    <!-- Right: Brand Badges -->
-    <div style="text-align:right; max-width:42%;">
-      <div style="margin-bottom:2px;">
-        <span class="brand-badge" style="background:#000; color:#fff;">SAMSUNG</span>
-        <span class="brand-badge" style="background:#ff6700; color:#fff;">mi</span>
-        <span class="brand-badge" style="background:#eb0029; color:#fff;">1+</span>
-        <span class="brand-badge" style="background:#fff; border:1px solid #ccc; color:#000;">Google</span>
-        <span class="brand-badge" style="background:#008954; color:#fff;">oppo</span>
+    <!-- Right: Instagram QR Code if configured (Preserved Instagram color #E1306C) -->
+    <div style="text-align:right; max-width:40%; display:flex; flex-direction:column; align-items:flex-end;">
+      ${instagramQrDataUrl ? `
+        <div style="display:flex; align-items:center; gap:8px; border:1px solid #000000; border-radius:6px; padding:4px 6px; background:#f8fafc;">
+          <div style="text-align:right;">
+            <div style="font-size:10px; font-weight:800; color:#E1306C; display:flex; align-items:center; justify-content:flex-end; gap:3px;">
+              <svg style="width:12px; height:12px; fill:currentColor;" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+            </svg>
+            <span>Instagram</span>
+          </div>
+          <div style="font-size:7.5px; font-weight:600; color:#64748b; text-transform:uppercase;">Scan to Connect</div>
+        </div>
+        <img src="${instagramQrDataUrl}" style="width:48px; height:48px; border:1px solid #000000; border-radius:4px; padding:1px; background:#fff;" />
       </div>
-      <div>
-        <span class="brand-badge" style="background:#fff; border:1px solid #ef4444; color:#d40000;">HUAWEI</span>
-        <span class="brand-badge" style="background:#0052d9; color:#fff;">vivo</span>
-        <span class="brand-badge" style="background:#124191; color:#fff;">NOKIA</span>
-        <span class="brand-badge" style="background:#000; color:#fff;">ASUS</span>
-        <span class="brand-badge" style="background:#000; color:#fff;">SONY</span>
-      </div>
+    ` : ''}
     </div>
   </div>
 
   <!-- Slogan Banner -->
-  <div style="border-top:1px solid #cbd5e1; border-bottom:1px solid #cbd5e1; padding:3px 0; text-align:center; margin-bottom:8px;">
-    <span style="font-size:10px; font-weight:600; color:#334155;">
+  <div style="border-top:1px solid #000000; border-bottom:1px solid #000000; padding:3px 0; text-align:center; margin-bottom:8px;">
+    <span style="font-size:10px; font-weight:600; color:#000000;">
       Get All Your Desired Smart Phones From Apple To Vivo On Huge Discounts And Easy EMI
     </span>
   </div>
 
-  <!-- 2. MAIN BLUE BORDERED CONTAINER -->
-  <div class="blue-box">
-    <!-- Blue Box Header: GSTIN, TAX INVOICE, ORIGINAL FOR RECIPIENT -->
-    <div class="border-b-blue" style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px;">
-      <div style="font-size:11px; font-weight:700; width:33%;">
+  <!-- 2. MAIN BORDERED CONTAINER (Black) -->
+  <div class="black-box">
+    <!-- Header: GSTIN, TAX INVOICE, ORIGINAL FOR RECIPIENT -->
+    <div class="border-b-black" style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px;">
+      <div style="font-size:11px; font-weight:700; width:33%; color:#000000;">
         ${gstEnabled ? `GSTIN : ${shopTaxNo}` : `REG : ${shopTaxNo || 'RETAIL'}`}
       </div>
-      <div style="font-size:16px; font-weight:900; color:#1e73be; text-align:center; width:34%; text-transform:uppercase; letter-spacing:0.5px;">
+      <div style="font-size:16px; font-weight:900; color:#000000; text-align:center; width:34%; text-transform:uppercase; letter-spacing:0.5px;">
         ${gstEnabled ? 'TAX INVOICE' : 'RETAIL INVOICE'}
       </div>
-      <div style="font-size:10px; font-weight:700; text-align:right; width:33%; text-transform:uppercase;">
+      <div style="font-size:10px; font-weight:700; text-align:right; width:33%; text-transform:uppercase; color:#000000;">
         ORIGINAL FOR RECIPIENT
       </div>
     </div>
 
     <!-- Customer Details (Left) vs Invoice Details (Right) -->
-    <div class="border-b-blue" style="display:flex;">
+    <div class="border-b-black" style="display:flex;">
       <!-- Customer Info -->
-      <div class="border-r-blue" style="width:58%; padding:6px 10px;">
+      <div class="border-r-black" style="width:58%; padding:6px 10px;">
         <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10.5px; padding-bottom:3px; margin-bottom:4px;">
           Customer Detail
         </div>
@@ -776,7 +895,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
           <tr><td style="font-weight:700;">PHONE</td><td>: ${sale.customer_phone || '-'}</td></tr>
           ${sale.customer_email ? `<tr><td style="font-weight:700;">Mail ID</td><td>: ${sale.customer_email}</td></tr>` : ''}
           ${sale.customer_gstin ? `<tr><td style="font-weight:700;">GSTIN</td><td>: ${sale.customer_gstin}</td></tr>` : ''}
-          <tr><td style="font-weight:700;">Place of Supply</td><td>: ${sale.place_of_supply || 'Gujarat ( 24 )'}</td></tr>
+          <tr><td style="font-weight:700;">Place of Supply</td><td>: ${sale.place_of_supply || 'Gujarat'}</td></tr>
         </table>
       </div>
 
@@ -795,64 +914,60 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
     <table class="items-table">
       <thead>
         <tr>
-          <th style="width:6%; text-align:center;">Sr.<br>No.</th>
-          <th style="width:34%; text-align:left;">Name of Product / Service</th>
-          <th style="width:10%; text-align:center;">HSN/SAC</th>
-          <th style="width:8%; text-align:center;">Qty</th>
-          <th style="width:12%; text-align:right;">Rate</th>
-          <th style="width:14%; text-align:right;">Taxable Value</th>
-          ${gstEnabled ? `<th style="width:16%; text-align:center; padding:0;">
-            <div style="border-bottom:1px solid #1e73be; padding:1px 0;">${isIgst ? 'IGST' : 'CGST / SGST'}</div>
+          <th style="width:6%; text-align:center;">No.</th>
+          <th style="width:${gstEnabled ? '38%' : '40%'}; text-align:left;">Name of Product</th>
+          <th style="width:${gstEnabled ? '14%' : '12%'}; text-align:center;">Warranty</th>
+          <th style="width:${gstEnabled ? '7%' : '8%'}; text-align:center;">Qty</th>
+          <th style="width:${gstEnabled ? '11%' : '14%'}; text-align:right;">Rate</th>
+          ${gstEnabled ? `<th style="width:11%; text-align:center; padding:0;">
+            <div style="border-bottom:1px solid #000000; padding:1px 0;">${isIgst ? 'IGST' : 'CGST / SGST'}</div>
             <div style="display:flex; font-size:9px;">
-              <span style="width:40%; border-right:1px solid #1e73be;">%</span>
-              <span style="width:60%;">Amount</span>
+              <span style="width:35%; border-right:1px solid #000000;">%</span>
+              <span style="width:65%;">Amount</span>
             </div>
           </th>` : ''}
-          <th style="width:${gstEnabled ? '16%' : '30%'}; text-align:right;">Total</th>
+          <th style="width:${gstEnabled ? '13%' : '20%'}; text-align:right;">Total</th>
         </tr>
       </thead>
       <tbody>
         ${items.map((it, idx) => `
-          <tr style="border-bottom:1px solid #e2e8f0; vertical-align:top;">
-            <td style="text-align:center;">${it.sr_no || idx + 1}</td>
+          <tr style="border-bottom:1px solid #000000; vertical-align:top;">
+            <td style="text-align:center; color:#000000;">${it.sr_no || idx + 1}</td>
             <td>
-              <div style="font-weight:700; font-size:10.5px; color:#0f172a;">${it.name || it.item_name || 'Product'}</div>
-              ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#475569; font-family:monospace; margin-top:1px;">${it.imei.startsWith('IMEI') ? it.imei : `IMEI: ${it.imei}`}</div>` : ''}
-              ${it.warranty ? `<div style="font-size:9px; color:#0284c7; margin-top:1px;">Warranty: ${it.warranty}</div>` : ''}
+              <div style="font-weight:700; font-size:10.5px; color:#000000;">${it.name || it.item_name || 'Product'}</div>
+              ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#000000; font-family:monospace; margin-top:1px;">${it.imei.startsWith('IMEI') ? it.imei : `IMEI: ${it.imei}`}</div>` : ''}
             </td>
-            <td style="text-align:center; font-family:monospace;">${it.hsn || '8517'}</td>
-            <td style="text-align:center; font-weight:700;">${it.quantity} ${it.unit || 'NOS'}</td>
-            <td style="text-align:right; font-family:monospace;">${formatInr(it.rate)}</td>
-            <td style="text-align:right; font-family:monospace;">${formatInr(it.taxable_value)}</td>
+            <td style="text-align:center; font-weight:600; color:#000000;">${cleanWarrantyText(it.warranty)}</td>
+            <td style="text-align:center; font-weight:700; color:#000000;">${it.quantity} ${it.unit || 'NOS'}</td>
+            <td style="text-align:right; font-family:monospace; color:#000000;">${formatInr(it.rate)}</td>
             ${gstEnabled ? `
-              <td style="padding:0; font-family:monospace;">
+              <td style="padding:0; font-family:monospace; color:#000000;">
                 <div style="display:flex; height:100%;">
-                  <span style="width:40%; text-align:center; border-right:1px solid #1e73be; padding:3px 1px;">${(parseFloat(it.gst_rate) || 18).toFixed(1)}</span>
+                  <span style="width:40%; text-align:center; border-right:1px solid #000000; padding:3px 1px;">${(parseFloat(it.gst_rate) || 18).toFixed(1)}</span>
                   <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(it.gst_amount)}</span>
                 </div>
               </td>
             ` : ''}
-            <td style="text-align:right; font-weight:700; font-family:monospace;">${formatInr(it.total)}</td>
+            <td style="text-align:right; font-weight:700; font-family:monospace; color:#000000;">${formatInr(it.total)}</td>
           </tr>
         `).join('')}
 
-        <!-- Filler Height Row to give authentic invoice look -->
-        <tr style="height:${items.length === 1 ? '160px' : items.length === 2 ? '110px' : '60px'};">
-          <td></td><td></td><td></td><td></td><td></td><td></td>
-          ${gstEnabled ? `<td><div style="display:flex; height:100%;"><span style="width:40%; border-right:1px solid #1e73be;"></span><span style="width:60%;"></span></div></td>` : ''}
+        <!-- Filler Height Row dynamically scaled for Full A4 Page Height with 48px margins -->
+        <tr style="height:${Math.max(25, Math.round(360 - (items.length - 1) * 36))}px;">
+          <td></td><td></td><td></td><td></td><td></td>
+          ${gstEnabled ? `<td><div style="display:flex; height:100%;"><span style="width:40%; border-right:1px solid #000000;"></span><span style="width:60%;"></span></div></td>` : ''}
           <td></td>
         </tr>
       </tbody>
       <tfoot>
-        <tr style="border-top:1.5px solid #1e73be; border-bottom:1.5px solid #1e73be; font-weight:700; font-size:10.5px;">
+        <tr style="border-top:1.5px solid #000000; border-bottom:1.5px solid #000000; font-weight:700; font-size:10.5px; color:#000000;">
           <td colspan="3" style="text-align:right; text-transform:uppercase;">TOTAL</td>
           <td style="text-align:center;">${totalQty}</td>
           <td></td>
-          <td style="text-align:right; font-family:monospace;">${formatInr(taxableAmount)}</td>
           ${gstEnabled ? `
             <td style="padding:0; font-family:monospace;">
               <div style="display:flex;">
-                <span style="width:40%; border-right:1px solid #1e73be;"></span>
+                <span style="width:40%; border-right:1px solid #000000;"></span>
                 <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(totalTax)}</span>
               </div>
             </td>
@@ -862,108 +977,114 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
       </tfoot>
     </table>
 
-    <!-- 4. BOTTOM SECTION: Words, Bank Details, Terms vs Totals & Signature -->
-    <div style="display:flex;">
-      <!-- Left Column -->
-      <div class="border-r-blue" style="width:58%; display:flex; flex-direction:column; justify-content:space-between;">
-        <!-- Total in words -->
-        <div class="border-b-thin">
-          <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10px; padding:2px;">
+    <!-- 4. BOTTOM SECTION: Words, Terms vs Totals & Signature -->
+    <table style="width:100%; border-collapse:collapse; table-layout:fixed; font-size:10px; color:#000000;">
+      <colgroup>
+        <col style="width:58%;">
+        <col style="width:42%;">
+      </colgroup>
+      <tbody>
+        <!-- Row 1: 'Total in words' Title vs Taxable Amount -->
+        <tr style="border-bottom:1px solid #000000;">
+          <td style="width:58%; border-right:1.5px solid #000000; text-align:center; font-weight:700; padding:3px 6px;">
             Total in words
-          </div>
-          <div style="padding:5px 8px; font-weight:700; font-size:10px; text-transform:uppercase;">
-            ${totalInWords}
-          </div>
-        </div>
+          </td>
+          <td style="width:42%; padding:3px 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-weight:700;">Taxable Amount</span>
+              <span style="font-family:monospace;">${formatInr(taxableAmount)}</span>
+            </div>
+          </td>
+        </tr>
 
-        <!-- Bank Details & QR Code -->
-        <div class="border-b-thin" style="padding:0;">
-          <div class="border-b-thin" style="text-align:center; font-weight:700; font-size:10px; padding:2px;">
-            Bank Details
-          </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:6px 10px;">
-            <table style="font-size:9.5px; border-collapse:collapse;">
-              <tr><td style="width:75px; font-weight:700;">Name</td><td>: ${bankName}</td></tr>
-              <tr><td style="font-weight:700;">Branch</td><td>: ${branch}</td></tr>
-              <tr><td style="font-weight:700;">Acc. Number</td><td>: <b>${accNo}</b></td></tr>
-              <tr><td style="font-weight:700;">IFSC</td><td>: <b>${ifsc}</b></td></tr>
-              <tr><td style="font-weight:700;">UPI ID</td><td>: <b>${upiId}</b></td></tr>
-            </table>
-            ${qrDataUrl ? `
-              <div style="text-align:center;">
-                <img src="${qrDataUrl}" style="width:65px; height:65px; border:1px solid #cbd5e1; padding:2px; border-radius:4px;" />
-                <div style="font-size:8px; font-weight:700; margin-top:2px;">Pay using UPI</div>
+        <!-- Row 2: Words Text (left) vs Financial Breakdown Rows (right) -->
+        ${(() => {
+      const breakdown = [];
+      if (sale.discount_amount > 0) {
+        breakdown.push(`
+              <div style="display:flex; justify-content:space-between; padding:2px 10px; font-size:9.5px; color:#000000; background:#ffffff;">
+                <span style="font-weight:600; color:#000000;">Less : Discount ${sale.discount_type === 'percentage' ? `(${sale.discount_value}%)` : ''}</span>
+                <span style="font-family:monospace; font-weight:700; color:#000000;">-${formatInr(sale.discount_amount)}</span>
               </div>
-            ` : ''}
-          </div>
-        </div>
-
-        <!-- Terms and Conditions -->
-        <div style="padding:5px 8px; font-size:9px; color:#334155; line-height:1.3;">
-          <div style="font-weight:700; text-decoration:underline; margin-bottom:2px;">Terms and Conditions:</div>
-          <div>1. Subject to Surat/Maharashtra Jurisdiction.</div>
-          <div>2. Our Responsibility Ceases as soon as goods leave our Premises.</div>
-          <div>3. Goods once sold will not be taken back.</div>
-          <div>4. Warranty as per manufacturer or shop warranty policy. Physical/liquid damage voids warranty.</div>
-          ${sale?.notes ? `<div style="font-weight:700; color:#0f172a; margin-top:2px;">Note: ${sale.notes}</div>` : ''}
-        </div>
-      </div>
-
-      <!-- Right Column: Financial Breakdown & Signatory -->
-      <div style="width:42%; display:flex; flex-direction:column; justify-content:space-between;">
-        <div style="font-size:10.5px;">
-          <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px;">
-            <span style="font-weight:700;">Taxable Amount</span>
-            <span style="font-family:monospace;">${formatInr(taxableAmount)}</span>
-          </div>
-
-          ${sale.discount_amount > 0 ? `
-            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px; color:#059669; background:#f0fdf4;">
-              <span style="font-weight:700;">Less : Discount</span>
-              <span style="font-family:monospace;">-${formatInr(sale.discount_amount)}</span>
+            `);
+      }
+      if (gstEnabled) {
+        if (isIgst) {
+          breakdown.push(`
+                <div style="display:flex; justify-content:space-between; padding:3px 10px;">
+                  <span style="font-weight:700;">Add : IGST (${sale.gst_rate}%)</span>
+                  <span style="font-family:monospace;">${formatInr(totalTax)}</span>
+                </div>
+              `);
+        } else {
+          breakdown.push(`
+                <div style="display:flex; justify-content:space-between; padding:2px 10px;">
+                  <span style="font-weight:700;">Add : CGST (${(sale.cgst_rate || 9).toFixed(1)}%)</span>
+                  <span style="font-family:monospace;">${formatInr(sale.cgst_amount || totalTax / 2)}</span>
+                </div>
+              `);
+          breakdown.push(`
+                <div style="display:flex; justify-content:space-between; padding:2px 10px;">
+                  <span style="font-weight:700;">Add : SGST (${(sale.sgst_rate || 9).toFixed(1)}%)</span>
+                  <span style="font-family:monospace;">${formatInr(sale.sgst_amount || totalTax / 2)}</span>
+                </div>
+              `);
+        }
+        breakdown.push(`
+              <div style="display:flex; justify-content:space-between; padding:3px 10px; font-weight:700;">
+                <span>Total Tax</span>
+                <span style="font-family:monospace;">${formatInr(totalTax)}</span>
+              </div>
+            `);
+      }
+      breakdown.push(`
+            <div style="display:flex; justify-content:space-between; padding:5px 10px; background:#f8fafc; font-size:11.5px; font-weight:900;">
+              <span>Total Amount After Tax</span>
+              <span style="color:#000000; font-family:monospace;">₹${formatInr(grandTotal)}</span>
             </div>
-          ` : ''}
+          `);
 
-          ${gstEnabled ? (isIgst ? `
-            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px;">
-              <span style="font-weight:700;">Add : IGST (${sale.gst_rate}%)</span>
-              <span style="font-family:monospace;">${formatInr(totalTax)}</span>
-            </div>
-          ` : `
-            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:3px 10px;">
-              <span style="font-weight:700;">Add : CGST (${(sale.cgst_rate || 9).toFixed(1)}%)</span>
-              <span style="font-family:monospace;">${formatInr(sale.cgst_amount || totalTax / 2)}</span>
-            </div>
-            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:3px 10px;">
-              <span style="font-weight:700;">Add : SGST (${(sale.sgst_rate || 9).toFixed(1)}%)</span>
-              <span style="font-family:monospace;">${formatInr(sale.sgst_amount || totalTax / 2)}</span>
-            </div>
-          `) : ''}
+      return `
+            <tr style="border-bottom:1px solid #000000;">
+              <td style="width:58%; border-right:1.5px solid #000000; padding:6px 8px; font-weight:700; text-transform:uppercase; vertical-align:middle; color:#000000;">
+                ${totalInWords}
+              </td>
+              <td style="width:42%; padding:0; vertical-align:middle;">
+                ${breakdown.join('<div style=\"border-bottom:1px solid #000000;\"></div>')}
+              </td>
+            </tr>
+          `;
+    })()}
 
-          ${gstEnabled ? `
-            <div class="border-b-thin" style="display:flex; justify-content:space-between; padding:4px 10px; font-weight:700;">
-              <span>Total Tax</span>
-              <span style="font-family:monospace;">${formatInr(totalTax)}</span>
-            </div>
-          ` : ''}
+        <!-- Row 3: Terms and Conditions Header vs (E & O.E.) Full Width -->
+        <tr style="border-bottom:1px solid #000000;">
+          <td colspan="2" style="width:100%; padding:3px 10px; background:#ffffff;">
+            <table style="width:100%; border-collapse:collapse;">
+              <tr>
+                <td style="text-align:center; font-weight:700; font-size:10px; color:#000000; padding-left:50px;">
+                  Terms and Conditions
+                </td>
+                <td style="width:70px; text-align:right; font-size:9.5px; font-weight:600; font-style:italic; color:#000000;">
+                  (E & O.E.)
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-          <div style="display:flex; justify-content:space-between; padding:6px 10px; background:#f8fafc; font-size:12px; font-weight:900; border-bottom:1.5px solid #1e73be;">
-            <span>Total Amount After Tax</span>
-            <span style="color:#1e73be; font-family:monospace;">₹${formatInr(grandTotal)}</span>
-          </div>
-        </div>
-
-        <!-- Signature Box -->
-        <div style="padding:10px 10px 6px; text-align:right;">
-          <div style="font-size:10px; font-weight:700; color:#334155; margin-bottom:20px;">
-            For ${shopName}
-          </div>
-          <div style="border-top:1px solid #1e73be; padding-top:2px; display:inline-block; min-width:140px; text-align:center;">
-            <div style="font-size:10.5px; font-weight:700;">Authorised Signatory</div>
-          </div>
-        </div>
-      </div>
-    </div>
+        <!-- Row 4: Terms Bullets Full Width (Authorised Signatory removed) -->
+        <tr>
+          <td colspan="2" style="width:100%; padding:6px 10px; font-size:9px; color:#000000; line-height:1.45; vertical-align:top; background:#ffffff;">
+            <div>1. Customers must check the device condition, model, IMEI and accessories before accepting delivery.</div>
+            <div>2. Repair warranty, if applicable, covers only the repaired or replaced parts as mentioned on the invoice.</div>
+            <div>3. Physical damage, liquid damage, misuse and unauthorized repairs are not covered under warranty.</div>
+            <div>4. Customers are advised to back up their data before repair; the shop is not responsible for data loss.</div>
+            <div>5. Returns, replacements and refunds are subject to the applicable shop policy and Indian consumer protection laws.</div>
+            ${sale?.notes ? `<div style="font-weight:700; color:#000000; margin-top:2px;">Note: ${sale.notes}</div>` : ''}
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 
 </body>
@@ -987,8 +1108,8 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 
     return fs.readFileSync(pdfPath);
   } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) {}
-    try { fs.unlinkSync(pdfPath); } catch (e) {}
+    try { fs.unlinkSync(htmlPath); } catch (e) { }
+    try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
 }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   Building2,
@@ -18,16 +19,29 @@ import {
   Share2,
   RefreshCw,
   TrendingUp,
+  Smartphone,
+  ArrowRight,
+  Sparkles,
+  Phone,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
-import { Card, LoadingSpinner, EmptyState, StatsSkeleton, TableSkeleton } from '../../components/common/Card';
+import {
+  Card,
+  LoadingSpinner,
+  EmptyState,
+  StatsSkeleton,
+  TableSkeleton,
+} from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
-import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
+import {
+  formatIndianCurrency,
+  formatInvoiceDate,
+} from '../../utils/billFormatters';
 
 export const VendorDashboard = () => {
   const navigate = useNavigate();
@@ -46,28 +60,49 @@ export const VendorDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [statsRes, txnsRes, mobilesRes, vendorsRes, settingsRes] = await Promise.allSettled([
+      const [
+        statsRes,
+        txnsRes,
+        mobilesRes,
+        vendorsRes,
+        settingsRes,
+      ] = await Promise.allSettled([
         vendorService.getVendorStats(),
         vendorService.getVendorTransactions({ limit: 6 }),
-        vendorService.getVendorMobiles({ status: 'IN_REPAIR', limit: 6 }),
+        vendorService.getVendorMobiles({ limit: 8 }),
         vendorService.getVendors({ limit: 100 }),
         settingsService.getSettings(),
       ]);
 
-      if (statsRes.status === 'fulfilled' && statsRes.value?.data) {
-        setStats(statsRes.value.data);
+      if (statsRes.status === 'fulfilled') {
+        const statsData = statsRes.value?.data || statsRes.value;
+        if (statsData) setStats(statsData);
       }
-      if (txnsRes.status === 'fulfilled' && txnsRes.value?.data) {
-        setRecentTxns(txnsRes.value.data.transactions || []);
+      if (txnsRes.status === 'fulfilled') {
+        const list =
+          txnsRes.value?.data?.transactions ||
+          txnsRes.value?.transactions ||
+          [];
+        setRecentTxns(list);
       }
-      if (mobilesRes.status === 'fulfilled' && mobilesRes.value?.data) {
-        setPendingMobiles(mobilesRes.value.data.mobiles || []);
+      if (mobilesRes.status === 'fulfilled') {
+        const list =
+          mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
+        // Show active / pending first
+        const activeOnly = list.filter(
+          (m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)
+        );
+        setPendingMobiles(activeOnly.length > 0 ? activeOnly : list.slice(0, 5));
       }
-      if (vendorsRes.status === 'fulfilled' && vendorsRes.value?.data) {
-        setVendors(vendorsRes.value.data.vendors || []);
+      if (vendorsRes.status === 'fulfilled') {
+        const list =
+          vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+        setVendors(list);
       }
-      if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-        setShopProfile(settingsRes.value.data.shop);
+      if (settingsRes.status === 'fulfilled') {
+        const shop =
+          settingsRes.value?.data?.shop || settingsRes.value?.shop;
+        if (shop) setShopProfile(shop);
       }
     } catch (err) {
       console.error('Failed to load vendor dashboard:', err);
@@ -86,18 +121,23 @@ export const VendorDashboard = () => {
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center justify-center">
               <Building2 className="w-5 h-5" />
             </div>
-            Vendor Management
-          </h1>
-          <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-            Outsource repairs, track multi-mobile movements, manage vendor ledger accounts, and audit balances
-          </p>
+            <div>
+              <h1 className="text-2xl sm:text-[28px] font-bold text-[var(--spatial-text-title)] tracking-tight">
+                Vendor Management
+              </h1>
+              <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5">
+                Outsource difficult repairs, track phones at outside labs, and
+                manage vendor payments
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions in Header */}
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
@@ -112,10 +152,10 @@ export const VendorDashboard = () => {
             variant="outline"
             size="sm"
             icon={ArrowDownLeft}
-            className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-medium"
+            className="text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10 font-semibold"
             onClick={() => navigate('/vendors/receive')}
           >
-            Receive from Vendor
+            Receive Mobiles
           </Button>
 
           <Button
@@ -135,343 +175,396 @@ export const VendorDashboard = () => {
       {loading ? (
         <div className="space-y-6">
           <StatsSkeleton count={4} />
-          <StatsSkeleton count={4} />
           <TableSkeleton rows={5} columns={6} showHeader={false} />
         </div>
       ) : (
         <div className="spatial-tab-pane space-y-6">
           {/* =================================================================== */}
-          {/* 8 DASHBOARD SUMMARY METRIC CARDS                                   */}
+          {/* 2 LARGE ACTION HERO CARDS (Everyday Non-Technical Workflow)         */}
           {/* =================================================================== */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-            {/* 1. Total Vendors */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Action 1: Send Mobiles Out */}
+            <div
+              onClick={() => navigate('/vendors/send')}
+              className="p-5 rounded-2xl bg-gradient-to-br from-sky-500/10 via-[var(--spatial-bg-card)] to-[var(--spatial-bg-card)] border border-sky-500/30 hover:border-sky-500/60 transition-all cursor-pointer group shadow-sm flex items-start gap-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                <ArrowUpRight className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base sm:text-lg font-bold text-[var(--spatial-text-title)] group-hover:text-sky-400 transition-colors">
+                    Send Mobiles to Outside Lab
+                  </h3>
+                  <span className="text-sky-400 text-xs font-semibold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                    <span>Dispatch</span> &rarr;
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--spatial-text-muted)] mt-1 line-clamp-2">
+                  Hand over phones to outside specialists for CPU reballing,
+                  glass lamination, Face ID, or micro-soldering.
+                </p>
+                <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-sky-400">
+                  <span className="px-2.5 py-1 rounded-xl bg-sky-500/15 border border-sky-500/20">
+                    + Dispatch New Phones
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Action 2: Receive Mobiles Back */}
+            <div
+              onClick={() => navigate('/vendors/receive')}
+              className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-[var(--spatial-bg-card)] to-[var(--spatial-bg-card)] border border-emerald-500/30 hover:border-emerald-500/60 transition-all cursor-pointer group shadow-sm flex items-start gap-4"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                <ArrowDownLeft className="w-6 h-6 stroke-[2.5]" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base sm:text-lg font-bold text-[var(--spatial-text-title)] group-hover:text-emerald-400 transition-colors">
+                    Receive Mobiles Back
+                  </h3>
+                  <span className="text-emerald-400 text-xs font-semibold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
+                    <span>Receive</span> &rarr;
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--spatial-text-muted)] mt-1 line-clamp-2">
+                  Collect repaired devices returned by outside labs, record
+                  vendor repair charges, and update customer job sheets.
+                </p>
+                <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-400">
+                  <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/20">
+                    📥 Receive Handset Back
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* =================================================================== */}
+          {/* 4 CORE KPI METRICS                                                 */}
+          {/* =================================================================== */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* 1. Total Outside Partner Shops */}
             <div
               onClick={() => navigate('/vendors/list')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-500/40 transition-all cursor-pointer group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
-                  Total Vendors
+                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
+                  Registered Vendors
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/15 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Building2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-2">
+              <div className="text-2xl font-bold font-mono text-[var(--spatial-text-title)] mt-2">
                 {stats?.total_vendors || 0}
               </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-                Active service partners & labs
+              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+                Outside repair shops & labs
               </p>
             </div>
 
-            {/* 2. Total Mobiles Sent */}
-            <div
-              onClick={() => navigate('/vendors/transactions?txnType=SEND_TO_VENDOR')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
-                  Mobiles Sent
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/15 flex items-center justify-center">
-                  <ArrowUpRight className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-semibold tracking-tight text-indigo-500 dark:text-indigo-400 tabular-nums mt-2">
-                {stats?.total_mobiles_sent || 0}
-              </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-                Cumulative outsourced handsets
-              </p>
-            </div>
-
-            {/* 3. Total Mobiles Received */}
-            <div
-              onClick={() => navigate('/vendors/transactions?txnType=RECEIVE_FROM_VENDOR')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
-                  Mobiles Received
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
-                  <ArrowDownLeft className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-2">
-                {stats?.total_mobiles_received || 0}
-              </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-                Returned back from vendors
-              </p>
-            </div>
-
-            {/* 4. Mobiles Currently at Vendors (Pending Return) */}
+            {/* 2. Mobiles at Outside Labs Now */}
             <div
               onClick={() => navigate('/vendors/pending')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-amber-500/40 transition-all cursor-pointer group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-amber-500 dark:text-amber-400 uppercase tracking-wider">
-                  At Vendors Now
+                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
+                  Phones at Labs Now
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 dark:text-amber-400 border border-amber-500/15 flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Smartphone className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-semibold tracking-tight text-amber-500 dark:text-amber-400 tabular-nums mt-2">
+              <div className="text-2xl font-bold font-mono text-amber-400 mt-2">
                 {stats?.mobiles_currently_at_vendors || 0}
               </div>
-              <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 mt-1 font-normal">
-                Handsets pending return to shop
+              <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1 font-medium">
+                <span>View pending repairs</span>
+                <ArrowRight className="w-3 h-3" />
               </p>
             </div>
 
-            {/* 5. Pending Repair Mobiles */}
-            <div
-              onClick={() => navigate('/vendors/pending?status=IN_REPAIR')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
-                  In Repair
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/15 flex items-center justify-center">
-                  <RefreshCw className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-semibold tracking-tight text-[var(--spatial-text-title)] tabular-nums mt-2">
-                {stats?.pending_repair_mobiles || 0}
-              </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-                Under active diagnosis or parts
-              </p>
-            </div>
-
-            {/* 6. Ready for Collection */}
-            <div
-              onClick={() => navigate('/vendors/pending?status=READY_FOR_RETURN')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">
-                  Ready for Return
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/15 flex items-center justify-center">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-semibold tracking-tight text-teal-600 dark:text-teal-400 tabular-nums mt-2">
-                {stats?.ready_for_collection || 0}
-              </div>
-              <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1 font-normal">
-                Finished repair, pickup pending
-              </p>
-            </div>
-
-            {/* 7. Total Vendor Payable */}
+            {/* 3. Total We Owe (Payable) */}
             <div
               onClick={() => navigate('/vendors/ledger')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-rose-500/40 transition-all cursor-pointer group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-rose-500 dark:text-rose-400 uppercase tracking-wider">
-                  Total Payable
+                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
+                  Total We Owe (Payable)
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-500 dark:text-rose-400 border border-rose-500/15 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform">
                   <IndianRupee className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-semibold tracking-tight text-rose-500 dark:text-rose-400 tabular-nums mt-2 truncate">
-                {formatIndianCurrency(stats?.total_vendor_payable || 0, true)}
+              <div className="text-2xl font-bold font-mono text-rose-400 mt-2">
+                {formatIndianCurrency(stats?.total_payable || 0, true)}
               </div>
-              <p className="text-[10px] text-rose-500/80 dark:text-rose-400/80 mt-1 font-normal">
-                We owe vendors for completed jobs
+              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+                Dues to outside vendors
               </p>
             </div>
 
-            {/* 8. Total Vendor Receivable */}
+            {/* 4. Completed Returns */}
             <div
-              onClick={() => navigate('/vendors/ledger')}
-              className="spatial-card spatial-card-hover p-4 rounded-2xl transition-all cursor-pointer group shadow-sm active:scale-[0.98]"
+              onClick={() =>
+                navigate(
+                  '/vendors/transactions?txnType=RECEIVE_FROM_VENDOR'
+                )
+              }
+              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-emerald-500/40 transition-all cursor-pointer group shadow-xs"
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
-                  Total Receivable
+                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
+                  Phones Returned
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
-                  <TrendingUp className="w-4 h-4" />
+                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-xl sm:text-2xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-2 truncate">
-                {formatIndianCurrency(stats?.total_vendor_receivable || 0, true)}
+              <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
+                {stats?.total_mobiles_received || 0}
               </div>
-              <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80 mt-1 font-normal">
-                Vendors owe us for B2B repairs
+              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+                Repaired phones collected
               </p>
             </div>
           </div>
 
           {/* =================================================================== */}
-          {/* TWO-COLUMN OPERATIONAL SUMMARY: ACTIVE REPAIRS & RECENT BATCHES     */}
+          {/* LIVE TRACKER: PHONES CURRENTLY AT OUTSIDE LABS                     */}
           {/* =================================================================== */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Column A: Mobiles Currently at Vendor Labs */}
-            <Card
-              title="Active Mobiles at Vendor Labs"
-              subtitle="Handsets dispatched for specialized repair"
-              action={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/vendors/pending')}
-                >
-                  View All ({stats?.mobiles_currently_at_vendors || 0})
-                </Button>
-              }
-              bodyClassName="p-0"
-            >
-              {pendingMobiles.length === 0 ? (
-                <EmptyState
-                  icon={CheckCircle2}
-                  title="No mobiles at vendor labs"
-                  description="All dispatched handsets have been returned or settled."
-                  actionLabel="Send Mobiles to Vendor"
-                  onAction={() => navigate('/vendors/send')}
-                />
-              ) : (
-                <div className="divide-y divide-[var(--spatial-border)]">
-                  {pendingMobiles.map((mob) => (
-                    <div
-                      key={mob.id}
-                      onClick={() => navigate(`/vendors/pending?search=${mob.imei || mob.model}`)}
-                      className="p-3.5 hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-xs text-[var(--spatial-text-title)]">
-                            {mob.brand} {mob.model}
-                          </span>
-                          {mob.imei && (
-                            <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-sky-300 border border-sky-500/20">
-                              IMEI: {mob.imei}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-[var(--spatial-text-muted)] truncate mt-0.5">
-                          Problem: {mob.repair_problem}
-                        </p>
-                        <div className="flex items-center gap-2 text-[10px] text-[var(--spatial-text-muted)] mt-1">
-                          <span className="font-semibold text-sky-400">
-                            {mob.vendor?.name} ({mob.vendor?.shop_name || 'Lab'})
-                          </span>
-                          <span>•</span>
-                          <span>Sent: {formatInvoiceDate(mob.sent_date || mob.created_at)}</span>
-                        </div>
-                      </div>
+          <Card
+            title={`Phones Currently at Outside Labs (${pendingMobiles.length})`}
+            subtitle="Track handset models, reported faults, days out, and current repair status"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/vendors/pending')}
+              >
+                View All Pending ({stats?.mobiles_currently_at_vendors || 0})
+              </Button>
+            }
+            bodyClassName="p-0"
+          >
+            {pendingMobiles.length === 0 ? (
+              <EmptyState
+                icon={Smartphone}
+                title="No phones currently out for repair"
+                description="When you outsource a mobile to an outside shop, it will appear here in real-time."
+                actionLabel="Send Mobiles to Vendor"
+                onAction={() => navigate('/vendors/send')}
+              />
+            ) : (
+              <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                <table className="w-full text-left text-xs min-w-[900px]">
+                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-bold text-[11px] whitespace-nowrap">
+                    <tr>
+                      <th className="py-3.5 px-4">Handset Model</th>
+                      <th className="py-3.5 px-4">Outside Lab / Vendor</th>
+                      <th className="py-3.5 px-4">Reported Problem</th>
+                      <th className="py-3.5 px-4 text-center">Dispatch Date</th>
+                      <th className="py-3.5 px-4 text-center">Status</th>
+                      <th className="py-3.5 px-4 text-right">Estimated Cost</th>
+                      <th className="py-3.5 px-4 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--spatial-border)]">
+                    {pendingMobiles.map((mob) => {
+                      const isAtLab = !['RETURNED', 'CANCELLED'].includes(
+                        mob.current_status
+                      );
+                      return (
+                        <tr
+                          key={mob.id}
+                          onClick={() =>
+                            navigate(
+                              `/vendors/pending?search=${
+                                mob.imei || mob.model
+                              }`
+                            )
+                          }
+                          className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                        >
+                          <td className="py-3.5 px-4">
+                            <div className="font-bold text-sm text-[var(--spatial-text-title)]">
+                              {mob.brand} {mob.model}
+                            </div>
+                            {mob.imei && (
+                              <div className="font-mono text-xs text-[var(--spatial-text-muted)] mt-0.5">
+                                IMEI: {mob.imei}
+                              </div>
+                            )}
+                          </td>
 
-                      <div className="text-right shrink-0">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
-                          {mob.current_status}
-                        </span>
-                        <div className="font-mono text-xs font-semibold text-[var(--spatial-text-title)] mt-1">
-                          Est: {formatIndianCurrency(mob.estimated_cost || 0, true)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+                          <td className="py-3.5 px-4 font-semibold text-[var(--spatial-text-title)]">
+                            {mob.vendor_shop_name ||
+                              mob.vendor_name ||
+                              'Outside Lab'}
+                          </td>
 
-            {/* Column B: Recent Send & Receive Transactions */}
-            <Card
-              title="Recent Vendor Transactions"
-              subtitle="Latest multi-mobile dispatch and receive batches"
-              action={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate('/vendors/transactions')}
-                >
-                  View All Ledger
-                </Button>
-              }
-              bodyClassName="p-0"
-            >
-              {recentTxns.length === 0 ? (
-                <EmptyState
-                  icon={ArrowUpRight}
-                  title="No transactions yet"
-                  description="Start by dispatching your first handset batch to a vendor."
-                  actionLabel="Send Mobiles to Vendor"
-                  onAction={() => navigate('/vendors/send')}
-                />
-              ) : (
-                <div className="divide-y divide-[var(--spatial-border)]">
-                  {recentTxns.map((txn) => {
-                    const isOutward = txn.txn_type === 'SEND_TO_VENDOR' || txn.txn_type === 'VENDOR_JOB_RETURN';
-                    return (
-                      <div
-                        key={txn.id}
-                        onClick={() => setSelectedTxnForPrint(txn)}
-                        className="p-3.5 hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-sky-400">
-                              #{txn.txn_number}
-                            </span>
+                          <td
+                            className="py-3.5 px-4 max-w-xs text-[var(--spatial-text-body)] truncate"
+                            title={mob.repair_problem}
+                          >
+                            {mob.repair_problem || 'Motherboard Repair'}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap text-[var(--spatial-text-muted)] font-mono text-xs">
+                            {formatInvoiceDate(mob.sent_date || mob.created_at)}
+                          </td>
+
+                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
                             <span
-                              className={`px-1.5 py-0.2 rounded text-[9.5px] font-bold uppercase ${
+                              className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase ${
+                                isAtLab
+                                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                              }`}
+                            >
+                              {mob.current_status?.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+
+                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
+                            {formatIndianCurrency(mob.estimated_cost || 0, true)}
+                          </td>
+
+                          <td
+                            className="py-3.5 px-4 text-center whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(
+                                  `/vendors/receive?vendorId=${mob.vendor_id}`
+                                )
+                              }
+                              className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 transition-all cursor-pointer"
+                              title="Receive this phone back"
+                            >
+                              Receive Back
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+
+          {/* =================================================================== */}
+          {/* RECENT DISPATCHES & CHALLANS                                        */}
+          {/* =================================================================== */}
+          <Card
+            title="Recent Challans & Dispatches"
+            subtitle="Delivery slips and receipts generated for outside vendors"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/vendors/transactions')}
+              >
+                View All Challans
+              </Button>
+            }
+            bodyClassName="p-0"
+          >
+            {recentTxns.length === 0 ? (
+              <EmptyState
+                icon={ArrowUpRight}
+                title="No recent transactions"
+                description="Challan receipts will appear here when phones are dispatched."
+                actionLabel="Send Mobiles to Vendor"
+                onAction={() => navigate('/vendors/send')}
+              />
+            ) : (
+              <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                <table className="w-full text-left text-xs min-w-[850px]">
+                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-bold text-[11px] whitespace-nowrap">
+                    <tr>
+                      <th className="py-3.5 px-4">Challan #</th>
+                      <th className="py-3.5 px-4">Date</th>
+                      <th className="py-3.5 px-4">Vendor / Shop</th>
+                      <th className="py-3.5 px-4 text-center">Type</th>
+                      <th className="py-3.5 px-4 text-center">Phones</th>
+                      <th className="py-3.5 px-4 text-right">Amount</th>
+                      <th className="py-3.5 px-4 text-center">Print</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--spatial-border)]">
+                    {recentTxns.map((txn) => {
+                      const isOutward =
+                        txn.txn_type === 'SEND_TO_VENDOR' ||
+                        txn.txn_type === 'VENDOR_JOB_RETURN';
+                      return (
+                        <tr
+                          key={txn.id}
+                          onClick={() => setSelectedTxnForPrint(txn)}
+                          className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                        >
+                          <td className="py-3 px-4 font-mono font-bold text-sky-400 whitespace-nowrap">
+                            #{txn.txn_number}
+                          </td>
+                          <td className="py-3 px-4 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono text-xs">
+                            {formatInvoiceDate(txn.txn_date || txn.created_at)}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-[var(--spatial-text-title)] whitespace-nowrap">
+                            {txn.vendor_shop_name ||
+                              txn.vendor_name ||
+                              'Outside Lab'}
+                          </td>
+                          <td className="py-3 px-4 text-center whitespace-nowrap">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                                 isOutward
                                   ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
                                   : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                               }`}
                             >
-                              {txn.txn_type.replace(/_/g, ' ')}
+                              {txn.txn_type?.replace(/_/g, ' ')}
                             </span>
-                          </div>
-                          <div className="text-[11px] text-[var(--spatial-text-title)] font-medium mt-0.5">
-                            {txn.vendor?.name} ({txn.vendor?.shop_name || 'Vendor'})
-                          </div>
-                          <div className="text-[10px] text-[var(--spatial-text-muted)] flex items-center gap-2 mt-0.5">
-                            <span>{formatInvoiceDate(txn.txn_date || txn.created_at)}</span>
-                            <span>•</span>
-                            <span>{txn.total_mobiles || txn.mobiles?.length || 0} Mobile(s)</span>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <div className="font-mono text-xs font-bold text-[var(--spatial-text-title)]">
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
+                            {txn.total_mobiles || txn.mobiles?.length || 0}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
                             {formatIndianCurrency(txn.total_cost || 0, true)}
-                          </div>
-                          <div className="flex items-center justify-end gap-1 mt-1">
+                          </td>
+                          <td
+                            className="py-3 px-4 text-center whitespace-nowrap"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedTxnForPrint(txn);
-                              }}
-                              className="p-1 text-slate-400 hover:text-sky-400 transition-colors"
+                              onClick={() => setSelectedTxnForPrint(txn)}
+                              className="p-1.5 rounded-lg text-sky-400 hover:bg-sky-500/10 transition-colors cursor-pointer"
                               title="Print Receipt"
                             >
-                              <Printer className="w-3.5 h-3.5" />
+                              <Printer className="w-4 h-4" />
                             </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </Card>
-          </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
         </div>
       )}
 
-      {/* Record Payment Voucher Modal */}
+      {/* Payment Modal */}
       <VendorPaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
@@ -479,18 +572,21 @@ export const VendorDashboard = () => {
         onPaymentRecorded={() => fetchDashboardData()}
       />
 
-      {/* Print / View Receipt Modal */}
-      {selectedTxnForPrint && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8">
+      {/* Print Receipt Modal */}
+      {selectedTxnForPrint && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative max-w-4xl w-full my-auto mx-auto">
             <VendorReceiptPrintable
               transaction={selectedTxnForPrint}
               shop={shopProfile}
               onClose={() => setSelectedTxnForPrint(null)}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
 };
+
+export default VendorDashboard;

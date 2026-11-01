@@ -1,5 +1,14 @@
 // Mobotech mobile care Server - Supabase Connected
 import express from 'express';
+
+// Prevent transient background socket/network errors (e.g. Baileys WS, SMTP, DNS) from crashing the HTTP server
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ [Uncaught Exception] Server kept alive:', err?.message || err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('⚠️ [Unhandled Rejection] Server kept alive:', reason?.message || reason);
+});
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -25,6 +34,7 @@ import backupRoutes from './routes/backupRoutes.js';
 import salesRoutes from './routes/salesRoutes.js';
 import vendorRoutes from './routes/vendorRoutes.js';
 import deviceBridgeRoutes from './routes/deviceBridgeRoutes.js';
+import recycleBinRoutes from './routes/recycleBinRoutes.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -118,6 +128,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/backups', backupRoutes);
 app.use('/api/device-bridge', deviceBridgeRoutes);
+app.use('/api/recycle-bin', recycleBinRoutes);
 
 // Catch-all for undefined routes
 app.all('*', (req, res, next) => {

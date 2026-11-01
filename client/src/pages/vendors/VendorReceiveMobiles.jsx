@@ -1,70 +1,105 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
+  Smartphone,
   Plus,
   Trash2,
-  Printer,
-  Share2,
-  Calendar,
   Building2,
-  Smartphone,
-  ShieldCheck,
-  CreditCard,
-  IndianRupee,
   Save,
-  CheckCircle2,
-  AlertCircle,
   ArrowLeft,
-  CheckSquare,
-  Square,
+  Calendar,
+  Search,
+  X,
+  Eye,
+  Phone,
+  Receipt,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner, EmptyState, FormSkeleton, TableSkeleton } from '../../components/common/Card';
+import { Card, FormSkeleton, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
-import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
+import { VendorModal } from '../../components/vendors/VendorModal';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
 import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
+import { useDebounce } from '../../hooks/useDebounce';
+import { SpatialDrawer } from '../../components/common/SpatialDrawer';
+
+const STATUS_META = {
+  PENDING: {
+    label: 'Pending / In Queue',
+    bg: 'bg-amber-500/10',
+    text: 'text-amber-400',
+    border: 'border-amber-500/20',
+  },
+  IN_REPAIR: {
+    label: 'In Repair',
+    bg: 'bg-blue-500/10',
+    text: 'text-blue-400',
+    border: 'border-blue-500/20',
+  },
+  WAITING_PARTS: {
+    label: 'Waiting Parts',
+    bg: 'bg-purple-500/10',
+    text: 'text-purple-400',
+    border: 'border-purple-500/20',
+  },
+  REPAIR_COMPLETED: {
+    label: 'Repair Completed',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-400',
+    border: 'border-emerald-500/20',
+  },
+  READY_FOR_RETURN: {
+    label: 'Ready for Collection',
+    bg: 'bg-teal-500/10',
+    text: 'text-teal-400',
+    border: 'border-teal-500/20',
+  },
+  RETURNED: {
+    label: 'Returned to Shop',
+    bg: 'bg-slate-500/10',
+    text: 'text-slate-400',
+    border: 'border-slate-500/20',
+  },
+  NOT_REPAIRABLE: {
+    label: 'Not Repairable',
+    bg: 'bg-rose-500/10',
+    text: 'text-rose-400',
+    border: 'border-rose-500/20',
+  },
+  CANCELLED: {
+    label: 'Cancelled',
+    bg: 'bg-slate-500/10',
+    text: 'text-slate-400',
+    border: 'border-slate-500/20',
+  },
+};
 
 export const VendorReceiveMobiles = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedVendorId = searchParams.get('vendorId') || '';
 
-  const [activeWorkflow, setActiveWorkflow] = useState('WORKFLOW_A'); // 'WORKFLOW_A' (Return from Vendor) or 'WORKFLOW_B' (Vendor Job Inward)
-
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
-  // Common Meta
+  // Vendor & Inward Meta for Drawer Form
   const [vendors, setVendors] = useState([]);
   const [vendorId, setVendorId] = useState(preselectedVendorId);
-  const [receiveDate, setReceiveDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [txnDate, setTxnDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [shopProfile, setShopProfile] = useState(null);
 
-  // -------------------------------------------------------------
-  // WORKFLOW A STATE: Receive Previously Sent Mobiles
-  // -------------------------------------------------------------
-  const [pendingMobiles, setPendingMobiles] = useState([]);
-  const [loadingPending, setLoadingPending] = useState(false);
-  const [selectedMobileIds, setSelectedMobileIds] = useState([]);
-  // Map of mobileId -> { actual_cost, repair_result, warranty, remarks }
-  const [receiveItemsData, setReceiveItemsData] = useState({});
-
-  // Payment Settlement on Receive (Workflow A)
-  const [paidAmount, setPaidAmount] = useState('');
-  const [paymentMode, setPaymentMode] = useState('UPI');
-  const [paymentRef, setPaymentRef] = useState('');
-
-  // -------------------------------------------------------------
-  // WORKFLOW B STATE: Receive New Mobiles from Vendor (B2B Job)
-  // -------------------------------------------------------------
+  // Mobile Handsets from other repair shop for Drawer Form
+  // Exactly 6 fields: Brand, Model, IMEI / Serial Number, Customer Name (Optional), Fault / Repair Problem, Physical Condition
   const [b2bMobiles, setB2bMobiles] = useState([
     {
       id: 'b2b-1',
@@ -73,35 +108,57 @@ export const VendorReceiveMobiles = () => {
       imei: '',
       customer_name: '',
       repair_problem: '',
-      condition: 'Normal',
-      accessories: 'Device Only',
-      expected_return_date: '',
-      estimated_cost: '',
+      condition: 'Normal Wear',
     },
   ]);
 
   // Saved result modal for print / WhatsApp
   const [savedResult, setSavedResult] = useState(null);
+  const [paidAmount, setPaidAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState('CASH');
 
-  // Initial load
+  // -------------------------------------------------------------
+  // TABLE STATE: Received Mobiles (B2B Inward)
+  // -------------------------------------------------------------
+  const [receivedMobiles, setReceivedMobiles] = useState([]);
+  const [totalReceived, setTotalReceived] = useState(0);
+  const [receivedLoading, setReceivedLoading] = useState(false);
+  const [selectedMobileIds, setSelectedMobileIds] = useState([]);
+
+  // Table Filters
+  const [search, setSearch] = useState('');
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState('ALL');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+
+  const debouncedSearch = useDebounce(search, 400);
+
+  // Initial load: vendors and shop profile
   useEffect(() => {
     const init = async () => {
       try {
         setLoadingInit(true);
         const [vendorsRes, settingsRes] = await Promise.allSettled([
-          vendorService.getVendors({ limit: 100, status: 'ACTIVE' }),
+          vendorService.getVendors({ limit: 150, status: 'ACTIVE' }),
           settingsService.getSettings(),
         ]);
 
-        if (vendorsRes.status === 'fulfilled' && vendorsRes.value?.data?.vendors) {
-          const list = vendorsRes.value.data.vendors;
-          setVendors(list);
-          if (!vendorId && list.length > 0) {
-            setVendorId(list[0].id);
+        if (vendorsRes.status === 'fulfilled') {
+          const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+          if (list.length > 0) {
+            setVendors(list);
+            if (!vendorId) {
+              setVendorId(list[0].id);
+            }
           }
         }
-        if (settingsRes.status === 'fulfilled' && settingsRes.value?.data?.shop) {
-          setShopProfile(settingsRes.value.data.shop);
+        if (settingsRes.status === 'fulfilled') {
+          const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
+          if (shop) setShopProfile(shop);
         }
       } catch (err) {
         console.error('Failed to init receive page:', err);
@@ -113,79 +170,160 @@ export const VendorReceiveMobiles = () => {
     init();
   }, []);
 
-  // Fetch pending mobiles whenever vendorId changes (for Workflow A)
-  useEffect(() => {
-    if (!vendorId) {
-      setPendingMobiles([]);
-      setSelectedMobileIds([]);
-      return;
-    }
-
-    const fetchPending = async () => {
-      try {
-        setLoadingPending(true);
-        const res = await vendorService.getPendingMobilesWithVendor(vendorId);
-        const list = res?.data?.mobiles || [];
-        setPendingMobiles(list);
-
-        // Prepopulate default receive data for each pending mobile
-        const initialData = {};
-        list.forEach((m) => {
-          initialData[m.id] = {
-            actual_cost: String(m.estimated_cost || 0),
-            repair_result: 'REPAIRED',
-            warranty: '30 Days Warranty',
-            remarks: '',
-          };
-        });
-        setReceiveItemsData(initialData);
-        setSelectedMobileIds([]);
-      } catch (err) {
-        console.error('Failed to fetch pending mobiles:', err);
-      } finally {
-        setLoadingPending(false);
+  // Fetch received mobiles with filters and pagination
+  const fetchReceivedMobiles = useCallback(async () => {
+    try {
+      setReceivedLoading(true);
+      const params = {
+        flowType: 'VENDOR_JOB_INWARD',
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+        sortBy: 'created_at',
+        sortDir: 'desc',
+      };
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (selectedVendorFilter && selectedVendorFilter !== 'ALL') {
+        params.vendorId = selectedVendorFilter;
       }
-    };
+      if (selectedStatusFilter && selectedStatusFilter !== 'ALL') {
+        params.status = selectedStatusFilter;
+      }
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
 
-    fetchPending();
-  }, [vendorId]);
+      const res = await vendorService.getVendorMobiles(params);
+      const list = res?.data?.mobiles || res?.mobiles || [];
+      const totalCount =
+        res?.data?.total !== undefined
+          ? res.data.total
+          : res?.total !== undefined
+            ? res.total
+            : list.length;
+
+      setReceivedMobiles(list);
+      setTotalReceived(totalCount);
+    } catch (err) {
+      console.error('Failed to load received mobiles:', err);
+      toast.error('Failed to load received mobiles');
+    } finally {
+      setReceivedLoading(false);
+    }
+  }, [
+    debouncedSearch,
+    selectedVendorFilter,
+    selectedStatusFilter,
+    startDate,
+    endDate,
+    page,
+    pageSize,
+  ]);
+
+  // Refetch table data when filters, pagination, or debounced search change
+  useEffect(() => {
+    setSelectedMobileIds([]);
+    fetchReceivedMobiles();
+  }, [fetchReceivedMobiles]);
 
   const activeVendor = vendors.find((v) => v.id === vendorId);
 
   // -------------------------------------------------------------
-  // Workflow A Selection & Update Handlers
+  // Checkbox & Row Selection
   // -------------------------------------------------------------
+  const isAllSelected =
+    receivedMobiles.length > 0 && selectedMobileIds.length === receivedMobiles.length;
+
   const toggleSelectMobile = (id) => {
     setSelectedMobileIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
-  const toggleSelectAllPending = () => {
-    if (selectedMobileIds.length === pendingMobiles.length) {
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
       setSelectedMobileIds([]);
     } else {
-      setSelectedMobileIds(pendingMobiles.map((m) => m.id));
+      setSelectedMobileIds(receivedMobiles.map((m) => m.id));
     }
   };
 
-  const handleUpdateReceiveItem = (mobileId, field, val) => {
-    setReceiveItemsData((prev) => ({
-      ...prev,
-      [mobileId]: {
-        ...(prev[mobileId] || {}),
-        [field]: val,
-      },
-    }));
+  // -------------------------------------------------------------
+  // Delete Actions
+  // -------------------------------------------------------------
+  const handleDeleteSelected = async () => {
+    if (selectedMobileIds.length === 0) return;
+    const count = selectedMobileIds.length;
+    const isAll = count === receivedMobiles.length;
+    const confirmMessage = isAll
+      ? `Delete ALL ${count} selected inward handset record(s)? This action cannot be undone.`
+      : `Delete ${count} selected inward handset record(s)? This action cannot be undone.`;
+
+    if (!window.confirm(confirmMessage)) return;
+
+    try {
+      setReceivedLoading(true);
+      const res = await vendorService.deleteVendorMobiles(selectedMobileIds);
+      toast.success(res?.message || `${count} inward mobile record(s) deleted.`);
+      setSelectedMobileIds([]);
+      if (receivedMobiles.length === count && page > 1) {
+        setPage((curr) => curr - 1);
+      }
+      await fetchReceivedMobiles();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || err.message || 'Failed to delete handsets'
+      );
+    } finally {
+      setReceivedLoading(false);
+    }
   };
 
-  const totalWorkflowAActualCost = selectedMobileIds.reduce((sum, id) => {
-    const item = receiveItemsData[id] || {};
-    return sum + (parseFloat(item.actual_cost) || 0);
-  }, 0);
+  const handleDeleteSingle = async (mob, e) => {
+    e?.stopPropagation();
+    if (
+      !window.confirm(
+        `Delete inward handset "${mob.brand} ${mob.model}" (IMEI: ${mob.imei || 'N/A'})? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setReceivedLoading(true);
+      const res = await vendorService.deleteVendorMobiles([mob.id]);
+      toast.success(res?.message || 'Handset record deleted.');
+      setSelectedMobileIds((prev) => prev.filter((id) => id !== mob.id));
+      await fetchReceivedMobiles();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || err.message || 'Failed to delete handset'
+      );
+    } finally {
+      setReceivedLoading(false);
+    }
+  };
+
+  const handleViewReceipt = async (mob, e) => {
+    e?.stopPropagation();
+    const txnId = mob.send_txn_id || mob.return_txn_id;
+    if (!txnId) {
+      toast.error('No receipt record linked to this mobile.');
+      return;
+    }
+    try {
+      const res = await vendorService.getTransactionById(txnId);
+      const txn = res?.data?.transaction || res?.data || res?.transaction;
+      if (txn) {
+        setSavedResult(txn);
+      } else {
+        toast.error('Receipt details not found');
+      }
+    } catch (err) {
+      toast.error('Failed to load receipt details');
+    }
+  };
 
   // -------------------------------------------------------------
-  // Workflow B Dynamic Row Handlers
+  // Handset Row Management for Intake Drawer Form
   // -------------------------------------------------------------
   const handleAddB2bRow = () => {
     setB2bMobiles((prev) => [
@@ -197,10 +335,7 @@ export const VendorReceiveMobiles = () => {
         imei: '',
         customer_name: '',
         repair_problem: '',
-        condition: 'Normal',
-        accessories: 'Device Only',
-        expected_return_date: '',
-        estimated_cost: '',
+        condition: 'Normal Wear',
       },
     ]);
   };
@@ -215,69 +350,21 @@ export const VendorReceiveMobiles = () => {
 
   const handleRemoveB2bRow = (index) => {
     if (b2bMobiles.length <= 1) {
-      toast.error('At least one mobile row required.');
+      toast.error('At least one mobile handset is required.');
       return;
     }
     setB2bMobiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // -------------------------------------------------------------
-  // Submit Handlers
-  // -------------------------------------------------------------
-  const handleSubmitWorkflowA = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!vendorId) {
-      toast.error('Please select a vendor.');
-      return;
-    }
-    if (selectedMobileIds.length === 0) {
-      toast.error('Please select at least one mobile to receive from this vendor.');
-      return;
-    }
-
-    const payloadItems = selectedMobileIds.map((id) => {
-      const item = receiveItemsData[id] || {};
-      return {
-        mobile_id: id,
-        actual_cost: parseFloat(item.actual_cost) || 0,
-        repair_result: item.repair_result || 'REPAIRED',
-        warranty: item.warranty || '',
-        remarks: item.remarks || '',
-      };
-    });
-
-    try {
-      setSubmitting(true);
-      const res = await vendorService.receiveMobilesFromVendor({
-        vendor_id: vendorId,
-        txn_date: receiveDate,
-        received_items: payloadItems,
-        paid_amount: parseFloat(paidAmount) || 0,
-        payment_mode: paidAmount > 0 ? paymentMode : 'NONE',
-        payment_ref: paymentRef,
-        notes,
-      });
-
-      if (res.success) {
-        toast.success(`Received ${payloadItems.length} handset(s) under Inward Return #${res.data.txn_number}`);
-        setSavedResult(res.data);
-      }
-    } catch (err) {
-      toast.error(err.message || 'Failed to receive mobiles');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleSubmitWorkflowB = async (e) => {
-    e.preventDefault();
-    if (!vendorId) {
-      toast.error('Please select a vendor.');
+      toast.error('Please select the origin repair shop / vendor.');
       return;
     }
 
     const validMobiles = b2bMobiles.filter(
-      (m) => m.model.trim() || m.repair_problem.trim() || m.imei.trim()
+      (m) => m.brand.trim() || m.model.trim() || m.repair_problem.trim() || m.imei.trim()
     );
 
     if (validMobiles.length === 0) {
@@ -285,21 +372,48 @@ export const VendorReceiveMobiles = () => {
       return;
     }
 
+    // Validate required fields
+    for (let i = 0; i < validMobiles.length; i++) {
+      const m = validMobiles[i];
+      if (!m.brand.trim() || !m.model.trim()) {
+        toast.error(`Mobile #${i + 1}: Brand and Model are required.`);
+        return;
+      }
+      if (!m.repair_problem.trim()) {
+        toast.error(`Mobile #${i + 1}: Fault / Repair Problem is required.`);
+        return;
+      }
+    }
+
     try {
       setSubmitting(true);
       const res = await vendorService.recordVendorJobInward({
         vendor_id: vendorId,
-        txn_date: receiveDate,
-        notes,
-        mobiles: validMobiles,
+        txn_date: txnDate,
+        notes: paidAmount > 0
+          ? `${notes}${notes ? '\n' : ''}Advance received: ₹${paidAmount} via ${paymentMode}.`
+          : notes,
+        mobiles: validMobiles.map((m) => ({
+          brand: m.brand.trim(),
+          model: m.model.trim(),
+          imei: m.imei.trim(),
+          customer_name: m.customer_name.trim(),
+          repair_problem: m.repair_problem.trim(),
+          condition: m.condition.trim() || 'Normal Wear',
+          accessories: 'Device Only',
+          estimated_cost: 0,
+        })),
       });
 
       if (res.success) {
-        toast.success(`Logged ${validMobiles.length} client device(s) under Job Inward #${res.data.txn_number}`);
+        toast.success(`Logged ${validMobiles.length} handset(s) from other shop under #${res.data.txn_number}`);
         setSavedResult(res.data);
+        setIsDrawerOpen(false);
+        setPaidAmount('');
+        await fetchReceivedMobiles();
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to log inward vendor jobs');
+      toast.error(err.message || 'Failed to log inward client repairs from other shop');
     } finally {
       setSubmitting(false);
     }
@@ -325,95 +439,415 @@ export const VendorReceiveMobiles = () => {
           <div>
             <h1 className="text-2xl sm:text-[28px] font-semibold text-[var(--spatial-text-title)] tracking-tight flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
-                <ArrowDownLeft className="w-4 h-4" />
+                <Smartphone className="w-4 h-4" />
               </div>
-              Receive Mobiles from Vendor (Inward Intake)
+              Receive Mobiles From Other Shops
             </h1>
             <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
-              Process partial/full returns of previously dispatched handsets, or accept new client repairs from vendor
+              Record handsets that other mobile repair shops could not fix and sent to our shop for repair
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={() => setIsDrawerOpen(true)}
+          >
+            Receive Mobile
+          </Button>
         </div>
       </div>
 
       {/* Navigation Sub-Tabs */}
       <VendorNavTabs activeTab="/vendors/receive" />
 
-      {/* Workflow Selector Cards (Workflow A vs Workflow B) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <button
-          type="button"
-          onClick={() => setActiveWorkflow('WORKFLOW_A')}
-          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer select-none active:scale-[0.99] ${
-            activeWorkflow === 'WORKFLOW_A'
-              ? 'bg-blue-500/[0.08] border-[#0071e3] ring-1 ring-[#0071e3]/30 shadow-xs'
-              : 'spatial-card spatial-card-hover'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
-              <ArrowDownLeft className="w-4 h-4 text-[#0071e3] dark:text-[#0a84ff]" />
-              Workflow A: Receive Previously Sent Mobiles
-            </span>
-            {activeWorkflow === 'WORKFLOW_A' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#0071e3] text-white">
-                ACTIVE
-              </span>
+      {/* Filter & Search Bar */}
+      <div className="spatial-card p-4 rounded-2xl space-y-3 relative z-20">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {/* Search Input */}
+          <div className="relative">
+            <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search Brand, Model, IMEI, Customer, Origin..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              className="w-full h-11 pl-10 pr-9 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 transition-all shadow-xs"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('');
+                  setPage(1);
+                }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md cursor-pointer"
+                title="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             )}
           </div>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-2 leading-relaxed font-normal">
-            We sent mobiles to vendor for specialized repair. Receive them back (supports partial returns!), record actual charges, warranty, and update vendor ledger.
-          </p>
-        </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveWorkflow('WORKFLOW_B')}
-          className={`p-4 sm:p-5 rounded-2xl border text-left transition-all cursor-pointer select-none active:scale-[0.99] ${
-            activeWorkflow === 'WORKFLOW_B'
-              ? 'bg-emerald-500/[0.08] border-emerald-500 ring-1 ring-emerald-500/30 shadow-xs'
-              : 'spatial-card spatial-card-hover'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-semibold text-sm text-[var(--spatial-text-title)] flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              Workflow B: Receive New Mobiles from Vendor (B2B Repair)
-            </span>
-            {activeWorkflow === 'WORKFLOW_B' && (
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-600 text-white">
-                ACTIVE
-              </span>
-            )}
+          {/* Origin Shop / Vendor Filter */}
+          <div>
+            <SpatialSelect
+              value={selectedVendorFilter}
+              onChange={(val) => {
+                setSelectedVendorFilter(val);
+                setPage(1);
+              }}
+              options={[
+                { value: 'ALL', label: 'All Origin Repair Shops' },
+                ...vendors.map((v) => ({
+                  value: v.id,
+                  label: `${v.name} (${v.shop_name || 'Repair Shop'})`,
+                  badge: v.vendor_code,
+                })),
+              ]}
+              searchable
+            />
           </div>
-          <p className="text-xs text-[var(--spatial-text-muted)] mt-2 leading-relaxed font-normal">
-            Vendor brings retail handsets to OUR shop for repair. Track them as B2B repair jobs at our shop, and return back to vendor when completed.
-          </p>
-        </button>
+
+          {/* Status Filter */}
+          <div>
+            <SpatialSelect
+              value={selectedStatusFilter}
+              onChange={(val) => {
+                setSelectedStatusFilter(val);
+                setPage(1);
+              }}
+              options={[
+                { value: 'ALL', label: 'All Repair Statuses' },
+                { value: 'PENDING', label: 'Pending / In Queue' },
+                { value: 'IN_REPAIR', label: 'In Repair' },
+                { value: 'WAITING_PARTS', label: 'Waiting for Parts' },
+                { value: 'REPAIR_COMPLETED', label: 'Repair Completed' },
+                { value: 'READY_FOR_RETURN', label: 'Ready for Collection' },
+                { value: 'RETURNED', label: 'Returned to Shop' },
+                { value: 'NOT_REPAIRABLE', label: 'Not Repairable' },
+                { value: 'CANCELLED', label: 'Cancelled' },
+              ]}
+              searchable={false}
+            />
+          </div>
+
+          {/* Date Filter */}
+          <div>
+            <SpatialDateFilter
+              preset={datePreset}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={({ preset, startDate: start, endDate: end }) => {
+                setDatePreset(preset);
+                setStartDate(start);
+                setEndDate(end);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
       </div>
 
+      {/* Received Mobiles Table Card */}
+      <Card
+        title={`Received Mobiles From Other Shops (${totalReceived})`}
+        subtitle={`Showing page ${page} of ${Math.max(1, Math.ceil(totalReceived / pageSize))}`}
+        action={
+          <div className="flex items-center gap-2">
+            {isAllSelected && (
+              <Button
+                type="button"
+                variant="danger"
+                size="sm"
+                icon={Trash2}
+                onClick={handleDeleteSelected}
+              >
+                Delete All ({selectedMobileIds.length})
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              icon={Plus}
+              onClick={() => setIsDrawerOpen(true)}
+            >
+              Receive Mobile
+            </Button>
+          </div>
+        }
+        bodyClassName="p-0"
+      >
+        {receivedLoading ? (
+          <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
+        ) : receivedMobiles.length === 0 ? (
+          <EmptyState
+            icon={Smartphone}
+            title="No received mobiles found"
+            description="You have not received any handsets from other shops matching these filters."
+            actionLabel="Receive Mobile"
+            onAction={() => setIsDrawerOpen(true)}
+          />
+        ) : (
+          <div className="spatial-tab-pane">
+            {/* Row Selection Notification Banner */}
+            {selectedMobileIds.length > 0 && (
+              <div className="mx-4 mt-3 mb-1 p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs flex items-center justify-between text-emerald-600 dark:text-emerald-400 animate-in fade-in">
+                <span className="font-semibold">
+                  {selectedMobileIds.length} of {receivedMobiles.length} handset(s) selected
+                </span>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelected}
+                    className="inline-flex items-center gap-1.5 font-bold text-rose-500 hover:text-rose-400 cursor-pointer text-xs px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all"
+                    title="Delete all selected inward handset records"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    {isAllSelected
+                      ? `Delete All (${selectedMobileIds.length})`
+                      : `Delete Selected (${selectedMobileIds.length})`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMobileIds([])}
+                    className="font-bold hover:underline cursor-pointer text-xs"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="overflow-x-auto table-scrollbar w-full pb-2">
+              <table className="w-full text-left text-xs min-w-[1050px]">
+                <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                  <tr>
+                    {/* Checkbox Header */}
+                    <th className="w-12 px-4 py-3 text-center whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={isAllSelected}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                        title="Select All Mobiles"
+                      />
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap">Handset & Model</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Origin Repair Shop</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Problem & Condition</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Received Date & Receipt #</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--spatial-border)]">
+                  {receivedMobiles.map((mob) => {
+                    const statusMeta = STATUS_META[mob.current_status] || {
+                      label: mob.current_status || 'Pending',
+                      bg: 'bg-slate-500/10',
+                      text: 'text-slate-400',
+                      border: 'border-slate-500/20',
+                    };
+                    const isSelected = selectedMobileIds.includes(mob.id);
+
+                    return (
+                      <tr
+                        key={mob.id}
+                        onClick={() => toggleSelectMobile(mob.id)}
+                        className={`transition-colors cursor-pointer group ${
+                          isSelected
+                            ? 'bg-emerald-500/10 dark:bg-emerald-500/15'
+                            : 'hover:bg-[var(--spatial-bg-card-hover)]'
+                        }`}
+                      >
+                        {/* Checkbox */}
+                        <td
+                          className="w-12 px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => toggleSelectMobile(mob.id)}
+                            className="w-4 h-4 rounded text-emerald-500 accent-emerald-500 cursor-pointer"
+                          />
+                        </td>
+
+                        {/* Handset & Model */}
+                        <td className="px-4 py-3.5">
+                          <div className="font-bold text-[var(--spatial-text-title)] text-xs">
+                            {mob.brand} {mob.model}
+                          </div>
+                          {mob.imei && (
+                            <div className="font-mono text-[11px] text-sky-400 mt-0.5">
+                              IMEI: {mob.imei}
+                            </div>
+                          )}
+                          {mob.customer_name && (
+                            <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
+                              Client: {mob.customer_name}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Origin Repair Shop */}
+                        <td className="px-4 py-3.5">
+                          <div className="font-bold text-[var(--spatial-text-title)] text-xs">
+                            {mob.vendor?.name || 'Origin Repair Shop'}
+                          </div>
+                          {mob.vendor?.shop_name && (
+                            <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
+                              {mob.vendor.shop_name}
+                            </div>
+                          )}
+                          {mob.vendor?.mobile && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <a
+                                href={`tel:${mob.vendor.mobile}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[11px] text-apple-blue hover:underline flex items-center gap-1 font-mono"
+                              >
+                                <Phone className="w-3 h-3" />
+                                {mob.vendor.mobile}
+                              </a>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Problem & Condition */}
+                        <td className="px-4 py-3.5 max-w-xs">
+                          <div className="text-xs font-semibold text-amber-500">
+                            {mob.repair_problem}
+                          </div>
+                          {mob.condition && (
+                            <div
+                              className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5 truncate"
+                              title={mob.condition}
+                            >
+                              Condition: {mob.condition}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Received Date & Receipt # */}
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <div className="font-semibold text-xs text-[var(--spatial-text-title)]">
+                            {formatInvoiceDate(mob.received_date || mob.created_at)}
+                          </div>
+                          {mob.send_txn?.txn_number && (
+                            <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 font-semibold inline-block mt-1">
+                              #{mob.send_txn.txn_number}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                          >
+                            {statusMeta.label}
+                          </span>
+                        </td>
+
+                        {/* Actions */}
+                        <td
+                          className="px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex items-center justify-center gap-1.5">
+                            {mob.send_txn_id && (
+                              <button
+                                type="button"
+                                onClick={(e) => handleViewReceipt(mob, e)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 border border-transparent hover:border-emerald-500/20 transition-all cursor-pointer"
+                                title="View Inward Intake Receipt"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={(e) => handleDeleteSingle(mob, e)}
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition-all cursor-pointer"
+                              title="Delete this inward mobile record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="p-4 border-t border-[var(--spatial-border)]">
+              <SpatialPagination
+                currentPage={page}
+                totalItems={totalReceived}
+                pageSize={pageSize}
+                onPageChange={(p) => setPage(p)}
+                onPageSizeChange={(s) => {
+                  setPageSize(s);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </Card>
+
       {/* =================================================================== */}
-      {/* WORKFLOW A: RECEIVE PREVIOUSLY SENT MOBILES                         */}
+      {/* RIGHT SIDEBAR (DRAWER): INWARD HANDSET INTAKE FORM                 */}
       {/* =================================================================== */}
-      {activeWorkflow === 'WORKFLOW_A' && (
-        <form onSubmit={handleSubmitWorkflowA} className="space-y-6">
-          {/* Vendor Selection Card */}
-          <Card title="1. Select Vendor & Receive Date">
+      <SpatialDrawer
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        title="Receive Mobiles From Other Shops"
+        subtitle="Register an inward repair intake"
+        width="wide"
+      >
+        <form onSubmit={handleSubmit} className="space-y-6 p-1">
+          {/* SECTION 1: ORIGIN REPAIR SHOP & INWARD DATE */}
+          <Card
+            title="1. Origin Repair Shop & Inward Date"
+            subtitle="Select the other mobile repair shop that brought or sent these devices to us"
+          >
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                  Vendor Partner <span className="text-rose-400">*</span>
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase">
+                    Origin Repair Shop / Vendor <span className="text-rose-400">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddVendorOpen(true)}
+                    className="text-xs font-semibold text-sky-500 hover:text-sky-400 cursor-pointer"
+                  >
+                    + Create Vendor
+                  </button>
+                </div>
                 <SpatialSelect
                   value={vendorId}
                   onChange={(val) => setVendorId(val)}
                   options={vendors.map((v) => ({
                     value: v.id,
-                    label: `${v.name} (${v.shop_name || 'Vendor'})`,
-                    subtitle: `Pending at Lab: ${v.mobiles_currently_at_vendor || 0} phones`,
+                    label: `${v.name} (${v.shop_name || 'Repair Shop'})`,
+                    subtitle: `Phone: ${v.mobile} • Code: ${v.vendor_code}`,
                     badge: v.vendor_code,
                   }))}
-                  placeholder="-- Select Vendor --"
+                  placeholder="-- Select Origin Repair Shop --"
                   searchable
                 />
               </div>
@@ -425,324 +859,44 @@ export const VendorReceiveMobiles = () => {
                 <input
                   type="date"
                   required
-                  value={receiveDate}
-                  onChange={(e) => setReceiveDate(e.target.value)}
+                  value={txnDate}
+                  onChange={(e) => setTxnDate(e.target.value)}
                   className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                 />
               </div>
             </div>
-          </Card>
 
-          {/* Pending Mobiles Selection Table (Supports Partial Returns!) */}
-          <Card
-            title={`2. Mobiles Currently Pending with ${activeVendor?.name || 'Vendor'}`}
-            subtitle="Check one or more handsets to receive back. You can perform partial returns anytime."
-            action={
-              pendingMobiles.length > 0 && (
-                <button
-                  type="button"
-                  onClick={toggleSelectAllPending}
-                  className="text-xs font-semibold text-sky-400 hover:underline flex items-center gap-1.5 cursor-pointer"
-                >
-                  {selectedMobileIds.length === pendingMobiles.length ? (
-                    <>
-                      <CheckSquare className="w-4 h-4" /> Deselect All
-                    </>
-                  ) : (
-                    <>
-                      <Square className="w-4 h-4" /> Select All ({pendingMobiles.length})
-                    </>
-                  )}
-                </button>
-              )
-            }
-            bodyClassName="p-0"
-          >
-            {loadingPending ? (
-              <TableSkeleton rows={4} columns={6} showHeader={false} showPagination={false} />
-            ) : pendingMobiles.length === 0 ? (
-              <EmptyState
-                icon={CheckCircle2}
-                title="No pending mobiles with this vendor"
-                description="This vendor currently has 0 handsets awaiting return."
-                actionLabel="Send Mobiles to Vendor"
-                onAction={() => navigate(`/vendors/send?vendorId=${vendorId}`)}
-              />
-            ) : (
-              <div className="divide-y divide-[var(--spatial-border)] spatial-tab-pane">
-                {pendingMobiles.map((mob) => {
-                  const isSelected = selectedMobileIds.includes(mob.id);
-                  const itemData = receiveItemsData[mob.id] || {};
-
-                  return (
-                    <div
-                      key={mob.id}
-                      className={`p-4 transition-all ${
-                        isSelected ? 'bg-sky-500/[0.06] border-l-4 border-sky-400' : 'hover:bg-[var(--spatial-bg-card-subtle)]'
-                      }`}
-                    >
-                      {/* Top Row: Checkbox, Mobile Info, Sent Date */}
-                      <div className="flex items-start gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => toggleSelectMobile(mob.id)}
-                          className="w-5 h-5 rounded text-sky-500 accent-sky-500 cursor-pointer mt-0.5"
-                        />
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-bold text-sm text-[var(--spatial-text-title)]">
-                              {mob.brand} {mob.model}
-                            </span>
-                            {mob.imei && (
-                              <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-sky-300 border border-sky-500/20">
-                                IMEI: {mob.imei}
-                              </span>
-                            )}
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
-                              {mob.current_status}
-                            </span>
-                          </div>
-
-                          <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
-                            <span className="font-semibold text-slate-300">Reported Problem:</span> {mob.repair_problem}
-                          </p>
-
-                          <div className="flex items-center gap-3 text-[11px] text-[var(--spatial-text-muted)] mt-1">
-                            <span>Sent: {formatInvoiceDate(mob.sent_date || mob.created_at)}</span>
-                            <span>•</span>
-                            <span>Est: {formatIndianCurrency(mob.estimated_cost || 0, true)}</span>
-                            {mob.customer_name && (
-                              <>
-                                <span>•</span>
-                                <span>Customer: {mob.customer_name}</span>
-                              </>
-                            )}
-                          </div>
-
-                          {/* Editable Return Fields (Only enabled when selected!) */}
-                          {isSelected && (
-                            <div className="mt-3 pt-3 border-t border-[var(--spatial-border)] grid grid-cols-1 sm:grid-cols-4 gap-3 animate-in fade-in">
-                              {/* Actual Cost */}
-                              <div>
-                                <label className="block text-[10px] font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                                  Actual Charge (₹) *
-                                </label>
-                                <div className="relative">
-                                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-mono text-xs text-slate-400">
-                                    ₹
-                                  </span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    required={isSelected}
-                                    value={itemData.actual_cost ?? ''}
-                                    onChange={(e) => handleUpdateReceiveItem(mob.id, 'actual_cost', e.target.value)}
-                                    className="w-full h-10 pl-6 pr-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl font-mono text-xs font-bold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Repair Result */}
-                              <div>
-                                <label className="block text-[10px] font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                                  Repair Result *
-                                </label>
-                                <SpatialSelect
-                                  value={itemData.repair_result || 'REPAIRED'}
-                                  onChange={(val) => handleUpdateReceiveItem(mob.id, 'repair_result', val)}
-                                  options={[
-                                    { value: 'REPAIRED', label: 'Repaired Successfully' },
-                                    { value: 'NOT_REPAIRED', label: 'Not Repaired / RNR' },
-                                    { value: 'REPLACED', label: 'Unit / Part Replaced' },
-                                    { value: 'CANCELLED', label: 'Cancelled by Customer' },
-                                  ]}
-                                  searchable={false}
-                                />
-                              </div>
-
-                              {/* Warranty Provided */}
-                              <div>
-                                <label className="block text-[10px] font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                                  Warranty
-                                </label>
-                                <SpatialWarrantyInput
-                                  value={itemData.warranty || ''}
-                                  onChange={(val) => handleUpdateReceiveItem(mob.id, 'warranty', val)}
-                                  placeholder="e.g. 30 Days Warranty"
-                                  heightClass="h-10"
-                                />
-                              </div>
-
-                              {/* Remarks */}
-                              <div>
-                                <label className="block text-[10px] font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                                  Lab Remarks
-                                </label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. Audio IC replaced, tested OK"
-                                  value={itemData.remarks || ''}
-                                  onChange={(e) => handleUpdateReceiveItem(mob.id, 'remarks', e.target.value)}
-                                  className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
-                                />
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-
-          {/* Payment Settlement & General Notes (Workflow A) */}
-          {selectedMobileIds.length > 0 && (
-            <Card title="3. Financial Settlement on Receive" subtitle="Pay vendor now or post to vendor ledger balance">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                    Amount Paid Now (Optional)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-sm text-slate-400">
-                      ₹
-                    </span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
-                      placeholder="0.00 (Leave 0 to post to ledger)"
-                      value={paidAmount}
-                      onChange={(e) => setPaidAmount(e.target.value)}
-                      className="w-full h-11 pl-8 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
-                    />
+            {activeVendor && (
+              <div className="mt-4 p-3 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] flex flex-wrap items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-[var(--spatial-text-title)]">{activeVendor.name}</span>
+                    <p className="text-[11px] text-[var(--spatial-text-muted)]">
+                      {activeVendor.shop_name} • Phone: {activeVendor.mobile} • {activeVendor.address}
+                    </p>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                    Payment Mode
-                  </label>
-                  <SpatialSelect
-                    value={paymentMode}
-                    onChange={(val) => setPaymentMode(val)}
-                    options={[
-                      { value: 'UPI', label: 'UPI / QR Code' },
-                      { value: 'CASH', label: 'Cash in Hand' },
-                      { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
-                    ]}
-                    searchable={false}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                    Reference / UTR #
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. UPI Ref / Cash voucher"
-                    value={paymentRef}
-                    onChange={(e) => setPaymentRef(e.target.value)}
-                    className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-4 p-3 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-xs">
-                <div>
-                  <span className="text-[var(--spatial-text-muted)]">Selected Mobiles to Return:</span>{' '}
-                  <span className="font-bold text-sky-400 font-mono text-sm">{selectedMobileIds.length}</span>
-                </div>
-                <div>
-                  <span className="text-[var(--spatial-text-muted)]">Total Actual Charges:</span>{' '}
-                  <span className="font-bold text-emerald-400 font-mono text-sm">
-                    {formatIndianCurrency(totalWorkflowAActualCost, true)}
+                <div className="text-right">
+                  <span className="text-[10px] text-[var(--spatial-text-muted)] uppercase block">Current Outstanding</span>
+                  <span className="font-mono font-bold text-sm text-[var(--spatial-text-title)]">
+                    {formatIndianCurrency(Math.abs(activeVendor.current_balance || 0), true)}
                   </span>
-                </div>
-                <div>
-                  <span className="text-[var(--spatial-text-muted)]">Unsettled (Posted to Ledger):</span>{' '}
-                  <span className="font-bold text-rose-400 font-mono text-sm">
-                    {formatIndianCurrency(Math.max(0, totalWorkflowAActualCost - (parseFloat(paidAmount) || 0)), true)}
+                  <span className="text-[10px] text-slate-500 ml-1">
+                    {(activeVendor.current_balance || 0) > 0 ? '(Payable)' : '(Receivable)'}
                   </span>
                 </div>
               </div>
-            </Card>
-          )}
-
-          {/* Action Bar */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--spatial-border)]">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/vendors')}
-              disabled={submitting}
-            >
-              Cancel
-            </Button>
-
-            <Button
-              type="submit"
-              variant="primary"
-              icon={Save}
-              disabled={selectedMobileIds.length === 0}
-              loading={submitting}
-            >
-              Receive ({selectedMobileIds.length}) Mobiles & Post to Ledger
-            </Button>
-          </div>
-        </form>
-      )}
-
-      {/* =================================================================== */}
-      {/* WORKFLOW B: RECEIVE NEW MOBILES FROM VENDOR (B2B JOB)               */}
-      {/* =================================================================== */}
-      {activeWorkflow === 'WORKFLOW_B' && (
-        <form onSubmit={handleSubmitWorkflowB} className="space-y-6">
-          <Card title="1. Origin Vendor & Inward Date" subtitle="Select the vendor who brought client handsets to your shop">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                  Origin Vendor <span className="text-rose-400">*</span>
-                </label>
-                <SpatialSelect
-                  value={vendorId}
-                  onChange={(val) => setVendorId(val)}
-                  options={vendors.map((v) => ({
-                    value: v.id,
-                    label: `${v.name} (${v.shop_name || 'Vendor'})`,
-                    subtitle: `Phone: ${v.mobile}`,
-                    badge: v.vendor_code,
-                  }))}
-                  placeholder="-- Select Vendor --"
-                  searchable
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                  Received Date <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="date"
-                  required
-                  value={receiveDate}
-                  onChange={(e) => setReceiveDate(e.target.value)}
-                  className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
-                />
-              </div>
-            </div>
+            )}
           </Card>
 
-          {/* Multiple Mobile Entry for B2B Client Repairs */}
+          {/* SECTION 2: MULTIPLE MOBILE HANDSET ENTRY (6 CLEAN FIELDS) */}
           <Card
-            title="2. Client Mobiles Brought by Vendor"
-            subtitle="Add unlimited handsets to repair at your shop for this vendor"
+            title="2. Multiple Mobile Handset Entry"
+            subtitle="Enter handsets other repair shops could not fix and sent to us for repair"
             action={
               <Button
                 type="button"
@@ -759,24 +913,34 @@ export const VendorReceiveMobiles = () => {
               {b2bMobiles.map((mob, idx) => (
                 <div
                   key={mob.id || idx}
-                  className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3"
+                  className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] hover:border-emerald-500/30 transition-all space-y-3 relative group"
                 >
+                  {/* Row Header with Item Number & Remove */}
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--spatial-border)]">
-                    <span className="text-xs font-bold text-[var(--spatial-text-title)] uppercase">
-                      Client Mobile #{idx + 1}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 font-bold font-mono text-xs flex items-center justify-center">
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
+                        Mobile #{idx + 1}
+                      </span>
+                    </div>
+
                     {b2bMobiles.length > 1 && (
                       <button
                         type="button"
                         onClick={() => handleRemoveB2bRow(idx)}
-                        className="p-1 rounded text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                        className="p-1 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                        title="Remove this mobile"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Row 1: Brand, Model, IMEI / Serial Number, Customer Name (Optional) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+                    {/* 1. Brand */}
                     <div>
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
                         Brand *
@@ -784,13 +948,14 @@ export const VendorReceiveMobiles = () => {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Vivo, Realme"
+                        placeholder="e.g. Apple, Samsung"
                         value={mob.brand}
                         onChange={(e) => handleUpdateB2bMobile(idx, 'brand', e.target.value)}
-                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
 
+                    {/* 2. Model */}
                     <div>
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
                         Model *
@@ -798,67 +963,151 @@ export const VendorReceiveMobiles = () => {
                       <input
                         type="text"
                         required
-                        placeholder="e.g. V29 Pro"
+                        placeholder="e.g. iPhone 13 Pro Max"
                         value={mob.model}
                         onChange={(e) => handleUpdateB2bMobile(idx, 'model', e.target.value)}
-                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
 
+                    {/* 3. IMEI / Serial Number */}
                     <div>
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
-                        IMEI / Serial
+                        IMEI / Serial Number
                       </label>
                       <input
                         type="text"
-                        placeholder="e.g. 864521098765432"
+                        placeholder="e.g. 356789123456789"
                         value={mob.imei}
                         onChange={(e) => handleUpdateB2bMobile(idx, 'imei', e.target.value)}
-                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-mono text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    {/* 4. Customer Name (Optional) */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
+                        Customer Name (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Ronak Panchal"
+                        value={mob.customer_name}
+                        onChange={(e) => handleUpdateB2bMobile(idx, 'customer_name', e.target.value)}
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                  {/* Row 2: Fault / Repair Problem, Physical Condition */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* 5. Fault / Repair Problem */}
+                    <div className="sm:col-span-2">
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
-                        Repair Problem *
+                        Fault / Repair Problem *
                       </label>
                       <input
                         type="text"
                         required
-                        placeholder="e.g. Charging port broken, Software bricked, Display replacement"
+                        placeholder="e.g. Dead phone, No Audio IC, CPU dry solder, Face ID failure"
                         value={mob.repair_problem}
                         onChange={(e) => handleUpdateB2bMobile(idx, 'repair_problem', e.target.value)}
-                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
 
+                    {/* 6. Physical Condition */}
                     <div>
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
-                        Estimated B2B Repair Charge (₹)
+                        Physical Condition
                       </label>
                       <input
-                        type="number"
-                        min="0"
-                        step="any"
-                        placeholder="0.00"
-                        value={mob.estimated_cost}
-                        onChange={(e) => handleUpdateB2bMobile(idx, 'estimated_cost', e.target.value)}
-                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-mono font-bold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
+                        type="text"
+                        placeholder="e.g. Normal Wear, Scratches, Back glass broken"
+                        value={mob.condition}
+                        onChange={(e) => handleUpdateB2bMobile(idx, 'condition', e.target.value)}
+                        className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500"
                       />
                     </div>
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Handset count summary */}
+            <div className="mt-4 pt-3 border-t border-[var(--spatial-border)] flex flex-wrap items-center justify-between gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                icon={Plus}
+                onClick={handleAddB2bRow}
+              >
+                + Add Another Mobile Handset
+              </Button>
+
+              <div className="text-right text-xs">
+                <span className="text-[var(--spatial-text-muted)]">Total Handsets in Intake:</span>
+                <span className="ml-2 font-mono font-bold text-sm text-emerald-400">
+                  {b2bMobiles.length}
+                </span>
+              </div>
+            </div>
           </Card>
 
+          {/* SECTION 3: ADVANCE PAYMENT & SPECIAL INSTRUCTIONS */}
+          <Card title="3. Advance Payment & Special Instructions" subtitle="Record an optional advance and any instructions from the origin shop">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Advance Payment (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={paidAmount}
+                  onChange={(e) => setPaidAmount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full h-11 px-3 spatial-input rounded-xl text-xs font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Payment Mode
+                </label>
+                <SpatialSelect
+                  value={paymentMode}
+                  onChange={setPaymentMode}
+                  searchable={false}
+                  options={[
+                    { value: 'CASH', label: 'Cash' },
+                    { value: 'UPI', label: 'UPI' },
+                    { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+                  ]}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  Special Instructions
+                </label>
+                <input
+                  type="text"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Notes for this repair intake"
+                  className="w-full h-11 px-3 spatial-input rounded-xl text-xs"
+                />
+              </div>
+            </div>
+          </Card>
+
+          {/* Action Bar */}
           <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--spatial-border)]">
             <Button
               type="button"
               variant="outline"
-              onClick={() => navigate('/vendors')}
+              onClick={() => setIsDrawerOpen(false)}
               disabled={submitting}
             >
               Cancel
@@ -870,16 +1119,27 @@ export const VendorReceiveMobiles = () => {
               icon={Save}
               loading={submitting}
             >
-              Save & Log Inward Vendor Jobs
+              Save & Issue Inward Receipt ({b2bMobiles.length} Mobiles)
             </Button>
           </div>
         </form>
-      )}
+      </SpatialDrawer>
+
+      <VendorModal
+        isOpen={isAddVendorOpen}
+        onClose={() => setIsAddVendorOpen(false)}
+        existingVendors={vendors}
+        onSuccess={(newVendor) => {
+          setVendors((prev) => [newVendor, ...prev.filter((vendor) => vendor.id !== newVendor.id)]);
+          setVendorId(newVendor.id);
+          setIsAddVendorOpen(false);
+        }}
+      />
 
       {/* Result Modal for Print & WhatsApp */}
-      {savedResult && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-8">
+      {savedResult && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="relative max-w-4xl w-full my-auto mx-auto">
             <VendorReceiptPrintable
               transaction={savedResult}
               shop={shopProfile}
@@ -889,7 +1149,8 @@ export const VendorReceiveMobiles = () => {
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

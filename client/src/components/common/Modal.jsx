@@ -44,7 +44,7 @@ export const Modal = ({
 
         {/* Apple Dialog Window Panel */}
         <div
-          className={`w-full ${maxWidth} max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col transform overflow-hidden rounded-2xl spatial-modal-panel p-5 sm:p-6 text-left align-middle transition-all z-10 relative shadow-2xl`}
+          className={`w-full ${maxWidth} max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col transform overflow-hidden rounded-2xl spatial-modal-panel p-5 sm:p-6 text-left align-middle transition-all z-10 relative shadow-2xl my-auto mx-auto`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 flex items-start justify-between pb-3 sm:pb-4 border-b border-[var(--spatial-border)]">

@@ -4,11 +4,13 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getNotificationLogs = async (req, res, next) => {
   try {
-    const { jobId, channel, search, limit = 50, offset = 0 } = req.query;
+    const { jobId, channel, search, startDate = '', endDate = '', limit = 50, offset = 0 } = req.query;
     const result = await db.notifications.getLogs({
       jobId,
       channel,
       search,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });

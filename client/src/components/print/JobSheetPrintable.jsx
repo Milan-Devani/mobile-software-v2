@@ -421,9 +421,17 @@ export const JobSheetPrintable = ({ job, shop }) => {
           {/* Left: Shop Details */}
           <div className="w-[62%] pr-3">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded bg-black text-white flex items-center justify-center font-black text-sm shrink-0">
-                <Wrench className="w-4 h-4 text-white" />
-              </div>
+              {shop?.logo_url ? (
+                <img
+                  src={shop.logo_url}
+                  alt={shop?.name || 'Shop Logo'}
+                  className="w-9 h-9 rounded object-contain shrink-0 border border-slate-300 p-0.5"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded bg-black text-white flex items-center justify-center font-black text-sm shrink-0">
+                  <Wrench className="w-4 h-4 text-white" />
+                </div>
+              )}
               <div>
                 <h1 className="text-base font-black tracking-tight text-black leading-none uppercase">
                   {shop?.name || 'Mobotech mobile care'}

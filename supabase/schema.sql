@@ -474,7 +474,7 @@ CREATE TABLE IF NOT EXISTS sales (
     customer_phone VARCHAR(50),
     customer_email VARCHAR(255),
     customer_address TEXT,
-    place_of_supply VARCHAR(100) DEFAULT 'Gujarat ( 24 )',
+    place_of_supply VARCHAR(100) DEFAULT 'Gujarat',
     customer_gstin VARCHAR(50),
     items JSONB NOT NULL DEFAULT '[]'::jsonb,
     subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
@@ -632,4 +632,21 @@ CREATE TABLE IF NOT EXISTS vendor_payments (
 );
 CREATE INDEX IF NOT EXISTS idx_vendor_payments_vendor_id ON vendor_payments(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_vendor_payments_voucher ON vendor_payments(voucher_no);
+
+-- 31. RECYCLE BIN (SOFT DELETE WITH 30-DAY RETENTION)
+CREATE TABLE IF NOT EXISTS recycle_bin (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    entity_type VARCHAR(50) NOT NULL,
+    original_id VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    subtitle TEXT,
+    data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    deleted_by VARCHAR(100) DEFAULT 'Staff',
+    deleted_at TIMESTAMPTZ DEFAULT NOW(),
+    purge_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '30 days')
+);
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_entity_type ON recycle_bin(entity_type);
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_deleted_at ON recycle_bin(deleted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recycle_bin_purge_at ON recycle_bin(purge_at ASC);
+
 

@@ -89,3 +89,89 @@ export const formatInvoiceDate = (dateVal) => {
   const year = d.getFullYear();
   return `${day}-${month}-${year}`;
 };
+
+export const cleanWarrantyText = (warranty) => {
+  if (!warranty) return "-";
+  const str = String(warranty).trim();
+  if (
+    !str ||
+    str.toLowerCase() === "no warranty" ||
+    str.toLowerCase() === "no" ||
+    str.toLowerCase() === "none" ||
+    str === "-"
+  ) {
+    return "-";
+  }
+  const cleaned = str
+    .replace(/\b(brand|testing)\s+warranty\b/gi, "")
+    .replace(/\b(warranty|replacement)\b/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return cleaned || "-";
+};
+
+export const calculatePendingWarranty = (warrantyStr, saleDateVal) => {
+  if (!warrantyStr) return { status: 'NO_WARRANTY', text: 'No Warranty', daysLeft: 0, totalDays: 0 };
+  const str = String(warrantyStr).trim().toLowerCase();
+  if (
+    !str ||
+    str === '-' ||
+    str === 'no warranty' ||
+    str === 'none' ||
+    str === 'no' ||
+    str === '0'
+  ) {
+    return { status: 'NO_WARRANTY', text: 'No Warranty', daysLeft: 0, totalDays: 0 };
+  }
+
+  let totalDays = 0;
+  const yearMatch = str.match(/(\d+)\s*(y|year)/i);
+  const monthMatch = str.match(/(\d+)\s*(m|month)/i);
+  const dayMatch = str.match(/(\d+)\s*(d|day)?/i);
+
+  if (yearMatch) {
+    totalDays = parseInt(yearMatch[1], 10) * 365;
+  } else if (monthMatch) {
+    totalDays = parseInt(monthMatch[1], 10) * 30;
+  } else if (dayMatch && dayMatch[1]) {
+    totalDays = parseInt(dayMatch[1], 10);
+  }
+
+  if (isNaN(totalDays) || totalDays <= 0) {
+    return { status: 'NO_WARRANTY', text: 'No Warranty', daysLeft: 0, totalDays: 0 };
+  }
+
+  const saleDate = saleDateVal ? new Date(saleDateVal) : new Date();
+  if (isNaN(saleDate.getTime())) {
+    return { status: 'ACTIVE', daysLeft: totalDays, totalDays, text: `${totalDays} Days Left` };
+  }
+
+  const today = new Date();
+  const startOfDaySale = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate()).getTime();
+  const startOfDayToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+  const elapsedDays = Math.max(0, Math.round((startOfDayToday - startOfDaySale) / (1000 * 60 * 60 * 24)));
+  const daysLeft = totalDays - elapsedDays;
+
+  const expiryDate = new Date(saleDate.getFullYear(), saleDate.getMonth(), saleDate.getDate() + totalDays);
+
+  if (daysLeft <= 0) {
+    return {
+      status: 'EXPIRED',
+      totalDays,
+      daysLeft: 0,
+      expiryDate,
+      text: 'Expired',
+    };
+  }
+
+  return {
+    status: 'ACTIVE',
+    totalDays,
+    daysLeft,
+    expiryDate,
+    text: `${daysLeft} Days Left`,
+  };
+};
+

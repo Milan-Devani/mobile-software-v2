@@ -23,12 +23,12 @@ export const Card = ({
       {...props}
     >
       {(title || action) && (
-        <div className={`flex items-center justify-between rounded-t-2xl ${headerClassName}`}>
-          <div>
+        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-t-2xl ${headerClassName}`}>
+          <div className="min-w-0">
             {title && <h3 className="font-semibold text-[var(--spatial-text-title)] text-[15px] tracking-tight">{title}</h3>}
             {subtitle && <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5 font-normal">{subtitle}</p>}
           </div>
-          {action && <div>{action}</div>}
+          {action && <div className="shrink-0">{action}</div>}
         </div>
       )}
       <div className={bodyClassName}>{children}</div>

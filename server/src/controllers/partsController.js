@@ -3,11 +3,13 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getParts = async (req, res, next) => {
   try {
-    const { category, search, lowStockOnly, limit = 50, offset = 0 } = req.query;
+    const { category, search, lowStockOnly, startDate = '', endDate = '', limit = 50, offset = 0 } = req.query;
     const result = await db.parts.list({
       category,
       search,
       lowStockOnly: lowStockOnly === 'true',
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });
@@ -121,7 +123,7 @@ export const deletePart = async (req, res, next) => {
     const existing = await db.parts.findById(id);
     if (!existing) throw new AppError('Part not found.', 404, 'PART_NOT_FOUND');
 
-    await db.parts.delete(id);
+    await db.parts.delete(id, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: 'Part deleted successfully from catalog.',
@@ -137,7 +139,7 @@ export const bulkDeleteParts = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new AppError('No part IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
     }
-    const count = await db.parts.bulkDelete(ids);
+    const count = await db.parts.bulkDelete(ids, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Successfully deleted ${count} part(s).`,

@@ -12,10 +12,12 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getVendors = async (req, res, next) => {
   try {
-    const { search = '', status = 'ALL', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = req.query;
+    const { search = '', status = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = req.query;
     const result = await db.vendors.list({
       search,
       status,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,
@@ -107,7 +109,7 @@ export const updateVendor = async (req, res, next) => {
 export const deleteVendor = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await db.vendors.delete(id);
+    await db.vendors.delete(id, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: 'Vendor deleted successfully.',
@@ -137,7 +139,10 @@ export const getNextTxnNumber = async (req, res, next) => {
 export const getPendingMobilesWithVendor = async (req, res, next) => {
   try {
     const { vendorId } = req.params;
-    const mobiles = await db.vendor_mobiles.getPendingWithVendor(vendorId);
+    const { type } = req.query;
+    const mobiles = (type === 'at_shop' || type === 'inward')
+      ? await db.vendor_mobiles.getPendingAtMyShop(vendorId)
+      : await db.vendor_mobiles.getPendingWithVendor(vendorId);
     res.json({
       success: true,
       data: { mobiles },
@@ -341,6 +346,8 @@ export const getVendorMobiles = async (req, res, next) => {
       flowType = 'ALL',
       status = 'ALL',
       imei = '',
+      startDate = '',
+      endDate = '',
       limit = 50,
       offset = 0,
       sortBy = 'created_at',
@@ -353,6 +360,8 @@ export const getVendorMobiles = async (req, res, next) => {
       flowType,
       status,
       imei,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,
@@ -401,6 +410,19 @@ export const updateMobileStatus = async (req, res, next) => {
       message: `Status updated to ${status}.`,
       data: result,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkDeleteVendorMobiles = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('Select at least one mobile record to delete.', 400, 'IDS_REQUIRED');
+    }
+    const count = await db.vendor_mobiles.bulkDelete(ids, req.user?.full_name || 'Staff');
+    res.json({ success: true, message: `${count} mobile record(s) deleted.`, count });
   } catch (err) {
     next(err);
   }

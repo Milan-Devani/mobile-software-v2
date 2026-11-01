@@ -31,7 +31,7 @@ export const AppLayout = () => {
       {/* Main Content Area (offset by sidebar width on desktop) */}
       <div className="lg:pl-64 flex flex-col flex-1 min-w-0 z-10 relative print:pl-0">
         <Topbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
-        <main className="flex-1 flex flex-col p-4 sm:p-6 md:p-8 max-w-[1680px] w-full mx-auto print:p-0 print:m-0 print:max-w-none">
+        <main className="flex-1 flex flex-col p-4 sm:p-5 lg:p-6 xl:p-8 max-w-[1680px] w-full mx-auto print:p-0 print:m-0 print:max-w-none min-w-0">
           <div key={location.pathname} className="spatial-page-transition flex-1 flex flex-col w-full">
             <Outlet />
           </div>

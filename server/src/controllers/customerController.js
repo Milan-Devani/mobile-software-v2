@@ -3,9 +3,11 @@ import { AppError } from '../middleware/errorHandler.js';
 
 export const getCustomers = async (req, res, next) => {
   try {
-    const { search = '', limit = 50, offset = 0 } = req.query;
+    const { search = '', limit = 50, offset = 0, startDate = '', endDate = '' } = req.query;
     const result = await db.customers.list({
       search,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });
@@ -168,7 +170,7 @@ export const deleteCustomer = async (req, res, next) => {
       }
     }
 
-    await db.customers.delete(id);
+    await db.customers.delete(id, req.user?.full_name || 'Staff');
 
     res.json({
       success: true,
@@ -186,7 +188,7 @@ export const bulkDeleteCustomers = async (req, res, next) => {
       throw new AppError('No customer IDs provided for bulk deletion.', 400, 'IDS_REQUIRED');
     }
 
-    const count = await db.customers.bulkDelete(ids, force);
+    const count = await db.customers.bulkDelete(ids, force, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Successfully deleted ${count} customer(s).`,

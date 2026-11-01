@@ -33,18 +33,21 @@ api.interceptors.response.use(
     const status = error.response?.status;
     const errorData = error.response?.data;
 
-    // Cold-start auto-retry: If request times out or returns 502/503/504 and hasn't been retried
+    // Cold-start / dev-restart auto-retry: If request times out, network resets, or returns 502/503/504
     const isColdStartError =
       error.code === 'ECONNABORTED' ||
+      error.code === 'ERR_NETWORK' ||
       status === 502 ||
       status === 503 ||
       status === 504 ||
       error.message?.includes('Network Error');
 
-    if (config && !config._retry && isColdStartError) {
+    const retryCount = config?._retryCount || 0;
+    if (config && retryCount < 3 && isColdStartError) {
+      config._retryCount = retryCount + 1;
       config._retry = true;
-      // Wait 2 seconds before retrying to allow container startup
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Wait progressively (1.5s, 2.5s, 3.5s) to allow server restart/startup
+      await new Promise((resolve) => setTimeout(resolve, 1500 + retryCount * 1000));
       return api(config);
     }
 

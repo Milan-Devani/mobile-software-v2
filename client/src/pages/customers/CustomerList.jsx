@@ -27,6 +27,7 @@ import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 const customerSchema = z.object({
@@ -49,6 +50,9 @@ export const CustomerList = () => {
   const [customers, setCustomers] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 500);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -116,11 +120,15 @@ export const CustomerList = () => {
   const fetchCustomers = async (query = debouncedSearch, pageNum = page, sizeNum = pageSize) => {
     try {
       setLoading(true);
-      const res = await customerService.getCustomers({
+      const params = {
         search: query,
         limit: sizeNum,
         offset: (pageNum - 1) * sizeNum,
-      });
+      };
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+
+      const res = await customerService.getCustomers(params);
       setCustomers(res.customers || []);
       setTotal(res.total || 0);
     } catch {
@@ -132,7 +140,14 @@ export const CustomerList = () => {
 
   useEffect(() => {
     fetchCustomers(debouncedSearch, page, pageSize);
-  }, [debouncedSearch, page, pageSize]);
+  }, [debouncedSearch, page, pageSize, startDate, endDate]);
+
+  const handleDateFilterChange = ({ preset, startDate: s, endDate: e }) => {
+    setDatePreset(preset || 'ALL');
+    setStartDate(s || '');
+    setEndDate(e || '');
+    setPage(1);
+  };
 
   const toggleSelectAll = () => {
     const pageIds = customers.map((c) => c.id);
@@ -224,31 +239,40 @@ export const CustomerList = () => {
         title={`All Customers (${total})`}
         subtitle={`Showing page ${page} of ${Math.max(1, Math.ceil(total / pageSize))}`}
         action={
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search name, phone, email..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setPage(1);
-              }}
-              className="pl-8 pr-7 py-1.5 text-xs spatial-input rounded-xl w-52 sm:w-72"
+          <div className="flex flex-wrap items-center gap-2">
+            <SpatialDateFilter
+              preset={datePreset}
+              startDate={startDate}
+              endDate={endDate}
+              onChange={handleDateFilterChange}
+              align="right"
             />
-            {search && (
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch('');
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search name, phone, email..."
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
                   setPage(1);
                 }}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
-                title="Clear search"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
+                className="pl-8 pr-7 py-1.5 text-xs spatial-input rounded-xl w-44 sm:w-60"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('');
+                    setPage(1);
+                  }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
         }
         bodyClassName="p-0"
@@ -420,28 +444,17 @@ export const CustomerList = () => {
 
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Gender & User Type
+                User Type
               </label>
-              <div className="grid grid-cols-2 gap-2">
-                <SpatialSelect
-                  value={watch('gender') || 'male'}
-                  onChange={(val) => setValue('gender', val, { shouldValidate: true })}
-                  options={[
-                    { value: 'male', label: 'Male' },
-                    { value: 'female', label: 'Female' },
-                    { value: 'other', label: 'Other' },
-                  ]}
-                />
-                <SpatialSelect
-                  value={watch('user_type') || 'End User'}
-                  onChange={(val) => setValue('user_type', val, { shouldValidate: true })}
-                  options={[
-                    { value: 'End User', label: 'End User' },
-                    { value: 'Dealer', label: 'Dealer' },
-                    { value: 'Corporate', label: 'Corporate' },
-                  ]}
-                />
-              </div>
+              <SpatialSelect
+                value={watch('user_type') || 'End User'}
+                onChange={(val) => setValue('user_type', val, { shouldValidate: true })}
+                options={[
+                  { value: 'End User', label: 'End User' },
+                  { value: 'Dealer', label: 'Dealer' },
+                  { value: 'Corporate', label: 'Corporate' },
+                ]}
+              />
             </div>
           </div>
 

@@ -330,7 +330,7 @@ export const Dashboard = () => {
 
       {/* Repair Lifecycle Pipeline Grid */}
       <Card title="Repair Lifecycle Pipeline" subtitle="Click any stage to filter repair jobs" hover={false}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2.5">
           {pipeline.map((p) => {
             const isSelected = statusFilter === p.status;
             return (

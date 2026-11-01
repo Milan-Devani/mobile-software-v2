@@ -3,13 +3,14 @@ import { ChevronDown, Check, ShieldCheck, X } from 'lucide-react';
 
 const DEFAULT_PRESETS = [
   'No Warranty',
-  '7 Days Testing Warranty',
-  '15 Days Replacement',
-  '30 Days Warranty',
-  '60 Days Warranty',
-  '90 Days Warranty',
-  '6 Months Warranty',
-  '1 Year Brand Warranty',
+  '7 Days',
+  '15 Days',
+  '30 Days',
+  '60 Days',
+  '90 Days',
+  '6 Months',
+  '1 Year',
+  '2 Years',
 ];
 
 export const SpatialWarrantyInput = ({

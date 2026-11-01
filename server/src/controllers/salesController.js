@@ -3,14 +3,19 @@ import { AppError } from '../middleware/errorHandler.js';
 import { dispatchSaleInvoiceNotification } from '../services/notificationService.js';
 import { generateSaleInvoicePdfBuffer } from '../services/pdfService.js';
 
+// A sale line Total (quantity × rate, before GST) must not exceed seven digits.
+const MAX_SALE_LINE_TOTAL = 9_999_999.99;
+
 export const getSales = async (req, res, next) => {
   try {
-    const { search, limit = 50, offset = 0, status, sortBy, sortDir } = req.query;
+    const { search, limit = 50, offset = 0, status, sortBy, sortDir, startDate = '', endDate = '' } = req.query;
     const result = await db.sales.list({
       search,
       status,
       sortBy,
       sortDir,
+      startDate,
+      endDate,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
     });
@@ -66,7 +71,7 @@ export const createSale = async (req, res, next) => {
       customer_phone,
       customer_email = '',
       customer_address = '',
-      place_of_supply = 'Gujarat ( 24 )',
+      place_of_supply = 'Gujarat',
       customer_gstin = '',
       items = [],
       gst_enabled = true,
@@ -90,12 +95,17 @@ export const createSale = async (req, res, next) => {
       throw new AppError('At least one product or part must be added to the bill.', 400, 'VALIDATION_ERROR');
     }
 
+    const normalizedCustomerPhone = String(customer_phone).replace(/\D/g, '');
+    if (!/^\d{10}$/.test(normalizedCustomerPhone)) {
+      throw new AppError('Customer phone number must contain exactly 10 digits.', 400, 'VALIDATION_ERROR');
+    }
+
     // 1. Link or create customer
     let customer = null;
     try {
-      const customersList = await db.customers.list({ search: customer_phone.trim(), limit: 5 });
+      const customersList = await db.customers.list({ search: normalizedCustomerPhone, limit: 5 });
       const existing = (customersList.customers || []).find(
-        (c) => c.phone && c.phone.replace(/\D/g, '') === customer_phone.replace(/\D/g, '')
+        (c) => c.phone && c.phone.replace(/\D/g, '') === normalizedCustomerPhone
       );
 
       if (existing) {
@@ -103,7 +113,7 @@ export const createSale = async (req, res, next) => {
       } else {
         customer = await db.customers.create({
           full_name: customer_name.trim(),
-          phone: customer_phone.trim(),
+          phone: normalizedCustomerPhone,
           email: customer_email.trim() || null,
           address: customer_address.trim() || null,
           notes: 'Customer created from Sales Billing',
@@ -122,6 +132,13 @@ export const createSale = async (req, res, next) => {
       const qty = Math.max(1, parseInt(it.quantity, 10) || 1);
       const rate = Math.max(0, parseFloat(it.rate || it.unit_price) || 0);
       const taxable = Math.round(qty * rate * 100) / 100;
+      if (taxable > MAX_SALE_LINE_TOTAL) {
+        throw new AppError(
+          `Item ${i + 1} total cannot exceed ₹${MAX_SALE_LINE_TOTAL.toLocaleString('en-IN', { minimumFractionDigits: 2 })}.`,
+          400,
+          'LINE_TOTAL_LIMIT_EXCEEDED',
+        );
+      }
       rawSubtotal += taxable;
 
       // Calculate line tax if GST is enabled
@@ -214,10 +231,10 @@ export const createSale = async (req, res, next) => {
       invoice_date: invoice_date || new Date().toISOString().split('T')[0],
       customer_id: customer?.id || null,
       customer_name: customer_name.trim(),
-      customer_phone: customer_phone.trim(),
+      customer_phone: normalizedCustomerPhone,
       customer_email: customer_email.trim(),
       customer_address: customer_address.trim(),
-      place_of_supply: place_of_supply || 'Gujarat ( 24 )',
+      place_of_supply: place_of_supply || 'Gujarat',
       customer_gstin: customer_gstin.trim(),
       items: formattedItems,
       subtotal: rawSubtotal,
@@ -281,7 +298,7 @@ export const createSale = async (req, res, next) => {
 export const deleteSale = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const deleted = await db.sales.delete(id);
+    const deleted = await db.sales.delete(id, req.user?.full_name || 'Staff');
     if (!deleted) throw new AppError('Sale not found.', 404, 'SALE_NOT_FOUND');
 
     res.json({
@@ -299,7 +316,7 @@ export const bulkDeleteSales = async (req, res, next) => {
     if (!Array.isArray(ids) || ids.length === 0) {
       throw new AppError('No sale invoice IDs provided.', 400, 'VALIDATION_ERROR');
     }
-    const count = await db.sales.bulkDelete(ids);
+    const count = await db.sales.bulkDelete(ids, req.user?.full_name || 'Staff');
     res.json({
       success: true,
       message: `Deleted ${count} sales invoices successfully.`,

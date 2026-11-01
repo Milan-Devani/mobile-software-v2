@@ -1,17 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
 import { createInitialSeedData } from './seedData.js';
 import { setupVendorRepo } from './vendorRepo.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const DATA_DIR = path.resolve(__dirname, '../../data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
-
-// Local in-memory cache for development mode
+// In-memory synchronized mirror of Supabase PostgreSQL tables
 let localDb = null;
 
 export const sanitizeRecord = (record) => {
@@ -154,11 +146,15 @@ export const safeSupabaseUpsert = async (table, data, onConflict = 'id') => {
   }
 };
 
+let lastSyncTimestamp = 0;
+let isSyncInProgress = false;
+
 export const syncFromSupabase = async () => {
-  if (!isSupabaseConfigured()) return;
+  if (!isSupabaseConfigured() || isSyncInProgress) return;
   const supabase = getSupabase();
   if (!supabase) return;
 
+  isSyncInProgress = true;
   try {
     const coreTables = [
       'shops',
@@ -178,6 +174,8 @@ export const syncFromSupabase = async () => {
       'invoices',
       'invoice_items',
       'notification_logs',
+      'attachments',
+      'backup_logs',
       'settings',
       'sales',
       'vendors',
@@ -186,298 +184,64 @@ export const syncFromSupabase = async () => {
       'vendor_status_history',
       'vendor_ledger',
       'vendor_payments',
+      'recycle_bin',
     ];
 
-    for (const tbl of coreTables) {
-      try {
-        const { data, error } = await supabase.from(tbl).select('*').limit(3000);
-        if (!error && Array.isArray(data) && data.length > 0) {
-          localDb[tbl] = data;
+    const seedFallbackTables = new Set(['shops', 'roles', 'users']);
+
+    await Promise.all(
+      coreTables.map(async (tbl) => {
+        try {
+          const { data, error } = await supabase.from(tbl).select('*').limit(3000);
+          if (!error && Array.isArray(data)) {
+            if (!seedFallbackTables.has(tbl) || data.length > 0) {
+              localDb[tbl] = data;
+            }
+          }
+        } catch (_) {
+          // Table may not exist yet or empty
         }
-      } catch (_) {
-        // Table may not exist yet or empty
-      }
-    }
+      })
+    );
+    lastSyncTimestamp = Date.now();
     console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
   } catch (err) {
     console.warn('⚠️ Supabase live sync warning:', err.message);
+  } finally {
+    isSyncInProgress = false;
   }
 };
 
-// Ensure local data directory and seed file exist
-export const initDb = async () => {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      const content = fs.readFileSync(DB_FILE, 'utf-8');
-      localDb = JSON.parse(content);
-      console.log('✅ Local persistent JSON database loaded successfully.');
-    } catch (err) {
-      console.warn('⚠️ Error reading local db file, re-initializing seeds...', err.message);
-      localDb = await createInitialSeedData();
-      saveLocalDb();
-    }
-  } else {
-    console.log('🌱 Seeding initial local database records...');
-    localDb = await createInitialSeedData();
-    saveLocalDb();
-    console.log('✅ Initial database seeded successfully.');
-  }
-
-  // If Supabase is connected, sync live records directly from Supabase PostgreSQL
-  if (isSupabaseConfigured()) {
-    console.log('✅ Supabase PostgreSQL is connected as primary database. Syncing live tables...');
+export const ensureFreshSync = async (maxAgeMs = 5000) => {
+  if (!isSupabaseConfigured()) return;
+  if (Date.now() - lastSyncTimestamp > maxAgeMs) {
     await syncFromSupabase();
   }
-
-  if (localDb) {
-    localDb.vendors = localDb.vendors || [];
-    localDb.vendor_transactions = localDb.vendor_transactions || [];
-    localDb.vendor_mobiles = localDb.vendor_mobiles || [];
-    localDb.vendor_status_history = localDb.vendor_status_history || [];
-    localDb.vendor_ledger = localDb.vendor_ledger || [];
-    localDb.vendor_payments = localDb.vendor_payments || [];
-    localDb.sales = localDb.sales || [];
-
-    if (localDb.sales.length === 0) {
-      localDb.sales = [
-        {
-          id: 's0000000-0000-0000-0000-000000000001',
-          invoice_number: 'INV-2026-000045',
-          invoice_no_seq: 45,
-          invoice_date: '2026-10-22',
-          customer_name: 'Rajeshbhai Patel',
-          customer_phone: '9825123456',
-          customer_email: 'rajesh.patel@gmail.com',
-          customer_address: 'B-402, Shivalik Residency, Varachha, Surat',
-          place_of_supply: 'Gujarat ( 24 )',
-          customer_gstin: '24AAACP1234A1Z5',
-          items: [
-            {
-              sr_no: 1,
-              name: 'iPhone 15 Pro Max 256GB Natural Titanium',
-              item_type: 'PHONE',
-              imei: '358901234567890',
-              warranty: '1 Year Apple Official Warranty',
-              hsn: '8517',
-              quantity: 1,
-              unit: 'NOS',
-              rate: 134000,
-              taxable_value: 134000,
-              gst_rate: 18,
-              gst_amount: 24120,
-              total: 158120,
-            },
-            {
-              sr_no: 2,
-              name: 'Original 20W USB-C Power Adapter',
-              item_type: 'ACCESSORY',
-              imei: 'A2305-C891234',
-              warranty: '6 Months Replacement',
-              hsn: '8504',
-              quantity: 1,
-              unit: 'NOS',
-              rate: 1900,
-              taxable_value: 1900,
-              gst_rate: 18,
-              gst_amount: 342,
-              total: 2242,
-            },
-          ],
-          subtotal: 135900,
-          discount_type: 'amount',
-          discount_value: 900,
-          discount_amount: 900,
-          taxable_amount: 135000,
-          gst_enabled: true,
-          gst_type: 'CGST_SGST',
-          gst_rate: 18,
-          igst_rate: 0,
-          igst_amount: 0,
-          cgst_rate: 9,
-          cgst_amount: 12150,
-          sgst_rate: 9,
-          sgst_amount: 12150,
-          total_tax: 24300,
-          total_amount: 159300,
-          payment_mode: 'UPI',
-          payment_status: 'PAID',
-          bank_details: {
-            bank_name: 'ICICI Bank',
-            branch: 'Surat',
-            account_number: '2715500356',
-            ifsc: 'ICIC000045',
-            upi_id: 'mobotech@icici',
-          },
-          terms_conditions: [
-            'Subject to Surat Jurisdiction.',
-            'Our Responsibility Ceases as soon as goods leave our Premises.',
-            'Goods once sold will not be taken back.',
-            'Warranty as per manufacturer or shop warranty policy.',
-            'Delivery Ex-Premises.',
-          ],
-          notes: 'Customer paid full via UPI. Handset sealed box delivered.',
-          issued_by_name: 'Shop Owner',
-          created_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-          updated_at: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-        },
-        {
-          id: 's0000000-0000-0000-0000-000000000002',
-          invoice_number: 'INV-2026-000046',
-          invoice_no_seq: 46,
-          invoice_date: '2026-10-23',
-          customer_name: 'Amitbhai Shah',
-          customer_phone: '9879012345',
-          customer_email: 'amit.shah@outlook.com',
-          customer_address: 'Ring Road, Surat',
-          place_of_supply: 'Gujarat ( 24 )',
-          customer_gstin: '',
-          items: [
-            {
-              sr_no: 1,
-              name: 'Samsung Galaxy S24 Ultra Dynamic AMOLED 2X Display Module',
-              item_type: 'PART',
-              imei: 'SM-S928B-09871',
-              warranty: '6 Months Screen Warranty',
-              hsn: '8517',
-              quantity: 1,
-              unit: 'NOS',
-              rate: 18500,
-              taxable_value: 18500,
-              gst_rate: 0,
-              gst_amount: 0,
-              total: 18500,
-            },
-            {
-              sr_no: 2,
-              name: 'UV Curved Tempered Glass Installation',
-              item_type: 'ACCESSORY',
-              imei: '',
-              warranty: 'No Warranty',
-              hsn: '7007',
-              quantity: 1,
-              unit: 'NOS',
-              rate: 500,
-              taxable_value: 500,
-              gst_rate: 0,
-              gst_amount: 0,
-              total: 500,
-            },
-          ],
-          subtotal: 19000,
-          discount_type: 'amount',
-          discount_value: 500,
-          discount_amount: 500,
-          taxable_amount: 18500,
-          gst_enabled: false,
-          gst_type: 'IGST',
-          gst_rate: 0,
-          igst_rate: 0,
-          igst_amount: 0,
-          cgst_rate: 0,
-          cgst_amount: 0,
-          sgst_rate: 0,
-          sgst_amount: 0,
-          total_tax: 0,
-          total_amount: 18500,
-          payment_mode: 'CASH',
-          payment_status: 'PAID',
-          bank_details: {
-            bank_name: 'ICICI Bank',
-            branch: 'Surat',
-            account_number: '2715500356',
-            ifsc: 'ICIC000045',
-            upi_id: 'mobotech@icici',
-          },
-          terms_conditions: [
-            'Subject to Surat Jurisdiction.',
-            'Goods once sold will not be taken back.',
-            'Warranty as per manufacturer or shop warranty policy.',
-          ],
-          notes: 'Display replacement completed with original frame. Cash received.',
-          issued_by_name: 'Shop Owner',
-          created_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-          updated_at: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-        },
-        {
-          id: 's0000000-0000-0000-0000-000000000003',
-          invoice_number: 'INV-2026-000047',
-          invoice_no_seq: 47,
-          invoice_date: '2026-10-23',
-          customer_name: 'Pooja Mehta',
-          customer_phone: '9909012345',
-          customer_email: 'pooja.mehta@gmail.com',
-          customer_address: 'City Light Rd, Surat',
-          place_of_supply: 'Gujarat ( 24 )',
-          customer_gstin: '24BBZPM9876C1Z3',
-          items: [
-            {
-              sr_no: 1,
-              name: 'OnePlus 12 5G (16GB RAM + 512GB Silky Black)',
-              item_type: 'PHONE',
-              imei: '864209040112233',
-              warranty: '1 Year Brand Warranty',
-              hsn: '8517',
-              quantity: 1,
-              unit: 'NOS',
-              rate: 64999,
-              taxable_value: 64999,
-              gst_rate: 18,
-              gst_amount: 11699.82,
-              total: 76698.82,
-            },
-          ],
-          subtotal: 64999,
-          discount_type: 'amount',
-          discount_value: 1000,
-          discount_amount: 1000,
-          taxable_amount: 63999,
-          gst_enabled: true,
-          gst_type: 'CGST_SGST',
-          gst_rate: 18,
-          igst_rate: 0,
-          igst_amount: 0,
-          cgst_rate: 9,
-          cgst_amount: 5759.91,
-          sgst_rate: 9,
-          sgst_amount: 5759.91,
-          total_tax: 11519.82,
-          total_amount: 75518.82,
-          payment_mode: 'CARD',
-          payment_status: 'PAID',
-          bank_details: {
-            bank_name: 'ICICI Bank',
-            branch: 'Surat',
-            account_number: '2715500356',
-            ifsc: 'ICIC000045',
-            upi_id: 'mobotech@icici',
-          },
-          terms_conditions: [
-            'Subject to Surat Jurisdiction.',
-            'Goods once sold will not be taken back.',
-          ],
-          notes: 'Card swipe via HDFC POS terminal.',
-          issued_by_name: 'Shop Owner',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-      ];
-      saveLocalDb();
-    }
-  }
 };
 
-const saveLocalDb = () => {
-  if (!localDb) return;
-  try {
-    fs.writeFileSync(DB_FILE, JSON.stringify(localDb, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('❌ Error saving local database:', err.message);
+// Initialize database directly from Supabase PostgreSQL (no local db.json file)
+export const initDb = async () => {
+  localDb = await createInitialSeedData();
+
+  localDb.vendors = localDb.vendors || [];
+  localDb.vendor_transactions = localDb.vendor_transactions || [];
+  localDb.vendor_mobiles = localDb.vendor_mobiles || [];
+  localDb.vendor_status_history = localDb.vendor_status_history || [];
+  localDb.vendor_ledger = localDb.vendor_ledger || [];
+  localDb.vendor_payments = localDb.vendor_payments || [];
+  localDb.sales = localDb.sales || [];
+  localDb.attachments = localDb.attachments || [];
+  localDb.backup_logs = localDb.backup_logs || [];
+  localDb.recycle_bin = localDb.recycle_bin || [];
+
+  if (isSupabaseConfigured()) {
+    console.log('✅ Supabase PostgreSQL is connected as permanent primary database. Syncing live tables...');
+    await syncFromSupabase();
+  } else {
+    console.warn('⚠️ Supabase is not configured in environment variables.');
   }
 };
+const saveLocalDb = () => {};
 
 export const parseWarrantyDays = (val) => {
   if (val === undefined || val === null || val === '') return -1;
@@ -618,7 +382,13 @@ const {
   generateNextVendorTxnNumber,
   generateNextVendorVoucherNumber,
   vendorDbMethods,
-} = setupVendorRepo(() => localDb, () => saveLocalDb(), supabaseHelpers);
+} = setupVendorRepo(
+  () => localDb,
+  () => saveLocalDb(),
+  supabaseHelpers,
+  () => db.recycle_bin,
+  () => ensureFreshSync(5000)
+);
 
 export {
   generateNextVendorCode,
@@ -665,14 +435,13 @@ export const db = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
+      localDb.users.push(newUser);
       if (isSupabaseConfigured()) {
         const { data, error } = await getSupabase().from('users').insert(newUser).select().single();
         if (error) throw error;
         const { password_hash: _ph, ...safeData } = data || newUser;
         return safeData;
       }
-      localDb.users.push(newUser);
-      saveLocalDb();
       const { password_hash, ...safe } = newUser;
       return safe;
     },
@@ -681,9 +450,12 @@ export const db = {
         throw new Error('You cannot delete your own active account.');
       }
       const idx = (localDb.users || []).findIndex(u => u.id === id);
-      if (idx === -1) return false;
-      localDb.users.splice(idx, 1);
-      saveLocalDb();
+      if (idx !== -1) {
+        localDb.users.splice(idx, 1);
+      }
+      if (isSupabaseConfigured()) {
+        await safeSupabaseDelete('users', id);
+      }
       return true;
     },
     bulkDelete: async (ids, currentUserId) => {
@@ -692,49 +464,121 @@ export const db = {
       const initialCount = (localDb.users || []).length;
       localDb.users = (localDb.users || []).filter(u => !validIds.includes(u.id));
       const deletedCount = initialCount - (localDb.users || []).length;
-      saveLocalDb();
-      return deletedCount;
+      if (isSupabaseConfigured() && validIds.length > 0) {
+        try {
+          await getSupabase().from('users').delete().in('id', validIds);
+        } catch (_) {}
+      }
+      return deletedCount || validIds.length;
     }
   },
 
   // SHOPS
   shops: {
     getProfile: async () => {
+      let profile = null;
       if (isSupabaseConfigured()) {
         const { data } = await getSupabase().from('shops').select('*').limit(1).single();
-        return data || null;
+        profile = data ? { ...data } : null;
+      } else {
+        profile = (localDb.shops && localDb.shops[0]) ? { ...localDb.shops[0] } : null;
       }
-      return (localDb.shops && localDb.shops[0]) || null;
+      if (!profile) return null;
+
+      try {
+        const extra = await db.settings.get('shop_profile_extra');
+        if (extra && typeof extra === 'object') {
+          profile = { ...profile, ...extra };
+        }
+      } catch (err) {
+        // ignore fallback
+      }
+
+      if (localDb.shops && localDb.shops[0]) {
+        localDb.shops[0] = { ...localDb.shops[0], ...profile };
+      }
+
+      return profile;
     },
     updateProfile: async (updates) => {
+      const { instagram_qr_url, ...validShopUpdates } = updates;
+
+      if (instagram_qr_url !== undefined) {
+        await db.settings.set(
+          'shop_profile_extra',
+          { instagram_qr_url },
+          'Shop profile extra fields including Instagram QR'
+        );
+      }
+
+      if (localDb.shops && localDb.shops[0]) {
+        localDb.shops[0] = { ...localDb.shops[0], ...updates, updated_at: new Date().toISOString() };
+      }
+
       if (isSupabaseConfigured()) {
-        const profile = await db.shops.getProfile();
-        if (!profile) return null;
+        const current = (await getSupabase().from('shops').select('id').limit(1).single()).data;
+        if (!current) return null;
+
+        const allowedCols = new Set([
+          'name',
+          'tagline',
+          'logo_url',
+          'phone',
+          'email',
+          'address',
+          'city',
+          'state',
+          'postal_code',
+          'country',
+          'tax_number',
+          'website',
+          'currency',
+          'currency_symbol',
+          'warranty_terms',
+          'terms_conditions',
+        ]);
+
+        const dbPayload = { updated_at: new Date().toISOString() };
+        for (const [k, v] of Object.entries(validShopUpdates)) {
+          if (allowedCols.has(k)) {
+            dbPayload[k] = v;
+          }
+        }
+
         const { data, error } = await getSupabase()
           .from('shops')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', profile.id)
+          .update(dbPayload)
+          .eq('id', current.id)
           .select()
           .single();
         if (error) throw error;
-        return data;
+
+        return {
+          ...data,
+          instagram_qr_url:
+            instagram_qr_url !== undefined
+              ? instagram_qr_url
+              : (localDb.shops?.[0]?.instagram_qr_url || ''),
+        };
       }
-      if (localDb.shops && localDb.shops[0]) {
-        localDb.shops[0] = { ...localDb.shops[0], ...updates, updated_at: new Date().toISOString() };
-        saveLocalDb();
-        return localDb.shops[0];
-      }
-      return null;
-    }
+
+      return (localDb.shops && localDb.shops[0]) || null;
+    },
   },
 
   // CUSTOMERS
   customers: {
-    list: async ({ search = '', limit = 50, offset = 0 } = {}) => {
+    list: async ({ search = '', startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
       if (isSupabaseConfigured()) {
         let query = getSupabase().from('customers').select('*', { count: 'exact' });
         if (search) {
           query = query.or(`full_name.ilike.%${search}%,phone.ilike.%${search}%,email.ilike.%${search}%`);
+        }
+        if (startDate) {
+          query = query.gte('created_at', startDate.length === 10 ? `${startDate}T00:00:00` : startDate);
+        }
+        if (endDate) {
+          query = query.lte('created_at', endDate.length === 10 ? `${endDate}T23:59:59.999` : endDate);
         }
         const { data, count, error } = await query.range(offset, offset + limit - 1).order('created_at', { ascending: false });
         if (error) throw error;
@@ -742,6 +586,30 @@ export const db = {
       }
 
       let filtered = [...(localDb.customers || [])];
+
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          filtered = filtered.filter(c => {
+            if (!c.created_at) return false;
+            const t = new Date(c.created_at).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          filtered = filtered.filter(c => {
+            if (!c.created_at) return false;
+            const t = new Date(c.created_at).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
+      }
+
       if (search) {
         const q = search.toLowerCase();
         filtered = filtered.filter(c =>
@@ -794,46 +662,54 @@ export const db = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      if (isSupabaseConfigured()) {
-        const { data, error } = await getSupabase().from('customers').insert(newCustomer).select().single();
-        if (error) throw error;
-        if (localDb && localDb.customers) localDb.customers.push(data || newCustomer);
-        return data;
-      }
       localDb.customers.push(newCustomer);
       saveLocalDb();
+      if (isSupabaseConfigured()) {
+        const inserted = await safeSupabaseInsert('customers', newCustomer);
+        if (Array.isArray(inserted) && inserted[0]) {
+          return inserted[0];
+        }
+      }
       return newCustomer;
     },
     update: async (id, updates) => {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await getSupabase()
-          .from('customers')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      }
       const idx = (localDb.customers || []).findIndex(c => c.id === id);
-      if (idx === -1) return null;
-      localDb.customers[idx] = { ...localDb.customers[idx], ...updates, updated_at: new Date().toISOString() };
-      saveLocalDb();
-      return localDb.customers[idx];
-    },
-    delete: async (id) => {
-      if (isSupabaseConfigured()) {
-        const { error } = await getSupabase().from('customers').delete().eq('id', id);
-        if (error) throw error;
-        return true;
+      if (idx !== -1) {
+        localDb.customers[idx] = { ...localDb.customers[idx], ...updates, updated_at: new Date().toISOString() };
       }
+      if (isSupabaseConfigured()) {
+        const updated = await safeSupabaseUpdate('customers', id, { ...updates, updated_at: new Date().toISOString() });
+        if (Array.isArray(updated) && updated[0]) {
+          return updated[0];
+        }
+      }
+      return idx !== -1 ? localDb.customers[idx] : null;
+    },
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.customers || []).findIndex(c => c.id === id);
       if (idx === -1) return false;
+      const customer = localDb.customers[idx];
+
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'customer',
+            original_id: id,
+            title: `Customer: ${customer.full_name || 'Customer'}`,
+            subtitle: `Phone: ${customer.phone || 'N/A'} • Email: ${customer.email || 'N/A'} • City: ${customer.city || 'N/A'}`,
+            data: { customer: { ...customer } },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive customer warning:', err.message);
+      }
+
       localDb.customers.splice(idx, 1);
       saveLocalDb();
       return true;
     },
-    bulkDelete: async (ids = [], force = false) => {
+    bulkDelete: async (ids = [], force = false, deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
@@ -841,16 +717,12 @@ export const db = {
           // Remove associated jobs
           const customerJobs = (localDb.repair_jobs || []).filter(j => j.customer_id === id);
           for (const cj of customerJobs) {
-            await db.jobs.delete(cj.id);
+            await db.jobs.delete(cj.id, deletedBy);
           }
         }
-        const idx = (localDb.customers || []).findIndex(c => c.id === id);
-        if (idx !== -1) {
-          localDb.customers.splice(idx, 1);
-          count++;
-        }
+        const deleted = await db.customers.delete(id, deletedBy);
+        if (deleted) count++;
       }
-      saveLocalDb();
       return count;
     }
   },
@@ -880,38 +752,34 @@ export const db = {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      if (isSupabaseConfigured()) {
-        const { data, error } = await getSupabase().from('devices').insert(newDevice).select().single();
-        if (error) throw error;
-        if (localDb && localDb.devices) localDb.devices.push(data || newDevice);
-        return data;
-      }
       localDb.devices.push(newDevice);
-      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        const inserted = await safeSupabaseInsert('devices', newDevice);
+        if (Array.isArray(inserted) && inserted[0]) {
+          return inserted[0];
+        }
+      }
       return newDevice;
     },
     update: async (id, updates) => {
-      if (isSupabaseConfigured()) {
-        const { data, error } = await getSupabase()
-          .from('devices')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .select()
-          .single();
-        if (error) throw error;
-        return data;
-      }
       const idx = (localDb.devices || []).findIndex(d => d.id === id);
-      if (idx === -1) return null;
-      localDb.devices[idx] = { ...localDb.devices[idx], ...updates, updated_at: new Date().toISOString() };
-      saveLocalDb();
-      return localDb.devices[idx];
+      if (idx !== -1) {
+        localDb.devices[idx] = { ...localDb.devices[idx], ...updates, updated_at: new Date().toISOString() };
+      }
+      if (isSupabaseConfigured()) {
+        const updated = await safeSupabaseUpdate('devices', id, { ...updates, updated_at: new Date().toISOString() });
+        if (Array.isArray(updated) && updated[0]) {
+          return updated[0];
+        }
+      }
+      return idx !== -1 ? localDb.devices[idx] : null;
     }
   },
 
   // REPAIR JOBS
   jobs: {
-    list: async ({ status, customerId, technicianId, search, limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
+    list: async ({ status, customerId, technicianId, search, startDate, endDate, limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
+      await ensureFreshSync(5000);
       // In local engine
       let jobs = [...(localDb.repair_jobs || [])];
 
@@ -923,6 +791,28 @@ export const db = {
       }
       if (technicianId) {
         jobs = jobs.filter(j => j.assigned_technician_id === technicianId);
+      }
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          jobs = jobs.filter(j => {
+            if (!j.created_at) return false;
+            const t = new Date(j.created_at).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          jobs = jobs.filter(j => {
+            if (!j.created_at) return false;
+            const t = new Date(j.created_at).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
       }
 
       // Populate joined customer & device
@@ -1178,56 +1068,67 @@ export const db = {
       return localDb.repair_jobs[idx];
     },
 
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.repair_jobs || []).findIndex(j => j.id === id);
       if (idx === -1) return false;
+
+      const job = localDb.repair_jobs[idx];
+      const customer = (localDb.customers || []).find(c => c.id === job.customer_id);
+      const device = (localDb.devices || []).find(d => d.id === job.device_id);
+
+      const tests = (localDb.repair_tests || []).filter(t => t.job_id === id);
+      const diagnoses = (localDb.diagnoses || []).filter(d => d.job_id === id);
+      const statusHistory = (localDb.job_status_history || []).filter(h => h.job_id === id);
+      const estimates = (localDb.repair_estimates || []).filter(e => e.job_id === id);
+      const estimateIds = new Set(estimates.map(e => e.id));
+      const estimateItems = (localDb.repair_estimate_items || []).filter(i => estimateIds.has(i.estimate_id));
+      const invoices = (localDb.invoices || []).filter(i => i.job_id === id);
+      const invoiceIds = new Set(invoices.map(i => i.id));
+      const invoiceItems = (localDb.invoice_items || []).filter(i => invoiceIds.has(i.invoice_id));
+      const payments = (localDb.payments || []).filter(p => p.job_id === id);
+
+      // Archive into Recycle Bin
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'job',
+            original_id: id,
+            title: `Job #${job.job_number || 'JOB'} — ${device ? `${device.brand} ${device.model}` : 'Device Repair'}`,
+            subtitle: `Customer: ${customer?.full_name || 'Walk-in'} • Problem: ${job.problem_description || 'General Repair'} • Amount: ₹${job.total_amount || 0}`,
+            data: {
+              job: { ...job },
+              device: device ? { ...device } : null,
+              tests,
+              diagnoses,
+              statusHistory,
+              estimates,
+              estimateItems,
+              invoices,
+              invoiceItems,
+              payments,
+            },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive job warning:', err.message);
+      }
 
       // Remove from repair_jobs
       localDb.repair_jobs.splice(idx, 1);
 
-      // Clean up related records
+      // Clean up related records from active state
       localDb.repair_tests = (localDb.repair_tests || []).filter(t => t.job_id !== id);
       localDb.diagnoses = (localDb.diagnoses || []).filter(d => d.job_id !== id);
       localDb.job_status_history = (localDb.job_status_history || []).filter(h => h.job_id !== id);
-
-      // Remove associated estimate & items
-      const estIdx = (localDb.repair_estimates || []).findIndex(e => e.job_id === id);
-      if (estIdx !== -1) {
-        const estId = localDb.repair_estimates[estIdx].id;
-        localDb.repair_estimate_items = (localDb.repair_estimate_items || []).filter(i => i.estimate_id !== estId);
-        localDb.repair_estimates.splice(estIdx, 1);
-      }
-
-      // Remove associated invoice & items
-      const invIdx = (localDb.invoices || []).findIndex(i => i.job_id === id);
-      if (invIdx !== -1) {
-        const invId = localDb.invoices[invIdx].id;
-        localDb.invoice_items = (localDb.invoice_items || []).filter(i => i.invoice_id !== invId);
-        localDb.invoices.splice(invIdx, 1);
-      }
-
-      // Remove associated payments
+      localDb.repair_estimates = (localDb.repair_estimates || []).filter(e => e.job_id !== id);
+      localDb.repair_estimate_items = (localDb.repair_estimate_items || []).filter(i => !estimateIds.has(i.estimate_id));
+      localDb.invoices = (localDb.invoices || []).filter(i => i.job_id !== id);
+      localDb.invoice_items = (localDb.invoice_items || []).filter(i => !invoiceIds.has(i.invoice_id));
       localDb.payments = (localDb.payments || []).filter(p => p.job_id !== id);
-
-      // Remove associated notifications
       localDb.notifications = (localDb.notifications || []).filter(n => n.job_id !== id);
 
       saveLocalDb();
-
-      // Cascade delete in Supabase
-      if (isSupabaseConfigured()) {
-        try {
-          const supabase = getSupabase();
-          await supabase.from('repair_tests').delete().eq('job_id', id);
-          await supabase.from('job_status_history').delete().eq('job_id', id);
-          await supabase.from('diagnoses').delete().eq('job_id', id);
-          await supabase.from('payments').delete().eq('job_id', id);
-          await supabase.from('repair_jobs').delete().eq('id', id);
-        } catch (err) {
-          console.warn('⚠️ Supabase repair_jobs delete error:', err.message);
-        }
-      }
-
       return true;
     },
 
@@ -1259,11 +1160,11 @@ export const db = {
       return localDb.repair_jobs[idx];
     },
 
-    bulkDelete: async (ids = []) => {
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
-        const deleted = await db.jobs.delete(id);
+        const deleted = await db.jobs.delete(id, deletedBy);
         if (deleted) count++;
       }
       return count;
@@ -1484,7 +1385,14 @@ export const db = {
         if (taxAmount !== undefined) est.tax_amount = taxAmount;
         if (totalAmount !== undefined) est.total_amount = totalAmount;
         est.updated_at = new Date().toISOString();
-        saveLocalDb();
+        await safeSupabaseUpdate('repair_estimates', est.id, {
+          discount: est.discount,
+          discount_type: est.discount_type,
+          discount_value: est.discount_value,
+          tax_amount: est.tax_amount,
+          total_amount: est.total_amount,
+          updated_at: est.updated_at,
+        });
       }
       return est;
     }
@@ -1492,8 +1400,33 @@ export const db = {
 
   // PARTS & INVENTORY
   parts: {
-    list: async ({ category, search, lowStockOnly = false, limit = 50, offset = 0 } = {}) => {
+    list: async ({ category, search, lowStockOnly = false, startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
+      await ensureFreshSync(5000);
       let parts = [...(localDb.parts || [])];
+
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          parts = parts.filter(p => {
+            if (!p.created_at) return false;
+            const t = new Date(p.created_at).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          parts = parts.filter(p => {
+            if (!p.created_at) return false;
+            const t = new Date(p.created_at).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
+      }
+
       if (category) {
         parts = parts.filter(p => p.category === category);
       }
@@ -1591,29 +1524,36 @@ export const db = {
       await safeSupabaseInsert('part_stock_movements', movementRecord);
       return part;
     },
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       const idx = (localDb.parts || []).findIndex(p => p.id === id);
       if (idx === -1) return false;
+      const part = localDb.parts[idx];
+
+      try {
+        if (db?.recycle_bin) {
+          await db.recycle_bin.add({
+            entity_type: 'part',
+            original_id: id,
+            title: `Part: ${part.name || 'Component'}`,
+            subtitle: `SKU: ${part.sku || 'N/A'} • Stock: ${part.stock_quantity ?? part.quantity ?? 0} • Price: ₹${part.selling_price ?? part.cost_price ?? 0}`,
+            data: { part: { ...part } },
+            deleted_by: deletedBy,
+          });
+        }
+      } catch (err) {
+        console.warn('Recycle bin archive part warning:', err.message);
+      }
+
       localDb.parts.splice(idx, 1);
       saveLocalDb();
-      await safeSupabaseDelete('parts', id);
       return true;
     },
-    bulkDelete: async (ids = []) => {
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
       if (!Array.isArray(ids) || ids.length === 0) return 0;
       let count = 0;
       for (const id of ids) {
-        const idx = (localDb.parts || []).findIndex(p => p.id === id);
-        if (idx !== -1) {
-          localDb.parts.splice(idx, 1);
-          count++;
-        }
-      }
-      saveLocalDb();
-      if (isSupabaseConfigured() && ids.length > 0) {
-        try {
-          await getSupabase().from('parts').delete().in('id', ids);
-        } catch (_) {}
+        const deleted = await db.parts.delete(id, deletedBy);
+        if (deleted) count++;
       }
       return count;
     }
@@ -1735,8 +1675,34 @@ export const db = {
       return { payment, job };
     },
 
-    list: async ({ search = '', method = 'ALL', limit = 50, offset = 0 } = {}) => {
+    list: async ({ search = '', method = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
       let payments = [...(localDb.payments || [])];
+
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          payments = payments.filter(p => {
+            const raw = p.paid_at || p.created_at;
+            if (!raw) return false;
+            const t = new Date(raw).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          payments = payments.filter(p => {
+            const raw = p.paid_at || p.created_at;
+            if (!raw) return false;
+            const t = new Date(raw).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
+      }
+
       let populated = payments.map(p => {
         const job = (localDb.repair_jobs || []).find(j => j.id === p.job_id) || {};
         const customer = (localDb.customers || []).find(c => c.id === (p.customer_id || job.customer_id)) || {};
@@ -1990,8 +1956,34 @@ export const db = {
 
   // SALES (DIRECT INVOICES FOR PHONES & PARTS)
   sales: {
-    list: async ({ search, status, sortBy = 'created_at', sortDir = 'desc', limit = 50, offset = 0 } = {}) => {
+    list: async ({ search, status, sortBy = 'created_at', sortDir = 'desc', startDate, endDate, limit = 50, offset = 0 } = {}) => {
+      await ensureFreshSync(5000);
       let sales = [...(localDb.sales || [])];
+
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          sales = sales.filter(s => {
+            const raw = s.invoice_date || s.created_at;
+            if (!raw) return false;
+            const t = new Date(raw).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          sales = sales.filter(s => {
+            const raw = s.invoice_date || s.created_at;
+            if (!raw) return false;
+            const t = new Date(raw).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
+      }
 
       // Status / Filter tabs
       if (status && status !== 'ALL') {
@@ -2070,29 +2062,40 @@ export const db = {
       await safeSupabaseInsert('sales', newSale);
       return newSale;
     },
-    delete: async (id) => {
+    delete: async (id, deletedBy = 'Staff') => {
       localDb.sales = localDb.sales || [];
       const idx = localDb.sales.findIndex((s) => s.id === id);
       if (idx !== -1) {
+        const sale = localDb.sales[idx];
+        try {
+          if (db?.recycle_bin) {
+            await db.recycle_bin.add({
+              entity_type: 'sale',
+              original_id: id,
+              title: `Invoice #${sale.invoice_no_seq || sale.invoice_number || 'Sale'} — ${sale.customer_name || 'Walk-in Customer'}`,
+              subtitle: `Amount: ₹${sale.grand_total || sale.final_amount || 0} • Items: ${sale.items?.length || 0} • Date: ${sale.invoice_date?.slice(0, 10) || 'N/A'}`,
+              data: { sale: { ...sale } },
+              deleted_by: deletedBy,
+            });
+          }
+        } catch (err) {
+          console.warn('Recycle bin archive sale warning:', err.message);
+        }
+
         localDb.sales.splice(idx, 1);
         saveLocalDb();
-        await safeSupabaseDelete('sales', id);
         return true;
       }
       return false;
     },
-    bulkDelete: async (ids = []) => {
-      localDb.sales = localDb.sales || [];
-      const idSet = new Set(ids);
-      const beforeCount = localDb.sales.length;
-      localDb.sales = localDb.sales.filter((s) => !idSet.has(s.id));
-      saveLocalDb();
-      if (isSupabaseConfigured() && ids.length > 0) {
-        try {
-          await getSupabase().from('sales').delete().in('id', ids);
-        } catch (_) {}
+    bulkDelete: async (ids = [], deletedBy = 'Staff') => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        const deleted = await db.sales.delete(id, deletedBy);
+        if (deleted) count++;
       }
-      return beforeCount - localDb.sales.length;
+      return count;
     },
   },
 
@@ -2125,8 +2128,32 @@ export const db = {
       await safeSupabaseInsert('notification_logs', supabaseLog);
       return logEntry;
     },
-    getLogs: async ({ jobId, channel, search, limit = 50, offset = 0 } = {}) => {
+    getLogs: async ({ jobId, channel, search, startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
       let logs = [...(localDb.notification_logs || [])];
+
+      if (startDate) {
+        const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
+        const startTime = startObj.getTime();
+        if (!isNaN(startTime)) {
+          logs = logs.filter(l => {
+            if (!l.created_at) return false;
+            const t = new Date(l.created_at).getTime();
+            return !isNaN(t) && t >= startTime;
+          });
+        }
+      }
+      if (endDate) {
+        const endObj = endDate.length === 10 ? new Date(`${endDate}T23:59:59.999`) : new Date(endDate);
+        const endTime = endObj.getTime();
+        if (!isNaN(endTime)) {
+          logs = logs.filter(l => {
+            if (!l.created_at) return false;
+            const t = new Date(l.created_at).getTime();
+            return !isNaN(t) && t <= endTime;
+          });
+        }
+      }
+
       if (jobId) {
         logs = logs.filter(l => l.job_id === jobId);
       }
@@ -2191,7 +2218,7 @@ export const db = {
       };
       if (!localDb.attachments) localDb.attachments = [];
       localDb.attachments.push(att);
-      saveLocalDb();
+      await safeSupabaseInsert('attachments', att);
       return att;
     },
     listByJobId: async (jobId) => {
@@ -2370,5 +2397,327 @@ export const db = {
     }
   },
 
+  // -------------------------------------------------------------
+  // RECYCLE BIN (SOFT DELETE WITH 30-DAY RETENTION)
+  // -------------------------------------------------------------
+  recycle_bin: {
+    add: async ({ entity_type, original_id, title, subtitle, data, deleted_by }) => {
+      if (!localDb) return null;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const now = new Date();
+      const purgeAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const record = {
+        id: uuidv4(),
+        entity_type, // 'job' | 'sale' | 'vendor' | 'vendor_mobile' | 'customer' | 'part'
+        original_id,
+        title: title || 'Deleted Record',
+        subtitle: subtitle || '',
+        data: data || {},
+        deleted_by: deleted_by || 'Staff',
+        deleted_at: now.toISOString(),
+        purge_at: purgeAt.toISOString(),
+      };
+      localDb.recycle_bin.unshift(record);
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').insert([record]).then(() => {});
+        } catch (_) {}
+      }
+      return record;
+    },
+
+    purgeExpired: () => {
+      if (!localDb || !Array.isArray(localDb.recycle_bin)) return 0;
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+      const initial = localDb.recycle_bin.length;
+      localDb.recycle_bin = localDb.recycle_bin.filter((item) => {
+        const deletedTime = new Date(item.deleted_at).getTime();
+        return (now - deletedTime) < THIRTY_DAYS_MS;
+      });
+      const purged = initial - localDb.recycle_bin.length;
+      if (purged > 0) saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          const cutoff = new Date(Date.now() - THIRTY_DAYS_MS).toISOString();
+          getSupabase().from('recycle_bin').delete().lt('deleted_at', cutoff).then(() => {});
+        } catch (_) {}
+      }
+      return purged;
+    },
+
+    list: async ({ type = 'ALL', search = '' } = {}) => {
+      if (!localDb) return { items: [], total: 0, counts: {} };
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      db.recycle_bin.purgeExpired();
+
+      const all = localDb.recycle_bin;
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+      const counts = {
+        total: all.length,
+        jobs: all.filter((i) => i.entity_type === 'job').length,
+        sales: all.filter((i) => i.entity_type === 'sale').length,
+        vendors: all.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile').length,
+        customers: all.filter((i) => i.entity_type === 'customer').length,
+        parts: all.filter((i) => i.entity_type === 'part').length,
+      };
+
+      let filtered = [...all];
+
+      if (type && type !== 'ALL') {
+        if (type === 'vendor') {
+          filtered = filtered.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile');
+        } else {
+          filtered = filtered.filter((i) => i.entity_type === type);
+        }
+      }
+
+      if (search && search.trim()) {
+        const q = search.toLowerCase().trim();
+        filtered = filtered.filter(
+          (i) =>
+            (i.title && i.title.toLowerCase().includes(q)) ||
+            (i.subtitle && i.subtitle.toLowerCase().includes(q)) ||
+            (i.deleted_by && i.deleted_by.toLowerCase().includes(q))
+        );
+      }
+
+      const items = filtered.map((item) => {
+        const deletedTime = new Date(item.deleted_at).getTime();
+        const expireTime = deletedTime + THIRTY_DAYS_MS;
+        const msLeft = Math.max(0, expireTime - now);
+        const daysRemaining = Math.max(0, Math.ceil(msLeft / (24 * 60 * 60 * 1000)));
+        return {
+          ...item,
+          days_remaining: daysRemaining,
+        };
+      });
+
+      return {
+        items,
+        total: items.length,
+        counts,
+      };
+    },
+
+    restore: async (id) => {
+      if (!localDb) return null;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idx = localDb.recycle_bin.findIndex((i) => i.id === id);
+      if (idx === -1) throw new Error('Recycle bin record not found or already permanently deleted.');
+
+      const item = localDb.recycle_bin[idx];
+      const { entity_type, data } = item;
+
+      if (entity_type === 'job' && data.job) {
+        localDb.repair_jobs = localDb.repair_jobs || [];
+        const exists = localDb.repair_jobs.some((j) => j.id === data.job.id);
+        if (!exists) localDb.repair_jobs.unshift(data.job);
+
+        if (Array.isArray(data.tests)) {
+          localDb.repair_tests = localDb.repair_tests || [];
+          data.tests.forEach((t) => {
+            if (!localDb.repair_tests.some((x) => x.id === t.id)) localDb.repair_tests.push(t);
+          });
+        }
+        if (Array.isArray(data.diagnoses)) {
+          localDb.diagnoses = localDb.diagnoses || [];
+          data.diagnoses.forEach((d) => {
+            if (!localDb.diagnoses.some((x) => x.id === d.id)) localDb.diagnoses.push(d);
+          });
+        }
+        if (Array.isArray(data.statusHistory)) {
+          localDb.job_status_history = localDb.job_status_history || [];
+          data.statusHistory.forEach((h) => {
+            if (!localDb.job_status_history.some((x) => x.id === h.id)) localDb.job_status_history.push(h);
+          });
+        }
+        if (Array.isArray(data.estimates)) {
+          localDb.repair_estimates = localDb.repair_estimates || [];
+          data.estimates.forEach((e) => {
+            if (!localDb.repair_estimates.some((x) => x.id === e.id)) localDb.repair_estimates.push(e);
+          });
+        }
+        if (Array.isArray(data.estimateItems)) {
+          localDb.repair_estimate_items = localDb.repair_estimate_items || [];
+          data.estimateItems.forEach((ei) => {
+            if (!localDb.repair_estimate_items.some((x) => x.id === ei.id)) localDb.repair_estimate_items.push(ei);
+          });
+        }
+        if (Array.isArray(data.invoices)) {
+          localDb.invoices = localDb.invoices || [];
+          data.invoices.forEach((inv) => {
+            if (!localDb.invoices.some((x) => x.id === inv.id)) localDb.invoices.push(inv);
+          });
+        }
+        if (Array.isArray(data.invoiceItems)) {
+          localDb.invoice_items = localDb.invoice_items || [];
+          data.invoiceItems.forEach((ii) => {
+            if (!localDb.invoice_items.some((x) => x.id === ii.id)) localDb.invoice_items.push(ii);
+          });
+        }
+        if (Array.isArray(data.payments)) {
+          localDb.payments = localDb.payments || [];
+          data.payments.forEach((p) => {
+            if (!localDb.payments.some((x) => x.id === p.id)) localDb.payments.push(p);
+          });
+        }
+      } else if (entity_type === 'sale' && data.sale) {
+        localDb.sales = localDb.sales || [];
+        const exists = localDb.sales.some((s) => s.id === data.sale.id);
+        if (!exists) localDb.sales.unshift(data.sale);
+      } else if (entity_type === 'vendor' && data.vendor) {
+        localDb.vendors = localDb.vendors || [];
+        const exists = localDb.vendors.some((v) => v.id === data.vendor.id);
+        if (!exists) localDb.vendors.unshift(data.vendor);
+      } else if (entity_type === 'vendor_mobile' && data.mobile) {
+        localDb.vendor_mobiles = localDb.vendor_mobiles || [];
+        const exists = localDb.vendor_mobiles.some((m) => m.id === data.mobile.id);
+        if (!exists) localDb.vendor_mobiles.unshift(data.mobile);
+        if (Array.isArray(data.history)) {
+          localDb.vendor_status_history = localDb.vendor_status_history || [];
+          data.history.forEach((h) => {
+            if (!localDb.vendor_status_history.some((x) => x.id === h.id)) localDb.vendor_status_history.push(h);
+          });
+        }
+      } else if (entity_type === 'customer' && data.customer) {
+        localDb.customers = localDb.customers || [];
+        const exists = localDb.customers.some((c) => c.id === data.customer.id);
+        if (!exists) localDb.customers.unshift(data.customer);
+      } else if (entity_type === 'part' && data.part) {
+        localDb.parts = localDb.parts || [];
+        const exists = localDb.parts.some((p) => p.id === data.part.id);
+        if (!exists) localDb.parts.unshift(data.part);
+      }
+
+      localDb.recycle_bin.splice(idx, 1);
+      saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        try {
+          const supabase = getSupabase();
+          supabase.from('recycle_bin').delete().eq('id', id).then(() => {});
+          if (entity_type === 'job' && data.job) {
+            supabase.from('repair_jobs').upsert([data.job]).then(() => {});
+          } else if (entity_type === 'sale' && data.sale) {
+            supabase.from('sales').upsert([data.sale]).then(() => {});
+          } else if (entity_type === 'vendor' && data.vendor) {
+            supabase.from('vendors').upsert([data.vendor]).then(() => {});
+          } else if (entity_type === 'vendor_mobile' && data.mobile) {
+            supabase.from('vendor_mobiles').upsert([data.mobile]).then(() => {});
+          } else if (entity_type === 'customer' && data.customer) {
+            supabase.from('customers').upsert([data.customer]).then(() => {});
+          } else if (entity_type === 'part' && data.part) {
+            supabase.from('parts').upsert([data.part]).then(() => {});
+          }
+        } catch (_) {}
+      }
+
+      return item;
+    },
+
+    bulkRestore: async (ids = []) => {
+      if (!Array.isArray(ids) || ids.length === 0) return 0;
+      let count = 0;
+      for (const id of ids) {
+        try {
+          await db.recycle_bin.restore(id);
+          count++;
+        } catch (_) {}
+      }
+      return count;
+    },
+
+    delete: async (id) => {
+      if (!localDb) return false;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idx = localDb.recycle_bin.findIndex((i) => i.id === id);
+      if (idx === -1) return false;
+      localDb.recycle_bin.splice(idx, 1);
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').delete().eq('id', id).then(() => {});
+        } catch (_) {}
+      }
+      return true;
+    },
+
+    bulkDelete: async (ids = []) => {
+      if (!localDb || !Array.isArray(ids) || ids.length === 0) return 0;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      const idSet = new Set(ids);
+      const before = localDb.recycle_bin.length;
+      localDb.recycle_bin = localDb.recycle_bin.filter((i) => !idSet.has(i.id));
+      saveLocalDb();
+      if (isSupabaseConfigured()) {
+        try {
+          getSupabase().from('recycle_bin').delete().in('id', ids).then(() => {});
+        } catch (_) {}
+      }
+      return before - localDb.recycle_bin.length;
+    },
+
+    empty: async (type = 'ALL') => {
+      if (!localDb) return 0;
+      localDb.recycle_bin = localDb.recycle_bin || [];
+      let deletedIds = [];
+      if (type === 'ALL') {
+        const count = localDb.recycle_bin.length;
+        deletedIds = localDb.recycle_bin.map(i => i.id);
+        localDb.recycle_bin = [];
+        saveLocalDb();
+        if (isSupabaseConfigured()) {
+          try {
+            getSupabase().from('recycle_bin').delete().neq('id', '00000000-0000-0000-0000-000000000000').then(() => {});
+          } catch (_) {}
+        }
+        return count;
+      } else {
+        const idSet = new Set(
+          type === 'vendor'
+            ? localDb.recycle_bin.filter((i) => i.entity_type === 'vendor' || i.entity_type === 'vendor_mobile').map((i) => i.id)
+            : localDb.recycle_bin.filter((i) => i.entity_type === type).map((i) => i.id)
+        );
+        const before = localDb.recycle_bin.length;
+        localDb.recycle_bin = localDb.recycle_bin.filter((i) => !idSet.has(i.id));
+        saveLocalDb();
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            if (type === 'vendor') {
+              supabase.from('recycle_bin').delete().in('entity_type', ['vendor', 'vendor_mobile']).then(() => {});
+            } else {
+              supabase.from('recycle_bin').delete().eq('entity_type', type).then(() => {});
+            }
+          } catch (_) {}
+        }
+        return before - localDb.recycle_bin.length;
+      }
+    },
+  },
+
   ...vendorDbMethods,
 };
+
+// Periodic auto-purge of records older than 30 days every hour
+setInterval(() => {
+  try {
+    if (db?.recycle_bin) {
+      const purged = db.recycle_bin.purgeExpired();
+      if (purged > 0) {
+        console.log(`[Recycle Bin] 🗑️ Automatically purged ${purged} expired record(s) (>30 days old).`);
+      }
+    }
+  } catch (_) {}
+}, 60 * 60 * 1000);
+
+// Periodic background sync from Supabase PostgreSQL every 60 seconds
+setInterval(() => {
+  if (isSupabaseConfigured()) {
+    syncFromSupabase().catch(() => {});
+  }
+}, 60 * 1000);
