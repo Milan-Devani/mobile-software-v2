@@ -127,9 +127,39 @@ function findBrowserBinary() {
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
   ].filter(Boolean);
+
   for (const p of candidatePaths) {
     if (fs.existsSync(p)) return p;
   }
+
+  // Look for Chrome installed via @puppeteer/browsers in standard cache directories
+  const homeDir = os.homedir();
+  const searchRoots = [
+    path.join(process.cwd(), '.cache'),
+    path.join(homeDir, '.cache'),
+    '/opt/render/.cache',
+  ];
+
+  for (const root of searchRoots) {
+    if (fs.existsSync(root)) {
+      try {
+        const stack = [root];
+        while (stack.length > 0) {
+          const cur = stack.pop();
+          const entries = fs.readdirSync(cur, { withFileTypes: true });
+          for (const ent of entries) {
+            const fullP = path.join(cur, ent.name);
+            if (ent.isDirectory()) {
+              stack.push(fullP);
+            } else if (ent.isFile() && (ent.name === 'chrome' || ent.name === 'chrome.exe' || ent.name === 'msedge.exe')) {
+              if (fs.existsSync(fullP)) return fullP;
+            }
+          }
+        }
+      } catch (e) { }
+    }
+  }
+
   return null;
 }
 
@@ -617,7 +647,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   fs.writeFileSync(htmlPath, htmlContent, 'utf8');
 
   try {
-    execSync(`"${browserBinary}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
+    execSync(`"${browserBinary}" --headless --disable-gpu --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
       timeout: 25000,
     });
 

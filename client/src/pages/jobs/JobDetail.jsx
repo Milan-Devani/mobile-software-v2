@@ -653,7 +653,8 @@ export const JobDetail = () => {
       // Automatically trigger real official vector invoice PDF download for shop & customer
       if (!isEstimateRejected) {
         try {
-          const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+          const apiBase = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api`;
           const token = localStorage.getItem('token');
           const pdfRes = await fetch(`${apiBase}/invoices/job/${job.id}/download-pdf`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {},

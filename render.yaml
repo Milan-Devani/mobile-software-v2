@@ -10,7 +10,7 @@ services:
     plan: free
     region: oregon
     rootDir: server
-    buildCommand: npm install
+    buildCommand: npm install && npx @puppeteer/browsers install chrome@stable
     startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
