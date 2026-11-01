@@ -683,7 +683,7 @@ export const VendorSendMobiles = () => {
                       Reported Problem & Condition
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap">
-                      Dispatch Date & Chalan #
+                      Send Date & Chalan #
                     </th>
                     <th className="px-4 py-3 text-center whitespace-nowrap">
                       Status
@@ -784,7 +784,7 @@ export const VendorSendMobiles = () => {
                           )}
                         </td>
 
-                        {/* Dispatch Date & Chalan # */}
+                        {/* Send Date & Chalan # */}
                         <td className="px-4 py-3.5 whitespace-nowrap">
                           <div className="font-semibold text-xs text-[var(--spatial-text-title)]">
                             {formatInvoiceDate(mob.sent_date || mob.created_at)}
