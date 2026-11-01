@@ -77,7 +77,7 @@ export const SpatialPagination = ({
       </div>
 
       {/* Right: Page Navigation Pills */}
-      <div className="flex items-center gap-1 self-end md:self-auto">
+      <div className="flex items-center gap-1 self-center sm:self-auto max-w-full overflow-x-auto no-scrollbar py-0.5">
         {/* First Page */}
         <button
           type="button"

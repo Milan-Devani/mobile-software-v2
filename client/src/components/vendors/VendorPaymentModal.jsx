@@ -6,6 +6,7 @@ import { Button } from '../common/Button';
 import { SpatialSelect } from '../common/SpatialSelect';
 import { vendorService } from '../../services/vendorService';
 import { formatIndianCurrency } from '../../utils/billFormatters';
+import { MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps } from '../../utils/numberInput';
 
 export const VendorPaymentModal = ({
   isOpen,
@@ -177,9 +178,11 @@ export const VendorPaymentModal = ({
                 type="number"
                 step="any"
                 min="1"
+                max={MAX_CURRENCY_AMOUNT}
+                {...numberInputProps()}
                 placeholder="0.00"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(limitNumberValue(e.target.value))}
                 required
                 className="w-full h-11 pl-8 pr-3 spatial-input rounded-xl text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none"
               />

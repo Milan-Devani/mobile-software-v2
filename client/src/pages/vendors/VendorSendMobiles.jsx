@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowUpRight,
   Plus,
@@ -20,36 +20,84 @@ import {
   CheckSquare,
   Square,
   AlertCircle,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
-import { Button } from '../../components/common/Button';
-import { SpatialSelect } from '../../components/common/SpatialSelect';
-import { SpatialDrawer } from '../../components/common/SpatialDrawer';
-import { SpatialPagination } from '../../components/common/SpatialPagination';
-import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
-import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
-import { VendorModal } from '../../components/vendors/VendorModal';
-import { vendorService } from '../../services/vendorService';
-import { settingsService } from '../../services/settingsService';
-import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
-import { useDebounce } from '../../hooks/useDebounce';
+} from "lucide-react";
+import toast from "react-hot-toast";
+import { VendorNavTabs } from "../../components/vendors/VendorNavTabs";
+import {
+  Card,
+  LoadingSpinner,
+  EmptyState,
+  TableSkeleton,
+} from "../../components/common/Card";
+import { Button } from "../../components/common/Button";
+import { SpatialSelect } from "../../components/common/SpatialSelect";
+import { SpatialDrawer } from "../../components/common/SpatialDrawer";
+import { SpatialPagination } from "../../components/common/SpatialPagination";
+import { SpatialDateFilter } from "../../components/common/SpatialDateFilter";
+import { VendorReceiptPrintable } from "../../components/vendors/VendorReceiptPrintable";
+import { VendorModal } from "../../components/vendors/VendorModal";
+import { vendorService } from "../../services/vendorService";
+import { settingsService } from "../../services/settingsService";
+import {
+  formatIndianCurrency,
+  formatInvoiceDate,
+} from "../../utils/billFormatters";
+import { useDebounce } from "../../hooks/useDebounce";
+import {
+  MAX_CURRENCY_AMOUNT,
+  limitNumberValue,
+  numberInputProps,
+} from "../../utils/numberInput";
 
 const STATUS_BADGES = {
-  PENDING: { label: 'Pending', bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
-  IN_REPAIR: { label: 'In Repair', bg: 'bg-blue-500/10', text: 'text-blue-400', border: 'border-blue-500/20' },
-  WAITING_PARTS: { label: 'Waiting Parts', bg: 'bg-purple-500/10', text: 'text-purple-400', border: 'border-purple-500/20' },
-  REPAIR_COMPLETED: { label: 'Completed', bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
-  RETURNED: { label: 'Returned', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
-  NOT_REPAIRABLE: { label: 'Not Fixed', bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
-  CANCELLED: { label: 'Cancelled', bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' },
+  PENDING: {
+    label: "Pending",
+    bg: "bg-amber-500/10",
+    text: "text-amber-400",
+    border: "border-amber-500/20",
+  },
+  IN_REPAIR: {
+    label: "In Repair",
+    bg: "bg-blue-500/10",
+    text: "text-blue-400",
+    border: "border-blue-500/20",
+  },
+  WAITING_PARTS: {
+    label: "Waiting Parts",
+    bg: "bg-purple-500/10",
+    text: "text-purple-400",
+    border: "border-purple-500/20",
+  },
+  REPAIR_COMPLETED: {
+    label: "Completed",
+    bg: "bg-emerald-500/10",
+    text: "text-emerald-400",
+    border: "border-emerald-500/20",
+  },
+  RETURNED: {
+    label: "Returned",
+    bg: "bg-slate-500/10",
+    text: "text-slate-400",
+    border: "border-slate-500/20",
+  },
+  NOT_REPAIRABLE: {
+    label: "Not Fixed",
+    bg: "bg-rose-500/10",
+    text: "text-rose-400",
+    border: "border-rose-500/20",
+  },
+  CANCELLED: {
+    label: "Cancelled",
+    bg: "bg-slate-500/10",
+    text: "text-slate-400",
+    border: "border-slate-500/20",
+  },
 };
 
 export const VendorSendMobiles = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const preselectedVendorId = searchParams.get('vendorId') || '';
+  const preselectedVendorId = searchParams.get("vendorId") || "";
 
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -59,15 +107,17 @@ export const VendorSendMobiles = () => {
   const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
   // Master Transaction state for Drawer Form
-  const [txnNumber, setTxnNumber] = useState('');
-  const [txnDate, setTxnDate] = useState(() => new Date().toISOString().split('T')[0]);
+  const [txnNumber, setTxnNumber] = useState("");
+  const [txnDate, setTxnDate] = useState(
+    () => new Date().toISOString().split("T")[0],
+  );
   const [vendorId, setVendorId] = useState(preselectedVendorId);
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState("");
 
   // Advance Payment
-  const [paidAmount, setPaidAmount] = useState('');
-  const [paymentMode, setPaymentMode] = useState('UPI');
-  const [paymentRef, setPaymentRef] = useState('');
+  const [paidAmount, setPaidAmount] = useState("");
+  const [paymentMode, setPaymentMode] = useState("UPI");
+  const [paymentRef, setPaymentRef] = useState("");
 
   // Vendors list for selector & filters
   const [vendors, setVendors] = useState([]);
@@ -76,18 +126,18 @@ export const VendorSendMobiles = () => {
   // Dynamic Handsets for Drawer Form
   const [mobiles, setMobiles] = useState([
     {
-      id: 'mob-1',
-      brand: '',
-      model: '',
-      imei: '',
-      customer_name: '',
-      repair_problem: '',
-      condition: 'Normal Wear',
-      accessories: 'Device Only',
-      expected_return_date: '',
-      estimated_cost: '',
-      status: 'PENDING',
-      notes: '',
+      id: "mob-1",
+      brand: "",
+      model: "",
+      imei: "",
+      customer_name: "",
+      repair_problem: "",
+      condition: "Normal Wear",
+      accessories: "Device Only",
+      expected_return_date: "",
+      estimated_cost: "",
+      status: "PENDING",
+      notes: "",
     },
   ]);
 
@@ -103,12 +153,12 @@ export const VendorSendMobiles = () => {
   const [selectedMobileIds, setSelectedMobileIds] = useState([]);
 
   // Table Filters
-  const [search, setSearch] = useState('');
-  const [selectedVendorFilter, setSelectedVendorFilter] = useState('ALL');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState('ALL');
-  const [datePreset, setDatePreset] = useState('ALL');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [search, setSearch] = useState("");
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState("ALL");
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState("ALL");
+  const [datePreset, setDatePreset] = useState("ALL");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
 
@@ -119,15 +169,17 @@ export const VendorSendMobiles = () => {
     try {
       setTableLoading(true);
       const params = {
-        flowType: 'SENT_TO_VENDOR',
+        flowType: "SENT_TO_VENDOR",
         limit: pageSize,
         offset: (page - 1) * pageSize,
-        sortBy: 'created_at',
-        sortDir: 'desc',
+        sortBy: "created_at",
+        sortDir: "desc",
       };
       if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
-      if (selectedVendorFilter && selectedVendorFilter !== 'ALL') params.vendorId = selectedVendorFilter;
-      if (selectedStatusFilter && selectedStatusFilter !== 'ALL') params.status = selectedStatusFilter;
+      if (selectedVendorFilter && selectedVendorFilter !== "ALL")
+        params.vendorId = selectedVendorFilter;
+      if (selectedStatusFilter && selectedStatusFilter !== "ALL")
+        params.status = selectedStatusFilter;
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
@@ -137,18 +189,26 @@ export const VendorSendMobiles = () => {
         res?.data?.total !== undefined
           ? res.data.total
           : res?.total !== undefined
-          ? res.total
-          : list.length;
+            ? res.total
+            : list.length;
 
       setDispatchedMobiles(list);
       setTotalDispatched(totalCount);
     } catch (err) {
-      console.error('Failed to load dispatched mobiles:', err);
-      toast.error('Failed to load dispatched handsets');
+      console.error("Failed to load dispatched mobiles:", err);
+      toast.error("Failed to load dispatched handsets");
     } finally {
       setTableLoading(false);
     }
-  }, [debouncedSearch, selectedVendorFilter, selectedStatusFilter, startDate, endDate, page, pageSize]);
+  }, [
+    debouncedSearch,
+    selectedVendorFilter,
+    selectedStatusFilter,
+    startDate,
+    endDate,
+    page,
+    pageSize,
+  ]);
 
   // Initial load
   useEffect(() => {
@@ -156,17 +216,19 @@ export const VendorSendMobiles = () => {
       try {
         setLoadingInit(true);
         const [nextNoRes, vendorsRes, settingsRes] = await Promise.allSettled([
-          vendorService.getNextTxnNumber('SEND_TO_VENDOR'),
-          vendorService.getVendors({ limit: 150, status: 'ACTIVE' }),
+          vendorService.getNextTxnNumber("SEND_TO_VENDOR"),
+          vendorService.getVendors({ limit: 150, status: "ACTIVE" }),
           settingsService.getSettings(),
         ]);
 
-        if (nextNoRes.status === 'fulfilled') {
-          const num = nextNoRes.value?.data?.txnNumber || nextNoRes.value?.txnNumber;
+        if (nextNoRes.status === "fulfilled") {
+          const num =
+            nextNoRes.value?.data?.txnNumber || nextNoRes.value?.txnNumber;
           if (num) setTxnNumber(num);
         }
-        if (vendorsRes.status === 'fulfilled') {
-          const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+        if (vendorsRes.status === "fulfilled") {
+          const list =
+            vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
           if (list.length > 0) {
             setVendors(list);
             if (!vendorId) {
@@ -174,12 +236,12 @@ export const VendorSendMobiles = () => {
             }
           }
         }
-        if (settingsRes.status === 'fulfilled') {
+        if (settingsRes.status === "fulfilled") {
           const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
           if (shop) setShopProfile(shop);
         }
       } catch (err) {
-        console.error('Failed to init send mobiles:', err);
+        console.error("Failed to init send mobiles:", err);
       } finally {
         setLoadingInit(false);
       }
@@ -202,17 +264,17 @@ export const VendorSendMobiles = () => {
       ...prev,
       {
         id: `mob-${Date.now()}`,
-        brand: '',
-        model: '',
-        imei: '',
-        customer_name: '',
-        repair_problem: '',
-        condition: 'Normal Wear',
-        accessories: 'Device Only',
-        expected_return_date: '',
-        estimated_cost: '',
-        status: 'PENDING',
-        notes: '',
+        brand: "",
+        model: "",
+        imei: "",
+        customer_name: "",
+        repair_problem: "",
+        condition: "Normal Wear",
+        accessories: "Device Only",
+        expected_return_date: "",
+        estimated_cost: "",
+        status: "PENDING",
+        notes: "",
       },
     ]);
   };
@@ -227,7 +289,7 @@ export const VendorSendMobiles = () => {
 
   const handleRemoveMobileRow = (index) => {
     if (mobiles.length <= 1) {
-      toast.error('At least one mobile must be included in the dispatch.');
+      toast.error("At least one mobile must be included in the dispatch.");
       return;
     }
     setMobiles((prev) => prev.filter((_, i) => i !== index));
@@ -236,16 +298,20 @@ export const VendorSendMobiles = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!vendorId) {
-      toast.error('Please select a destination vendor / lab partner.');
+      toast.error("Please select a destination vendor / lab partner.");
       return;
     }
 
     const validMobiles = mobiles.filter(
-      (m) => m.brand.trim() || m.model.trim() || m.repair_problem.trim() || m.imei.trim()
+      (m) =>
+        m.brand.trim() ||
+        m.model.trim() ||
+        m.repair_problem.trim() ||
+        m.imei.trim(),
     );
 
     if (validMobiles.length === 0) {
-      toast.error('Please enter details for at least one mobile.');
+      toast.error("Please enter details for at least one mobile.");
       return;
     }
 
@@ -273,20 +339,22 @@ export const VendorSendMobiles = () => {
           imei: m.imei.trim(),
           customer_name: m.customer_name.trim(),
           repair_problem: m.repair_problem.trim(),
-          condition: m.condition.trim() || 'Normal Wear',
-          accessories: 'Device Only',
+          condition: m.condition.trim() || "Normal Wear",
+          accessories: "Device Only",
           expected_return_date: null,
           estimated_cost: 0,
-          status: 'PENDING',
+          status: "PENDING",
         })),
         paid_amount: parseFloat(paidAmount) || 0,
-        payment_mode: paidAmount > 0 ? paymentMode : 'NONE',
+        payment_mode: paidAmount > 0 ? paymentMode : "NONE",
         payment_ref: paymentRef,
       };
 
       const res = await vendorService.sendMobilesToVendor(payload);
       if (res.success) {
-        toast.success(`Chalan #${res.data.txn_number} created with ${res.data.mobiles.length} mobile(s)!`);
+        toast.success(
+          `Chalan #${res.data.txn_number} created with ${res.data.mobiles.length} mobile(s)!`,
+        );
         setSavedResult(res.data);
         setIsDrawerOpen(false);
 
@@ -294,25 +362,25 @@ export const VendorSendMobiles = () => {
         setMobiles([
           {
             id: `mob-${Date.now()}`,
-            brand: '',
-            model: '',
-            imei: '',
-            customer_name: '',
-            repair_problem: '',
-            condition: 'Normal Wear',
-            accessories: 'Device Only',
-            expected_return_date: '',
-            estimated_cost: '',
-            status: 'PENDING',
-            notes: '',
+            brand: "",
+            model: "",
+            imei: "",
+            customer_name: "",
+            repair_problem: "",
+            condition: "Normal Wear",
+            accessories: "Device Only",
+            expected_return_date: "",
+            estimated_cost: "",
+            status: "PENDING",
+            notes: "",
           },
         ]);
-        setPaidAmount('');
-        setPaymentRef('');
-        setNotes('');
+        setPaidAmount("");
+        setPaymentRef("");
+        setNotes("");
 
         // Refresh next chalan number & table
-        vendorService.getNextTxnNumber('SEND_TO_VENDOR').then((nextRes) => {
+        vendorService.getNextTxnNumber("SEND_TO_VENDOR").then((nextRes) => {
           const num = nextRes?.data?.txnNumber || nextRes?.txnNumber;
           if (num) setTxnNumber(num);
         });
@@ -320,7 +388,7 @@ export const VendorSendMobiles = () => {
         fetchDispatchedMobiles();
       }
     } catch (err) {
-      toast.error(err.message || 'Failed to dispatch mobiles');
+      toast.error(err.message || "Failed to dispatch mobiles");
     } finally {
       setSubmitting(false);
     }
@@ -329,7 +397,7 @@ export const VendorSendMobiles = () => {
   // Table Row Selection
   const toggleSelectMobile = (id) => {
     setSelectedMobileIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -341,10 +409,39 @@ export const VendorSendMobiles = () => {
     }
   };
 
+  const handleDeleteSelected = async () => {
+    if (selectedMobileIds.length !== dispatchedMobiles.length) return;
+    const count = selectedMobileIds.length;
+    if (
+      !window.confirm(
+        `Delete all ${count} selected outward dispatch record(s)? This cannot be undone.`,
+      )
+    )
+      return;
+
+    try {
+      setTableLoading(true);
+      const result = await vendorService.deleteVendorMobiles(selectedMobileIds);
+      toast.success(result?.message || `${count} dispatch record(s) deleted.`);
+      setSelectedMobileIds([]);
+      if (dispatchedMobiles.length === count && page > 1)
+        setPage((current) => current - 1);
+      await fetchDispatchedMobiles();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to delete dispatched mobiles",
+      );
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
   const handleViewChalan = async (mob, e) => {
     e?.stopPropagation();
     if (!mob.send_txn_id) {
-      toast.error('No chalan record linked to this mobile.');
+      toast.error("No chalan record linked to this mobile.");
       return;
     }
     try {
@@ -353,10 +450,10 @@ export const VendorSendMobiles = () => {
       if (txn) {
         setSavedResult(txn);
       } else {
-        toast.error('Chalan details not found');
+        toast.error("Chalan details not found");
       }
     } catch (err) {
-      toast.error('Failed to load chalan details');
+      toast.error("Failed to load chalan details");
     }
   };
 
@@ -371,7 +468,7 @@ export const VendorSendMobiles = () => {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => navigate('/vendors')}
+            onClick={() => navigate("/vendors")}
             className="p-2 rounded-xl text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] transition-all cursor-pointer active:scale-95"
             title="Back to vendor dashboard"
           >
@@ -385,7 +482,8 @@ export const VendorSendMobiles = () => {
               Send Mobiles to Vendor (Outward Dispatches)
             </h1>
             <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5 font-normal">
-              Track dispatched handsets sent to external repair labs or partner service centers
+              Track dispatched handsets sent to external repair labs or partner
+              service centers
             </p>
           </div>
         </div>
@@ -408,7 +506,7 @@ export const VendorSendMobiles = () => {
 
       {/* Filter & Search Bar */}
       <div className="spatial-card p-4 rounded-2xl space-y-3 relative z-20">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
           {/* Search Input */}
           <div className="relative">
             <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -426,7 +524,7 @@ export const VendorSendMobiles = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setSearch('');
+                  setSearch("");
                   setPage(1);
                 }}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md cursor-pointer"
@@ -445,10 +543,10 @@ export const VendorSendMobiles = () => {
                 setPage(1);
               }}
               options={[
-                { value: 'ALL', label: 'All Destination Labs / Vendors' },
+                { value: "ALL", label: "All Destination Labs / Vendors" },
                 ...vendors.map((v) => ({
                   value: v.id,
-                  label: `${v.name} (${v.shop_name || 'Vendor'})`,
+                  label: `${v.name} (${v.shop_name || "Vendor"})`,
                   badge: v.vendor_code,
                 })),
               ]}
@@ -465,13 +563,13 @@ export const VendorSendMobiles = () => {
                 setPage(1);
               }}
               options={[
-                { value: 'ALL', label: 'All Repair Statuses' },
-                { value: 'PENDING', label: 'Pending Diagnosis' },
-                { value: 'IN_REPAIR', label: 'In Repair' },
-                { value: 'WAITING_PARTS', label: 'Waiting for Parts' },
-                { value: 'REPAIR_COMPLETED', label: 'Repair Completed' },
-                { value: 'RETURNED', label: 'Returned to Shop' },
-                { value: 'NOT_REPAIRABLE', label: 'Not Repairable' },
+                { value: "ALL", label: "All Repair Statuses" },
+                { value: "PENDING", label: "Pending Diagnosis" },
+                { value: "IN_REPAIR", label: "In Repair" },
+                { value: "WAITING_PARTS", label: "Waiting for Parts" },
+                { value: "REPAIR_COMPLETED", label: "Repair Completed" },
+                { value: "RETURNED", label: "Returned to Shop" },
+                { value: "NOT_REPAIRABLE", label: "Not Repairable" },
               ]}
               searchable={false}
             />
@@ -512,7 +610,12 @@ export const VendorSendMobiles = () => {
         bodyClassName="p-0"
       >
         {tableLoading ? (
-          <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
+          <TableSkeleton
+            rows={7}
+            columns={7}
+            showHeader={false}
+            showPagination={false}
+          />
         ) : dispatchedMobiles.length === 0 ? (
           <EmptyState
             icon={Smartphone}
@@ -527,15 +630,29 @@ export const VendorSendMobiles = () => {
             {selectedMobileIds.length > 0 && (
               <div className="mx-4 mt-3 mb-1 p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-xs flex items-center justify-between text-[#0071e3] dark:text-[#0a84ff] animate-in fade-in">
                 <span className="font-semibold">
-                  {selectedMobileIds.length} of {dispatchedMobiles.length} handset(s) selected
+                  {selectedMobileIds.length} of {dispatchedMobiles.length}{" "}
+                  handset(s) selected
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedMobileIds([])}
-                  className="font-bold hover:underline cursor-pointer text-xs"
-                >
-                  Clear Selection
-                </button>
+                <div className="flex items-center gap-3">
+                  {selectedMobileIds.length === dispatchedMobiles.length && (
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelected}
+                      className="inline-flex items-center gap-1 font-bold text-rose-500 hover:text-rose-400 cursor-pointer text-xs"
+                      title="Delete all selected outward dispatch records"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Delete All ({selectedMobileIds.length})
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMobileIds([])}
+                    className="font-bold hover:underline cursor-pointer text-xs"
+                  >
+                    Clear Selection
+                  </button>
+                </div>
               </div>
             )}
 
@@ -547,33 +664,52 @@ export const VendorSendMobiles = () => {
                     <th className="w-12 px-4 py-3 text-center whitespace-nowrap">
                       <input
                         type="checkbox"
-                        checked={dispatchedMobiles.length > 0 && selectedMobileIds.length === dispatchedMobiles.length}
+                        checked={
+                          dispatchedMobiles.length > 0 &&
+                          selectedMobileIds.length === dispatchedMobiles.length
+                        }
                         onChange={toggleSelectAll}
                         className="w-4 h-4 rounded text-sky-500 accent-sky-500 cursor-pointer"
                         title="Select All Mobiles"
                       />
                     </th>
-                    <th className="px-4 py-3 whitespace-nowrap">Handset & Model</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Destination Lab / Vendor</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Reported Problem & Condition</th>
-                    <th className="px-4 py-3 whitespace-nowrap">Dispatch Date & Chalan #</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Status</th>
-                    <th className="px-4 py-3 text-right whitespace-nowrap">Est. Cost</th>
-                    <th className="px-4 py-3 text-center whitespace-nowrap">Actions</th>
+                    <th className="px-4 py-3 whitespace-nowrap">
+                      Handset & Model
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap">
+                      Destination Lab / Vendor
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap">
+                      Reported Problem & Condition
+                    </th>
+                    <th className="px-4 py-3 whitespace-nowrap">
+                      Dispatch Date & Chalan #
+                    </th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">
+                      Est. Cost
+                    </th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">
+                      Actions
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--spatial-border)]">
                   {dispatchedMobiles.map((mob) => {
                     const isSelected = selectedMobileIds.includes(mob.id);
-                    const statusMeta = STATUS_BADGES[mob.current_status] || STATUS_BADGES.PENDING;
+                    const statusMeta =
+                      STATUS_BADGES[mob.current_status] ||
+                      STATUS_BADGES.PENDING;
 
                     return (
                       <tr
                         key={mob.id}
                         className={`transition-colors cursor-pointer group ${
                           isSelected
-                            ? 'bg-blue-500/[0.08] dark:bg-blue-500/[0.12]'
-                            : 'hover:bg-[var(--spatial-bg-card-subtle)]'
+                            ? "bg-blue-500/[0.08] dark:bg-blue-500/[0.12]"
+                            : "hover:bg-[var(--spatial-bg-card-subtle)]"
                         }`}
                       >
                         {/* Checkbox */}
@@ -601,7 +737,10 @@ export const VendorSendMobiles = () => {
                           )}
                           {mob.customer_name && (
                             <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
-                              Customer: <span className="font-medium text-[var(--spatial-text-body)]">{mob.customer_name}</span>
+                              Customer:{" "}
+                              <span className="font-medium text-[var(--spatial-text-body)]">
+                                {mob.customer_name}
+                              </span>
                             </div>
                           )}
                         </td>
@@ -609,7 +748,7 @@ export const VendorSendMobiles = () => {
                         {/* Destination Vendor */}
                         <td className="px-4 py-3.5">
                           <div className="font-bold text-[var(--spatial-text-title)] text-xs">
-                            {mob.vendor?.name || 'Assigned Vendor'}
+                            {mob.vendor?.name || "Assigned Vendor"}
                           </div>
                           {mob.vendor?.shop_name && (
                             <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
@@ -636,7 +775,10 @@ export const VendorSendMobiles = () => {
                             {mob.repair_problem}
                           </div>
                           {mob.condition && (
-                            <div className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5 truncate" title={mob.condition}>
+                            <div
+                              className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5 truncate"
+                              title={mob.condition}
+                            >
                               Condition: {mob.condition}
                             </div>
                           )}
@@ -669,7 +811,10 @@ export const VendorSendMobiles = () => {
                         </td>
 
                         {/* Actions */}
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="px-4 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {mob.send_txn_id ? (
                             <button
                               type="button"
@@ -716,18 +861,18 @@ export const VendorSendMobiles = () => {
         title="Dispatch Mobiles to Vendor"
         subtitle={`Chalan #${txnNumber} • Itemize handsets and select destination lab partner`}
         maxWidth="w-full md:w-[70vw] md:max-w-[70vw]"
-        headerAction={
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            icon={Plus}
-            onClick={() => setIsAddVendorOpen(true)}
-            className="text-xs"
-          >
-            New Vendor
-          </Button>
-        }
+        // headerAction={
+        //   <Button
+        //     type="button"
+        //     variant="outline"
+        //     size="sm"
+        //     icon={Plus}
+        //     onClick={() => setIsAddVendorOpen(true)}
+        //     className="text-xs"
+        //   >
+        //     New Vendor
+        //   </Button>
+        // }
         footer={
           <div className="flex items-center justify-end gap-3 w-full">
             <Button
@@ -761,7 +906,8 @@ export const VendorSendMobiles = () => {
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase">
-                    Destination Vendor / Lab Partner <span className="text-rose-400">*</span>
+                    Destination Vendor / Lab Partner{" "}
+                    <span className="text-rose-400">*</span>
                   </label>
                   <button
                     type="button"
@@ -776,7 +922,7 @@ export const VendorSendMobiles = () => {
                   onChange={(val) => setVendorId(val)}
                   options={vendors.map((v) => ({
                     value: v.id,
-                    label: `${v.name} (${v.shop_name || 'Vendor'})`,
+                    label: `${v.name} (${v.shop_name || "Vendor"})`,
                     subtitle: `Phone: ${v.mobile} • At Lab: ${v.mobiles_currently_at_vendor || 0} phones`,
                     badge: v.vendor_code,
                   }))}
@@ -807,20 +953,30 @@ export const VendorSendMobiles = () => {
                     <Building2 className="w-4 h-4" />
                   </div>
                   <div>
-                    <span className="font-bold text-[var(--spatial-text-title)]">{activeVendor.name}</span>
+                    <span className="font-bold text-[var(--spatial-text-title)]">
+                      {activeVendor.name}
+                    </span>
                     <p className="text-[11px] text-[var(--spatial-text-muted)]">
-                      {activeVendor.shop_name} • Phone: {activeVendor.mobile} • {activeVendor.address}
+                      {activeVendor.shop_name} • Phone: {activeVendor.mobile} •{" "}
+                      {activeVendor.address}
                     </p>
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <span className="text-[10px] text-[var(--spatial-text-muted)] uppercase block">Current Outstanding</span>
+                  <span className="text-[10px] text-[var(--spatial-text-muted)] uppercase block">
+                    Current Outstanding
+                  </span>
                   <span className="font-mono font-bold text-sm text-[var(--spatial-text-title)]">
-                    {formatIndianCurrency(Math.abs(activeVendor.current_balance || 0), true)}
+                    {formatIndianCurrency(
+                      Math.abs(activeVendor.current_balance || 0),
+                      true,
+                    )}
                   </span>
                   <span className="text-[10px] text-slate-500 ml-1">
-                    {(activeVendor.current_balance || 0) > 0 ? '(Payable)' : '(Receivable)'}
+                    {(activeVendor.current_balance || 0) > 0
+                      ? "(Payable)"
+                      : "(Receivable)"}
                   </span>
                 </div>
               </div>
@@ -873,7 +1029,7 @@ export const VendorSendMobiles = () => {
                   </div>
 
                   {/* Row 1: Brand, Model, IMEI / Serial Number, Customer Name */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                     {/* Brand */}
                     <div>
                       <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
@@ -884,7 +1040,9 @@ export const VendorSendMobiles = () => {
                         required
                         placeholder="e.g. Apple, Samsung"
                         value={mob.brand}
-                        onChange={(e) => handleUpdateMobile(idx, 'brand', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(idx, "brand", e.target.value)
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -899,7 +1057,9 @@ export const VendorSendMobiles = () => {
                         required
                         placeholder="e.g. iPhone 13 Pro Max"
                         value={mob.model}
-                        onChange={(e) => handleUpdateMobile(idx, 'model', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(idx, "model", e.target.value)
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -913,7 +1073,9 @@ export const VendorSendMobiles = () => {
                         type="text"
                         placeholder="e.g. 356789123456789"
                         value={mob.imei}
-                        onChange={(e) => handleUpdateMobile(idx, 'imei', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(idx, "imei", e.target.value)
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -927,7 +1089,13 @@ export const VendorSendMobiles = () => {
                         type="text"
                         placeholder="e.g. Ronak Panchal"
                         value={mob.customer_name}
-                        onChange={(e) => handleUpdateMobile(idx, 'customer_name', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(
+                            idx,
+                            "customer_name",
+                            e.target.value,
+                          )
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -945,7 +1113,13 @@ export const VendorSendMobiles = () => {
                         required
                         placeholder="e.g. Dead phone, No Audio IC, CPU dry solder, Face ID failure"
                         value={mob.repair_problem}
-                        onChange={(e) => handleUpdateMobile(idx, 'repair_problem', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(
+                            idx,
+                            "repair_problem",
+                            e.target.value,
+                          )
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -959,7 +1133,9 @@ export const VendorSendMobiles = () => {
                         type="text"
                         placeholder="e.g. Normal Wear, Scratches, Back glass broken"
                         value={mob.condition}
-                        onChange={(e) => handleUpdateMobile(idx, 'condition', e.target.value)}
+                        onChange={(e) =>
+                          handleUpdateMobile(idx, "condition", e.target.value)
+                        }
                         className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                       />
                     </div>
@@ -981,7 +1157,9 @@ export const VendorSendMobiles = () => {
               </Button>
 
               <div className="text-right text-xs">
-                <span className="text-[var(--spatial-text-muted)]">Total Handsets in Batch:</span>
+                <span className="text-[var(--spatial-text-muted)]">
+                  Total Handsets in Batch:
+                </span>
                 <span className="ml-2 font-mono font-bold text-sm text-sky-400">
                   {mobiles.length}
                 </span>
@@ -1006,10 +1184,14 @@ export const VendorSendMobiles = () => {
                   <input
                     type="number"
                     min="0"
+                    max={MAX_CURRENCY_AMOUNT}
                     step="any"
+                    {...numberInputProps()}
                     placeholder="0.00"
                     value={paidAmount}
-                    onChange={(e) => setPaidAmount(e.target.value)}
+                    onChange={(e) =>
+                      setPaidAmount(limitNumberValue(e.target.value))
+                    }
                     className="w-full h-11 pl-8 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500"
                   />
                 </div>
@@ -1023,9 +1205,9 @@ export const VendorSendMobiles = () => {
                   value={paymentMode}
                   onChange={(val) => setPaymentMode(val)}
                   options={[
-                    { value: 'UPI', label: 'UPI / QR' },
-                    { value: 'CASH', label: 'Cash in Hand' },
-                    { value: 'BANK_TRANSFER', label: 'Bank Transfer' },
+                    { value: "UPI", label: "UPI / QR" },
+                    { value: "CASH", label: "Cash in Hand" },
+                    { value: "BANK_TRANSFER", label: "Bank Transfer" },
                   ]}
                   searchable={false}
                 />
@@ -1082,7 +1264,10 @@ export const VendorSendMobiles = () => {
         onClose={() => setIsAddVendorOpen(false)}
         existingVendors={vendors}
         onSuccess={(newVendor) => {
-          setVendors((prev) => [newVendor, ...prev.filter((v) => v.id !== newVendor.id)]);
+          setVendors((prev) => [
+            newVendor,
+            ...prev.filter((v) => v.id !== newVendor.id),
+          ]);
           setVendorId(newVendor.id);
           setIsAddVendorOpen(false);
           toast.success(`Vendor "${newVendor.name}" registered and selected!`);

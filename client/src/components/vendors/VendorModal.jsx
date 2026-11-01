@@ -11,6 +11,7 @@ import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { vendorService } from '../../services/vendorService';
+import { PHONE_NUMBER_LENGTH, MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps, sanitizePhoneNumber } from '../../utils/numberInput';
 
 const cleanPhone = (val) => (val || '').replace(/\D/g, '');
 
@@ -83,7 +84,7 @@ export const VendorModal = ({
   // Duplicate / Existing Mobile Recommendation
   const matchedMobileVendor = useMemo(() => {
     const typedDigits = cleanPhone(formData.mobile);
-    if (typedDigits.length < 5) return null;
+    if (typedDigits.length !== PHONE_NUMBER_LENGTH) return null;
 
     return (
       vendorPool.find((v) => {
@@ -247,21 +248,25 @@ export const VendorModal = ({
               Mobile Number <span className="text-rose-400">*</span>
             </label>
             <input
-              type="text"
+              type="tel"
               required
+              inputMode="numeric"
+              maxLength={PHONE_NUMBER_LENGTH}
+              pattern="[0-9]{10}"
+              {...numberInputProps({ allowDecimal: false })}
               placeholder="e.g. 9825123456"
               value={formData.mobile}
-              onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, mobile: sanitizePhoneNumber(e.target.value) })}
               className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
             />
 
             {/* Mobile Number Duplicate Match Recommendation */}
             {matchedMobileVendor && (
-              <div className="mt-1.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+              <div role="status" className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 text-amber-200 text-xs flex flex-col gap-2 animate-in fade-in">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 font-bold text-[11px] text-amber-400">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                    Mobile Already Registered:
+                    Existing vendor recommendation
                   </div>
                   <p className="text-[11px] text-amber-200/90 truncate mt-0.5">
                     <strong>{matchedMobileVendor.name}</strong> {matchedMobileVendor.shop_name ? `(${matchedMobileVendor.shop_name})` : ''} • {matchedMobileVendor.mobile}
@@ -270,9 +275,9 @@ export const VendorModal = ({
                 <button
                   type="button"
                   onClick={() => handleSelectRecommendation(matchedMobileVendor)}
-                  className="px-2 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-[11px] cursor-pointer shrink-0 transition-colors"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer transition-colors"
                 >
-                  {onSelectExisting ? 'Use This Vendor' : 'Load Details'}
+                  {onSelectExisting ? 'Use This Existing Vendor' : 'Load Existing Vendor Details'}
                 </button>
               </div>
             )}
@@ -301,10 +306,19 @@ export const VendorModal = ({
             <input
               type="number"
               step="any"
+              min={-MAX_CURRENCY_AMOUNT}
+              max={MAX_CURRENCY_AMOUNT}
+              {...numberInputProps({ allowNegative: true })}
               disabled={Boolean(editingVendor)}
               placeholder="0.00 (Positive: Payable, Negative: Receivable)"
               value={formData.opening_balance}
-              onChange={(e) => setFormData({ ...formData, opening_balance: e.target.value })}
+              onChange={(e) => setFormData({
+                ...formData,
+                opening_balance: limitNumberValue(e.target.value, {
+                  min: -MAX_CURRENCY_AMOUNT,
+                  max: MAX_CURRENCY_AMOUNT,
+                }),
+              })}
               className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 disabled:opacity-50"
             />
           </div>

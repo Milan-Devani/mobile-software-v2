@@ -415,6 +415,19 @@ export const updateMobileStatus = async (req, res, next) => {
   }
 };
 
+export const bulkDeleteVendorMobiles = async (req, res, next) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('Select at least one dispatched mobile to delete.', 400, 'IDS_REQUIRED');
+    }
+    const count = await db.vendor_mobiles.bulkDelete(ids);
+    res.json({ success: true, message: `${count} dispatched mobile(s) deleted.`, count });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // -------------------------------------------------------------
 // VENDOR ACCOUNTING LEDGER & PAYMENTS
 // -------------------------------------------------------------

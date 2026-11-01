@@ -173,7 +173,7 @@ export const VendorDetail = () => {
       <VendorNavTabs activeTab="/vendors/list" />
 
       {/* Vendor Summary Card (Header Profile) */}
-      <div className="spatial-card p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="spatial-card p-5 rounded-2xl grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Contact Coordinates */}
         <div className="space-y-1 text-xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] block">

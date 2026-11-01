@@ -239,7 +239,7 @@ export const NotificationLogs = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+        <div className="flex flex-wrap items-center gap-2">
           <SpatialDateFilter
             preset={datePreset}
             startDate={startDate}

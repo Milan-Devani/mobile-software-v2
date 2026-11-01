@@ -109,6 +109,11 @@ export const vendorService = {
                         return normalize(res);
                       },
 
+                      deleteVendorMobiles: async (ids) => {
+                        const res = await api.post('/vendors/mobiles/bulk-delete', { ids });
+                        return normalize(res);
+                      },
+
                         // 4. Ledger & Payments
                         getVendorLedger: async (vendorId, params = {}) => {
                           const res = await api.get(`/vendors/${vendorId}/ledger`, { params });

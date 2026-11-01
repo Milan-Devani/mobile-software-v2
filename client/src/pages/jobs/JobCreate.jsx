@@ -29,6 +29,7 @@ import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { INWARD_CHECKLIST_CONFIG, getDefaultChecklist } from '../../utils/checklistConstants';
+import { PHONE_NUMBER_LENGTH, numberInputProps, sanitizePhoneNumber } from '../../utils/numberInput';
 
 const ACCESSORIES_OPTIONS = [
   'SIM Card',
@@ -263,7 +264,7 @@ export const JobCreate = () => {
 
   const handleQuickCustomerCreate = async (e) => {
     e.preventDefault();
-    if (!newCustName.trim() || !newCustPhone.trim()) {
+    if (!newCustName.trim() || newCustPhone.length !== PHONE_NUMBER_LENGTH) {
       toast.error('Customer name and primary phone are required');
       return;
     }
@@ -276,7 +277,7 @@ export const JobCreate = () => {
       toast.error('Please enter a valid email address');
       return;
     }
-    if (!newCustSameAsPhone && (!newCustWhatsapp || !newCustWhatsapp.trim())) {
+    if (!newCustSameAsPhone && newCustWhatsapp.length !== PHONE_NUMBER_LENGTH) {
       toast.error('Please enter a WhatsApp number or check "WhatsApp number is same as Phone number"');
       return;
     }
@@ -919,11 +920,16 @@ export const JobCreate = () => {
               <input
                 type="tel"
                 required
+                inputMode="numeric"
+                maxLength={PHONE_NUMBER_LENGTH}
+                pattern="[0-9]{10}"
+                {...numberInputProps({ allowDecimal: false })}
                 placeholder="e.g. 8758152507"
                 value={newCustPhone}
                 onChange={(e) => {
-                  setNewCustPhone(e.target.value);
-                  if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
+                  const phone = sanitizePhoneNumber(e.target.value);
+                  setNewCustPhone(phone);
+                  if (newCustSameAsPhone) setNewCustWhatsapp(phone);
                 }}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
@@ -952,9 +958,13 @@ export const JobCreate = () => {
                 <input
                   type="tel"
                   required={!newCustSameAsPhone}
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   placeholder="Enter separate WhatsApp number"
                   value={newCustWhatsapp}
-                  onChange={(e) => setNewCustWhatsapp(e.target.value)}
+                  onChange={(e) => setNewCustWhatsapp(sanitizePhoneNumber(e.target.value))}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
               </div>
@@ -990,11 +1000,16 @@ export const JobCreate = () => {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   placeholder="e.g. 8160751302"
                   value={newCustAltPhone}
                   onChange={(e) => {
-                    setNewCustAltPhone(e.target.value);
-                    if (!newCustAltWhatsapp) setNewCustAltWhatsapp(e.target.value);
+                    const phone = sanitizePhoneNumber(e.target.value);
+                    setNewCustAltPhone(phone);
+                    if (!newCustAltWhatsapp) setNewCustAltWhatsapp(phone);
                   }}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
@@ -1017,9 +1032,13 @@ export const JobCreate = () => {
                 </div>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   placeholder="Active WP number during repair"
                   value={newCustAltWhatsapp}
-                  onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                  onChange={(e) => setNewCustAltWhatsapp(sanitizePhoneNumber(e.target.value))}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono border-emerald-500/40 focus:border-emerald-500"
                 />
                 <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1">

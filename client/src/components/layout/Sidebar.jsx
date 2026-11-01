@@ -65,7 +65,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-40 w-64 spatial-sidebar flex flex-col print:hidden ${
+        className={`fixed top-0 bottom-0 left-0 z-40 w-64 spatial-sidebar flex flex-col print:hidden transition-transform duration-250 ease-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >

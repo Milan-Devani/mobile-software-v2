@@ -17,6 +17,7 @@ import {
   getVendorMobiles,
   getMobileById,
   updateMobileStatus,
+  bulkDeleteVendorMobiles,
   getVendorLedger,
   recordVendorPayment,
   getVendorPayments,
@@ -44,6 +45,7 @@ router.post('/transactions/vendor-job-return', requireAnyRole, recordVendorJobRe
 
 // Mobiles & Status
 router.get('/mobiles', requireAnyRole, getVendorMobiles);
+router.post('/mobiles/bulk-delete', requireAdmin, bulkDeleteVendorMobiles);
 router.get('/mobiles/:id', requireAnyRole, getMobileById);
 router.patch('/mobiles/:id/status', requireAnyRole, updateMobileStatus);
 

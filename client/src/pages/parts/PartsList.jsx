@@ -26,15 +26,16 @@ import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { MAX_CURRENCY_AMOUNT, MAX_QUANTITY, numberInputProps } from '../../utils/numberInput';
 
 const partSchema = z.object({
   name: z.string().min(2, 'Part name is required'),
   brand: z.string().optional(),
   category: z.string().default('Display'),
-  purchase_cost: z.number().min(0).default(0),
-  selling_price: z.number().min(0, 'Selling price must be positive'),
-  stock_quantity: z.number().int().min(0).default(0),
-  minimum_stock: z.number().int().min(0).default(2),
+  purchase_cost: z.number().min(0).max(MAX_CURRENCY_AMOUNT).default(0),
+  selling_price: z.number().min(0, 'Selling price must be positive').max(MAX_CURRENCY_AMOUNT),
+  stock_quantity: z.number().int().min(0).max(MAX_QUANTITY).default(0),
+  minimum_stock: z.number().int().min(0).max(MAX_QUANTITY).default(2),
   compatible_models: z.string().optional(),
   supplier: z.string().optional(),
 });
@@ -508,6 +509,9 @@ export const PartsList = () => {
               <input
                 type="number"
                 step="0.01"
+                min="0"
+                max={MAX_CURRENCY_AMOUNT}
+                {...numberInputProps()}
                 {...register('purchase_cost', { valueAsNumber: true })}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
@@ -519,6 +523,9 @@ export const PartsList = () => {
               <input
                 type="number"
                 step="0.01"
+                min="0"
+                max={MAX_CURRENCY_AMOUNT}
+                {...numberInputProps()}
                 {...register('selling_price', { valueAsNumber: true })}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono font-bold tabular-nums"
               />
@@ -533,6 +540,9 @@ export const PartsList = () => {
               </label>
               <input
                 type="number"
+                min="0"
+                max={MAX_QUANTITY}
+                {...numberInputProps({ allowDecimal: false })}
                 {...register('stock_quantity', { valueAsNumber: true })}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
@@ -543,6 +553,9 @@ export const PartsList = () => {
               </label>
               <input
                 type="number"
+                min="0"
+                max={MAX_QUANTITY}
+                {...numberInputProps({ allowDecimal: false })}
                 {...register('minimum_stock', { valueAsNumber: true })}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tabular-nums"
               />
@@ -581,6 +594,9 @@ export const PartsList = () => {
             <input
               type="number"
               required
+              min={-MAX_QUANTITY}
+              max={MAX_QUANTITY}
+              {...numberInputProps({ allowDecimal: false, allowNegative: true })}
               value={adjustQuantity}
               onChange={(e) => setAdjustQuantity(parseInt(e.target.value, 10) || 0)}
               className="w-full px-3 py-2.5 spatial-input rounded-xl text-base font-bold font-mono text-center tabular-nums"

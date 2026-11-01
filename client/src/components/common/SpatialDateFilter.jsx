@@ -137,6 +137,28 @@ export const SpatialDateFilter = ({
 
   // Mobile tab switch ('presets' | 'calendar')
   const [mobileTab, setMobileTab] = useState('presets');
+  const [effectiveAlign, setEffectiveAlign] = useState(align);
+
+  // Dynamic viewport-aware alignment protection (ensures popover never overflows left or right edge)
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const popoverWidth = Math.min(580, window.innerWidth - 24);
+      if (align === 'right') {
+        if (rect.right - popoverWidth < 12 && rect.left + popoverWidth <= window.innerWidth - 12) {
+          setEffectiveAlign('left');
+        } else {
+          setEffectiveAlign('right');
+        }
+      } else {
+        if (rect.left + popoverWidth > window.innerWidth - 12) {
+          setEffectiveAlign('right');
+        } else {
+          setEffectiveAlign('left');
+        }
+      }
+    }
+  }, [isOpen, align]);
 
   // Synchronize when external props change
   useEffect(() => {
@@ -446,8 +468,8 @@ export const SpatialDateFilter = ({
       {isOpen && (
         <div
           className={`absolute ${
-            align === 'right' ? 'right-0' : 'left-0'
-          } top-full mt-2 z-[9999] p-0 overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10 dark:ring-white/10 data-[theme=light]:ring-black/10 rounded-2xl border border-[var(--spatial-border)] bg-[#18181b] dark:bg-[#18181b] data-[theme=light]:bg-white animate-in fade-in zoom-in-95 duration-150 w-[320px] sm:w-[580px] max-w-[94vw]`}
+            effectiveAlign === 'right' ? 'right-0' : 'left-0'
+          } top-full mt-2 z-[9999] p-0 overflow-hidden shadow-[0_25px_60px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10 dark:ring-white/10 data-[theme=light]:ring-black/10 rounded-2xl border border-[var(--spatial-border)] bg-[#18181b] dark:bg-[#18181b] data-[theme=light]:bg-white animate-in fade-in zoom-in-95 duration-150 w-[300px] sm:w-[560px] max-w-[calc(100vw-24px)]`}
         >
           {/* Header on Mobile: Switch between Presets and Calendar */}
           <div className="flex sm:hidden border-b border-[var(--spatial-border)] bg-[#121214] dark:bg-[#121214] data-[theme=light]:bg-[#f5f5f7] p-1 gap-1">

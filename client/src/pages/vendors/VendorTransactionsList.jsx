@@ -235,7 +235,7 @@ export const VendorTransactionsList = () => {
         </div>
 
         {/* Search input with h-11 height, Date Filter & Sort By */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-1">
           <div className="relative flex-1 max-w-md">
             <Search className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
             <input

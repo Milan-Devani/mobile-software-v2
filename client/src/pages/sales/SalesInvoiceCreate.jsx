@@ -40,6 +40,16 @@ import { settingsService } from "../../services/settingsService";
 import { salesService } from "../../services/salesService";
 import { SameToSameBillPrintable } from "../../components/sales/SameToSameBillPrintable";
 import { formatIndianCurrency, formatInvoiceDate } from "../../utils/billFormatters";
+import {
+  MAX_CURRENCY_AMOUNT,
+  PHONE_NUMBER_LENGTH,
+  limitNumberValue,
+  numberInputProps,
+  sanitizePhoneNumber,
+} from "../../utils/numberInput";
+
+// A line item's calculated Total (Qty × Price) may contain up to seven digits.
+const MAX_LINE_TOTAL = MAX_CURRENCY_AMOUNT;
 
 export const SalesInvoiceCreate = () => {
   const navigate = useNavigate();
@@ -193,7 +203,7 @@ export const SalesInvoiceCreate = () => {
   // Handle Quick Customer Registration (Modal)
   const handleQuickCustomerCreate = async (e) => {
     e.preventDefault();
-    if (!newCustName.trim() || !newCustPhone.trim()) {
+    if (!newCustName.trim() || newCustPhone.length !== PHONE_NUMBER_LENGTH) {
       toast.error("Customer name and primary phone are required");
       return;
     }
@@ -206,7 +216,7 @@ export const SalesInvoiceCreate = () => {
       toast.error("Please enter a valid email address");
       return;
     }
-    if (!newCustSameAsPhone && !newCustWhatsapp.trim()) {
+    if (!newCustSameAsPhone && newCustWhatsapp.length !== PHONE_NUMBER_LENGTH) {
       toast.error(
         'Please enter a Primary WhatsApp number or check "WhatsApp number is same as Phone"',
       );
@@ -286,6 +296,37 @@ export const SalesInvoiceCreate = () => {
     });
   };
 
+  const handleItemNumberChange = (index, field, value) => {
+    // Let the field be cleared while editing; its existing defaults still apply
+    // when totals are calculated or the bill is saved.
+    if (value === "") {
+      handleUpdateItem(index, field, value);
+      return;
+    }
+
+    const enteredValue = Number(value);
+    if (!Number.isFinite(enteredValue)) return;
+
+    const currentItem = items[index];
+    const currentQty = Math.max(1, parseInt(currentItem.quantity, 10) || 1);
+    const currentPrice = Math.max(0, parseFloat(currentItem.unit_price) || 0);
+
+    if (field === "quantity") {
+      const maximumQuantity = currentPrice > 0
+        ? Math.max(1, Math.floor(MAX_LINE_TOTAL / currentPrice))
+        : Math.floor(MAX_LINE_TOTAL);
+      handleUpdateItem(
+        index,
+        field,
+        Math.min(Math.max(1, Math.floor(enteredValue)), maximumQuantity),
+      );
+      return;
+    }
+
+    const maximumPrice = MAX_LINE_TOTAL / currentQty;
+    handleUpdateItem(index, field, Math.min(Math.max(0, enteredValue), maximumPrice));
+  };
+
   const handleRemoveEstimateItem = (index) => {
     if (items.length <= 1) {
       toast.error("Bill must have at least one item");
@@ -309,7 +350,10 @@ export const SalesInvoiceCreate = () => {
         hsn: "8517",
         quantity: 1,
         unit: "NOS",
-        unit_price: part.selling_price || 0,
+        unit_price: Math.min(
+          Math.max(0, parseFloat(part.selling_price) || 0),
+          MAX_LINE_TOTAL,
+        ),
         part_id: part.id,
       };
 
@@ -353,8 +397,8 @@ export const SalesInvoiceCreate = () => {
 
   // Save Bill API Call
   const handleSaveBill = async (shouldOpenPrint = false) => {
-    if (!customerName.trim() || !customerPhone.trim()) {
-      toast.error("Please select or enter customer name and phone");
+    if (!customerName.trim() || customerPhone.length !== PHONE_NUMBER_LENGTH) {
+      toast.error("Please enter a valid 10-digit customer phone number");
       return;
     }
 
@@ -602,9 +646,13 @@ export const SalesInvoiceCreate = () => {
                     Phone Number <span className="text-rose-400">*</span>
                   </label>
                   <input
-                    type="text"
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={PHONE_NUMBER_LENGTH}
+                    pattern="[0-9]{10}"
+                    {...numberInputProps({ allowDecimal: false })}
                     value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    onChange={(e) => setCustomerPhone(sanitizePhoneNumber(e.target.value))}
                     placeholder="e.g. 9876543210"
                     className="w-full h-11 px-3.5 py-2.5 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all shadow-xs"
                   />
@@ -721,12 +769,15 @@ export const SalesInvoiceCreate = () => {
                   type="number"
                   step={discountType === "PERCENTAGE" ? "0.1" : "1"}
                   min="0"
-                  max={discountType === "PERCENTAGE" ? "100" : undefined}
+                  max={discountType === "PERCENTAGE" ? "100" : MAX_CURRENCY_AMOUNT}
+                  {...numberInputProps()}
                   placeholder={
                     discountType === "PERCENTAGE" ? "e.g. 10 (%)" : "0.00"
                   }
                   value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
+                  onChange={(e) => setDiscountValue(limitNumberValue(e.target.value, {
+                    max: discountType === "PERCENTAGE" ? 100 : MAX_CURRENCY_AMOUNT,
+                  }))}
                   className={`w-full h-11 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none ${
                     discountType === "AMOUNT" ? "pl-8 pr-3" : "pl-3 pr-8"
                   }`}
@@ -815,8 +866,9 @@ export const SalesInvoiceCreate = () => {
                       step="0.5"
                       min="0"
                       max="100"
+                      {...numberInputProps()}
                       value={taxRate}
-                      onChange={(e) => setTaxRate(e.target.value)}
+                      onChange={(e) => setTaxRate(limitNumberValue(e.target.value, { max: 100 }))}
                       className="w-12 text-xs font-mono font-bold text-[var(--spatial-text-title)] bg-transparent focus:outline-none text-right"
                     />
                     <span className="text-xs font-bold text-[var(--spatial-text-title)]">
@@ -873,12 +925,12 @@ export const SalesInvoiceCreate = () => {
             </div>
 
             {/* Column Headers for desktop (With Warranty Input Field) */}
-            <div className="hidden sm:grid sm:grid-cols-12 gap-3 px-3.5 py-2.5 bg-[var(--spatial-table-header-bg)] rounded-xl text-xs font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider border border-[var(--spatial-border)]">
-              <div className="col-span-6">Item / Phone / Part Name</div>
+            <div className="hidden lg:grid lg:grid-cols-12 gap-3 px-3.5 py-2.5 bg-[var(--spatial-table-header-bg)] rounded-xl text-xs font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider border border-[var(--spatial-border)]">
+              <div className="col-span-5">Item / Phone / Part Name</div>
               <div className="col-span-2">Warranty</div>
               <div className="col-span-1 text-center">Qty</div>
               <div className="col-span-2 text-right pr-2">Price (₹)</div>
-              <div className="col-span-1 text-right pr-1">Total</div>
+              <div className="col-span-2 text-right pr-2">Total</div>
             </div>
 
             {/* Item Field Rows */}
@@ -893,11 +945,11 @@ export const SalesInvoiceCreate = () => {
                     key={item.id || idx}
                     className="p-3.5 bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] rounded-2xl transition-all shadow-xs space-y-3"
                   >
-                    {/* Row 1: Item Name (Width 50%), Warranty, Qty, Price (Increased Width), Total & Delete */}
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-                      {/* 1. Item Name Input (Width 50% = 6 cols out of 12) */}
-                      <div className="sm:col-span-6">
-                        <label className="block sm:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
+                    {/* Row 1: Item Name, Warranty, Qty, Price, Total & Delete */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-center">
+                      {/* 1. Item Name Input */}
+                      <div className="sm:col-span-2 lg:col-span-5">
+                        <label className="block lg:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Item / Phone / Part Name
                         </label>
                         <input
@@ -912,8 +964,8 @@ export const SalesInvoiceCreate = () => {
                       </div>
 
                       {/* 2. Warranty Input Field */}
-                      <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      <div className="sm:col-span-1 lg:col-span-2">
+                        <label className="block lg:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Warranty
                         </label>
                         <SpatialWarrantyInput
@@ -927,24 +979,31 @@ export const SalesInvoiceCreate = () => {
                       </div>
 
                       {/* 3. Quantity Input */}
-                      <div className="sm:col-span-1">
-                        <label className="block sm:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      <div className="sm:col-span-1 lg:col-span-1">
+                        <label className="block lg:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Qty
                         </label>
                         <input
                           type="number"
                           min="1"
+                          max={
+                            price > 0
+                              ? Math.max(1, Math.floor(MAX_LINE_TOTAL / price))
+                              : Math.floor(MAX_LINE_TOTAL)
+                          }
+                          step="1"
+                          {...numberInputProps({ allowDecimal: false })}
                           value={item.quantity || 1}
                           onChange={(e) =>
-                            handleUpdateItem(idx, "quantity", e.target.value)
+                            handleItemNumberChange(idx, "quantity", e.target.value)
                           }
                           className="w-full h-11 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono text-center font-bold text-[var(--spatial-text-title)] focus:ring-2 focus:ring-sky-500 focus:outline-none"
                         />
                       </div>
 
-                      {/* 4. Price Input (Increased Width = 2 cols out of 12) */}
-                      <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      {/* 4. Price Input */}
+                      <div className="sm:col-span-1 lg:col-span-2">
+                        <label className="block lg:hidden text-xs font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Price (₹)
                         </label>
                         <div className="relative">
@@ -955,10 +1014,12 @@ export const SalesInvoiceCreate = () => {
                             type="number"
                             step="any"
                             min="0"
+                            max={MAX_LINE_TOTAL / qty}
+                            {...numberInputProps()}
                             placeholder="0.00"
                             value={item.unit_price}
                             onChange={(e) =>
-                              handleUpdateItem(
+                              handleItemNumberChange(
                                 idx,
                                 "unit_price",
                                 e.target.value,
@@ -970,8 +1031,17 @@ export const SalesInvoiceCreate = () => {
                       </div>
 
                       {/* 5. Total & Remove Button */}
-                      <div className="sm:col-span-1 flex items-center justify-between sm:justify-end gap-1.5">
-                        <span className="font-mono text-xs sm:text-sm font-bold text-[var(--spatial-text-title)] text-right truncate">
+                      <div className="sm:col-span-1 lg:col-span-2 flex items-center justify-between lg:justify-end gap-2">
+                        <div className="lg:hidden">
+                          <span className="text-xs font-semibold text-[var(--spatial-text-muted)] block">
+                            Total
+                          </span>
+                          <span className="font-mono text-xs sm:text-sm font-bold text-[var(--spatial-text-title)]">
+                            {formatIndianCurrency(lineTotal, true)}
+                          </span>
+                        </div>
+
+                        <span className="hidden lg:inline-block font-mono text-xs sm:text-sm font-bold text-[var(--spatial-text-title)] text-right whitespace-nowrap">
                           {formatIndianCurrency(lineTotal, true)}
                         </span>
 
@@ -1163,12 +1233,17 @@ export const SalesInvoiceCreate = () => {
               </label>
               <input
                 type="tel"
+                inputMode="numeric"
+                maxLength={PHONE_NUMBER_LENGTH}
+                pattern="[0-9]{10}"
+                {...numberInputProps({ allowDecimal: false })}
                 required
                 placeholder="Primary phone number"
                 value={newCustPhone}
                 onChange={(e) => {
-                  setNewCustPhone(e.target.value);
-                  if (newCustSameAsPhone) setNewCustWhatsapp(e.target.value);
+                  const phone = sanitizePhoneNumber(e.target.value);
+                  setNewCustPhone(phone);
+                  if (newCustSameAsPhone) setNewCustWhatsapp(phone);
                 }}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
               />
@@ -1200,10 +1275,14 @@ export const SalesInvoiceCreate = () => {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   required={!newCustSameAsPhone}
                   placeholder="Enter separate WhatsApp number"
                   value={newCustWhatsapp}
-                  onChange={(e) => setNewCustWhatsapp(e.target.value)}
+                  onChange={(e) => setNewCustWhatsapp(sanitizePhoneNumber(e.target.value))}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
               </div>
@@ -1237,12 +1316,17 @@ export const SalesInvoiceCreate = () => {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   placeholder="Secondary phone"
                   value={newCustAltPhone}
                   onChange={(e) => {
-                    setNewCustAltPhone(e.target.value);
+                    const phone = sanitizePhoneNumber(e.target.value);
+                    setNewCustAltPhone(phone);
                     if (!newCustAltWhatsapp)
-                      setNewCustAltWhatsapp(e.target.value);
+                      setNewCustAltWhatsapp(phone);
                   }}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
@@ -1253,9 +1337,13 @@ export const SalesInvoiceCreate = () => {
                 </label>
                 <input
                   type="tel"
+                  inputMode="numeric"
+                  maxLength={PHONE_NUMBER_LENGTH}
+                  pattern="[0-9]{10}"
+                  {...numberInputProps({ allowDecimal: false })}
                   placeholder="Active WP number while phone in shop"
                   value={newCustAltWhatsapp}
-                  onChange={(e) => setNewCustAltWhatsapp(e.target.value)}
+                  onChange={(e) => setNewCustAltWhatsapp(sanitizePhoneNumber(e.target.value))}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
                 />
               </div>

@@ -485,7 +485,7 @@ export const JobList = () => {
         </div>
 
         {/* Search input, Date Filter & Sort */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-0.5">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-0.5">
           <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
@@ -649,7 +649,7 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex flex-col gap-1 items-start">
-                            <div className="flex items-center gap-1.5 flex-nowrap">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <Badge status={job.status} />
                               {job.is_warranty_claim && (
                                 <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>

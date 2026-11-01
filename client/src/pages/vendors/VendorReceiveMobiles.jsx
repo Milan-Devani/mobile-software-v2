@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Smartphone,
@@ -15,9 +15,11 @@ import { Card, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
+import { VendorModal } from '../../components/vendors/VendorModal';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
 import { formatIndianCurrency } from '../../utils/billFormatters';
+import { SpatialDrawer } from '../../components/common/SpatialDrawer';
 
 export const VendorReceiveMobiles = () => {
   const navigate = useNavigate();
@@ -26,6 +28,8 @@ export const VendorReceiveMobiles = () => {
 
   const [loadingInit, setLoadingInit] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [isAddVendorOpen, setIsAddVendorOpen] = useState(false);
 
   // Vendor & Inward Meta
   const [vendors, setVendors] = useState([]);
@@ -50,6 +54,10 @@ export const VendorReceiveMobiles = () => {
 
   // Saved result modal for print / WhatsApp
   const [savedResult, setSavedResult] = useState(null);
+  const [receivedMobiles, setReceivedMobiles] = useState([]);
+  const [receivedLoading, setReceivedLoading] = useState(false);
+  const [paidAmount, setPaidAmount] = useState('');
+  const [paymentMode, setPaymentMode] = useState('CASH');
 
   // Initial load
   useEffect(() => {
@@ -83,6 +91,20 @@ export const VendorReceiveMobiles = () => {
 
     init();
   }, []);
+
+  const fetchReceivedMobiles = useCallback(async () => {
+    try {
+      setReceivedLoading(true);
+      const res = await vendorService.getVendorMobiles({ flowType: 'VENDOR_JOB_INWARD', limit: 100, sortBy: 'created_at', sortDir: 'desc' });
+      setReceivedMobiles(res?.data?.mobiles || res?.mobiles || []);
+    } catch (err) {
+      toast.error('Failed to load received mobiles');
+    } finally {
+      setReceivedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchReceivedMobiles(); }, [fetchReceivedMobiles]);
 
   const activeVendor = vendors.find((v) => v.id === vendorId);
 
@@ -152,7 +174,9 @@ export const VendorReceiveMobiles = () => {
       const res = await vendorService.recordVendorJobInward({
         vendor_id: vendorId,
         txn_date: txnDate,
-        notes,
+        notes: paidAmount > 0
+          ? `${notes}${notes ? '\n' : ''}Advance received: ₹${paidAmount} via ${paymentMode}.`
+          : notes,
         mobiles: validMobiles.map((m) => ({
           brand: m.brand.trim(),
           model: m.model.trim(),
@@ -168,6 +192,9 @@ export const VendorReceiveMobiles = () => {
       if (res.success) {
         toast.success(`Logged ${validMobiles.length} handset(s) from other shop under #${res.data.txn_number}`);
         setSavedResult(res.data);
+        setIsDrawerOpen(false);
+        setPaidAmount('');
+        await fetchReceivedMobiles();
       }
     } catch (err) {
       toast.error(err.message || 'Failed to log inward client repairs from other shop');
@@ -205,13 +232,30 @@ export const VendorReceiveMobiles = () => {
             </p>
           </div>
         </div>
+        <Button type="button" variant="primary" size="sm" icon={Plus} onClick={() => setIsDrawerOpen(true)}>
+          Receive Mobile
+        </Button>
       </div>
 
       {/* Navigation Sub-Tabs */}
       <VendorNavTabs activeTab="/vendors/receive" />
 
-      {/* Main Reception Form */}
-      <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Received mobiles list */}
+      <Card
+        title={`Received Mobiles From Other Shops (${receivedMobiles.length})`}
+        subtitle="Handsets received from other repair shops for repair"
+        action={<Button type="button" variant="primary" size="sm" icon={Plus} onClick={() => setIsDrawerOpen(true)}>Receive Mobile</Button>}
+        bodyClassName="p-0"
+      >
+        {receivedLoading ? <div className="p-6 text-xs text-[var(--spatial-text-muted)]">Loading received mobiles...</div> : receivedMobiles.length === 0 ? (
+          <div className="p-8 text-center text-sm text-[var(--spatial-text-muted)]">No mobiles received from other shops yet.</div>
+        ) : (
+          <div className="overflow-x-auto"><table className="w-full text-left text-xs min-w-[780px]"><thead className="bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] uppercase"><tr><th className="px-4 py-3">Handset</th><th className="px-4 py-3">Origin Shop</th><th className="px-4 py-3">Problem</th><th className="px-4 py-3">Received Date</th><th className="px-4 py-3">Status</th></tr></thead><tbody>{receivedMobiles.map((mob) => <tr key={mob.id} className="border-t border-[var(--spatial-border)]"><td className="px-4 py-3 font-semibold">{mob.brand} {mob.model}<div className="font-mono text-[10px] text-sky-400">{mob.imei}</div></td><td className="px-4 py-3">{mob.vendor?.name || 'Origin shop'}</td><td className="px-4 py-3">{mob.repair_problem}</td><td className="px-4 py-3">{mob.sent_date || mob.created_at?.slice(0, 10)}</td><td className="px-4 py-3 font-semibold">{mob.current_status}</td></tr>)}</tbody></table></div>
+        )}
+      </Card>
+
+      <SpatialDrawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Receive Mobiles From Other Shops" subtitle="Register an inward repair intake" width="wide">
+      <form onSubmit={handleSubmit} className="space-y-6 p-1">
         {/* SECTION 1: ORIGIN REPAIR SHOP & INWARD DATE */}
         <Card
           title="1. Origin Repair Shop & Inward Date"
@@ -219,9 +263,12 @@ export const VendorReceiveMobiles = () => {
         >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+              <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase">
                 Origin Repair Shop / Vendor <span className="text-rose-400">*</span>
               </label>
+              <button type="button" onClick={() => setIsAddVendorOpen(true)} className="text-xs font-semibold text-sky-500 hover:text-sky-400 cursor-pointer">+ Create Vendor</button>
+              </div>
               <SpatialSelect
                 value={vendorId}
                 onChange={(val) => setVendorId(val)}
@@ -323,7 +370,7 @@ export const VendorReceiveMobiles = () => {
                 </div>
 
                 {/* Row 1: Brand, Model, IMEI / Serial Number, Customer Name (Optional) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
                   {/* 1. Brand */}
                   <div>
                     <label className="block text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase mb-1">
@@ -439,6 +486,15 @@ export const VendorReceiveMobiles = () => {
           </div>
         </Card>
 
+        {/* SECTION 3: ADVANCE PAYMENT & SPECIAL INSTRUCTIONS */}
+        <Card title="3. Advance Payment & Special Instructions" subtitle="Record an optional advance and any instructions from the origin shop">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Advance Payment (₹)</label><input type="number" min="0" step="0.01" value={paidAmount} onChange={(e) => setPaidAmount(e.target.value)} placeholder="0.00" className="w-full h-11 px-3 spatial-input rounded-xl text-xs font-mono" /></div>
+            <div><label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Payment Mode</label><SpatialSelect value={paymentMode} onChange={setPaymentMode} searchable={false} options={[{ value: 'CASH', label: 'Cash' }, { value: 'UPI', label: 'UPI' }, { value: 'BANK_TRANSFER', label: 'Bank Transfer' }]} /></div>
+            <div><label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Special Instructions</label><input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Notes for this repair intake" className="w-full h-11 px-3 spatial-input rounded-xl text-xs" /></div>
+          </div>
+        </Card>
+
         {/* Action Bar */}
         <div className="flex items-center justify-end gap-3 pt-4 border-t border-[var(--spatial-border)]">
           <Button
@@ -460,6 +516,9 @@ export const VendorReceiveMobiles = () => {
           </Button>
         </div>
       </form>
+      </SpatialDrawer>
+
+      <VendorModal isOpen={isAddVendorOpen} onClose={() => setIsAddVendorOpen(false)} existingVendors={vendors} onSuccess={(newVendor) => { setVendors((prev) => [newVendor, ...prev.filter((vendor) => vendor.id !== newVendor.id)]); setVendorId(newVendor.id); setIsAddVendorOpen(false); }} />
 
       {/* Result Modal for Print & WhatsApp */}
       {savedResult && (

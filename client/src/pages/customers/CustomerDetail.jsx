@@ -140,7 +140,7 @@ export const CustomerDetail = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5">
         <div className="spatial-card p-4 rounded-2xl flex flex-col justify-between">
           <p className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Repairs</p>
           <p className="text-2xl font-bold text-[var(--spatial-text-title)] mt-2 font-mono tabular-nums">{stats.total_repairs || 0}</p>

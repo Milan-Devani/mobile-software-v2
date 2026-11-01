@@ -38,6 +38,7 @@ import { paymentService } from '../../services/paymentService';
 import { invoiceService } from '../../services/invoiceService';
 import { settingsService } from '../../services/settingsService';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
+import { MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps } from '../../utils/numberInput';
 
 import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
@@ -391,9 +392,12 @@ export const JobDetail = () => {
   };
 
   const handleUpdateEstimateItem = (index, field, value) => {
+    const sanitizedValue = field === 'unit_price'
+      ? limitNumberValue(value)
+      : value;
     setEstimateForm((prev) => {
       const items = [...(prev.items || [])];
-      items[index] = { ...items[index], [field]: value };
+      items[index] = { ...items[index], [field]: sanitizedValue };
       return { ...prev, items };
     });
   };
@@ -419,7 +423,7 @@ export const JobDetail = () => {
           item_name: i.item_name?.trim() || 'Repair Component / Service',
           warranty: i.warranty?.trim() || '',
           quantity: Math.max(1, parseInt(i.quantity, 10) || 1),
-          unit_price: Math.max(0, parseFloat(i.unit_price) || 0),
+          unit_price: Math.min(MAX_CURRENCY_AMOUNT, Math.max(0, parseFloat(i.unit_price) || 0)),
           discount: Math.max(0, parseFloat(i.discount) || 0),
         }));
 
@@ -1803,14 +1807,17 @@ export const JobDetail = () => {
                   type="number"
                   step={estimateForm.discount_type === 'PERCENTAGE' ? '0.1' : '0.01'}
                   min="0"
-                  max={estimateForm.discount_type === 'PERCENTAGE' ? '100' : undefined}
+                  max={estimateForm.discount_type === 'PERCENTAGE' ? '100' : MAX_CURRENCY_AMOUNT}
+                  {...numberInputProps()}
                   placeholder={estimateForm.discount_type === 'PERCENTAGE' ? 'e.g. 10 (%)' : '0.00'}
                   value={estimateForm.discount_value}
                   onChange={(e) => {
                     const rawVal = e.target.value;
                     setEstimateForm((prev) => ({
                       ...prev,
-                      discount_value: rawVal,
+                      discount_value: limitNumberValue(rawVal, {
+                        max: estimateForm.discount_type === 'PERCENTAGE' ? 100 : MAX_CURRENCY_AMOUNT,
+                      }),
                     }));
                   }}
                   className={`w-full py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-sm font-mono text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:ring-2 focus:ring-sky-500 focus:border-sky-500 focus:outline-none ${estimateForm.discount_type === 'AMOUNT' ? 'pl-7 pr-3' : 'pl-3 pr-8'
@@ -1888,8 +1895,12 @@ export const JobDetail = () => {
                       step="0.5"
                       min="0"
                       max="100"
+                      {...numberInputProps()}
                       value={estimateForm.tax_rate}
-                      onChange={(e) => setEstimateForm({ ...estimateForm, tax_rate: e.target.value })}
+                      onChange={(e) => setEstimateForm({
+                        ...estimateForm,
+                        tax_rate: limitNumberValue(e.target.value, { max: 100 }),
+                      })}
                       className="w-12 text-xs font-mono font-bold text-[var(--spatial-text-title)] bg-transparent focus:outline-none text-right"
                     />
                     <span className="text-xs font-bold text-[var(--spatial-text-title)]">%</span>
@@ -1972,7 +1983,7 @@ export const JobDetail = () => {
             </div>
 
             {/* Column Headers for larger screens */}
-            <div className="hidden sm:grid sm:grid-cols-12 gap-2 px-3 py-1.5 bg-[var(--spatial-table-header-bg)] rounded-lg text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider border border-[var(--spatial-border)]">
+            <div className="hidden md:grid md:grid-cols-12 gap-2 px-3 py-1.5 bg-[var(--spatial-table-header-bg)] rounded-lg text-[11px] font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider border border-[var(--spatial-border)]">
               <div className="col-span-5">Part or Repair Description</div>
               <div className="col-span-3">Warranty</div>
               <div className="col-span-2 text-right">Price ({currSym})</div>
@@ -1991,10 +2002,10 @@ export const JobDetail = () => {
                     key={idx}
                     className="p-3 sm:p-2.5 bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-hover)] border border-[var(--spatial-border)] rounded-xl transition-all shadow-sm"
                   >
-                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2 items-center">
                       {/* Part or Repair Details Input */}
-                      <div className="sm:col-span-5">
-                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      <div className="sm:col-span-2 md:col-span-5">
+                        <label className="block md:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Part / Repair Details
                         </label>
                         <input
@@ -2008,8 +2019,8 @@ export const JobDetail = () => {
                       </div>
 
                       {/* Warranty Period Input */}
-                      <div className="sm:col-span-3">
-                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      <div className="sm:col-span-1 md:col-span-3">
+                        <label className="block md:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Warranty Period
                         </label>
                         <SpatialWarrantyInput
@@ -2030,8 +2041,8 @@ export const JobDetail = () => {
                       </div>
 
                       {/* Price */}
-                      <div className="sm:col-span-2">
-                        <label className="block sm:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
+                      <div className="sm:col-span-1 md:col-span-2">
+                        <label className="block md:hidden text-[11px] font-semibold text-[var(--spatial-text-muted)] mb-1">
                           Price ({currSym})
                         </label>
                         <div className="relative">
@@ -2042,6 +2053,8 @@ export const JobDetail = () => {
                             type="number"
                             step="any"
                             min="0"
+                            max={MAX_CURRENCY_AMOUNT}
+                            {...numberInputProps()}
                             placeholder="0.00"
                             value={item.unit_price}
                             onChange={(e) => handleUpdateEstimateItem(idx, 'unit_price', e.target.value)}
@@ -2051,15 +2064,15 @@ export const JobDetail = () => {
                       </div>
 
                       {/* Total & Remove */}
-                      <div className="sm:col-span-2 flex items-center justify-between sm:justify-end gap-1.5">
-                        <div className="sm:hidden">
+                      <div className="sm:col-span-2 md:col-span-2 flex items-center justify-between md:justify-end gap-1.5">
+                        <div className="md:hidden">
                           <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)] block">Total</span>
                           <span className="font-mono text-xs font-bold text-[var(--spatial-text-title)]">
                             {currSym}{lineTotal.toFixed(2)}
                           </span>
                         </div>
 
-                        <span className="hidden sm:inline font-mono text-xs font-bold text-[var(--spatial-text-title)] min-w-[65px] text-right">
+                        <span className="hidden md:inline font-mono text-xs font-bold text-[var(--spatial-text-title)] min-w-[65px] text-right whitespace-nowrap">
                           {currSym}{lineTotal.toFixed(2)}
                         </span>
 
@@ -2067,7 +2080,7 @@ export const JobDetail = () => {
                           type="button"
                           onClick={() => handleRemoveEstimateItem(idx)}
                           title="Remove this item"
-                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ml-1"
+                          className="p-1.5 text-[var(--spatial-text-muted)] hover:text-rose-500 hover:bg-rose-500/10 rounded-lg transition-colors ml-1 cursor-pointer shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -2209,11 +2222,17 @@ export const JobDetail = () => {
               type="number"
               step="0.01"
               min="0.01"
-              max={Number(job.balance_due || 0) > 0 ? job.balance_due : undefined}
+              max={Math.min(MAX_CURRENCY_AMOUNT, Number(job.balance_due || 0) > 0 ? job.balance_due : MAX_CURRENCY_AMOUNT)}
+              {...numberInputProps()}
               required
               placeholder={Number(job.balance_due || 0) > 0 ? String(job.balance_due) : "Enter payment / deposit amount"}
               value={paymentForm.amount}
-              onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
+              onChange={(e) => setPaymentForm({
+                ...paymentForm,
+                amount: limitNumberValue(e.target.value, {
+                  max: Math.min(MAX_CURRENCY_AMOUNT, Number(job.balance_due || 0) > 0 ? job.balance_due : MAX_CURRENCY_AMOUNT),
+                }),
+              })}
               className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
             />
             {Number(job.balance_due || 0) > 0 && (
@@ -2944,9 +2963,15 @@ export const JobDetail = () => {
                     step="any"
                     min="0"
                     max={discountModalForm.discount_type === 'PERCENTAGE' ? '100' : baseSubtotal}
+                    {...numberInputProps()}
                     required
                     value={discountModalForm.discount_value}
-                    onChange={(e) => setDiscountModalForm({ ...discountModalForm, discount_value: e.target.value })}
+                    onChange={(e) => setDiscountModalForm({
+                      ...discountModalForm,
+                      discount_value: limitNumberValue(e.target.value, {
+                        max: discountModalForm.discount_type === 'PERCENTAGE' ? 100 : baseSubtotal,
+                      }),
+                    })}
                     placeholder={discountModalForm.discount_type === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 250'}
                     className="w-full pl-8 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />

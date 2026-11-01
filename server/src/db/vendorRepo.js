@@ -1251,6 +1251,33 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}) =
           history: historyRecord,
         };
       },
+
+      bulkDelete: async (ids = []) => {
+        ensureCollections();
+        const db = getLocalDb();
+        const idSet = new Set(ids);
+        const selected = (db.vendor_mobiles || []).filter((mobile) => idSet.has(mobile.id));
+        if (selected.length !== ids.length) throw new Error('One or more dispatched mobiles were not found.');
+
+        const protectedMobile = selected.find((mobile) => !['PENDING', 'CANCELLED'].includes(mobile.current_status));
+        if (protectedMobile) {
+          throw new Error('Only pending or cancelled dispatches can be deleted. Update or return active repairs first.');
+        }
+
+        db.vendor_mobiles = db.vendor_mobiles.filter((mobile) => !idSet.has(mobile.id));
+        db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
+        saveLocalDb();
+
+        if (safeDelete) {
+          await Promise.all([
+            ...selected.map((mobile) => safeDelete('vendor_mobiles', mobile.id)),
+            ...selected.flatMap((mobile) => (db.vendor_status_history || [])
+              .filter((history) => history.vendor_mobile_id === mobile.id)
+              .map((history) => safeDelete('vendor_status_history', history.id))),
+          ]);
+        }
+        return selected.length;
+      },
     },
 
     // -------------------------------------------------------------

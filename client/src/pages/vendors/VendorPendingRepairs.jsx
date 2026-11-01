@@ -536,7 +536,7 @@ export default function VendorPendingRepairs() {
       {/* Status Update Modal */}
       {statusModalMobile && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-fadeIn">
-          <div className="w-full max-w-md spatial-card rounded-2xl p-6 space-y-4 shadow-2xl">
+          <div className="w-full max-w-md spatial-card rounded-2xl p-6 space-y-4 shadow-2xl max-h-[calc(100vh-2rem)] overflow-y-auto modal-scrollbar">
             <div className="flex items-center justify-between border-b border-[var(--spatial-border)] pb-3">
               <div>
                 <h3 className="text-base font-bold text-[var(--spatial-text-title)] flex items-center gap-2">
