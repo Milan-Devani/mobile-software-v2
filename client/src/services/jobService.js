@@ -87,6 +87,11 @@ export const jobService = {
     return res.data;
   },
 
+  updateWarrantyDetails: async (id, data = {}) => {
+    const res = await api.patch(`/jobs/${id}/warranty-details`, data);
+    return res.data;
+  },
+
   updateJobStatus: async (id, data = {}) => {
     const res = await api.post(`/jobs/${id}/status`, data);
     return res.data;

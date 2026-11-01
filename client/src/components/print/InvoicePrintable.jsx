@@ -843,16 +843,30 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
                     {/* Issue Reported */}
                     <div style={{ padding: '4px 6px', fontSize: '11px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '2px' }}>Issue Reported by Customer:</div>
+                      <div style={{ fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '2px' }}>
+                        {job.is_warranty_claim ? 'Service & Warranty Claim History:' : 'Issue Reported by Customer:'}
+                      </div>
                       <div style={{ border: '1px solid #000' }}>
                         <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 700, padding: '1px 3px' }}>
-                          <span style={{ width: '35%' }}>Category</span>
-                          <span style={{ width: '65%' }}>Description</span>
+                          <span style={{ width: '35%' }}>Stage / Category</span>
+                          <span style={{ width: '65%' }}>Description & Findings</span>
                         </div>
-                        <div style={{ display: 'flex', padding: '2px 3px' }}>
-                          <span style={{ width: '35%', fontWeight: 700 }}>{job.service_type || 'Screen / Display Replacement'}</span>
+                        <div style={{ display: 'flex', padding: '2px 3px', borderBottom: job.is_warranty_claim ? '1px dashed #cbd5e1' : 'none' }}>
+                          <span style={{ width: '35%', fontWeight: 700 }}>1. Initial Repair Intake</span>
                           <span style={{ width: '65%', fontWeight: 600 }}>• {job.customer_complaint || 'display not working'}</span>
                         </div>
+                        {job.is_warranty_claim && (
+                          <>
+                            <div style={{ display: 'flex', padding: '2px 3px', borderBottom: '1px dashed #cbd5e1', background: '#fefce8' }}>
+                              <span style={{ width: '35%', fontWeight: 700, color: '#854d0e' }}>2. Warranty Return Issue</span>
+                              <span style={{ width: '65%', fontWeight: 600, color: '#854d0e' }}>• {job.last_warranty_issue || 'Customer reported issue under warranty period'}</span>
+                            </div>
+                            <div style={{ display: 'flex', padding: '2px 3px', background: '#f0fdf4' }}>
+                              <span style={{ width: '35%', fontWeight: 700, color: '#166534' }}>3. Why Part Changed / Repaired</span>
+                              <span style={{ width: '65%', fontWeight: 600, color: '#166534' }}>• {job.warranty_rework_reason || job.reopen_notes || 'Free rework / part replacement covered under warranty (₹0 Due)'}</span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>

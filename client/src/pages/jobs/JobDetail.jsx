@@ -48,6 +48,7 @@ import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
 import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
 import { NextActionBanner } from '../../components/jobs/NextActionBanner';
+import { WarrantyClaimHistoryCard } from '../../components/jobs/WarrantyClaimHistoryCard';
 import { JobTimeline } from '../../components/jobs/JobTimeline';
 import { QualityChecklist } from '../../components/jobs/QualityChecklist';
 import { JobSheetPrintable } from '../../components/print/JobSheetPrintable';
@@ -502,6 +503,7 @@ export const JobDetail = () => {
         target_status: 'DIAGNOSING',
         notes: '',
         claim_type: 'SAME_ISSUE',
+        warranty_rework_reason: '',
       });
     }
     setIsReopenModalOpen(true);
@@ -522,6 +524,7 @@ export const JobDetail = () => {
         target_status: targetStatus,
         notes: reopenForm.notes.trim(),
         claim_type: isRejectedFlow ? 'NEW_ISSUE' : (reopenForm.claim_type || 'SAME_ISSUE'),
+        warranty_rework_reason: reopenForm.warranty_rework_reason?.trim() || '',
       });
       setJob(res.job);
       toast.success(res.message || 'Job successfully reopened!');
@@ -1089,6 +1092,13 @@ export const JobDetail = () => {
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div key="overview" className="spatial-tab-pane space-y-6">
+          {(job.is_warranty_claim || (job.reopen_count > 0)) && (
+            <WarrantyClaimHistoryCard
+              job={job}
+              user={user}
+              onEditWarrantyDetails={handleOpenWarrantyEditModal}
+            />
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Customer Info Card */}
             <Card
@@ -1316,6 +1326,14 @@ export const JobDetail = () => {
                     ₹0.00 Due
                   </span>
                 </div>
+              )}
+
+              {(job.is_warranty_claim || (job.reopen_count > 0)) && (
+                <WarrantyClaimHistoryCard
+                  job={job}
+                  user={user}
+                  onEditWarrantyDetails={handleOpenWarrantyEditModal}
+                />
               )}
               {/* Approval status banner */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
@@ -1685,7 +1703,14 @@ export const JobDetail = () => {
 
       {/* TAB 6: TIMELINE */}
       {activeTab === 'timeline' && (
-        <div key="timeline" className="spatial-tab-pane">
+        <div key="timeline" className="spatial-tab-pane space-y-6">
+          {(job.is_warranty_claim || (job.reopen_count > 0)) && (
+            <WarrantyClaimHistoryCard
+              job={job}
+              user={user}
+              onEditWarrantyDetails={handleOpenWarrantyEditModal}
+            />
+          )}
           <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
             <JobTimeline history={job.history || []} />
           </Card>
@@ -2541,6 +2566,91 @@ export const JobDetail = () => {
         />
       )}
 
+      
+      {/* EDIT WARRANTY DETAILS MODAL */}
+      <Modal
+        isOpen={isEditWarrantyModalOpen}
+        onClose={() => setIsEditWarrantyModalOpen(false)}
+        title="Update Warranty Claim & Rework Audit"
+        subtitle={`Job #${job?.job_number || ''} • ${job?.customer?.full_name || 'Customer'} • Claim #${job?.reopen_count || 1}`}
+        maxWidth="max-w-xl"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditWarrantyModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="edit-warranty-form"
+              size="sm"
+              loading={isSaving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm"
+              icon={ShieldCheck}
+            >
+              Save Warranty Audit Details
+            </Button>
+          </div>
+        }
+      >
+        <form id="edit-warranty-form" onSubmit={handleSaveWarrantyDetails} className="space-y-4">
+          <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3 text-xs text-emerald-950 dark:text-emerald-200">
+            <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">Warranty Claim & Technical Rework Audit</p>
+              <p className="mt-0.5 opacity-90">
+                Update why the mobile returned during warranty and why parts were replaced or repaired. This history is permanently stored in the audit trail.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Why Mobile Came Back During Warranty Time (Customer Complaint) <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              required
+              rows={2}
+              value={warrantyEditForm.last_warranty_issue}
+              onChange={(e) => setWarrantyEditForm({ ...warrantyEditForm, last_warranty_issue: e.target.value })}
+              placeholder="e.g. Screen touch unresponsive on upper half after 5 days of delivery..."
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Why Part Was Changed Or Repaired (Technical Assessment & Rework Action) <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={warrantyEditForm.warranty_rework_reason}
+              onChange={(e) => setWarrantyEditForm({ ...warrantyEditForm, warranty_rework_reason: e.target.value })}
+              placeholder="e.g. Touch sensor digitizer IC failure detected on previous display. Replaced display assembly under free warranty coverage at ₹0.00..."
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Internal Staff / Tech Notes (Optional)
+            </label>
+            <input
+              type="text"
+              value={warrantyEditForm.reopen_notes}
+              onChange={(e) => setWarrantyEditForm({ ...warrantyEditForm, reopen_notes: e.target.value })}
+              placeholder="e.g. Free warranty rework authorized by shop manager..."
+              className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+        </form>
+      </Modal>
+
       {/* REOPEN JOB MODAL */}
       <Modal
         isOpen={isReopenModalOpen}
@@ -2664,6 +2774,21 @@ export const JobDetail = () => {
               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
           </div>
+
+          {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Why Part Change or Repair is Needed (Technical Observation / Rework Action)
+              </label>
+              <textarea
+                rows={2}
+                value={reopenForm.warranty_rework_reason || ''}
+                onChange={(e) => setReopenForm({ ...reopenForm, warranty_rework_reason: e.target.value })}
+                placeholder="e.g. Touch sensor digitizer IC failure detected on previous display. Replacing display assembly under free warranty coverage at ₹0.00..."
+                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

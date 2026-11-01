@@ -934,6 +934,7 @@ export const reopenJob = async (req, res, next) => {
       target_status = 'DIAGNOSING',
       notes = '',
       claim_type = 'SAME_ISSUE', // 'SAME_ISSUE' or 'NEW_ISSUE'
+      warranty_rework_reason = '',
     } = req.body;
 
     const job = await db.jobs.findById(id);
@@ -955,6 +956,46 @@ export const reopenJob = async (req, res, next) => {
     const isSameIssue = isWarrantyClaim && (claim_type === 'SAME_ISSUE');
     const reopenCount = (job.reopen_count || 0) + 1;
 
+    const deliveryDate = job.delivered_at || job.previous_delivered_at || null;
+    const daysSinceDelivery = deliveryDate
+      ? Math.max(0, Math.round((Date.now() - new Date(deliveryDate).getTime()) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    const existingWarrantyHistory = Array.isArray(job.warranty_history) ? [...job.warranty_history] : [];
+    let updatedWarrantyHistory = existingWarrantyHistory;
+
+    if (isWarrantyClaim) {
+      const newWarrantyEntry = {
+        claim_number: reopenCount,
+        claimed_at: new Date().toISOString(),
+        claimed_by_name: req.user.full_name || req.user.email,
+        claimed_by_id: req.user.id,
+        claim_type: isSameIssue ? 'SAME_ISSUE' : 'NEW_ISSUE',
+        is_free_rework: isSameIssue,
+        days_after_delivery: daysSinceDelivery,
+        // 1. Why mobile originally came for repair:
+        initial_complaint: job.customer_complaint,
+        initial_intake_date: job.created_at,
+        initial_delivered_at: deliveryDate,
+        initial_parts: (job.estimate?.items || []).map(i => ({
+          item_name: i.item_name,
+          warranty: i.warranty || '',
+          quantity: i.quantity,
+          unit_price: i.unit_price,
+          total_price: i.total_price,
+        })),
+        initial_invoice_number: job.invoice?.invoice_number || null,
+        initial_total_amount: job.previous_total_amount || job.total_amount,
+        // 2. Why mobile came back during warranty time:
+        warranty_issue: reason || 'Customer reported issue under warranty period',
+        // 3. Why part change or repair is needed:
+        rework_reason: warranty_rework_reason || notes || (isSameIssue ? 'Same issue rework / part replacement authorized at ₹0.00 under warranty' : 'New issue assessment & repair'),
+        staff_notes: notes || '',
+        status: 'ACTIVE',
+      };
+      updatedWarrantyHistory = [newWarrantyEntry, ...existingWarrantyHistory];
+    }
+
     const updatePayload = {
       status: finalTargetStatus,
       reopened_at: new Date().toISOString(),
@@ -965,11 +1006,13 @@ export const reopenJob = async (req, res, next) => {
       warranty_same_issue: isSameIssue,
       warranty_free_rework: isSameIssue,
       last_warranty_issue: isWarrantyClaim ? (reason || 'Customer returned under warranty') : null,
+      warranty_rework_reason: isWarrantyClaim ? (warranty_rework_reason || notes || '') : null,
+      warranty_history: updatedWarrantyHistory,
       reopen_notes: notes || '',
       customer_tested_device: false,
       customer_acceptance_confirmed: false,
       customer_signature: null,
-      previous_delivered_at: job.delivered_at || null,
+      previous_delivered_at: deliveryDate,
       delivered_at: null,
     };
 
@@ -983,6 +1026,7 @@ export const reopenJob = async (req, res, next) => {
       updatePayload.warranty_same_issue = false;
       updatePayload.warranty_free_rework = false;
       updatePayload.last_warranty_issue = null;
+      updatePayload.warranty_rework_reason = null;
       const estimate = await db.estimates.getByJobId(id);
       if (estimate && Number(estimate.total_amount) > 0) {
         updatePayload.total_amount = Number(estimate.total_amount);
@@ -1016,7 +1060,7 @@ export const reopenJob = async (req, res, next) => {
 
     const statusNotes = isEstimateRejected
       ? `Job reopened after estimate decline. Target: ${finalTargetStatus}. Notes: ${reason || 'Customer requested revised estimate'}. Staff: ${req.user.full_name || req.user.email}.`
-      : `Reason: ${reason || 'Customer reported issue under warranty period'}. Moved to ${finalTargetStatus}. Staff: ${req.user.full_name || req.user.email}.${isSameIssue ? ' Covered under warranty: ₹0 balance, no approval needed.' : ''}${notes ? ` Staff notes: ${notes}` : ''}`;
+      : `Customer Warranty Issue: ${reason || 'Customer reported issue under warranty period'}.${warranty_rework_reason ? ` Rework / Part Action: ${warranty_rework_reason}.` : ''} Moved to ${finalTargetStatus}. Staff: ${req.user.full_name || req.user.email}.${isSameIssue ? ' Covered under warranty: ₹0 balance, no approval needed.' : ''}${notes ? ` Staff notes: ${notes}` : ''}`;
 
     await db.jobs.updateStatus(
       id,
@@ -1103,6 +1147,61 @@ export const authorizeWarrantyRework = async (req, res, next) => {
       message: is_same_issue
         ? `Job #${job.job_number} authorized as Free Warranty Rework! Customer approval and payment set to ₹0.`
         : `Job #${job.job_number} warranty status updated.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+export const updateWarrantyDetails = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      last_warranty_issue,
+      warranty_rework_reason,
+      reopen_notes,
+    } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const updatePayload = {
+      last_warranty_issue: last_warranty_issue !== undefined ? last_warranty_issue : job.last_warranty_issue,
+      warranty_rework_reason: warranty_rework_reason !== undefined ? warranty_rework_reason : job.warranty_rework_reason,
+      reopen_notes: reopen_notes !== undefined ? reopen_notes : job.reopen_notes,
+    };
+
+    // Update latest warranty history entry if present
+    if (Array.isArray(job.warranty_history) && job.warranty_history.length > 0) {
+      const updatedHistory = [...job.warranty_history];
+      updatedHistory[0] = {
+        ...updatedHistory[0],
+        warranty_issue: updatePayload.last_warranty_issue || updatedHistory[0].warranty_issue,
+        rework_reason: updatePayload.warranty_rework_reason || updatedHistory[0].rework_reason,
+        staff_notes: updatePayload.reopen_notes !== undefined ? updatePayload.reopen_notes : updatedHistory[0].staff_notes,
+        updated_at: new Date().toISOString(),
+        updated_by_name: req.user.full_name || req.user.email,
+      };
+      updatePayload.warranty_history = updatedHistory;
+    }
+
+    await db.jobs.update(id, updatePayload);
+
+    await db.jobs.updateStatus(
+      id,
+      job.status,
+      'Warranty Details Updated',
+      `Warranty return issue: "${updatePayload.last_warranty_issue || 'N/A'}". Rework / Part action: "${updatePayload.warranty_rework_reason || 'N/A'}". Updated by ${req.user.full_name || req.user.email}.`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: 'Warranty rework history & reasons updated successfully.',
       data: { job: updatedJob },
     });
   } catch (err) {

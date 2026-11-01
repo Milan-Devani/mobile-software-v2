@@ -219,6 +219,8 @@ ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS reopened_by_user_id UUID
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS warranty_claim_type VARCHAR(50);
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS warranty_free_rework BOOLEAN DEFAULT FALSE;
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS last_warranty_issue TEXT;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS warranty_rework_reason TEXT;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS warranty_history JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS reopen_notes TEXT;
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS previous_delivered_at TIMESTAMPTZ;
 ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS approval_notes TEXT;

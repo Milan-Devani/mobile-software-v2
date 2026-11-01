@@ -17,6 +17,7 @@ import {
   cancelJob,
   reopenJob,
   authorizeWarrantyRework,
+  updateWarrantyDetails,
   updateJobStatus,
   deleteJob,
   bulkDeleteJobs,
@@ -59,6 +60,8 @@ router.post('/:id/pickup', requireStaffOrAdmin, recordPickup);
 router.post('/:id/cancel', requireStaffOrAdmin, cancelJob);
 router.post('/:id/reopen', requireStaffOrAdmin, reopenJob);
 router.post('/:id/warranty-authorize', requireStaffOrAdmin, authorizeWarrantyRework);
+router.patch('/:id/warranty-details', requireStaffOrAdmin, updateWarrantyDetails);
+router.post('/:id/warranty-details', requireStaffOrAdmin, updateWarrantyDetails);
 router.post('/:id/status', requireStaffOrAdmin, updateJobStatus);
 router.put('/:id/status', requireStaffOrAdmin, updateJobStatus);
 router.post('/:id/discount', requireStaffOrAdmin, applyDiscount);
