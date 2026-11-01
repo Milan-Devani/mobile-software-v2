@@ -11,6 +11,8 @@ import {
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { WhatsAppQrModal } from '../common/WhatsAppQrModal';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
@@ -204,7 +206,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const apiBase = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api`;
     fetch(`${apiBase}/whatsapp/status`)
       .then((r) => r.json())
       .then((data) => {
@@ -219,43 +222,90 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
     window.print();
   };
 
+  // Automated PDF download with exact filename and verified side padding
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
-    const toastId = toast.loading('Generating official vector PDF...');
+    const cleanJobNum = (invoice?.invoice_number || job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const filename = `Mobotech_Invoice_${cleanJobNum}.pdf`;
+    const toastId = toast.loading(`Generating ${filename}...`);
 
     try {
-      const cleanJobNum = (invoice?.invoice_number || job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const filename = `Mobotech_Invoice_${cleanJobNum}.pdf`;
-
-      // Use authenticated endpoint if token is present, else public endpoint
+      // 1. Try server-side vector PDF first (with properly formatted /api endpoint)
       const token = localStorage.getItem('token');
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = rawApiBase.endsWith('/api')
+        ? rawApiBase
+        : `${rawApiBase.replace(/\/+$/, '')}/api`;
+
       const downloadUrl = token
         ? `${apiBase}/invoices/job/${job.id || job.job_number}/download-pdf`
         : `${apiBase}/invoices/public/${job.id || job.job_number}/download-pdf`;
 
-      const response = await fetch(downloadUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      try {
+        const response = await fetch(downloadUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
 
-      if (!response.ok) {
-        throw new Error(`Server returned HTTP ${response.status}`);
+        const contentType = response.headers.get('content-type') || '';
+        if (response.ok && contentType.includes('application/pdf')) {
+          const blob = await response.blob();
+          const blobUrl = window.URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(blobUrl);
+
+          toast.success(`Downloaded ${filename} successfully!`, { id: toastId });
+          return;
+        }
+      } catch (netErr) {
+        console.warn('Backend vector PDF download error, switching to direct client engine:', netErr.message);
       }
 
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      // 2. High-Fidelity Client-Side Fallback Engine
+      // Generates the PDF directly into a file download with automated naming and full margins!
+      if (!printAreaRef.current) {
+        throw new Error('Invoice container not found');
+      }
 
-      toast.success('Official razor-sharp vector PDF downloaded!', { id: toastId });
+      const pageElements = printAreaRef.current.querySelectorAll('.service-record-page');
+      if (!pageElements || pageElements.length === 0) {
+        throw new Error('No invoice pages detected to download');
+      }
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      for (let i = 0; i < pageElements.length; i++) {
+        const pageEl = pageElements[i];
+
+        const canvas = await html2canvas(pageEl, {
+          scale: 2.5,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          windowWidth: 1024,
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.98);
+        if (i > 0) {
+          pdf.addPage('a4', 'portrait');
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+      }
+
+      pdf.save(filename);
+      toast.success(`Downloaded ${filename} successfully!`, { id: toastId });
     } catch (err) {
       console.error('Vector PDF download error:', err);
-      toast.error('Vector PDF generation encountered an issue. Opening Print to PDF as fallback...', { id: toastId });
+      toast.error('Automated download had an issue. Opening Print as fallback...', { id: toastId });
       window.print();
     } finally {
       setIsGeneratingPdf(false);
@@ -336,7 +386,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       const toastId = toast.loading('Sending invoice & PDF directly to customer WhatsApp in background...');
       try {
         const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const apiBase = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api`;
         const res = await fetch(`${apiBase}/whatsapp/send-invoice/${job.id || job.job_number}`, {
           method: 'POST',
           headers: {
@@ -391,7 +442,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       const toastId = toast.loading('Sending invoice to alternate WhatsApp in background...');
       try {
         const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const apiBase = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api`;
         const res = await fetch(`${apiBase}/whatsapp/send-invoice/${job.id || job.job_number}`, {
           method: 'POST',
           headers: {
@@ -441,7 +493,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       style={{ colorScheme: 'light' }}
     >
       {/* ============================================================== */}
-      {/* EXACT CSS STYLES MATCHING PDFSERVICE.JS CHROMIUM RENDERER     */}
+      {/* EXACT CSS STYLES WITH VERIFIED PADDING ON ALL 4 SIDES          */}
       {/* ============================================================== */}
       <style>{`
         * {
@@ -449,18 +501,36 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
           -webkit-print-color-adjust: exact !important;
           print-color-adjust: exact !important;
         }
+
+        /* Screen Preview Styling */
+        @media screen {
+          .service-record-page {
+            width: 100%;
+            max-width: 800px;
+            min-height: 1120px;
+            padding: 24px 28px !important;
+            margin: 0 auto;
+            box-sizing: border-box;
+            background: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          }
+        }
+
+        /* Print / Print to PDF Styling */
         @media print {
           @page {
             size: A4 portrait;
-            margin: 5mm 6mm;
+            margin: 0mm !important; /* Zero margin to prevent browser driver clipping */
           }
           html, body {
             margin: 0 !important;
             padding: 0 !important;
             background: #ffffff !important;
             color: #000000 !important;
-            width: 100% !important;
-            height: auto !important;
+            width: 210mm !important;
+            height: 297mm !important;
             overflow: visible !important;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
             font-size: 12px !important;
@@ -493,25 +563,29 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
             border: none !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 100% !important;
-            max-width: 100% !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
           }
           .page-break {
             display: none !important;
           }
+          /* GUARANTEED PADDING ON ALL 4 SIDES (Top/Bottom: 6mm, Left/Right: 8mm) */
           .service-record-page {
-            width: 100% !important;
-            max-width: 100% !important;
-            height: 287mm !important;
-            max-height: 287mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
+            width: 210mm !important;
+            max-width: 210mm !important;
+            min-height: 297mm !important;
+            height: 297mm !important;
+            max-height: 297mm !important;
+            margin: 0 auto !important;
+            padding: 6mm 8mm !important;
+            box-sizing: border-box !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             page-break-after: always !important;
             break-after: page !important;
             background: #ffffff !important;
-            box-sizing: border-box !important;
+            box-shadow: none !important;
+            border: none !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: space-between !important;
@@ -594,8 +668,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
               size="sm"
               loading={isGeneratingPdf}
               className="bg-primary-600 hover:bg-primary-700 text-white font-bold shadow-sm"
+              title="Automatically download official PDF with filename Mobotech_Invoice_..."
             >
-              {isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}
+              {isGeneratingPdf ? 'Downloading PDF...' : 'Download PDF'}
             </Button>
 
             <Button
@@ -603,7 +678,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
               icon={Printer}
               size="sm"
               className="bg-black text-white hover:bg-slate-900 font-bold"
-              title="Print directly or Save as 100% Vector PDF via browser"
+              title="Print directly or Save as PDF via browser"
             >
               Print / Save as PDF
             </Button>
@@ -703,7 +778,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         {/* ============================================================ */}
         {(viewMode === 'both' || viewMode === 'page1') && (
           <div
-            className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0"
+            className="service-record-page bg-white shadow-md border border-slate-300 print:shadow-none print:border-none"
             style={{ backgroundColor: '#ffffff', color: '#000000', colorScheme: 'light' }}
           >
             <div>
@@ -1014,7 +1089,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         {/* ============================================================ */}
         {(viewMode === 'both' || viewMode === 'page2') && (
           <div
-            className="service-record-page bg-white p-6 sm:p-7 shadow-md border border-slate-300 print:shadow-none print:border-none print:p-0"
+            className="service-record-page bg-white shadow-md border border-slate-300 print:shadow-none print:border-none"
             style={{ backgroundColor: '#ffffff', color: '#000000', colorScheme: 'light' }}
           >
             <div>
