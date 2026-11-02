@@ -367,7 +367,7 @@ export const JobDetail = () => {
             id: p.id,
             part_id: p.part_id || null,
             item_name: p.item_name || p.part_name || '',
-            warranty: p.warranty || `${job?.warranty_days || 30} Days`,
+            warranty: p.warranty || 'Continue Existing Warranty',
             quantity: p.quantity || 1,
             unit_price: p.original_price || p.unit_price || 0,
             discount: 0,
@@ -382,7 +382,7 @@ export const JobDetail = () => {
           apply_tax: false,
           tax_rate: 0,
           notes: job?.warranty_rework_reason || '',
-          items: [{ item_name: '', warranty: `${job?.warranty_days || 30} Days`, quantity: 1, unit_price: 0, discount: 0 }],
+          items: [{ item_name: '', warranty: 'Continue Existing Warranty', quantity: 1, unit_price: 0, discount: 0 }],
         });
       }
       setIsEstimateModalOpen(true);
@@ -424,7 +424,13 @@ export const JobDetail = () => {
       ...prev,
       items: [
         ...(prev.items || []),
-        { item_name: '', warranty: '90 Days', quantity: 1, unit_price: '', discount: 0 },
+        {
+          item_name: '',
+          warranty: isFreeWarranty ? 'Continue Existing Warranty' : '90 Days',
+          quantity: 1,
+          unit_price: isFreeWarranty ? 0 : '',
+          discount: 0,
+        },
       ],
     }));
   };
@@ -2274,7 +2280,7 @@ export const JobDetail = () => {
                         items[lastIdx] = {
                           part_id: selected.id,
                           item_name: selected.name,
-                          warranty: isFreeWarranty ? (job?.warranty_days ? `${job.warranty_days} Days` : '30 Days') : '90 Days',
+                          warranty: isFreeWarranty ? 'Continue Existing Warranty' : '90 Days',
                           quantity: 1,
                           unit_price: isFreeWarranty ? 0 : selected.selling_price,
                           discount: 0,
@@ -2288,7 +2294,7 @@ export const JobDetail = () => {
                             {
                               part_id: selected.id,
                               item_name: selected.name,
-                              warranty: isFreeWarranty ? (job?.warranty_days ? `${job.warranty_days} Days` : '30 Days') : '90 Days',
+                              warranty: isFreeWarranty ? 'Continue Existing Warranty' : '90 Days',
                               quantity: 1,
                               unit_price: isFreeWarranty ? 0 : selected.selling_price,
                               discount: 0,
@@ -2346,12 +2352,15 @@ export const JobDetail = () => {
                           Warranty Period
                         </label>
                         <SpatialWarrantyInput
-                          value={item.warranty || ''}
+                          value={item.warranty || (isFreeWarranty ? 'Continue Existing Warranty' : '')}
                           onChange={(val) => handleUpdateEstimateItem(idx, 'warranty', val)}
-                          placeholder="e.g. 30 Days, 90 Days..."
+                          placeholder="e.g. Continue Existing Warranty, 30 Days..."
                           heightClass="h-9"
                           presets={[
+                            'Continue Existing Warranty',
                             'No Warranty',
+                            '7 Days',
+                            '15 Days',
                             '30 Days',
                             '40 Days',
                             '60 Days',

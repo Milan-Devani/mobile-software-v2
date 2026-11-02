@@ -248,6 +248,7 @@ export const parseWarrantyDays = (val) => {
   if (typeof val === 'number') return val;
   const str = String(val).toLowerCase().trim();
   if (str === 'no warranty' || str === 'none' || str === 'no' || str === '0') return 0;
+  if (str.includes('continue') || str.includes('existing')) return -1;
   const match = str.match(/(\d+)\s*(d|day|m|month|y|year)?/i);
   if (!match) return -1;
   const num = parseInt(match[1], 10);

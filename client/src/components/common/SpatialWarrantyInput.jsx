@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check, ShieldCheck, X } from 'lucide-react';
 
 const DEFAULT_PRESETS = [
+  'Continue Existing Warranty',
   'No Warranty',
   '7 Days',
   '15 Days',

@@ -1272,7 +1272,7 @@ export const saveWarrantyParts = async (req, res, next) => {
         claim_number: targetClaimNumber,
         part_id: it.part_id || null,
         item_name: (it.item_name || 'Replacement Component').trim(),
-        warranty: (it.warranty || `${job.warranty_days || 30} Days`).trim(),
+        warranty: (it.warranty || 'Continue Existing Warranty').trim(),
         quantity: parsedQty,
         unit_price: 0.00,
         original_price: Math.max(0, parseFloat(it.unit_price) || 0),
