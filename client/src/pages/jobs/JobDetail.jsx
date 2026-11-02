@@ -191,7 +191,20 @@ export const JobDetail = () => {
   );
 
   const allClaims = getAllWarrantyClaims(job);
-  const initialOrderTotal = Number(job?.previous_total_amount || job?.total_amount || 0);
+  const initialOrderTotal = Number(
+    job?.estimate?.total_amount ||
+    job?.paid_amount ||
+    (job?.previous_total_amount && Number(job.previous_total_amount) > 0 ? job.previous_total_amount : 0) ||
+    job?.total_amount ||
+    0
+  );
+  const allWarrantyParts = (Array.isArray(job?.warranty_parts) && job.warranty_parts.length > 0)
+    ? job.warranty_parts
+    : (Array.isArray(job?.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0
+        ? job.device_condition.warranty_parts
+        : (Array.isArray(job?.warranty_history)
+            ? job.warranty_history.flatMap(h => h.replacement_parts || [])
+            : []));
 
   // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
   useEffect(() => {
@@ -344,17 +357,18 @@ export const JobDetail = () => {
   };
 
   const handleOpenEstimateModal = () => {
-    if (['DELIVERED', 'CANCELLED'].includes(job?.status)) {
+    if (['DELIVERED', 'CANCELLED'].includes(job?.status) && !isFreeWarranty) {
       toast.error('This repair job is marked Delivered and completed. Please reopen the job sheet before updating the estimate.');
       return;
     }
     if (isFreeWarranty) {
       const targetClaimNumber = job?.reopen_count || 1;
-      const claimParts = (job?.warranty_parts || []).filter(
+      const claimParts = (allWarrantyParts || []).filter(
         (p) => !p.claim_number || Number(p.claim_number) === targetClaimNumber
       );
+      const effectiveParts = claimParts.length > 0 ? claimParts : allWarrantyParts;
 
-      if (claimParts.length > 0) {
+      if (effectiveParts.length > 0) {
         setEstimateForm({
           labor_charge: 0,
           discount_type: 'AMOUNT',
@@ -362,8 +376,8 @@ export const JobDetail = () => {
           discount: 0,
           apply_tax: false,
           tax_rate: 0,
-          notes: claimParts[0]?.notes || job?.warranty_rework_reason || '',
-          items: claimParts.map((p) => ({
+          notes: effectiveParts[0]?.notes || job?.warranty_rework_reason || '',
+          items: effectiveParts.map((p) => ({
             id: p.id,
             part_id: p.part_id || null,
             item_name: p.item_name || p.part_name || '',
@@ -560,7 +574,6 @@ export const JobDetail = () => {
 
   const handleOpenWarrantyEditModal = (claimNum) => {
     const allClaims = getAllWarrantyClaims(job);
-  const initialOrderTotal = Number(job?.previous_total_amount || job?.total_amount || 0);
     const targetClaim =
       allClaims.find((c) => c.claim_number === claimNum) ||
       (allClaims.length > 0 ? allClaims[allClaims.length - 1] : null);
@@ -1424,13 +1437,13 @@ export const JobDetail = () => {
               <Button
                 size="sm"
                 onClick={handleOpenEstimateModal}
-                disabled={isJobClosed}
-                title={isJobClosed ? "This repair job is marked Delivered and completed. Reopen job sheet to modify estimate." : ""}
+                disabled={isJobClosed && !isFreeWarranty}
+                title={isJobClosed && !isFreeWarranty ? "This repair job is marked Delivered and completed. Reopen job sheet to modify estimate." : ""}
                 className={isFreeWarranty ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm" : ""}
                 icon={isFreeWarranty ? Wrench : undefined}
               >
                 {isFreeWarranty
-                  ? (job.warranty_parts && job.warranty_parts.length > 0 ? 'Update Repair Parts' : 'Prepare Repair')
+                  ? (allWarrantyParts && allWarrantyParts.length > 0 ? 'Update Repair Parts' : 'Prepare Repair')
                   : (job.estimate ? 'Update Estimate' : 'Create Estimate')}
               </Button>
             )
@@ -1506,7 +1519,7 @@ export const JobDetail = () => {
                           1. Initial Service Intake Parts & Charges
                         </span>
                         <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
-                          Billed on intake • Paid Amount: <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{currSym}{Number(job.previous_total_amount || job.total_amount || 0).toFixed(2)}</strong>
+                          Billed on intake • Paid Amount: <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{currSym}{initialOrderTotal.toFixed(2)}</strong>
                         </span>
                       </div>
                       <span className="text-[11px] text-slate-400 font-mono">
@@ -1572,25 +1585,25 @@ export const JobDetail = () => {
                       <div className="flex items-center gap-2">
                         <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 flex items-center gap-1">
                           <ShieldCheck className="w-3.5 h-3.5" />
-                          2. Replaced Parts During Warranty Claim #{job.reopen_count || 1}
+                          2. Replaced Parts During Warranty Rework {job.reopen_count ? `(Claim #${job.reopen_count})` : ''}
                         </span>
                         <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
                           100% Free Rework • Pre-Authorized at ₹0.00
                         </span>
                       </div>
-                      {['admin', 'technician'].includes(user?.role_id) && !isJobClosed && (
+                      {['admin', 'technician'].includes(user?.role_id) && (
                         <button
                           type="button"
                           onClick={handleOpenEstimateModal}
                           className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-all shadow-xs active:scale-95 cursor-pointer"
                         >
                           <Plus className="w-3 h-3" />
-                          <span>{job.warranty_parts && job.warranty_parts.length > 0 ? 'Edit Replaced Parts' : 'Add Replaced Part'}</span>
+                          <span>{allWarrantyParts.length > 0 ? 'Edit / Add Replaced Parts' : 'Add Replaced Part'}</span>
                         </button>
                       )}
                     </div>
 
-                    {Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0 ? (
+                    {allWarrantyParts.length > 0 ? (
                       <div className="overflow-x-auto table-scrollbar border border-emerald-500/30 rounded-xl bg-emerald-950/[0.04]">
                         <table className="w-full text-left text-xs min-w-[650px] whitespace-nowrap">
                           <thead className="bg-emerald-50/50 dark:bg-emerald-950/20 border-b border-emerald-500/20 text-emerald-900 dark:text-emerald-300 uppercase font-semibold text-[11px]">
@@ -1607,7 +1620,7 @@ export const JobDetail = () => {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-emerald-500/15">
-                            {job.warranty_parts.map((p, pIdx) => (
+                            {allWarrantyParts.map((p, pIdx) => (
                               <tr key={p.id || pIdx} className="bg-emerald-50/[0.08] hover:bg-emerald-500/10 transition-colors">
                                 <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
                                   <div className="flex items-center gap-2">
@@ -1662,7 +1675,7 @@ export const JobDetail = () => {
                         <p className="text-slate-500 text-xs">
                           No replacement parts logged yet for Claim #{job.reopen_count || 1}. If any part was replaced during this rework, click below to record it.
                         </p>
-                        {['admin', 'technician'].includes(user?.role_id) && !isJobClosed && (
+                        {['admin', 'technician'].includes(user?.role_id) && (
                           <Button
                             size="sm"
                             onClick={handleOpenEstimateModal}
@@ -1681,7 +1694,7 @@ export const JobDetail = () => {
                     <div className="w-80 space-y-2 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
                       <div className="flex justify-between text-slate-600 dark:text-slate-400">
                         <span>Initial Service Paid Total:</span>
-                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{currSym}{Number(job.previous_total_amount || job.total_amount || 0).toFixed(2)}</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{currSym}{initialOrderTotal.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
                         <span>Warranty Replacement Parts:</span>
@@ -2453,7 +2466,7 @@ export const JobDetail = () => {
           {(() => {
             if (isFreeWarranty) {
               const count = (estimateForm.items || []).filter(i => i.item_name || i.unit_price).length;
-              const originalPaid = Number(job?.previous_total_amount || job?.total_amount || 0);
+              const originalPaid = initialOrderTotal;
               return (
                 <div className="bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] p-4 rounded-xl shadow-md border border-[var(--spatial-border)]">
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs mb-3 pb-3 border-b border-[var(--spatial-border)]">

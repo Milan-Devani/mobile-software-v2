@@ -195,6 +195,16 @@ export const syncFromSupabase = async () => {
           const { data, error } = await supabase.from(tbl).select('*').limit(3000);
           if (!error && Array.isArray(data)) {
             if (!seedFallbackTables.has(tbl) || data.length > 0) {
+              if (tbl === 'repair_jobs') {
+                data.forEach((j) => {
+                  if ((!j.warranty_parts || j.warranty_parts.length === 0) && Array.isArray(j.device_condition?.warranty_parts)) {
+                    j.warranty_parts = j.device_condition.warranty_parts;
+                  }
+                  if ((!j.warranty_history || j.warranty_history.length === 0) && Array.isArray(j.device_condition?.warranty_history)) {
+                    j.warranty_history = j.device_condition.warranty_history;
+                  }
+                });
+              }
               localDb[tbl] = data;
             }
           }
@@ -931,8 +941,22 @@ export const db = {
         .filter(h => h.job_id === job.id)
         .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
+      const warrantyParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
+        ? job.warranty_parts
+        : (Array.isArray(job.device_condition?.warranty_parts)
+            ? job.device_condition.warranty_parts
+            : []);
+
+      const warrantyHistory = (Array.isArray(job.warranty_history) && job.warranty_history.length > 0)
+        ? job.warranty_history
+        : (Array.isArray(job.device_condition?.warranty_history)
+            ? job.device_condition.warranty_history
+            : []);
+
       return {
         ...job,
+        warranty_parts: warrantyParts,
+        warranty_history: warrantyHistory,
         customer,
         device,
         technician: technician ? { id: technician.id, full_name: technician.full_name, email: technician.email } : null,

@@ -138,7 +138,20 @@ export const WarrantyClaimHistoryCard = ({
         total_price: (p.selling_price || p.unit_price || 0) * (p.quantity || 1),
       }));
 
-  const initialOrderTotal = Number(job.previous_total_amount || job.total_amount || 0);
+  const initialOrderTotal = Number(
+    job?.estimate?.total_amount ||
+    job?.paid_amount ||
+    (job?.previous_total_amount && Number(job.previous_total_amount) > 0 ? job.previous_total_amount : 0) ||
+    job?.total_amount ||
+    0
+  );
+  const allWarrantyParts = (Array.isArray(job?.warranty_parts) && job.warranty_parts.length > 0)
+    ? job.warranty_parts
+    : (Array.isArray(job?.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0
+        ? job.device_condition.warranty_parts
+        : (Array.isArray(job?.warranty_history)
+            ? job.warranty_history.flatMap(h => h.replacement_parts || [])
+            : []));
 
   const canEdit = ['admin', 'technician', 'staff'].includes(user?.role_id);
   const activeClaimNumber = job.reopen_count || (allClaims.length > 0 ? allClaims[allClaims.length - 1].claim_number : 1);
@@ -336,15 +349,14 @@ export const WarrantyClaimHistoryCard = ({
                           Staff Notes: {claim.staff_notes}
                         </div>
                       )}
-                      {Array.isArray(job.warranty_parts) &&
-                        job.warranty_parts.filter((p) => Number(p.claim_number) === Number(claim.claim_number)).length > 0 && (
+                      {allWarrantyParts.filter((p) => Number(p.claim_number) === Number(claim.claim_number) || allWarrantyParts.length === 1).length > 0 && (
                           <div className="mt-2 pt-1.5 border-t border-emerald-500/25">
                             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-1">
                               Replaced Parts Under Claim #{claim.claim_number}:
                             </span>
                             <div className="flex flex-wrap gap-1">
-                              {job.warranty_parts
-                                .filter((p) => Number(p.claim_number) === Number(claim.claim_number))
+                              {allWarrantyParts
+                                .filter((p) => Number(p.claim_number) === Number(claim.claim_number) || allWarrantyParts.length === 1)
                                 .map((cp, cpIdx) => (
                                   <span
                                     key={cp.id || cpIdx}

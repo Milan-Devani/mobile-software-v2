@@ -180,7 +180,13 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const dev = job?.device || {};
   const cond = job?.device_condition || {};
   const baseItems = invoice?.items || job?.estimate?.items || job?.estimate_items || [];
-  const warrantyParts = Array.isArray(job?.warranty_parts) ? job.warranty_parts : [];
+  const warrantyParts = (Array.isArray(job?.warranty_parts) && job.warranty_parts.length > 0)
+    ? job.warranty_parts
+    : (Array.isArray(job?.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0
+        ? job.device_condition.warranty_parts
+        : (Array.isArray(job?.warranty_history)
+            ? job.warranty_history.flatMap(h => h.replacement_parts || [])
+            : []));
   const items = [
     ...baseItems,
     ...warrantyParts.map((wp, idx) => ({
@@ -911,8 +917,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                                   </td>
                                   <td style={{ padding: '2px 4px', verticalAlign: 'top', color: '#166534', fontWeight: 600 }}>
                                     <div>• {c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}</div>
-                                    {(job.warranty_parts || [])
-                                      .filter((p) => Number(p.claim_number) === Number(c.claim_number))
+                                    {warrantyParts
+                                      .filter((p) => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1)
                                       .map((wp, wIdx) => (
                                         <div key={wIdx} style={{ fontSize: '9px', color: '#15803d', marginTop: '1px' }}>
                                           ↳ Replaced Part: <b>{wp.item_name}</b> ({wp.warranty || '30 Days'}) [₹0.00 Free]

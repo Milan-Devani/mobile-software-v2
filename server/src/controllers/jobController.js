@@ -1014,6 +1014,14 @@ export const reopenJob = async (req, res, next) => {
       updatedWarrantyHistory = Array.from(map.values()).sort((a, b) => b.claim_number - a.claim_number);
     }
 
+    const deviceCondition = { ...(job.device_condition || {}) };
+    if (isWarrantyClaim) {
+      deviceCondition.warranty_history = updatedWarrantyHistory;
+      if (job.warranty_parts) {
+        deviceCondition.warranty_parts = job.warranty_parts;
+      }
+    }
+
     const updatePayload = {
       status: finalTargetStatus,
       reopened_at: new Date().toISOString(),
@@ -1026,6 +1034,7 @@ export const reopenJob = async (req, res, next) => {
       last_warranty_issue: isWarrantyClaim ? (reason || 'Customer returned under warranty') : null,
       warranty_rework_reason: isWarrantyClaim ? (warranty_rework_reason || notes || '') : null,
       warranty_history: updatedWarrantyHistory,
+      device_condition: deviceCondition,
       reopen_notes: notes || '',
       customer_tested_device: false,
       customer_acceptance_confirmed: false,
@@ -1056,7 +1065,10 @@ export const reopenJob = async (req, res, next) => {
       updatePayload.approval_decision_at = new Date().toISOString();
       updatePayload.approval_notes = 'Pre-approved under warranty: Free rework for same issue';
       // 2. No payment required: rework cost is ₹0
-      updatePayload.previous_total_amount = job.total_amount;
+      const initialTotal = Number(job.total_amount) > 0
+        ? job.total_amount
+        : (job.previous_total_amount || job.paid_amount || job.estimate?.total_amount || 0);
+      updatePayload.previous_total_amount = initialTotal;
       updatePayload.previous_balance_due = job.balance_due;
       updatePayload.total_amount = 0.00;
       updatePayload.balance_due = 0.00;
@@ -1212,8 +1224,12 @@ export const updateWarrantyDetails = async (req, res, next) => {
 
     const updatedHistory = Array.from(map.values()).sort((a, b) => b.claim_number - a.claim_number);
 
+    const deviceCondition = { ...(job.device_condition || {}) };
+    deviceCondition.warranty_history = updatedHistory;
+
     const updatePayload = {
       warranty_history: updatedHistory,
+      device_condition: deviceCondition,
     };
 
     if (targetClaimNumber === (job.reopen_count || 1)) {
@@ -1254,12 +1270,18 @@ export const saveWarrantyParts = async (req, res, next) => {
 
     const targetClaimNumber = claim_number ? Number(claim_number) : (job.reopen_count || 1);
 
+    const existingParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
+      ? job.warranty_parts
+      : (Array.isArray(job.device_condition?.warranty_parts)
+          ? job.device_condition.warranty_parts
+          : []);
+
     // Keep parts from other claims
-    const otherClaimsParts = (job.warranty_parts || []).filter(
+    const otherClaimsParts = existingParts.filter(
       (p) => p.claim_number && Number(p.claim_number) !== targetClaimNumber
     );
 
-    const prevThisClaimParts = (job.warranty_parts || []).filter(
+    const prevThisClaimParts = existingParts.filter(
       (p) => !p.claim_number || Number(p.claim_number) === targetClaimNumber
     );
 
@@ -1304,8 +1326,12 @@ export const saveWarrantyParts = async (req, res, next) => {
 
     const updatedWarrantyParts = [...otherClaimsParts, ...newClaimParts];
 
+    const deviceCondition = { ...(job.device_condition || {}) };
+    deviceCondition.warranty_parts = updatedWarrantyParts;
+
     const updatePayload = {
       warranty_parts: updatedWarrantyParts,
+      device_condition: deviceCondition,
     };
 
     // If job was in DIAGNOSING, advance it to IN_PROGRESS (workbench)
@@ -1371,8 +1397,15 @@ export const addWarrantyPart = async (req, res, next) => {
       created_by_name: req.user.full_name || req.user.email,
     };
 
-    const existingWarrantyParts = Array.isArray(job.warranty_parts) ? [...job.warranty_parts] : [];
+    const existingWarrantyParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
+      ? [...job.warranty_parts]
+      : (Array.isArray(job.device_condition?.warranty_parts)
+          ? [...job.device_condition.warranty_parts]
+          : []);
     const updatedWarrantyParts = [...existingWarrantyParts, newPart];
+
+    const deviceCondition = { ...(job.device_condition || {}) };
+    deviceCondition.warranty_parts = updatedWarrantyParts;
 
     // If part_id is from inventory, deduct stock
     if (part_id) {
@@ -1389,6 +1422,7 @@ export const addWarrantyPart = async (req, res, next) => {
 
     const updatePayload = {
       warranty_parts: updatedWarrantyParts,
+      device_condition: deviceCondition,
     };
 
     // If job was in DIAGNOSING, advance it to IN_PROGRESS or APPROVED without sending estimate
@@ -1425,7 +1459,11 @@ export const deleteWarrantyPart = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    const existingParts = Array.isArray(job.warranty_parts) ? job.warranty_parts : [];
+    const existingParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
+      ? job.warranty_parts
+      : (Array.isArray(job.device_condition?.warranty_parts)
+          ? job.device_condition.warranty_parts
+          : []);
     const removedPart = existingParts.find(p => p.id === partId);
     const updatedParts = existingParts.filter(p => p.id !== partId);
 
@@ -1442,7 +1480,13 @@ export const deleteWarrantyPart = async (req, res, next) => {
       }
     }
 
-    await db.jobs.update(id, { warranty_parts: updatedParts });
+    const deviceCondition = { ...(job.device_condition || {}) };
+    deviceCondition.warranty_parts = updatedParts;
+
+    await db.jobs.update(id, {
+      warranty_parts: updatedParts,
+      device_condition: deviceCondition,
+    });
 
     await db.jobs.updateStatus(
       id,

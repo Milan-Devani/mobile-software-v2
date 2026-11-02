@@ -9,7 +9,10 @@ export const getAllWarrantyClaims = (job) => {
     (job.reopen_count && job.reopen_count > 0) ||
     job.warranty_same_issue ||
     job.warranty_free_rework ||
-    (Array.isArray(job.warranty_history) && job.warranty_history.length > 0)
+    (Array.isArray(job.warranty_history) && job.warranty_history.length > 0) ||
+    (Array.isArray(job.device_condition?.warranty_history) && job.device_condition.warranty_history.length > 0) ||
+    (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0) ||
+    (Array.isArray(job.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0)
   );
 
   if (!isWarranty) return [];
@@ -17,9 +20,13 @@ export const getAllWarrantyClaims = (job) => {
   const claimsMap = new Map();
   const warrantyDuration = job.warranty_days || 30;
 
-  // 1. Populate from job.warranty_history
-  if (Array.isArray(job.warranty_history) && job.warranty_history.length > 0) {
-    job.warranty_history.forEach((entry, idx) => {
+  const rawHistory = (Array.isArray(job.warranty_history) && job.warranty_history.length > 0)
+    ? job.warranty_history
+    : (Array.isArray(job.device_condition?.warranty_history) ? job.device_condition.warranty_history : []);
+
+  // 1. Populate from rawHistory
+  if (rawHistory.length > 0) {
+    rawHistory.forEach((entry, idx) => {
       if (!entry) return;
       const claimNum = Number(entry.claim_number) || (job.reopen_count ? job.reopen_count - idx : idx + 1);
       claimsMap.set(claimNum, {
