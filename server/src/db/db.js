@@ -97,7 +97,14 @@ export const safeSupabaseDelete = async (table, id, idColumn = 'id') => {
   try {
     const supabase = getSupabase();
     if (!supabase) return false;
-    const { error } = await supabase.from(table).delete().eq(idColumn, id);
+    let query = supabase.from(table).delete();
+    if (Array.isArray(id)) {
+      if (id.length === 0) return true;
+      query = query.in(idColumn, id);
+    } else {
+      query = query.eq(idColumn, id);
+    }
+    const { error } = await query;
     if (error) {
       if (error.code !== 'PGRST205') {
         console.warn(`⚠️ Supabase [${table}] delete error:`, error.message);
@@ -718,6 +725,7 @@ export const db = {
 
       localDb.customers.splice(idx, 1);
       saveLocalDb();
+      await safeSupabaseDelete('customers', id);
       return true;
     },
     bulkDelete: async (ids = [], force = false, deletedBy = 'Staff') => {
@@ -1152,8 +1160,31 @@ export const db = {
       localDb.invoice_items = (localDb.invoice_items || []).filter(i => !invoiceIds.has(i.invoice_id));
       localDb.payments = (localDb.payments || []).filter(p => p.job_id !== id);
       localDb.notifications = (localDb.notifications || []).filter(n => n.job_id !== id);
+      localDb.attachments = (localDb.attachments || []).filter(a => a.job_id !== id);
 
       saveLocalDb();
+
+      // Delete from Supabase PostgreSQL in foreign-key dependency order
+      try {
+        if (estimateIds.size > 0) {
+          await safeSupabaseDelete('repair_estimate_items', Array.from(estimateIds), 'estimate_id');
+        }
+        if (invoiceIds.size > 0) {
+          await safeSupabaseDelete('invoice_items', Array.from(invoiceIds), 'invoice_id');
+        }
+        await safeSupabaseDelete('repair_estimates', id, 'job_id');
+        await safeSupabaseDelete('invoices', id, 'job_id');
+        await safeSupabaseDelete('payments', id, 'job_id');
+        await safeSupabaseDelete('repair_tests', id, 'job_id');
+        await safeSupabaseDelete('diagnoses', id, 'job_id');
+        await safeSupabaseDelete('job_status_history', id, 'job_id');
+        await safeSupabaseDelete('attachments', id, 'job_id');
+        await safeSupabaseDelete('notifications', id, 'job_id');
+        await safeSupabaseDelete('repair_jobs', id, 'id');
+      } catch (sbErr) {
+        console.warn('Supabase job delete notice:', sbErr.message);
+      }
+
       return true;
     },
 
@@ -1571,6 +1602,7 @@ export const db = {
 
       localDb.parts.splice(idx, 1);
       saveLocalDb();
+      await safeSupabaseDelete('parts', id);
       return true;
     },
     bulkDelete: async (ids = [], deletedBy = 'Staff') => {
@@ -2109,6 +2141,8 @@ export const db = {
 
         localDb.sales.splice(idx, 1);
         saveLocalDb();
+        await safeSupabaseDelete('sale_items', id, 'sale_id');
+        await safeSupabaseDelete('sales', id);
         return true;
       }
       return false;

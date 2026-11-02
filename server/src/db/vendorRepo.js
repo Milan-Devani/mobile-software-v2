@@ -312,6 +312,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         db.vendors.splice(idx, 1);
         saveLocalDb();
+        if (safeDelete) await safeDelete('vendors', id);
         return true;
       },
 
@@ -1312,6 +1313,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         db.vendor_mobiles = db.vendor_mobiles.filter((mobile) => !idSet.has(mobile.id));
         db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
         saveLocalDb();
+        if (safeDelete) {
+          await safeDelete('vendor_status_history', Array.from(idSet), 'vendor_mobile_id');
+          await safeDelete('vendor_mobiles', Array.from(idSet));
+        }
         return selected.length;
       },
     },
