@@ -46,8 +46,13 @@ export const vendorService = {
     return normalize(res);
   },
 
-  deleteVendor: async (id) => {
-    const res = await api.delete(`/vendors/${id}`);
+  deleteVendor: async (id, force = true) => {
+    const res = await api.delete(`/vendors/${id}?force=${force}`);
+    return normalize(res);
+  },
+
+  bulkDeleteVendors: async (ids, force = true) => {
+    const res = await api.post('/vendors/bulk-delete', { ids, force });
     return normalize(res);
   },
 
@@ -106,6 +111,16 @@ export const vendorService = {
 
                       updateMobileStatus: async (id, status, remarks = '') => {
                         const res = await api.patch(`/vendors/mobiles/${id}/status`, { status, remarks });
+                        return normalize(res);
+                      },
+
+                      updateMobilePaymentStatus: async (id, payment_status, remarks = '') => {
+                        const res = await api.patch(`/vendors/mobiles/${id}/payment-status`, { payment_status, remarks });
+                        return normalize(res);
+                      },
+
+                      deleteVendorMobile: async (id) => {
+                        const res = await api.delete(`/vendors/mobiles/${id}`);
                         return normalize(res);
                       },
 

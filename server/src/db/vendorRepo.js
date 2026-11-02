@@ -84,6 +84,169 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     return Math.round(balance * 100) / 100;
   };
 
+  // -------------------------------------------------------------
+  // PERSISTENT BLACKLIST GUARDS & CASCADING DELETION HELPERS
+  // Prevents deleted records from resurrecting when Supabase sync runs
+  // -------------------------------------------------------------
+  const addToDeletedVendorBlacklist = async (vendorIds = []) => {
+    if (!Array.isArray(vendorIds) || vendorIds.length === 0) return;
+    const db = getLocalDb();
+    if (!db) return;
+    db.settings = db.settings || [];
+    let setting = db.settings.find((s) => s.key === 'deleted_vendor_ids');
+    const existing = Array.isArray(setting?.value) ? setting.value : [];
+    const updated = Array.from(new Set([...existing, ...vendorIds]));
+    if (setting) {
+      setting.value = updated;
+      setting.updated_at = new Date().toISOString();
+    } else {
+      setting = {
+        key: 'deleted_vendor_ids',
+        value: updated,
+        description: 'Blacklist of deleted vendor IDs to prevent resurrection on sync',
+        updated_at: new Date().toISOString(),
+      };
+      db.settings.push(setting);
+    }
+    saveLocalDb();
+    if (safeUpsert) {
+      await safeUpsert('settings', setting, 'key');
+    }
+  };
+
+  const removeFromDeletedVendorBlacklist = async (vendorId) => {
+    if (!vendorId) return;
+    const db = getLocalDb();
+    if (!db) return;
+    db.settings = db.settings || [];
+    let setting = db.settings.find((s) => s.key === 'deleted_vendor_ids');
+    if (setting && Array.isArray(setting.value)) {
+      setting.value = setting.value.filter((id) => id !== vendorId);
+      setting.updated_at = new Date().toISOString();
+      saveLocalDb();
+      if (safeUpsert) {
+        await safeUpsert('settings', setting, 'key');
+      }
+    }
+  };
+
+  const addToDeletedMobileBlacklist = async (mobileIds = []) => {
+    if (!Array.isArray(mobileIds) || mobileIds.length === 0) return;
+    const db = getLocalDb();
+    if (!db) return;
+    db.settings = db.settings || [];
+    let setting = db.settings.find((s) => s.key === 'deleted_vendor_mobile_ids');
+    const existing = Array.isArray(setting?.value) ? setting.value : [];
+    const updated = Array.from(new Set([...existing, ...mobileIds]));
+    if (setting) {
+      setting.value = updated;
+      setting.updated_at = new Date().toISOString();
+    } else {
+      setting = {
+        key: 'deleted_vendor_mobile_ids',
+        value: updated,
+        description: 'Blacklist of deleted vendor mobile IDs to prevent resurrection on sync',
+        updated_at: new Date().toISOString(),
+      };
+      db.settings.push(setting);
+    }
+    saveLocalDb();
+    if (safeUpsert) {
+      await safeUpsert('settings', setting, 'key');
+    }
+  };
+
+  const performCascadingVendorDelete = async (ids = [], deletedBy = 'Staff', force = true) => {
+    ensureCollections();
+    const db = getLocalDb();
+    if (!Array.isArray(ids) || ids.length === 0) return 0;
+
+    const vendorIdSet = new Set(ids);
+    const vendorsToDelete = (db.vendors || []).filter((v) => vendorIdSet.has(v.id));
+    if (vendorsToDelete.length === 0) return 0;
+
+    // Find all mobiles for these vendors
+    const associatedMobiles = (db.vendor_mobiles || []).filter((m) => vendorIdSet.has(m.vendor_id));
+    const associatedMobileIds = associatedMobiles.map((m) => m.id);
+    const mobileIdSet = new Set(associatedMobileIds);
+
+    // Active mobiles check if !force
+    const activeMobiles = associatedMobiles.filter(
+      (m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)
+    );
+    if (activeMobiles.length > 0 && !force) {
+      const err = new Error(
+        `Cannot delete vendor(s). There are still ${activeMobiles.length} mobile(s) actively in repair. Please force delete to proceed.`
+      );
+      err.statusCode = 400;
+      err.isOperational = true;
+      throw err;
+    }
+
+    // Archive into Recycle Bin
+    try {
+      const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
+      if (recycleBin && typeof recycleBin.add === 'function') {
+        for (const v of vendorsToDelete) {
+          const linkedMobiles = associatedMobiles.filter((m) => m.vendor_id === v.id);
+          const linkedLedger = (db.vendor_ledger || []).filter((l) => l.vendor_id === v.id);
+          const linkedPayments = (db.vendor_payments || []).filter((p) => p.vendor_id === v.id);
+          const linkedTxns = (db.vendor_transactions || []).filter((t) => t.vendor_id === v.id);
+          await recycleBin.add({
+            entity_type: 'vendor',
+            original_id: v.id,
+            title: `Vendor: ${v.name} (${v.shop_name || 'Repair Partner'})`,
+            subtitle: `Code: ${v.vendor_code} • Phone: ${v.mobile || 'N/A'} • Balance: ₹${v.current_balance || 0}`,
+            data: {
+              vendor: { ...v },
+              mobiles: linkedMobiles,
+              ledger: linkedLedger,
+              payments: linkedPayments,
+              transactions: linkedTxns,
+            },
+            deleted_by: deletedBy,
+          });
+        }
+      }
+    } catch (recycleErr) {
+      console.warn('Recycle bin vendor archive error:', recycleErr);
+    }
+
+    // 1. Clean in-memory collections
+    db.vendor_status_history = (db.vendor_status_history || []).filter((h) => !mobileIdSet.has(h.vendor_mobile_id));
+    db.vendor_mobiles = (db.vendor_mobiles || []).filter((m) => !vendorIdSet.has(m.vendor_id));
+    db.vendor_ledger = (db.vendor_ledger || []).filter((l) => !vendorIdSet.has(l.vendor_id));
+    db.vendor_payments = (db.vendor_payments || []).filter((p) => !vendorIdSet.has(p.vendor_id));
+    db.vendor_transactions = (db.vendor_transactions || []).filter((t) => !vendorIdSet.has(t.vendor_id));
+    db.vendors = (db.vendors || []).filter((v) => !vendorIdSet.has(v.id));
+
+    // 2. Add to persistent blacklist in db.settings (and sync to Supabase settings)
+    await addToDeletedVendorBlacklist(ids);
+    if (associatedMobileIds.length > 0) {
+      await addToDeletedMobileBlacklist(associatedMobileIds);
+    }
+
+    saveLocalDb();
+
+    // 3. Cascading delete in Supabase PostgreSQL in exact foreign-key order
+    if (safeDelete) {
+      try {
+        if (associatedMobileIds.length > 0) {
+          await safeDelete('vendor_status_history', associatedMobileIds, 'vendor_mobile_id');
+          await safeDelete('vendor_mobiles', associatedMobileIds, 'id');
+        }
+        await safeDelete('vendor_ledger', ids, 'vendor_id');
+        await safeDelete('vendor_payments', ids, 'vendor_id');
+        await safeDelete('vendor_transactions', ids, 'vendor_id');
+        await safeDelete('vendors', ids, 'id');
+      } catch (sbErr) {
+        console.warn('Supabase vendor cascade delete notice:', sbErr.message);
+      }
+    }
+
+    return vendorsToDelete.length;
+  };
+
   // Vendor Methods Object
   const vendorDbMethods = {
     // -------------------------------------------------------------
@@ -97,6 +260,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendors || [])];
+
+        // Apply deleted blacklist guard
+        const delSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+        const deletedIds = new Set(Array.isArray(delSetting?.value) ? delSetting.value : []);
+        list = list.filter((v) => !deletedIds.has(v.id));
 
         if (status && status !== 'ALL') {
           list = list.filter((v) => v.status === status);
@@ -118,6 +286,8 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             (v) =>
               (v.name && v.name.toLowerCase().includes(q)) ||
               (v.shop_name && v.shop_name.toLowerCase().includes(q)) ||
+              (v.email && v.email.toLowerCase().includes(q)) ||
+              (v.specialization && v.specialization.toLowerCase().includes(q)) ||
               (v.mobile && v.mobile.includes(q)) ||
               (v.whatsapp && v.whatsapp.includes(q)) ||
               (v.vendor_code && v.vendor_code.toLowerCase().includes(q)) ||
@@ -172,6 +342,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       findById: async (id) => {
         ensureCollections();
         const db = getLocalDb();
+        const delSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+        const deletedIds = new Set(Array.isArray(delSetting?.value) ? delSetting.value : []);
+        if (deletedIds.has(id)) return null;
+
         const vendor = (db.vendors || []).find((v) => v.id === id || v.vendor_code === id);
         if (!vendor) return null;
 
@@ -209,6 +383,8 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           shop_name: (data.shop_name || '').trim(),
           mobile: (data.mobile || '').trim(),
           whatsapp: (data.whatsapp || data.mobile || '').trim(),
+          email: (data.email || data.mail_id || data.mailid || '').trim(),
+          specialization: (data.specialization || data.specialize || '').trim(),
           address: (data.address || '').trim(),
           gst_number: (data.gst_number || '').trim().toUpperCase(),
           opening_balance: openingBal,
@@ -220,6 +396,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         };
 
         db.vendors.push(newVendor);
+        await removeFromDeletedVendorBlacklist(newVendor.id);
 
         // Record opening balance in ledger if non-zero
         if (openingBal !== 0) {
@@ -274,53 +451,25 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         return updated;
       },
 
-      delete: async (id, deletedBy = 'Staff') => {
-        ensureCollections();
-        const db = getLocalDb();
-        const idx = (db.vendors || []).findIndex((v) => v.id === id);
-        if (idx === -1) return false;
+      delete: async (id, deletedBy = 'Staff', force = false) => {
+        const count = await performCascadingVendorDelete([id], deletedBy, force);
+        return count > 0;
+      },
 
-        const vendor = db.vendors[idx];
-
-        // Check if there are mobiles currently at vendor
-        const activeMobiles = (db.vendor_mobiles || []).filter(
-          (m) => m.vendor_id === id && !['RETURNED', 'CANCELLED'].includes(m.current_status)
-        );
-
-        if (activeMobiles.length > 0) {
-          throw new Error(
-            `Cannot delete vendor. There are still ${activeMobiles.length} mobile(s) actively in repair or pending return.`
-          );
-        }
-
-        // Archive into Recycle Bin
-        try {
-          const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
-          if (recycleBin && typeof recycleBin.add === 'function') {
-            await recycleBin.add({
-              entity_type: 'vendor',
-              original_id: id,
-              title: `Vendor: ${vendor.name} (${vendor.shop_name || 'Repair Partner'})`,
-              subtitle: `Code: ${vendor.vendor_code} • Phone: ${vendor.mobile || 'N/A'} • Balance: ₹${vendor.current_balance || 0}`,
-              data: { vendor: { ...vendor } },
-              deleted_by: deletedBy,
-            });
-          }
-        } catch (recycleErr) {
-          console.warn('Recycle bin vendor archive error:', recycleErr);
-        }
-
-        db.vendors.splice(idx, 1);
-        saveLocalDb();
-        if (safeDelete) await safeDelete('vendors', id);
-        return true;
+      bulkDelete: async (ids = [], deletedBy = 'Staff', force = true) => {
+        return await performCascadingVendorDelete(ids, deletedBy, force);
       },
 
       getStats: async () => {
         ensureCollections();
         const db = getLocalDb();
-        const vendors = db.vendors || [];
-        const mobiles = db.vendor_mobiles || [];
+        const delVndSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+        const deletedVndIds = new Set(Array.isArray(delVndSetting?.value) ? delVndSetting.value : []);
+        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
+        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
+
+        const vendors = (db.vendors || []).filter((v) => !deletedVndIds.has(v.id));
+        const mobiles = (db.vendor_mobiles || []).filter((m) => !deletedMobIds.has(m.id) && !deletedVndIds.has(m.vendor_id));
 
         const totalVendors = vendors.length;
 
@@ -516,7 +665,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             model: (mob.model || '').trim(),
             imei: (mob.imei || mob.serial_number || '').trim(),
             customer_name: (mob.customer_name || '').trim(),
-            repair_problem: (mob.repair_problem || '').trim(),
+            repair_problem: (mob.repair_problem || mob.why_send || mob.reason || '').trim(),
             condition: (mob.condition || '').trim(),
             accessories: (mob.accessories || '').trim(),
             expected_return_date: mob.expected_return_date || null,
@@ -524,6 +673,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             actual_cost: 0,
             repair_result: 'PENDING',
             current_status: mob.status || 'PENDING',
+            payment_status: mob.payment_status || 'PENDING',
             sent_date: dateStr,
             received_date: null,
             returned_date: null,
@@ -846,14 +996,15 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             model: (mob.model || '').trim(),
             imei: (mob.imei || mob.serial_number || '').trim(),
             customer_name: (mob.customer_name || vendor.shop_name || vendor.name).trim(),
-            repair_problem: (mob.repair_problem || '').trim(),
+            repair_problem: (mob.repair_problem || mob.why_send || mob.reason || '').trim(),
             condition: (mob.condition || '').trim(),
             accessories: (mob.accessories || '').trim(),
             expected_return_date: mob.expected_return_date || null,
             estimated_cost: estCost,
             actual_cost: 0,
             repair_result: 'PENDING',
-            current_status: 'PENDING',
+            current_status: mob.status || 'PENDING',
+            payment_status: mob.payment_status || 'PENDING',
             sent_date: null,
             received_date: dateStr,
             returned_date: null,
@@ -1095,6 +1246,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         vendorId = '',
         flowType = 'ALL',
         status = 'ALL',
+        paymentStatus = 'ALL',
         imei = '',
         startDate = '',
         endDate = '',
@@ -1110,6 +1262,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         const db = getLocalDb();
         let list = [...(db.vendor_mobiles || [])];
 
+        // Filter out deleted mobiles and mobiles belonging to deleted vendors
+        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
+        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
+        const delVndSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+        const deletedVndIds = new Set(Array.isArray(delVndSetting?.value) ? delVndSetting.value : []);
+        list = list.filter((m) => !deletedMobIds.has(m.id) && !deletedVndIds.has(m.vendor_id));
+
         if (vendorId) {
           list = list.filter((m) => m.vendor_id === vendorId);
         }
@@ -1124,6 +1283,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         if (status && status !== 'ALL') {
           list = list.filter((m) => m.current_status === status);
+        }
+
+        if (paymentStatus && paymentStatus !== 'ALL') {
+          list = list.filter((m) => (m.payment_status || 'PENDING') === paymentStatus);
         }
 
         if (startDate) {
@@ -1220,6 +1383,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       findById: async (id) => {
         ensureCollections();
         const db = getLocalDb();
+        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
+        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
+        if (deletedMobIds.has(id)) return null;
+
         const mobile = (db.vendor_mobiles || []).find((m) => m.id === id);
         if (!mobile) return null;
 
@@ -1280,6 +1447,47 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         };
       },
 
+      updatePaymentStatus: async (id, paymentStatus, changedBy = 'Shop Owner', remarks = '') => {
+        ensureCollections();
+        const db = getLocalDb();
+        const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === id);
+        if (idx === -1) throw new Error('Mobile record not found.');
+
+        const existing = db.vendor_mobiles[idx];
+        const oldPaymentStatus = existing.payment_status || 'PENDING';
+
+        db.vendor_mobiles[idx] = {
+          ...existing,
+          payment_status: paymentStatus,
+          updated_at: new Date().toISOString(),
+        };
+
+        const historyRecord = {
+          id: uuidv4(),
+          vendor_mobile_id: id,
+          previous_status: oldPaymentStatus,
+          new_status: paymentStatus,
+          changed_by: changedBy,
+          remarks: remarks || `Payment status updated from ${oldPaymentStatus} to ${paymentStatus}`,
+          created_at: new Date().toISOString(),
+        };
+
+        db.vendor_status_history.push(historyRecord);
+        saveLocalDb();
+
+        if (safeUpdate) {
+          await safeUpdate('vendor_mobiles', id, { payment_status: paymentStatus, updated_at: new Date().toISOString() });
+        }
+        if (safeInsert) {
+          await safeInsert('vendor_status_history', historyRecord);
+        }
+
+        return {
+          mobile: db.vendor_mobiles[idx],
+          history: historyRecord,
+        };
+      },
+
       bulkDelete: async (ids = [], deletedBy = 'Staff') => {
         ensureCollections();
         const db = getLocalDb();
@@ -1310,12 +1518,24 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           console.warn('Recycle bin vendor mobile archive error:', recycleErr);
         }
 
-        db.vendor_mobiles = db.vendor_mobiles.filter((mobile) => !idSet.has(mobile.id));
+        db.vendor_mobiles = (db.vendor_mobiles || []).filter((mobile) => !idSet.has(mobile.id));
         db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
+        (db.vendor_ledger || []).forEach((l) => {
+          if (idSet.has(l.vendor_mobile_id)) {
+            l.vendor_mobile_id = null;
+          }
+        });
+
+        await addToDeletedMobileBlacklist(ids);
         saveLocalDb();
+
         if (safeDelete) {
-          await safeDelete('vendor_status_history', Array.from(idSet), 'vendor_mobile_id');
-          await safeDelete('vendor_mobiles', Array.from(idSet));
+          try {
+            await safeDelete('vendor_status_history', Array.from(idSet), 'vendor_mobile_id');
+            await safeDelete('vendor_mobiles', Array.from(idSet), 'id');
+          } catch (sbErr) {
+            console.warn('Supabase vendor mobile delete notice:', sbErr.message);
+          }
         }
         return selected.length;
       },

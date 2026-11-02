@@ -1,128 +1,456 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { NavLink } from 'react-router-dom';
 import {
   Building2,
   ArrowUpRight,
   ArrowDownLeft,
-  Clock,
-  CheckCircle2,
-  AlertCircle,
-  CreditCard,
-  IndianRupee,
+  Smartphone,
   Plus,
   Search,
   Filter,
-  Eye,
-  Calendar,
+  CreditCard,
   Printer,
-  Share2,
-  RefreshCw,
-  TrendingUp,
-  Smartphone,
-  ArrowRight,
-  Sparkles,
+  Copy,
+  Check,
   Phone,
+  Mail,
+  MapPin,
+  Trash2,
+  Edit2,
+  Calendar,
+  Clock,
+  Eye,
+  CheckCircle2,
+  AlertCircle,
+  HelpCircle,
+  Receipt,
+  X,
+  ExternalLink,
+  ChevronDown,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
-import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
+import Swal from 'sweetalert2';
 import {
   Card,
   LoadingSpinner,
   EmptyState,
-  StatsSkeleton,
   TableSkeleton,
+  StatsSkeleton,
 } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { Modal } from '../../components/common/Modal';
+import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { SendMobileModal } from '../../components/vendors/SendMobileModal';
+import { ReceiveMobileModal } from '../../components/vendors/ReceiveMobileModal';
+import { VendorModal } from '../../components/vendors/VendorModal';
+import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
-import {
-  formatIndianCurrency,
-  formatInvoiceDate,
-} from '../../utils/billFormatters';
+import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: 'ALL', label: 'All Payment Statuses' },
+  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
+  { value: 'PAID', label: '🟢 Fully Paid' },
+  { value: 'ADVANCE', label: '🔵 Advance Paid' },
+  { value: 'FREE', label: '⚪ Free / Warranty Rework' },
+];
+
+const REPAIR_STATUS_OPTIONS = [
+  { value: 'ALL', label: 'All Repair Statuses' },
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'IN_REPAIR', label: 'In Repair' },
+  { value: 'WAITING_PARTS', label: 'Waiting Parts' },
+  { value: 'REPAIR_COMPLETED', label: 'Repaired / Ready' },
+  { value: 'RETURNED', label: 'Returned' },
+  { value: 'NOT_REPAIRABLE', label: 'Not Repairable / Dead' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
 
 export const VendorDashboard = () => {
-  const navigate = useNavigate();
-
+  const [activeTab, setActiveTab] = useState('sent'); // 'sent' | 'received' | 'vendors'
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState(null);
-  const [recentTxns, setRecentTxns] = useState([]);
-  const [pendingMobiles, setPendingMobiles] = useState([]);
+
+  // Raw data from API
+  const [sentMobiles, setSentMobiles] = useState([]);
+  const [receivedMobiles, setReceivedMobiles] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [stats, setStats] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
 
-  // Modals
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
-  const [selectedTxnForPrint, setSelectedTxnForPrint] = useState(null);
+  // Filters
+  const [searchQuery, setSearchQuery] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('ALL');
+  const [repairStatusFilter, setRepairStatusFilter] = useState('ALL');
+  const [selectedVendorFilter, setSelectedVendorFilter] = useState('');
 
-  const fetchDashboardData = async () => {
+  // Modals
+  const [isSendModalOpen, setIsSendModalOpen] = useState(false);
+  const [isReceiveModalOpen, setIsReceiveModalOpen] = useState(false);
+  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+
+  // Checkbox selection states
+  const [selectedVendorIds, setSelectedVendorIds] = useState([]);
+
+  // Detail & Print Modals
+  const [selectedMobileDetail, setSelectedMobileDetail] = useState(null);
+  const [printableTxn, setPrintableTxn] = useState(null);
+  const [copiedImei, setCopiedImei] = useState('');
+
+  // Load all data
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [
-        statsRes,
-        txnsRes,
-        mobilesRes,
-        vendorsRes,
-        settingsRes,
-      ] = await Promise.allSettled([
+      const [mobilesRes, vendorsRes, statsRes, settingsRes] = await Promise.allSettled([
+        vendorService.getVendorMobiles({ limit: 300 }),
+        vendorService.getVendors({ limit: 150 }),
         vendorService.getVendorStats(),
-        vendorService.getVendorTransactions({ limit: 6 }),
-        vendorService.getVendorMobiles({ limit: 8 }),
-        vendorService.getVendors({ limit: 100 }),
         settingsService.getSettings(),
       ]);
 
-      if (statsRes.status === 'fulfilled') {
-        const statsData = statsRes.value?.data || statsRes.value;
-        if (statsData) setStats(statsData);
-      }
-      if (txnsRes.status === 'fulfilled') {
-        const list =
-          txnsRes.value?.data?.transactions ||
-          txnsRes.value?.transactions ||
-          [];
-        setRecentTxns(list);
-      }
       if (mobilesRes.status === 'fulfilled') {
-        const list =
+        const allMobiles =
           mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
-        // Show active / pending first
-        const activeOnly = list.filter(
-          (m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)
+        const sent = allMobiles.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
+        const received = allMobiles.filter(
+          (m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD'
         );
-        setPendingMobiles(activeOnly.length > 0 ? activeOnly : list.slice(0, 5));
+        setSentMobiles(sent);
+        setReceivedMobiles(received);
       }
+
       if (vendorsRes.status === 'fulfilled') {
-        const list =
-          vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
+        const list = vendorsRes.value?.data?.vendors || vendorsRes.value?.vendors || [];
         setVendors(list);
       }
+
+      if (statsRes.status === 'fulfilled') {
+        const s = statsRes.value?.data || statsRes.value;
+        if (s) setStats(s);
+      }
+
       if (settingsRes.status === 'fulfilled') {
-        const shop =
-          settingsRes.value?.data?.shop || settingsRes.value?.shop;
+        const shop = settingsRes.value?.data?.shop || settingsRes.value?.shop;
         if (shop) setShopProfile(shop);
       }
     } catch (err) {
-      console.error('Failed to load vendor dashboard:', err);
-      toast.error('Failed to load dashboard metrics');
+      console.error('Failed to load vendor management data:', err);
+      toast.error('Failed to refresh vendor data');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    fetchData();
+  }, [fetchData]);
+
+  // Copy IMEI Helper
+  const handleCopyImei = (imei, e) => {
+    if (e) e.stopPropagation();
+    if (!imei) return;
+    navigator.clipboard.writeText(imei);
+    setCopiedImei(imei);
+    toast.success(`IMEI ${imei} copied!`);
+    setTimeout(() => setCopiedImei(''), 2000);
+  };
+
+  // Instant Payment Status update
+  const handlePaymentStatusChange = async (mobileId, newStatus) => {
+    try {
+      await vendorService.updateMobilePaymentStatus(mobileId, newStatus);
+      toast.success(`Payment status updated to ${newStatus}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update payment status');
+    }
+  };
+
+  // Instant Repair Status update
+  const handleRepairStatusChange = async (mobileId, newStatus) => {
+    try {
+      await vendorService.updateMobileStatus(mobileId, newStatus);
+      toast.success(`Repair status updated to ${newStatus}`);
+      fetchData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to update repair status');
+    }
+  };
+
+  // Delete Handset
+  const handleDeleteMobile = (mobile, e) => {
+    if (e) e.stopPropagation();
+    Swal.fire({
+      title: `Delete "${mobile.brand} ${mobile.model}"?`,
+      text: `IMEI: ${mobile.imei || 'N/A'}. This mobile record will be archived to Recycle Bin.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await vendorService.deleteVendorMobile(mobile.id);
+          toast.success('Mobile record deleted successfully');
+          fetchData();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete mobile record');
+        }
+      }
+    });
+  };
+
+  // Selection Handlers for Vendors
+  const toggleSelectAllVendors = () => {
+    const visibleIds = filteredVendors.map((v) => v.id);
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedVendorIds.includes(id));
+    if (allSelected) {
+      setSelectedVendorIds(selectedVendorIds.filter((id) => !visibleIds.includes(id)));
+    } else {
+      setSelectedVendorIds(Array.from(new Set([...selectedVendorIds, ...visibleIds])));
+    }
+  };
+
+  const toggleSelectVendor = (id) => {
+    setSelectedVendorIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Bulk Delete Vendors
+  const handleBulkDeleteVendors = () => {
+    if (selectedVendorIds.length === 0) return;
+    Swal.fire({
+      title: `Delete ${selectedVendorIds.length} Vendor(s)?`,
+      text: `Are you sure you want to remove the ${selectedVendorIds.length} selected vendor(s)? Any active test mobiles or records linked to them will also be archived.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete All Selected (${selectedVendorIds.length})`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await vendorService.bulkDeleteVendors(selectedVendorIds, true);
+          toast.success(`${selectedVendorIds.length} vendor(s) deleted successfully`);
+          setSelectedVendorIds([]);
+          fetchData();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete selected vendors');
+        }
+      }
+    });
+  };
+
+  // Delete Single Vendor
+  const handleDeleteVendor = (vendor, e) => {
+    if (e) e.stopPropagation();
+    Swal.fire({
+      title: `Delete Vendor "${vendor.name}"?`,
+      text: `Are you sure you want to delete ${vendor.name} (${vendor.shop_name || 'Vendor'})? Any linked records will be archived to Recycle Bin.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await vendorService.deleteVendor(vendor.id, true);
+          toast.success(`Vendor "${vendor.name}" deleted`);
+          setSelectedVendorIds((prev) => prev.filter((id) => id !== vendor.id));
+          fetchData();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete vendor');
+        }
+      }
+    });
+  };
+
+  // Print slip for a mobile
+  const handlePrintMobile = (mobile, e) => {
+    if (e) e.stopPropagation();
+    const vendor = vendors.find((v) => v.id === mobile.vendor_id) || mobile.vendor;
+    const dummyTxn = {
+      id: mobile.send_txn_id || mobile.id,
+      txn_number: mobile.flow_type === 'SENT_TO_VENDOR' ? 'VND-OUT' : 'VND-JOB',
+      txn_type: mobile.flow_type === 'SENT_TO_VENDOR' ? 'SEND_TO_VENDOR' : 'VENDOR_JOB_INWARD',
+      txn_date: mobile.sent_date || mobile.received_date || mobile.created_at,
+      total_cost: mobile.actual_cost || mobile.estimated_cost || 0,
+      paid_amount: mobile.payment_status === 'PAID' ? (mobile.actual_cost || mobile.estimated_cost || 0) : 0,
+      payment_mode: 'CASH',
+      notes: mobile.repair_problem || '',
+      vendor: vendor || { name: 'Vendor Partner' },
+      mobiles: [mobile],
+    };
+    setPrintableTxn(dummyTxn);
+  };
+
+  // Filtered Sent Mobiles
+  const filteredSentMobiles = useMemo(() => {
+    return sentMobiles.filter((m) => {
+      if (selectedVendorFilter && m.vendor_id !== selectedVendorFilter) return false;
+      if (paymentStatusFilter !== 'ALL' && (m.payment_status || 'PENDING') !== paymentStatusFilter)
+        return false;
+      if (repairStatusFilter !== 'ALL' && m.current_status !== repairStatusFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const vendorName = m.vendor?.name?.toLowerCase() || '';
+        const vendorShop = m.vendor?.shop_name?.toLowerCase() || '';
+        const brand = (m.brand || '').toLowerCase();
+        const model = (m.model || '').toLowerCase();
+        const imei = (m.imei || '').toLowerCase();
+        const problem = (m.repair_problem || '').toLowerCase();
+        return (
+          brand.includes(q) ||
+          model.includes(q) ||
+          imei.includes(q) ||
+          problem.includes(q) ||
+          vendorName.includes(q) ||
+          vendorShop.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [sentMobiles, selectedVendorFilter, paymentStatusFilter, repairStatusFilter, searchQuery]);
+
+  // Filtered Received Mobiles
+  const filteredReceivedMobiles = useMemo(() => {
+    return receivedMobiles.filter((m) => {
+      if (selectedVendorFilter && m.vendor_id !== selectedVendorFilter) return false;
+      if (paymentStatusFilter !== 'ALL' && (m.payment_status || 'PENDING') !== paymentStatusFilter)
+        return false;
+      if (repairStatusFilter !== 'ALL' && m.current_status !== repairStatusFilter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const vendorName = m.vendor?.name?.toLowerCase() || '';
+        const vendorShop = m.vendor?.shop_name?.toLowerCase() || '';
+        const brand = (m.brand || '').toLowerCase();
+        const model = (m.model || '').toLowerCase();
+        const imei = (m.imei || '').toLowerCase();
+        const problem = (m.repair_problem || '').toLowerCase();
+        return (
+          brand.includes(q) ||
+          model.includes(q) ||
+          imei.includes(q) ||
+          problem.includes(q) ||
+          vendorName.includes(q) ||
+          vendorShop.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [receivedMobiles, selectedVendorFilter, paymentStatusFilter, repairStatusFilter, searchQuery]);
+
+  // Filtered Vendors Directory
+  const filteredVendors = useMemo(() => {
+    return vendors.filter((v) => {
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const name = (v.name || '').toLowerCase();
+        const shop = (v.shop_name || '').toLowerCase();
+        const phone = (v.mobile || '').toLowerCase();
+        const email = (v.email || '').toLowerCase();
+        const spec = (v.specialization || '').toLowerCase();
+        const addr = (v.address || '').toLowerCase();
+        return (
+          name.includes(q) ||
+          shop.includes(q) ||
+          phone.includes(q) ||
+          email.includes(q) ||
+          spec.includes(q) ||
+          addr.includes(q)
+        );
+      }
+      return true;
+    });
+  }, [vendors, searchQuery]);
+
+  // Status Badge Helper
+  const renderPaymentBadge = (status) => {
+    switch (status) {
+      case 'PAID':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            <CheckCircle2 className="w-3 h-3" /> Fully Paid
+          </span>
+        );
+      case 'ADVANCE':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
+            <CreditCard className="w-3 h-3" /> Advance Paid
+          </span>
+        );
+      case 'FREE':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-300 border border-slate-500/30">
+            Free / Rework
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            <Clock className="w-3 h-3" /> Pending / Unpaid
+          </span>
+        );
+    }
+  };
+
+  const renderRepairStatusBadge = (status) => {
+    switch (status) {
+      case 'IN_REPAIR':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+            In Repair
+          </span>
+        );
+      case 'REPAIR_COMPLETED':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+            Repaired
+          </span>
+        );
+      case 'RETURNED':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/15 text-slate-400 border border-slate-500/30">
+            Returned
+          </span>
+        );
+      case 'NOT_REPAIRABLE':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30">
+            Not Fixed
+          </span>
+        );
+      case 'WAITING_PARTS':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+            Waiting Parts
+          </span>
+        );
+      case 'PENDING':
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+            Pending
+          </span>
+        );
+    }
+  };
 
   return (
     <div className="space-y-6 w-full pb-16">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* =================================================================== */}
+      {/* 1. TOP HEADER WITH 3 PROMINENT ACTION BUTTONS                       */}
+      {/* =================================================================== */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-500 border border-sky-500/20 flex items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center shrink-0">
               <Building2 className="w-5 h-5" />
             </div>
             <div>
@@ -130,460 +458,1087 @@ export const VendorDashboard = () => {
                 Vendor Management
               </h1>
               <p className="text-xs sm:text-[13px] text-[var(--spatial-text-muted)] mt-0.5">
-                Outsource difficult repairs, track phones at outside labs, and
-                manage vendor payments
+                Track mobiles sent to outside repair labs and mobiles received from partner shops
               </p>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions in Header */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={CreditCard}
-            onClick={() => setIsPaymentModalOpen(true)}
-          >
-            Record Payment
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            icon={ArrowDownLeft}
-            className="text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10 font-semibold"
-            onClick={() => navigate('/vendors/receive')}
-          >
-            Receive Mobiles
-          </Button>
-
+        {/* 3 Prominent Forms Action Buttons */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Form 1 Button: I Send to Other Vendor */}
           <Button
             variant="primary"
             size="sm"
             icon={ArrowUpRight}
-            onClick={() => navigate('/vendors/send')}
+            onClick={() => setIsSendModalOpen(true)}
+            className="shadow-sm"
           >
-            Send Mobiles to Vendor
+            + Send Mobile to Vendor
+          </Button>
+
+          {/* Form 2 Button: Other Vendor Send to Me */}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={ArrowDownLeft}
+            onClick={() => setIsReceiveModalOpen(true)}
+            className="text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-semibold"
+          >
+            + Receive Mobile from Vendor
+          </Button>
+
+          {/* Form 3 Button: Create New Vendor */}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Building2}
+            onClick={() => {
+              setEditingVendor(null);
+              setIsVendorModalOpen(true);
+            }}
+            className="text-purple-400 border-purple-500/30 hover:bg-purple-500/10 font-semibold"
+          >
+            + Add New Vendor
           </Button>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <VendorNavTabs activeTab="/vendors" />
+      {/* =================================================================== */}
+      {/* 2. THREE KEY METRIC SUMMARY CARDS                                   */}
+      {/* =================================================================== */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Card 1: Mobiles Sent Out */}
+        <div
+          onClick={() => setActiveTab('sent')}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer group shadow-2xs ${
+            activeTab === 'sent'
+              ? 'bg-sky-500/10 border-sky-500/40 ring-1 ring-sky-500/30'
+              : 'bg-[var(--spatial-bg-card)] border-[var(--spatial-border)] hover:border-sky-500/30'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+              I Sent to Vendor
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center">
+              <ArrowUpRight className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-[var(--spatial-text-title)]">
+            {sentMobiles.length}
+          </div>
+          <div className="mt-1 text-xs text-sky-400 font-medium">
+            {sentMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)).length} currently with vendors
+          </div>
+        </div>
 
+        {/* Card 2: Mobiles Received In */}
+        <div
+          onClick={() => setActiveTab('received')}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer group shadow-2xs ${
+            activeTab === 'received'
+              ? 'bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/30'
+              : 'bg-[var(--spatial-bg-card)] border-[var(--spatial-border)] hover:border-emerald-500/30'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+              Vendor Sent to Me
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <ArrowDownLeft className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-[var(--spatial-text-title)]">
+            {receivedMobiles.length}
+          </div>
+          <div className="mt-1 text-xs text-emerald-400 font-medium">
+            {receivedMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)).length} currently in our shop
+          </div>
+        </div>
+
+        {/* Card 3: Registered Vendors */}
+        <div
+          onClick={() => setActiveTab('vendors')}
+          className={`p-4 rounded-2xl border transition-all cursor-pointer group shadow-2xs ${
+            activeTab === 'vendors'
+              ? 'bg-purple-500/10 border-purple-500/40 ring-1 ring-purple-500/30'
+              : 'bg-[var(--spatial-bg-card)] border-[var(--spatial-border)] hover:border-purple-500/30'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--spatial-text-muted)] uppercase tracking-wider">
+              Partner Vendors
+            </span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center">
+              <Building2 className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-2 text-2xl font-bold text-[var(--spatial-text-title)]">
+            {vendors.length}
+          </div>
+          <div className="mt-1 text-xs text-purple-400 font-medium">
+            Registered repair labs & partner shops
+          </div>
+        </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* 3. PRIMARY TABS BAR                                                 */}
+      {/* =================================================================== */}
+      <div className="flex items-center justify-between border-b border-[var(--spatial-border)] pb-2 flex-wrap gap-3">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+          {/* Tab 1: Sent to Vendors */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('sent');
+              setSearchQuery('');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none ${
+              activeTab === 'sent'
+                ? 'bg-sky-500 text-white shadow-sm'
+                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+            }`}
+          >
+            <ArrowUpRight className="w-4 h-4 stroke-[2.5]" />
+            <span>I Send to Other Vendor</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'sent'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-muted)]'
+              }`}
+            >
+              {sentMobiles.length}
+            </span>
+          </button>
+
+          {/* Tab 2: Received from Vendors */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('received');
+              setSearchQuery('');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none ${
+              activeTab === 'received'
+                ? 'bg-emerald-600 text-white shadow-sm'
+                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+            }`}
+          >
+            <ArrowDownLeft className="w-4 h-4 stroke-[2.5]" />
+            <span>Other Vendor Sent to Me</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'received'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-muted)]'
+              }`}
+            >
+              {receivedMobiles.length}
+            </span>
+          </button>
+
+          {/* Tab 3: Vendors Directory */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('vendors');
+              setSearchQuery('');
+            }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer select-none ${
+              activeTab === 'vendors'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
+            }`}
+          >
+            <Building2 className="w-4 h-4 stroke-[2.5]" />
+            <span>Vendors List</span>
+            <span
+              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'vendors'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-muted)]'
+              }`}
+            >
+              {vendors.length}
+            </span>
+          </button>
+        </div>
+
+        {/* Quick Links to legacy ledger & reports so old power features are preserved */}
+        <div className="flex items-center gap-2">
+          <NavLink
+            to="/vendors/ledger"
+            className="text-xs font-semibold text-[var(--spatial-text-muted)] hover:text-sky-400 px-2.5 py-1.5 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] hover:border-sky-500/30 transition-all inline-flex items-center gap-1.5"
+          >
+            <CreditCard className="w-3.5 h-3.5 text-sky-400" />
+            <span>Vendor Khata Ledger</span>
+          </NavLink>
+        </div>
+      </div>
+
+      {/* =================================================================== */}
+      {/* 4. SEARCH & FILTER CONTROLS BAR                                     */}
+      {/* =================================================================== */}
+      <div className="spatial-card p-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Search Input */}
+        <div className="relative flex-1 max-w-md">
+          <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder={
+              activeTab === 'vendors'
+                ? 'Search vendor name, shop, phone, email, specialization...'
+                : 'Search mobile model, brand, IMEI, reason, vendor...'
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-8 py-1.5 text-xs spatial-input rounded-xl"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Specific Filters for Mobile Tabs */}
+        {activeTab !== 'vendors' && (
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {/* Vendor Filter */}
+            <div className="w-40 sm:w-48">
+              <SpatialSelect
+                value={selectedVendorFilter}
+                onChange={setSelectedVendorFilter}
+                options={[
+                  { value: '', label: 'All Vendors' },
+                  ...vendors.map((v) => ({
+                    value: v.id,
+                    label: `${v.name} ${v.shop_name ? `(${v.shop_name})` : ''}`,
+                  })),
+                ]}
+              />
+            </div>
+
+            {/* Payment Status Dropdown Filter */}
+            <div className="w-36 sm:w-44">
+              <SpatialSelect
+                value={paymentStatusFilter}
+                onChange={setPaymentStatusFilter}
+                options={PAYMENT_STATUS_OPTIONS}
+              />
+            </div>
+
+            {/* Repair Status Filter */}
+            <div className="w-36 sm:w-44">
+              <SpatialSelect
+                value={repairStatusFilter}
+                onChange={setRepairStatusFilter}
+                options={REPAIR_STATUS_OPTIONS}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* =================================================================== */}
+      {/* 5. TAB CONTENTS                                                     */}
+      {/* =================================================================== */}
       {loading ? (
-        <div className="space-y-6">
-          <StatsSkeleton count={4} />
-          <TableSkeleton rows={5} columns={6} showHeader={false} />
-        </div>
+        <TableSkeleton rows={6} columns={7} showHeader={false} />
       ) : (
-        <div className="spatial-tab-pane space-y-6">
-          {/* =================================================================== */}
-          {/* 2 LARGE ACTION HERO CARDS (Everyday Non-Technical Workflow)         */}
-          {/* =================================================================== */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Action 1: Send Mobiles Out */}
-            <div
-              onClick={() => navigate('/vendors/send')}
-              className="p-5 rounded-2xl bg-gradient-to-br from-sky-500/10 via-[var(--spatial-bg-card)] to-[var(--spatial-bg-card)] border border-sky-500/30 hover:border-sky-500/60 transition-all cursor-pointer group shadow-sm flex items-start gap-4"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-sky-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                <ArrowUpRight className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base sm:text-lg font-bold text-[var(--spatial-text-title)] group-hover:text-sky-400 transition-colors">
-                    Send Mobiles to Outside Lab
-                  </h3>
-                  <span className="text-sky-400 text-xs font-semibold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
-                    <span>Dispatch</span> &rarr;
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--spatial-text-muted)] mt-1 line-clamp-2">
-                  Hand over phones to outside specialists for CPU reballing,
-                  glass lamination, Face ID, or micro-soldering.
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-sky-400">
-                  <span className="px-2.5 py-1 rounded-xl bg-sky-500/15 border border-sky-500/20">
-                    + Dispatch New Phones
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action 2: Receive Mobiles Back */}
-            <div
-              onClick={() => navigate('/vendors/receive')}
-              className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-[var(--spatial-bg-card)] to-[var(--spatial-bg-card)] border border-emerald-500/30 hover:border-emerald-500/60 transition-all cursor-pointer group shadow-sm flex items-start gap-4"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-md group-hover:scale-105 transition-transform">
-                <ArrowDownLeft className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base sm:text-lg font-bold text-[var(--spatial-text-title)] group-hover:text-emerald-400 transition-colors">
-                    Receive Mobiles Back
-                  </h3>
-                  <span className="text-emerald-400 text-xs font-semibold flex items-center gap-0.5 group-hover:translate-x-1 transition-transform">
-                    <span>Receive</span> &rarr;
-                  </span>
-                </div>
-                <p className="text-xs text-[var(--spatial-text-muted)] mt-1 line-clamp-2">
-                  Collect repaired devices returned by outside labs, record
-                  vendor repair charges, and update customer job sheets.
-                </p>
-                <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-400">
-                  <span className="px-2.5 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/20">
-                    📥 Receive Handset Back
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* =================================================================== */}
-          {/* 4 CORE KPI METRICS                                                 */}
-          {/* =================================================================== */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-            {/* 1. Total Outside Partner Shops */}
-            <div
-              onClick={() => navigate('/vendors/list')}
-              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-sky-500/40 transition-all cursor-pointer group shadow-xs"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
-                  Registered Vendors
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Building2 className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-[var(--spatial-text-title)] mt-2">
-                {stats?.total_vendors || 0}
-              </div>
-              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
-                Outside repair shops & labs
-              </p>
-            </div>
-
-            {/* 2. Mobiles at Outside Labs Now */}
-            <div
-              onClick={() => navigate('/vendors/pending')}
-              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-amber-500/40 transition-all cursor-pointer group shadow-xs"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
-                  Phones at Labs Now
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Smartphone className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-amber-400 mt-2">
-                {stats?.mobiles_currently_at_vendors || 0}
-              </div>
-              <p className="text-[11px] text-amber-400/80 mt-1 flex items-center gap-1 font-medium">
-                <span>View pending repairs</span>
-                <ArrowRight className="w-3 h-3" />
-              </p>
-            </div>
-
-            {/* 3. Total We Owe (Payable) */}
-            <div
-              onClick={() => navigate('/vendors/ledger')}
-              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-rose-500/40 transition-all cursor-pointer group shadow-xs"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
-                  Total We Owe (Payable)
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <IndianRupee className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-rose-400 mt-2">
-                {formatIndianCurrency(stats?.total_payable || 0, true)}
-              </div>
-              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
-                Dues to outside vendors
-              </p>
-            </div>
-
-            {/* 4. Completed Returns */}
-            <div
-              onClick={() =>
-                navigate(
-                  '/vendors/transactions?txnType=RECEIVE_FROM_VENDOR'
-                )
+        <>
+          {/* ------------------------------------------------------------- */}
+          {/* TAB 1: MOBILES SENT TO OTHER VENDORS                          */}
+          {/* ------------------------------------------------------------- */}
+          {activeTab === 'sent' && (
+            <Card
+              title={`Mobiles Dispatched to Vendors (${filteredSentMobiles.length})`}
+              subtitle="Outsourced repairs sent to outside labs and specialists"
+              bodyClassName="p-0"
+              actions={
+                <Button
+                  size="sm"
+                  icon={Plus}
+                  onClick={() => setIsSendModalOpen(true)}
+                >
+                  Send Another Mobile
+                </Button>
               }
-              className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] hover:border-emerald-500/40 transition-all cursor-pointer group shadow-xs"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-[var(--spatial-text-muted)]">
-                  Phones Returned
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <CheckCircle2 className="w-4 h-4" />
+              {filteredSentMobiles.length === 0 ? (
+                <EmptyState
+                  icon={ArrowUpRight}
+                  title="No sent mobiles found"
+                  description={
+                    searchQuery || paymentStatusFilter !== 'ALL' || repairStatusFilter !== 'ALL'
+                      ? 'No mobiles match your selected filters.'
+                      : 'You have not sent any mobiles to outside vendors yet.'
+                  }
+                  actionLabel="Send First Mobile"
+                  onAction={() => setIsSendModalOpen(true)}
+                />
+              ) : (
+                <div className="spatial-tab-pane">
+                  <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                    <table className="w-full text-left text-xs min-w-[1050px]">
+                      <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                        <tr>
+                          <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
+                          <th className="px-5 py-3 whitespace-nowrap">IMEI / Serial</th>
+                          <th className="px-5 py-3 whitespace-nowrap">Dispatched Vendor</th>
+                          <th className="px-5 py-3 whitespace-nowrap">Why I Send This</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Payment Status</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Repair Status</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Date</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--spatial-border)]">
+                        {filteredSentMobiles.map((mob) => {
+                          const vendor = vendors.find((v) => v.id === mob.vendor_id) || mob.vendor;
+                          const isCopied = copiedImei === mob.imei;
+                          return (
+                            <tr
+                              key={mob.id}
+                              className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                              onClick={() => setSelectedMobileDetail(mob)}
+                            >
+                              {/* Device & Model */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                                    <Smartphone className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-[var(--spatial-text-title)] text-xs sm:text-sm">
+                                      {mob.brand} {mob.model}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--spatial-text-muted)]">
+                                      {mob.brand}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* IMEI Number */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div
+                                  onClick={(e) => handleCopyImei(mob.imei, e)}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] font-mono text-xs font-semibold text-[var(--spatial-text-title)] hover:border-sky-500 hover:text-sky-400 transition-colors cursor-pointer"
+                                  title="Click to copy IMEI"
+                                >
+                                  <span>{mob.imei || 'N/A'}</span>
+                                  {isCopied ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Dispatched Vendor */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="font-semibold text-[var(--spatial-text-title)]">
+                                  {vendor?.name || 'Unknown Vendor'}
+                                </div>
+                                {vendor?.shop_name && (
+                                  <div className="text-[10px] text-[var(--spatial-text-muted)]">
+                                    {vendor.shop_name}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Why I Send This */}
+                              <td className="px-5 py-3.5 max-w-xs">
+                                <p className="text-xs text-[var(--spatial-text-title)] font-medium line-clamp-2">
+                                  {mob.repair_problem || mob.why_send || 'Defect repair'}
+                                </p>
+                              </td>
+
+                              {/* Payment Status Dropdown Menu */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <select
+                                  value={mob.payment_status || 'PENDING'}
+                                  onChange={(e) => handlePaymentStatusChange(mob.id, e.target.value)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 cursor-pointer"
+                                >
+                                  <option value="PENDING">🟡 Pending / Unpaid</option>
+                                  <option value="PAID">🟢 Fully Paid</option>
+                                  <option value="ADVANCE">🔵 Advance Paid</option>
+                                  <option value="FREE">⚪ Free / Warranty</option>
+                                </select>
+                              </td>
+
+                              {/* Repair Status Dropdown */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <select
+                                  value={mob.current_status || 'PENDING'}
+                                  onChange={(e) => handleRepairStatusChange(mob.id, e.target.value)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 cursor-pointer"
+                                >
+                                  <option value="PENDING">Pending</option>
+                                  <option value="IN_REPAIR">In Repair</option>
+                                  <option value="WAITING_PARTS">Waiting Parts</option>
+                                  <option value="REPAIR_COMPLETED">Repaired</option>
+                                  <option value="RETURNED">Returned</option>
+                                  <option value="NOT_REPAIRABLE">Not Fixed</option>
+                                </select>
+                              </td>
+
+                              {/* Date */}
+                              <td className="px-5 py-3.5 text-center whitespace-nowrap font-mono text-[11px] text-[var(--spatial-text-muted)]">
+                                {formatInvoiceDate(mob.sent_date || mob.created_at)}
+                              </td>
+
+                              {/* Actions */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {/* Print Chalan */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handlePrintMobile(mob, e)}
+                                    className="p-1.5 rounded-lg text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 transition-colors cursor-pointer"
+                                    title="Print Dispatch Slip"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* View Detail */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedMobileDetail(mob)}
+                                    className="p-1.5 rounded-lg text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)] transition-colors cursor-pointer"
+                                    title="View Details"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Delete */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteMobile(mob, e)}
+                                    className="p-1.5 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    title="Delete Handset"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-              <div className="text-2xl font-bold font-mono text-emerald-400 mt-2">
-                {stats?.total_mobiles_received || 0}
-              </div>
-              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
-                Repaired phones collected
-              </p>
+              )}
+            </Card>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* TAB 2: MOBILES OTHER VENDORS SENT TO ME                       */}
+          {/* ------------------------------------------------------------- */}
+          {activeTab === 'received' && (
+            <Card
+              title={`Mobiles Received from Partner Vendors (${filteredReceivedMobiles.length})`}
+              subtitle="Handsets brought to your shop by other vendors and shops to repair"
+              bodyClassName="p-0"
+              actions={
+                <Button
+                  size="sm"
+                  icon={Plus}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                  onClick={() => setIsReceiveModalOpen(true)}
+                >
+                  Receive Another Mobile
+                </Button>
+              }
+            >
+              {filteredReceivedMobiles.length === 0 ? (
+                <EmptyState
+                  icon={ArrowDownLeft}
+                  title="No received mobiles found"
+                  description={
+                    searchQuery || paymentStatusFilter !== 'ALL' || repairStatusFilter !== 'ALL'
+                      ? 'No mobiles match your selected filters.'
+                      : 'No other vendors have sent mobiles to your shop yet.'
+                  }
+                  actionLabel="Receive Mobile"
+                  onAction={() => setIsReceiveModalOpen(true)}
+                />
+              ) : (
+                <div className="spatial-tab-pane">
+                  <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                    <table className="w-full text-left text-xs min-w-[1050px]">
+                      <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                        <tr>
+                          <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
+                          <th className="px-5 py-3 whitespace-nowrap">IMEI / Serial</th>
+                          <th className="px-5 py-3 whitespace-nowrap">Sending Vendor</th>
+                          <th className="px-5 py-3 whitespace-nowrap">Why Send Me This</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Payment Status</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Repair Status</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Date</th>
+                          <th className="px-5 py-3 text-center whitespace-nowrap">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--spatial-border)]">
+                        {filteredReceivedMobiles.map((mob) => {
+                          const vendor = vendors.find((v) => v.id === mob.vendor_id) || mob.vendor;
+                          const isCopied = copiedImei === mob.imei;
+                          return (
+                            <tr
+                              key={mob.id}
+                              className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                              onClick={() => setSelectedMobileDetail(mob)}
+                            >
+                              {/* Device & Model */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                                    <Smartphone className="w-4 h-4" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-[var(--spatial-text-title)] text-xs sm:text-sm">
+                                      {mob.brand} {mob.model}
+                                    </div>
+                                    <div className="text-[10px] text-[var(--spatial-text-muted)]">
+                                      {mob.brand}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* IMEI Number */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div
+                                  onClick={(e) => handleCopyImei(mob.imei, e)}
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] font-mono text-xs font-semibold text-[var(--spatial-text-title)] hover:border-emerald-500 hover:text-emerald-400 transition-colors cursor-pointer"
+                                  title="Click to copy IMEI"
+                                >
+                                  <span>{mob.imei || 'N/A'}</span>
+                                  {isCopied ? (
+                                    <Check className="w-3 h-3 text-emerald-400" />
+                                  ) : (
+                                    <Copy className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Sending Vendor */}
+                              <td className="px-5 py-3.5 whitespace-nowrap">
+                                <div className="font-semibold text-[var(--spatial-text-title)]">
+                                  {vendor?.name || mob.customer_name || 'Vendor Partner'}
+                                </div>
+                                {vendor?.shop_name && (
+                                  <div className="text-[10px] text-[var(--spatial-text-muted)]">
+                                    {vendor.shop_name}
+                                  </div>
+                                )}
+                              </td>
+
+                              {/* Why Send Me This */}
+                              <td className="px-5 py-3.5 max-w-xs">
+                                <p className="text-xs text-[var(--spatial-text-title)] font-medium line-clamp-2">
+                                  {mob.repair_problem || mob.why_send || 'Defect repair'}
+                                </p>
+                              </td>
+
+                              {/* Payment Status Dropdown Menu */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <select
+                                  value={mob.payment_status || 'PENDING'}
+                                  onChange={(e) => handlePaymentStatusChange(mob.id, e.target.value)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500 cursor-pointer"
+                                >
+                                  <option value="PENDING">🟡 Pending / Unpaid</option>
+                                  <option value="PAID">🟢 Fully Paid</option>
+                                  <option value="ADVANCE">🔵 Advance Received</option>
+                                  <option value="FREE">⚪ Free / Warranty</option>
+                                </select>
+                              </td>
+
+                              {/* Repair Status Dropdown */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <select
+                                  value={mob.current_status || 'PENDING'}
+                                  onChange={(e) => handleRepairStatusChange(mob.id, e.target.value)}
+                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500 cursor-pointer"
+                                >
+                                  <option value="PENDING">Pending</option>
+                                  <option value="IN_REPAIR">In Repair</option>
+                                  <option value="WAITING_PARTS">Waiting Parts</option>
+                                  <option value="REPAIR_COMPLETED">Repaired / Ready</option>
+                                  <option value="RETURNED">Returned to Vendor</option>
+                                  <option value="NOT_REPAIRABLE">Not Fixed</option>
+                                </select>
+                              </td>
+
+                              {/* Date */}
+                              <td className="px-5 py-3.5 text-center whitespace-nowrap font-mono text-[11px] text-[var(--spatial-text-muted)]">
+                                {formatInvoiceDate(mob.received_date || mob.created_at)}
+                              </td>
+
+                              {/* Actions */}
+                              <td
+                                className="px-5 py-3.5 text-center whitespace-nowrap"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {/* Print Slip */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handlePrintMobile(mob, e)}
+                                    className="p-1.5 rounded-lg text-[var(--spatial-text-muted)] hover:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                                    title="Print Inward Slip"
+                                  >
+                                    <Printer className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* View Detail */}
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedMobileDetail(mob)}
+                                    className="p-1.5 rounded-lg text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)] transition-colors cursor-pointer"
+                                    title="View Details"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+
+                                  {/* Delete */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => handleDeleteMobile(mob, e)}
+                                    className="p-1.5 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                    title="Delete Handset"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* ------------------------------------------------------------- */}
+          {/* TAB 3: VENDORS LIST & DIRECTORY                               */}
+          {/* ------------------------------------------------------------- */}
+          {activeTab === 'vendors' && (
+            <div className="space-y-3">
+              {/* Bulk Action Bar for Vendors */}
+              <BulkActionBar
+                selectedCount={selectedVendorIds.length}
+                onClearSelection={() => setSelectedVendorIds([])}
+                onBulkDelete={handleBulkDeleteVendors}
+                deleteLabel={`Delete (${selectedVendorIds.length}) Vendors`}
+              />
+
+              <Card
+                title={`Partner Vendors & Specialists (${filteredVendors.length})`}
+                subtitle="Directory of external workshops, technicians, and specialized repair labs"
+                bodyClassName="p-0"
+                actions={
+                  <div className="flex items-center gap-2">
+                    {filteredVendors.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={toggleSelectAllVendors}
+                        className="text-xs text-[var(--spatial-text-muted)] hover:text-purple-400"
+                      >
+                        {filteredVendors.length > 0 && filteredVendors.every((v) => selectedVendorIds.includes(v.id))
+                          ? 'Deselect All'
+                          : 'Select All'}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      icon={Plus}
+                      className="bg-purple-600 hover:bg-purple-500 text-white"
+                      onClick={() => {
+                        setEditingVendor(null);
+                        setIsVendorModalOpen(true);
+                      }}
+                    >
+                      Add New Vendor
+                    </Button>
+                  </div>
+                }
+              >
+                {filteredVendors.length === 0 ? (
+                  <EmptyState
+                    icon={Building2}
+                    title="No vendors found"
+                    description={
+                      searchQuery ? 'No vendors match your search.' : 'You have not registered any partner vendors yet.'
+                    }
+                    actionLabel="Add Vendor"
+                    onAction={() => {
+                      setEditingVendor(null);
+                      setIsVendorModalOpen(true);
+                    }}
+                  />
+                ) : (
+                  <div className="spatial-tab-pane">
+                    <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                      <table className="w-full text-left text-xs min-w-[1000px]">
+                        <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                          <tr>
+                            <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  filteredVendors.length > 0 &&
+                                  filteredVendors.every((v) => selectedVendorIds.includes(v.id))
+                                }
+                                onChange={toggleSelectAllVendors}
+                                aria-label="Select all vendors"
+                                className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
+                              />
+                            </th>
+                            <th className="px-5 py-3 whitespace-nowrap">Vendor Name & Shop</th>
+                            <th className="px-5 py-3 whitespace-nowrap">Specialize</th>
+                            <th className="px-5 py-3 whitespace-nowrap">Contact Number</th>
+                            <th className="px-5 py-3 whitespace-nowrap">Mail ID</th>
+                            <th className="px-5 py-3 whitespace-nowrap">Workshop Address</th>
+                            <th className="px-5 py-3 text-center whitespace-nowrap">Active Phones</th>
+                            <th className="px-5 py-3 text-right whitespace-nowrap">Balance</th>
+                            <th className="px-5 py-3 text-center whitespace-nowrap">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--spatial-border)]">
+                          {filteredVendors.map((v) => {
+                            const isSelected = selectedVendorIds.includes(v.id);
+                            const activeOut = sentMobiles.filter(
+                              (m) => m.vendor_id === v.id && !['RETURNED', 'CANCELLED'].includes(m.current_status)
+                            ).length;
+                            const activeIn = receivedMobiles.filter(
+                              (m) => m.vendor_id === v.id && !['RETURNED', 'CANCELLED'].includes(m.current_status)
+                            ).length;
+
+                            return (
+                              <tr
+                                key={v.id}
+                                className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors ${
+                                  isSelected ? 'bg-apple-blue/8' : ''
+                                }`}
+                              >
+                                {/* Checkbox Column */}
+                                <td
+                                  className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectVendor(v.id)}
+                                    aria-label={`Select vendor ${v.name}`}
+                                    className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
+                                  />
+                                </td>
+
+                                {/* Vendor Name & Shop */}
+                                <td className="px-5 py-3.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-2.5">
+                                    <div className="w-8 h-8 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center shrink-0 font-bold">
+                                      {(v.name || 'V')[0].toUpperCase()}
+                                    </div>
+                                    <div>
+                                      <div className="font-bold text-[var(--spatial-text-title)] text-xs sm:text-sm">
+                                        {v.name}
+                                      </div>
+                                      <div className="text-[10px] text-[var(--spatial-text-muted)]">
+                                        {v.shop_name || 'Independent Lab'} • {v.vendor_code}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+
+                                {/* Specialize */}
+                                <td className="px-5 py-3.5 whitespace-nowrap">
+                                  {v.specialization ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                                      {v.specialization}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-[var(--spatial-text-muted)]">General Repair</span>
+                                  )}
+                                </td>
+
+                                {/* Number */}
+                                <td className="px-5 py-3.5 whitespace-nowrap">
+                                  <div className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[var(--spatial-text-title)]">
+                                    <Phone className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                                    <a
+                                      href={`tel:${v.mobile}`}
+                                      className="hover:text-sky-400 transition-colors"
+                                    >
+                                      {v.mobile || 'N/A'}
+                                    </a>
+                                  </div>
+                                </td>
+
+                                {/* Mail ID */}
+                                <td className="px-5 py-3.5 whitespace-nowrap">
+                                  {v.email ? (
+                                    <div className="flex items-center gap-1.5 text-xs text-[var(--spatial-text-title)]">
+                                      <Mail className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                                      <a
+                                        href={`mailto:${v.email}`}
+                                        className="hover:text-sky-400 transition-colors"
+                                      >
+                                        {v.email}
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <span className="text-[10px] text-[var(--spatial-text-muted)]">-</span>
+                                  )}
+                                </td>
+
+                                {/* Address */}
+                                <td className="px-5 py-3.5 max-w-xs">
+                                  <p className="text-xs text-[var(--spatial-text-muted)] truncate" title={v.address}>
+                                    {v.address || '-'}
+                                  </p>
+                                </td>
+
+                                {/* Active Phones */}
+                                <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-2 text-[11px] font-semibold">
+                                    <span
+                                      className="px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20"
+                                      title="Phones currently at their lab"
+                                    >
+                                      ↑ {activeOut}
+                                    </span>
+                                    <span
+                                      className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                      title="Phones currently at our shop from this vendor"
+                                    >
+                                      ↓ {activeIn}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Balance */}
+                                <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                                  <div
+                                    className={`font-mono text-xs font-bold ${
+                                      (v.current_balance || 0) > 0
+                                        ? 'text-rose-400'
+                                        : (v.current_balance || 0) < 0
+                                        ? 'text-emerald-400'
+                                        : 'text-[var(--spatial-text-muted)]'
+                                    }`}
+                                  >
+                                    {formatIndianCurrency(Math.abs(v.current_balance || 0))}
+                                    <span className="text-[10px] ml-1 font-sans">
+                                      {(v.current_balance || 0) > 0 ? 'Payable' : (v.current_balance || 0) < 0 ? 'Advance' : ''}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Actions */}
+                                <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    {/* Edit */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingVendor(v);
+                                        setIsVendorModalOpen(true);
+                                      }}
+                                      className="p-1.5 rounded-lg text-[var(--spatial-text-muted)] hover:text-purple-400 hover:bg-purple-500/10 transition-colors cursor-pointer"
+                                      title="Edit Vendor Details"
+                                    >
+                                      <Edit2 className="w-3.5 h-3.5" />
+                                    </button>
+
+                                    {/* Delete */}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => handleDeleteVendor(v, e)}
+                                      className="p-1.5 rounded-lg text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                      title="Delete Vendor"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
             </div>
-          </div>
-
-          {/* =================================================================== */}
-          {/* LIVE TRACKER: PHONES CURRENTLY AT OUTSIDE LABS                     */}
-          {/* =================================================================== */}
-          <Card
-            title={`Phones Currently at Outside Labs (${pendingMobiles.length})`}
-            subtitle="Track handset models, reported faults, days out, and current repair status"
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/vendors/pending')}
-              >
-                View All Pending ({stats?.mobiles_currently_at_vendors || 0})
-              </Button>
-            }
-            bodyClassName="p-0"
-          >
-            {pendingMobiles.length === 0 ? (
-              <EmptyState
-                icon={Smartphone}
-                title="No phones currently out for repair"
-                description="When you outsource a mobile to an outside shop, it will appear here in real-time."
-                actionLabel="Send Mobiles to Vendor"
-                onAction={() => navigate('/vendors/send')}
-              />
-            ) : (
-              <div className="overflow-x-auto table-scrollbar w-full pb-2">
-                <table className="w-full text-left text-xs min-w-[900px]">
-                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-bold text-[11px] whitespace-nowrap">
-                    <tr>
-                      <th className="py-3.5 px-4">Handset Model</th>
-                      <th className="py-3.5 px-4">Outside Lab / Vendor</th>
-                      <th className="py-3.5 px-4">Reported Problem</th>
-                      <th className="py-3.5 px-4 text-center">Dispatch Date</th>
-                      <th className="py-3.5 px-4 text-center">Status</th>
-                      <th className="py-3.5 px-4 text-right">Estimated Cost</th>
-                      <th className="py-3.5 px-4 text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--spatial-border)]">
-                    {pendingMobiles.map((mob) => {
-                      const isAtLab = !['RETURNED', 'CANCELLED'].includes(
-                        mob.current_status
-                      );
-                      return (
-                        <tr
-                          key={mob.id}
-                          onClick={() =>
-                            navigate(
-                              `/vendors/pending?search=${
-                                mob.imei || mob.model
-                              }`
-                            )
-                          }
-                          className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                        >
-                          <td className="py-3.5 px-4">
-                            <div className="font-bold text-sm text-[var(--spatial-text-title)]">
-                              {mob.brand} {mob.model}
-                            </div>
-                            {mob.imei && (
-                              <div className="font-mono text-xs text-[var(--spatial-text-muted)] mt-0.5">
-                                IMEI: {mob.imei}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-4 font-semibold text-[var(--spatial-text-title)]">
-                            {mob.vendor_shop_name ||
-                              mob.vendor_name ||
-                              'Outside Lab'}
-                          </td>
-
-                          <td
-                            className="py-3.5 px-4 max-w-xs text-[var(--spatial-text-body)] truncate"
-                            title={mob.repair_problem}
-                          >
-                            {mob.repair_problem || 'Motherboard Repair'}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap text-[var(--spatial-text-muted)] font-mono text-xs">
-                            {formatInvoiceDate(mob.sent_date || mob.created_at)}
-                          </td>
-
-                          <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-[10.5px] font-bold uppercase ${
-                                isAtLab
-                                  ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              }`}
-                            >
-                              {mob.current_status?.replace(/_/g, ' ')}
-                            </span>
-                          </td>
-
-                          <td className="py-3.5 px-4 text-right font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
-                            {formatIndianCurrency(mob.estimated_cost || 0, true)}
-                          </td>
-
-                          <td
-                            className="py-3.5 px-4 text-center whitespace-nowrap"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                navigate(
-                                  `/vendors/receive?vendorId=${mob.vendor_id}`
-                                )
-                              }
-                              className="px-2.5 py-1 rounded-xl text-xs font-semibold bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-white border border-emerald-500/20 transition-all cursor-pointer"
-                              title="Receive this phone back"
-                            >
-                              Receive Back
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-
-          {/* =================================================================== */}
-          {/* RECENT DISPATCHES & CHALLANS                                        */}
-          {/* =================================================================== */}
-          <Card
-            title="Recent Challans & Dispatches"
-            subtitle="Delivery slips and receipts generated for outside vendors"
-            action={
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/vendors/transactions')}
-              >
-                View All Challans
-              </Button>
-            }
-            bodyClassName="p-0"
-          >
-            {recentTxns.length === 0 ? (
-              <EmptyState
-                icon={ArrowUpRight}
-                title="No recent transactions"
-                description="Challan receipts will appear here when phones are dispatched."
-                actionLabel="Send Mobiles to Vendor"
-                onAction={() => navigate('/vendors/send')}
-              />
-            ) : (
-              <div className="overflow-x-auto table-scrollbar w-full pb-2">
-                <table className="w-full text-left text-xs min-w-[850px]">
-                  <thead className="bg-[var(--spatial-table-header-bg)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-bold text-[11px] whitespace-nowrap">
-                    <tr>
-                      <th className="py-3.5 px-4">Challan #</th>
-                      <th className="py-3.5 px-4">Date</th>
-                      <th className="py-3.5 px-4">Vendor / Shop</th>
-                      <th className="py-3.5 px-4 text-center">Type</th>
-                      <th className="py-3.5 px-4 text-center">Phones</th>
-                      <th className="py-3.5 px-4 text-right">Amount</th>
-                      <th className="py-3.5 px-4 text-center">Print</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--spatial-border)]">
-                    {recentTxns.map((txn) => {
-                      const isOutward =
-                        txn.txn_type === 'SEND_TO_VENDOR' ||
-                        txn.txn_type === 'VENDOR_JOB_RETURN';
-                      return (
-                        <tr
-                          key={txn.id}
-                          onClick={() => setSelectedTxnForPrint(txn)}
-                          className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                        >
-                          <td className="py-3 px-4 font-mono font-bold text-sky-400 whitespace-nowrap">
-                            #{txn.txn_number}
-                          </td>
-                          <td className="py-3 px-4 text-[var(--spatial-text-muted)] whitespace-nowrap font-mono text-xs">
-                            {formatInvoiceDate(txn.txn_date || txn.created_at)}
-                          </td>
-                          <td className="py-3 px-4 font-semibold text-[var(--spatial-text-title)] whitespace-nowrap">
-                            {txn.vendor_shop_name ||
-                              txn.vendor_name ||
-                              'Outside Lab'}
-                          </td>
-                          <td className="py-3 px-4 text-center whitespace-nowrap">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                                isOutward
-                                  ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20'
-                                  : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                              }`}
-                            >
-                              {txn.txn_type?.replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
-                            {txn.total_mobiles || txn.mobiles?.length || 0}
-                          </td>
-                          <td className="py-3 px-4 text-right font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
-                            {formatIndianCurrency(txn.total_cost || 0, true)}
-                          </td>
-                          <td
-                            className="py-3 px-4 text-center whitespace-nowrap"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => setSelectedTxnForPrint(txn)}
-                              className="p-1.5 rounded-lg text-sky-400 hover:bg-sky-500/10 transition-colors cursor-pointer"
-                              title="Print Receipt"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
-        </div>
+          )}
+        </>
       )}
 
-      {/* Payment Modal */}
-      <VendorPaymentModal
-        isOpen={isPaymentModalOpen}
-        onClose={() => setIsPaymentModalOpen(false)}
+      {/* =================================================================== */}
+      {/* 6. MODALS                                                           */}
+      {/* =================================================================== */}
+
+      {/* Form 1 Modal: Send Mobile to Vendor */}
+      <SendMobileModal
+        isOpen={isSendModalOpen}
+        onClose={() => setIsSendModalOpen(false)}
         vendors={vendors}
-        onPaymentRecorded={() => fetchDashboardData()}
+        onSuccess={() => {
+          fetchData();
+          setActiveTab('sent');
+        }}
+        onOpenVendorCreate={() => {
+          setIsSendModalOpen(false);
+          setEditingVendor(null);
+          setIsVendorModalOpen(true);
+        }}
       />
 
-      {/* Print Receipt Modal */}
-      {selectedTxnForPrint && typeof document !== 'undefined' && createPortal(
-        <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="relative max-w-4xl w-full my-auto mx-auto">
-            <VendorReceiptPrintable
-              transaction={selectedTxnForPrint}
-              shop={shopProfile}
-              onClose={() => setSelectedTxnForPrint(null)}
-            />
+      {/* Form 2 Modal: Other Vendor Send to Me */}
+      <ReceiveMobileModal
+        isOpen={isReceiveModalOpen}
+        onClose={() => setIsReceiveModalOpen(false)}
+        vendors={vendors}
+        onSuccess={() => {
+          fetchData();
+          setActiveTab('received');
+        }}
+        onOpenVendorCreate={() => {
+          setIsReceiveModalOpen(false);
+          setEditingVendor(null);
+          setIsVendorModalOpen(true);
+        }}
+      />
+
+      {/* Form 3 Modal: Create / Edit Vendor */}
+      <VendorModal
+        isOpen={isVendorModalOpen}
+        onClose={() => {
+          setIsVendorModalOpen(false);
+          setEditingVendor(null);
+        }}
+        editingVendor={editingVendor}
+        existingVendors={vendors}
+        onSuccess={() => {
+          fetchData();
+        }}
+      />
+
+      {/* Printable Receipt Modal */}
+      {printableTxn && (
+        <VendorReceiptPrintable
+          transaction={printableTxn}
+          shop={shopProfile}
+          onClose={() => setPrintableTxn(null)}
+        />
+      )}
+
+      {/* Single Mobile Details Modal */}
+      {selectedMobileDetail && (
+        <Modal
+          isOpen={Boolean(selectedMobileDetail)}
+          onClose={() => setSelectedMobileDetail(null)}
+          title={`${selectedMobileDetail.brand} ${selectedMobileDetail.model}`}
+          subtitle={`IMEI: ${selectedMobileDetail.imei || 'N/A'} • ${
+            selectedMobileDetail.flow_type === 'SENT_TO_VENDOR'
+              ? 'Dispatched to Outside Lab'
+              : 'Received from Partner Vendor'
+          }`}
+          size="md"
+        >
+          <div className="space-y-4">
+            <div className="p-3.5 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--spatial-text-muted)] font-medium">
+                  {selectedMobileDetail.flow_type === 'SENT_TO_VENDOR' ? 'Dispatched Vendor:' : 'Partner Shop:'}
+                </span>
+                <span className="text-xs font-bold text-[var(--spatial-text-title)]">
+                  {selectedMobileDetail.vendor?.name || selectedMobileDetail.customer_name || 'Vendor Partner'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Payment Status:</span>
+                <div>{renderPaymentBadge(selectedMobileDetail.payment_status)}</div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Repair Status:</span>
+                <div>{renderRepairStatusBadge(selectedMobileDetail.current_status)}</div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-[var(--spatial-text-muted)] font-medium">Estimated / Actual Cost:</span>
+                <span className="text-xs font-mono font-bold text-[var(--spatial-text-title)]">
+                  {formatIndianCurrency(selectedMobileDetail.actual_cost || selectedMobileDetail.estimated_cost || 0)}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-1">
+              <span className="text-xs font-bold text-[var(--spatial-text-title)] block">
+                {selectedMobileDetail.flow_type === 'SENT_TO_VENDOR' ? 'Why I Sent This:' : 'Why Sent to Me:'}
+              </span>
+              <p className="text-xs text-[var(--spatial-text-muted)]">
+                {selectedMobileDetail.repair_problem || selectedMobileDetail.why_send || 'No reason specified'}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Printer}
+                onClick={() => {
+                  const m = selectedMobileDetail;
+                  setSelectedMobileDetail(null);
+                  handlePrintMobile(m);
+                }}
+              >
+                Print Slip
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setSelectedMobileDetail(null)}
+              >
+                Close
+              </Button>
+            </div>
           </div>
-        </div>,
-        document.body
+        </Modal>
       )}
     </div>
   );

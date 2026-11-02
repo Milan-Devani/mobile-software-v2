@@ -212,6 +212,18 @@ export const syncFromSupabase = async () => {
                   }
                 });
               }
+              if (tbl === 'vendors') {
+                const deletedVendorSetting = (localDb.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+                const deletedVendorIds = new Set(Array.isArray(deletedVendorSetting?.value) ? deletedVendorSetting.value : []);
+                data = data.filter((v) => !deletedVendorIds.has(v.id));
+              }
+              if (tbl === 'vendor_mobiles') {
+                const deletedMobileSetting = (localDb.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
+                const deletedMobileIds = new Set(Array.isArray(deletedMobileSetting?.value) ? deletedMobileSetting.value : []);
+                const deletedVendorSetting = (localDb.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+                const deletedVendorIds = new Set(Array.isArray(deletedVendorSetting?.value) ? deletedVendorSetting.value : []);
+                data = data.filter((m) => !deletedMobileIds.has(m.id) && !deletedVendorIds.has(m.vendor_id));
+              }
               localDb[tbl] = data;
             }
           }
@@ -220,6 +232,24 @@ export const syncFromSupabase = async () => {
         }
       })
     );
+
+    // Post-sync cleanup: enforce deleted blacklists so deleted records NEVER resurrect
+    const deletedVendorSetting = (localDb.settings || []).find((s) => s.key === 'deleted_vendor_ids');
+    if (deletedVendorSetting && Array.isArray(deletedVendorSetting.value)) {
+      const deletedVendorIds = new Set(deletedVendorSetting.value);
+      localDb.vendors = (localDb.vendors || []).filter((v) => !deletedVendorIds.has(v.id));
+      localDb.vendor_transactions = (localDb.vendor_transactions || []).filter((t) => !deletedVendorIds.has(t.vendor_id));
+      localDb.vendor_ledger = (localDb.vendor_ledger || []).filter((l) => !deletedVendorIds.has(l.vendor_id));
+      localDb.vendor_payments = (localDb.vendor_payments || []).filter((p) => !deletedVendorIds.has(p.vendor_id));
+      localDb.vendor_mobiles = (localDb.vendor_mobiles || []).filter((m) => !deletedVendorIds.has(m.vendor_id));
+    }
+
+    const deletedMobileSetting = (localDb.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
+    if (deletedMobileSetting && Array.isArray(deletedMobileSetting.value)) {
+      const deletedMobileIds = new Set(deletedMobileSetting.value);
+      localDb.vendor_mobiles = (localDb.vendor_mobiles || []).filter((m) => !deletedMobileIds.has(m.id));
+      localDb.vendor_status_history = (localDb.vendor_status_history || []).filter((h) => !deletedMobileIds.has(h.vendor_mobile_id));
+    }
     lastSyncTimestamp = Date.now();
     console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
   } catch (err) {

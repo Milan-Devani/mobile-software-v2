@@ -9,6 +9,7 @@ export const Modal = ({
   subtitle,
   children,
   maxWidth = 'max-w-xl',
+  size = null,
   footer,
   bodyClassName = 'py-3.5 px-3 sm:py-4 sm:px-4',
 }) => {
@@ -30,6 +31,15 @@ export const Modal = ({
     };
   }, [isOpen, onClose]);
 
+  const sizeMap = {
+    sm: 'max-w-sm',
+    md: 'max-w-md',
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    '2xl': 'max-w-2xl',
+  };
+  const effectiveMaxWidth = size ? sizeMap[size] || maxWidth : maxWidth;
+
   if (!isOpen) return null;
   if (typeof document === 'undefined') return null;
 
@@ -44,7 +54,7 @@ export const Modal = ({
 
         {/* Apple Dialog Window Panel */}
         <div
-          className={`w-full ${maxWidth} max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col transform overflow-hidden rounded-2xl spatial-modal-panel p-5 sm:p-6 text-left align-middle transition-all z-10 relative shadow-2xl my-auto mx-auto`}
+          className={`w-full ${effectiveMaxWidth} h-fit max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] flex flex-col transform overflow-hidden rounded-2xl spatial-modal-panel p-5 sm:p-6 text-left align-middle transition-all z-10 relative shadow-2xl my-auto mx-auto`}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="shrink-0 flex items-start justify-between pb-3 sm:pb-4 border-b border-[var(--spatial-border)]">
@@ -61,7 +71,7 @@ export const Modal = ({
             </button>
           </div>
 
-          <div className={`flex-1 min-h-0 overflow-y-auto modal-scrollbar ${bodyClassName}`}>
+          <div className={`min-h-0 overflow-y-auto modal-scrollbar ${bodyClassName}`}>
             {children}
           </div>
 

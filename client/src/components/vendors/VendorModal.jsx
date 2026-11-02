@@ -38,6 +38,8 @@ export const VendorModal = ({
     name: '',
     shop_name: '',
     mobile: '',
+    email: '',
+    specialization: '',
     address: '',
     gst_number: '',
     opening_balance: '0',
@@ -80,6 +82,8 @@ export const VendorModal = ({
           name: editingVendor.name || '',
           shop_name: editingVendor.shop_name || '',
           mobile: editingVendor.mobile || '',
+          email: editingVendor.email || editingVendor.mail_id || editingVendor.mailid || '',
+          specialization: editingVendor.specialization || editingVendor.specialize || '',
           address: editingVendor.address || '',
           gst_number: editingVendor.gst_number || '',
           opening_balance: String(rawBal),
@@ -101,6 +105,8 @@ export const VendorModal = ({
           name: '',
           shop_name: '',
           mobile: '',
+          email: '',
+          specialization: '',
           address: '',
           gst_number: '',
           opening_balance: '0',
@@ -192,6 +198,8 @@ export const VendorModal = ({
         shop_name: formData.shop_name.trim(),
         mobile: formData.mobile.trim(),
         whatsapp: formData.mobile.trim(), // Seamlessly link WhatsApp to mobile
+        email: formData.email.trim(),
+        specialization: formData.specialization.trim() || formData.notes.trim(),
         address: formData.address.trim(),
         gst_number: formData.gst_number.trim().toUpperCase(),
         opening_balance: computedOpeningBal,
@@ -251,10 +259,26 @@ export const VendorModal = ({
           : 'Save an outside repair lab, chip-level technician, or partner shop you work with'
       }
       maxWidth="max-w-xl"
+      footer={
+        <div className="flex items-center justify-end gap-3 w-full">
+          <Button type="button" variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="vendor-form"
+            variant="primary"
+            size="sm"
+            loading={submitting}
+          >
+            {editingVendor ? 'Save Changes' : 'Save & Register Vendor'}
+          </Button>
+        </div>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="vendor-form" onSubmit={handleSubmit} className="space-y-3 sm:space-y-3.5">
         {/* Section 1: Contact & Shop Information */}
-        <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
           <div className="flex items-center gap-2 pb-1 border-b border-[var(--spatial-border)] text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
             <Building2 className="w-3.5 h-3.5 text-sky-400" />
             <span>1. Contact & Shop Information</span>
@@ -274,7 +298,7 @@ export const VendorModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
             </div>
 
@@ -293,12 +317,12 @@ export const VendorModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, shop_name: e.target.value })
                 }
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-medium text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
 
               {/* Shop Name Duplicate Recommendation */}
               {matchedShopVendor && (
-                <div className="mt-1.5 p-2.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs flex items-center justify-between gap-2 animate-in fade-in">
+                <div className="mt-1.5 p-2 rounded-xl bg-sky-500/10 border border-sky-500/30 text-sky-400 text-xs flex items-center justify-between gap-2 animate-in fade-in">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1 font-bold text-[11px] text-sky-300">
                       <Building2 className="w-3.5 h-3.5 shrink-0" />
@@ -314,7 +338,7 @@ export const VendorModal = ({
                     onClick={() =>
                       handleSelectRecommendation(matchedShopVendor)
                     }
-                    className="px-2.5 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold text-[11px] cursor-pointer shrink-0 transition-colors"
+                    className="px-2 py-1 rounded-lg bg-sky-500 hover:bg-sky-400 text-white font-bold text-[10px] cursor-pointer shrink-0 transition-colors"
                   >
                     {onSelectExisting ? 'Use This Vendor' : 'Load Details'}
                   </button>
@@ -349,7 +373,7 @@ export const VendorModal = ({
                       mobile: sanitizePhoneNumber(e.target.value),
                     })
                   }
-                  className="w-full h-11 pl-12 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 tracking-wider transition-all"
+                  className="w-full h-10 pl-12 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 tracking-wider transition-all"
                 />
               </div>
 
@@ -357,7 +381,7 @@ export const VendorModal = ({
               {matchedMobileVendor && (
                 <div
                   role="status"
-                  className="mt-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/35 text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in"
+                  className="mt-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/35 text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 animate-in fade-in"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1 font-bold text-[11px] text-amber-400">
@@ -377,7 +401,7 @@ export const VendorModal = ({
                     onClick={() =>
                       handleSelectRecommendation(matchedMobileVendor)
                     }
-                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer transition-colors shrink-0"
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs cursor-pointer transition-colors shrink-0"
                   >
                     {onSelectExisting
                       ? 'Select This Vendor'
@@ -386,17 +410,70 @@ export const VendorModal = ({
                 </div>
               )}
             </div>
+
+            {/* Mail ID / Email */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Mail ID / Email{' '}
+                <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
+                  (Optional)
+                </span>
+              </label>
+              <input
+                type="email"
+                placeholder="e.g. vendor@repairlab.com"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+              />
+            </div>
           </div>
         </div>
 
         {/* Section 2: Workshop Location & Specialization */}
-        <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
+        <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
           <div className="flex items-center gap-2 pb-1 border-b border-[var(--spatial-border)] text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
             <MapPin className="w-3.5 h-3.5 text-sky-400" />
             <span>2. Location & Specialization</span>
           </div>
 
           <div className="space-y-3">
+            {/* Specialization */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Specialize / Specialization{' '}
+                <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
+                  (What repair service do they specialize in?)
+                </span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Display Glass Change, Motherboard IC Repair, Face ID, CPU Dead"
+                value={formData.specialization}
+                onChange={(e) =>
+                  setFormData({ ...formData, specialization: e.target.value })
+                }
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+              />
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {['Motherboard IC Repair', 'Display Glass Change', 'Face ID / Fingerprint', 'CPU Dead / Reballing', 'Software / Dead Boot'].map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => {
+                      const curr = formData.specialization ? `${formData.specialization}, ${chip}` : chip;
+                      setFormData({ ...formData, specialization: curr });
+                    }}
+                    className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] text-[var(--spatial-text-muted)] hover:text-sky-400 hover:border-sky-500/40 transition-colors cursor-pointer"
+                  >
+                    + {chip}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Workshop Address */}
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
@@ -412,26 +489,26 @@ export const VendorModal = ({
                 onChange={(e) =>
                   setFormData({ ...formData, address: e.target.value })
                 }
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
             </div>
 
-            {/* Specialization / Notes */}
+            {/* Notes / Remarks */}
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
-                What repairs do they specialize in?{' '}
+                Notes / Workshop Remarks{' '}
                 <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
-                  (Helps your team pick the right shop)
+                  (Optional)
                 </span>
               </label>
-              <textarea
-                rows={2}
-                placeholder="e.g. iPhone CPU reballing, iPad glass lamination, Face ID repair, audio IC..."
+              <input
+                type="text"
+                placeholder="e.g. Turnaround 2-3 days, accepts UPI"
                 value={formData.notes}
                 onChange={(e) =>
                   setFormData({ ...formData, notes: e.target.value })
                 }
-                className="w-full p-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all resize-none"
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition-all"
               />
             </div>
           </div>
@@ -439,7 +516,7 @@ export const VendorModal = ({
 
         {/* Section 3: Opening Balance / Previous Khata (Only when adding new vendor) */}
         {!editingVendor ? (
-          <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
+          <div className="p-3.5 sm:p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] space-y-3">
             <div className="flex items-center gap-2 pb-1 border-b border-[var(--spatial-border)] text-xs font-bold text-[var(--spatial-text-title)] uppercase tracking-wider">
               <IndianRupee className="w-3.5 h-3.5 text-sky-400" />
               <span>3. Previous Balance / Khata (Starting Balance)</span>
@@ -527,7 +604,7 @@ export const VendorModal = ({
 
             {/* Amount input if not zero */}
             {balanceType !== 'ZERO' && (
-              <div className="pt-2 animate-in fade-in">
+              <div className="pt-1.5 animate-in fade-in">
                 <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
                   {balanceType === 'PAYABLE'
                     ? 'Amount We Owe to This Vendor (₹)'
@@ -542,9 +619,12 @@ export const VendorModal = ({
                     step="any"
                     min="0"
                     placeholder="0.00"
-                    value={balanceAmount}
+                    value={balanceAmount === '0' ? '' : balanceAmount}
+                    onFocus={() => {
+                      if (balanceAmount === '0') setBalanceAmount('');
+                    }}
                     onChange={(e) => setBalanceAmount(e.target.value)}
-                    className="w-full h-11 pl-8 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
+                    className="w-full h-10 pl-8 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-bold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20"
                   />
                 </div>
               </div>
@@ -568,7 +648,7 @@ export const VendorModal = ({
                     gst_number: e.target.value.toUpperCase(),
                   })
                 }
-                className="w-full h-11 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 uppercase"
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs sm:text-sm font-mono font-semibold text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 uppercase"
               />
             </div>
           </div>
@@ -592,21 +672,6 @@ export const VendorModal = ({
             </select>
           </div>
         )}
-
-        {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[var(--spatial-border)]">
-          <Button type="button" variant="outline" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            loading={submitting}
-          >
-            {editingVendor ? 'Save Changes' : 'Save & Register Vendor'}
-          </Button>
-        </div>
       </form>
     </Modal>
   );

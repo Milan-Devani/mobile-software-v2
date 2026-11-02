@@ -109,10 +109,28 @@ export const updateVendor = async (req, res, next) => {
 export const deleteVendor = async (req, res, next) => {
   try {
     const { id } = req.params;
-    await db.vendors.delete(id, req.user?.full_name || 'Staff');
+    const force = req.query.force === 'true' || req.body?.force === true;
+    await db.vendors.delete(id, req.user?.full_name || 'Staff', force);
     res.json({
       success: true,
       message: 'Vendor deleted successfully.',
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkDeleteVendors = async (req, res, next) => {
+  try {
+    const { ids, force = true } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('Select at least one vendor to delete.', 400, 'IDS_REQUIRED');
+    }
+    const count = await db.vendors.bulkDelete(ids, req.user?.full_name || 'Staff', force);
+    res.json({
+      success: true,
+      message: `${count} vendor(s) deleted successfully.`,
+      count,
     });
   } catch (err) {
     next(err);
@@ -345,6 +363,7 @@ export const getVendorMobiles = async (req, res, next) => {
       vendorId = '',
       flowType = 'ALL',
       status = 'ALL',
+      paymentStatus = 'ALL',
       imei = '',
       startDate = '',
       endDate = '',
@@ -359,6 +378,7 @@ export const getVendorMobiles = async (req, res, next) => {
       vendorId,
       flowType,
       status,
+      paymentStatus,
       imei,
       startDate,
       endDate,
@@ -410,6 +430,40 @@ export const updateMobileStatus = async (req, res, next) => {
       message: `Status updated to ${status}.`,
       data: result,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateMobilePaymentStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { payment_status, remarks = '' } = req.body;
+
+    if (!payment_status) throw new AppError('Payment status is required.', 400, 'VALIDATION_ERROR');
+
+    const result = await db.vendor_mobiles.updatePaymentStatus(
+      id,
+      payment_status,
+      req.user?.full_name || 'Shop Staff',
+      remarks
+    );
+
+    res.json({
+      success: true,
+      message: `Payment status updated to ${payment_status}.`,
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteVendorMobile = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const count = await db.vendor_mobiles.bulkDelete([id], req.user?.full_name || 'Staff');
+    res.json({ success: true, message: 'Mobile record deleted.', count });
   } catch (err) {
     next(err);
   }

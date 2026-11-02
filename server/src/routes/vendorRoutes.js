@@ -6,6 +6,7 @@ import {
   createVendor,
   updateVendor,
   deleteVendor,
+  bulkDeleteVendors,
   getNextTxnNumber,
   getPendingMobilesWithVendor,
   sendMobilesToVendor,
@@ -17,6 +18,8 @@ import {
   getVendorMobiles,
   getMobileById,
   updateMobileStatus,
+  updateMobilePaymentStatus,
+  deleteVendorMobile,
   bulkDeleteVendorMobiles,
   getVendorLedger,
   recordVendorPayment,
@@ -45,9 +48,11 @@ router.post('/transactions/vendor-job-return', requireAnyRole, recordVendorJobRe
 
 // Mobiles & Status
 router.get('/mobiles', requireAnyRole, getVendorMobiles);
-router.post('/mobiles/bulk-delete', requireAdmin, bulkDeleteVendorMobiles);
+router.post('/mobiles/bulk-delete', requireAnyRole, bulkDeleteVendorMobiles);
 router.get('/mobiles/:id', requireAnyRole, getMobileById);
 router.patch('/mobiles/:id/status', requireAnyRole, updateMobileStatus);
+router.patch('/mobiles/:id/payment-status', requireAnyRole, updateMobilePaymentStatus);
+router.delete('/mobiles/:id', requireAnyRole, deleteVendorMobile);
 
 // Payments & Ledger
 router.get('/payments', requireAnyRole, getVendorPayments);
@@ -56,9 +61,10 @@ router.post('/payments', requireAnyRole, recordVendorPayment);
 // Vendor List CRUD & sub-resources
 router.get('/', requireAnyRole, getVendors);
 router.post('/', requireAnyRole, createVendor);
+router.post('/bulk-delete', requireAnyRole, bulkDeleteVendors);
 router.get('/:id', requireAnyRole, getVendorById);
 router.put('/:id', requireAnyRole, updateVendor);
-router.delete('/:id', requireAdmin, deleteVendor);
+router.delete('/:id', requireAnyRole, deleteVendor);
 
 router.get('/:vendorId/pending-mobiles', requireAnyRole, getPendingMobilesWithVendor);
 router.get('/:vendorId/ledger', requireAnyRole, getVendorLedger);
