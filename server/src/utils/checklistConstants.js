@@ -1,5 +1,5 @@
 /**
- * 12 Standard Inward Checklist Items matching Mobotech Service Order / Invoice Checklist Table
+ * 14 Standard Inward Checklist Items matching Mobotech Service Order / Invoice Checklist Table
  */
 export const INWARD_CHECKLIST_CONFIG = [
   { key: 'powers_on', label: 'Device is Powering On', type: 'working', defaultVal: 'Yes' },
@@ -7,6 +7,8 @@ export const INWARD_CHECKLIST_CONFIG = [
   { key: 'volume_buttons', label: 'Volume Keys are Working', type: 'working', defaultVal: 'Yes' },
   { key: 'screen', label: 'Display is Working', type: 'working', defaultVal: 'Yes' },
   { key: 'touch', label: 'Touchscreen is Working', type: 'working', defaultVal: 'Yes' },
+  { key: 'camera', label: 'Camera is Working', type: 'working', defaultVal: 'Yes' },
+  { key: 'face_id_fingerprint', label: 'Face ID / Fingerprint is Working', type: 'working', defaultVal: 'Yes' },
   { key: 'speaker', label: 'Speaker is Working', type: 'working', defaultVal: 'Yes' },
   { key: 'charging_port', label: 'Charging Port is Working', type: 'working', defaultVal: 'Yes' },
   { key: 'headphone_jack', label: 'Headphone Jack is Working', type: 'working', defaultVal: 'Yes' },
@@ -62,6 +64,17 @@ export const resolveChecklistValue = (key, cond = {}) => {
 
     case 'speaker':
       return cond.speaker === 'Faulty' ? 'No' : cond.speaker === 'Working' ? 'Yes' : 'No';
+
+    case 'camera':
+      if (cond.camera === 'Faulty' || cond.camera === 'No' || cond.camera === false) return 'No';
+      if (cond.camera === 'Working' || cond.camera === 'Yes' || cond.camera === true) return 'Yes';
+      return rawVal === 'No' ? 'No' : 'Yes';
+
+    case 'face_id_fingerprint':
+    case 'biometrics':
+      if (cond.biometrics === 'Faulty' || cond.face_id === 'Faulty' || cond.fingerprint === 'Faulty' || cond.face_id_fingerprint === 'No' || cond.face_id_fingerprint === false) return 'No';
+      if (cond.biometrics === 'Working' || cond.face_id === 'Working' || cond.fingerprint === 'Working' || cond.face_id_fingerprint === 'Yes' || cond.face_id_fingerprint === true) return 'Yes';
+      return rawVal === 'No' ? 'No' : 'Yes';
 
     case 'charging_port':
       if (cond.charging_port === 'Faulty' || cond.charging_port === 'Damaged / Burn marks' || cond.charging_port === 'Loose connection') {

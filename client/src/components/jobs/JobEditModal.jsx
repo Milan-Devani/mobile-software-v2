@@ -370,7 +370,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
         <div className="p-4 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-[var(--spatial-text-title)] block">
-              Inward Condition Checklist (12-Point Inspection)
+              Inward Condition Checklist (14-Point Inspection)
             </span>
             <button
               type="button"

@@ -179,7 +179,21 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const cust = job?.customer || {};
   const dev = job?.device || {};
   const cond = job?.device_condition || {};
-  const items = invoice?.items || job?.estimate?.items || job?.estimate_items || [];
+  const baseItems = invoice?.items || job?.estimate?.items || job?.estimate_items || [];
+  const warrantyParts = Array.isArray(job?.warranty_parts) ? job.warranty_parts : [];
+  const items = [
+    ...baseItems,
+    ...warrantyParts.map((wp, idx) => ({
+      id: wp.id || `wp-${idx}`,
+      item_name: `${wp.item_name || wp.part_name || 'Replacement Component'} (Warranty Claim #${wp.claim_number || 1} Free Replacement)`,
+      warranty: wp.warranty || wp.warranty_period || '30 Days',
+      item_type: 'PART',
+      quantity: wp.quantity || 1,
+      unit_price: 0,
+      total_price: 0,
+      is_warranty_free: true,
+    })),
+  ];
   const payments = job?.payments || [];
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -896,7 +910,14 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                                     • {c.warranty_issue || 'Warranty issue reported'}
                                   </td>
                                   <td style={{ padding: '2px 4px', verticalAlign: 'top', color: '#166534', fontWeight: 600 }}>
-                                    • {c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}
+                                    <div>• {c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}</div>
+                                    {(job.warranty_parts || [])
+                                      .filter((p) => Number(p.claim_number) === Number(c.claim_number))
+                                      .map((wp, wIdx) => (
+                                        <div key={wIdx} style={{ fontSize: '9px', color: '#15803d', marginTop: '1px' }}>
+                                          ↳ Replaced Part: <b>{wp.item_name}</b> ({wp.warranty || '30 Days'}) [₹0.00 Free]
+                                        </div>
+                                      ))}
                                   </td>
                                 </tr>
                               ))}

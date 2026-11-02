@@ -180,6 +180,14 @@ export const JobDetail = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isWarrantyPartModalOpen, setIsWarrantyPartModalOpen] = useState(false);
+  const [warrantyPartForm, setWarrantyPartForm] = useState({
+    part_id: null,
+    item_name: '',
+    warranty: '30 Days',
+    quantity: 1,
+    notes: '',
+  });
 
   const isFreeWarranty = Boolean(
     job?.is_warranty_claim &&
@@ -191,6 +199,7 @@ export const JobDetail = () => {
   );
 
   const allClaims = getAllWarrantyClaims(job);
+  const initialOrderTotal = Number(job?.previous_total_amount || job?.total_amount || 0);
 
   // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
   useEffect(() => {
@@ -502,6 +511,7 @@ export const JobDetail = () => {
 
   const handleOpenWarrantyEditModal = (claimNum) => {
     const allClaims = getAllWarrantyClaims(job);
+  const initialOrderTotal = Number(job?.previous_total_amount || job?.total_amount || 0);
     const targetClaim =
       allClaims.find((c) => c.claim_number === claimNum) ||
       (allClaims.length > 0 ? allClaims[allClaims.length - 1] : null);
@@ -531,6 +541,70 @@ export const JobDetail = () => {
       fetchJobData();
     } catch (err) {
       toast.error(err.response?.data?.message || err.message || 'Failed to update warranty details');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenWarrantyPartModal = () => {
+    setWarrantyPartForm({
+      part_id: null,
+      item_name: '',
+      warranty: job?.warranty_days ? `${job.warranty_days} Days` : '30 Days',
+      quantity: 1,
+      notes: '',
+    });
+    setIsWarrantyPartModalOpen(true);
+  };
+
+  const handleSaveWarrantyPart = async (e) => {
+    e.preventDefault();
+    if (!warrantyPartForm.item_name || !warrantyPartForm.item_name.trim()) {
+      toast.error('Please enter or select a replacement part name');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const res = await jobService.addWarrantyPart(job.id, {
+        ...warrantyPartForm,
+        claim_number: job.reopen_count || 1,
+      });
+      setJob(res.data?.job || res.job || {
+        ...job,
+        warranty_parts: [...(job.warranty_parts || []), res.data?.part],
+      });
+      toast.success('Warranty replacement part added (₹0.00 Free Rework)!');
+      setIsWarrantyPartModalOpen(false);
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to add warranty replacement part');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteWarrantyPart = async (partId) => {
+    const result = await Swal.fire({
+      title: 'Remove Warranty Part?',
+      text: 'Are you sure you want to remove this replacement part from warranty rework?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, remove',
+    });
+    if (!result.isConfirmed) return;
+    try {
+      setIsSaving(true);
+      const res = await jobService.deleteWarrantyPart(job.id, partId);
+      setJob(res.data?.job || res.job || {
+        ...job,
+        warranty_parts: (job.warranty_parts || []).filter((p) => p.id !== partId),
+      });
+      toast.success('Warranty replacement part removed');
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to remove warranty part');
     } finally {
       setIsSaving(false);
     }
@@ -1211,7 +1285,7 @@ export const JobDetail = () => {
           {/* Intake Condition & Accessories */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card
-              title="Inward Inspection Checklist (12-Point)"
+              title="Inward Inspection Checklist (14-Point)"
               action={
                 <button
                   onClick={() => setIsEditJobModalOpen(true)}
@@ -1334,21 +1408,34 @@ export const JobDetail = () => {
           title="Repair Estimate & Parts Quotation"
           subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
           action={
-            ['admin', 'technician'].includes(user?.role_id) && !isFreeWarranty && (
-              <Button
-                size="sm"
-                onClick={handleOpenEstimateModal}
-                disabled={isJobClosed}
-                title={isJobClosed ? "This job is delivered and closed. Reopen job sheet to modify estimate." : ""}
-              >
-                {job.estimate ? 'Update Estimate' : 'Create Estimate'}
-              </Button>
+            isFreeWarranty ? (
+              ['admin', 'technician'].includes(user?.role_id) && (
+                <Button
+                  size="sm"
+                  onClick={handleOpenWarrantyPartModal}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Warranty Replacement Part</span>
+                </Button>
+              )
+            ) : (
+              ['admin', 'technician'].includes(user?.role_id) && (
+                <Button
+                  size="sm"
+                  onClick={handleOpenEstimateModal}
+                  disabled={isJobClosed}
+                  title={isJobClosed ? "This job is delivered and closed. Reopen job sheet to modify estimate." : ""}
+                >
+                  {job.estimate ? 'Update Estimate' : 'Create Estimate'}
+                </Button>
+              )
             )
           }
         >
           {job.estimate ? (
             <div className="space-y-6 text-xs">
-              {isJobClosed && job.status === 'DELIVERED' && (
+              {isJobClosed && job.status === 'DELIVERED' && !isFreeWarranty && (
                 <div className="p-3.5 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-700 dark:text-amber-400 flex items-center justify-between gap-3 text-xs">
                   <div className="flex items-center gap-2.5">
                     <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
@@ -1356,218 +1443,356 @@ export const JobDetail = () => {
                   </div>
                 </div>
               )}
-              {isFreeWarranty && (
-                <div className="p-3.5 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-2.5">
-                    <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                    <div>
-                      <h4 className="font-bold text-xs text-emerald-950 dark:text-emerald-200 uppercase tracking-wide">
-                        100% Free Warranty Claim (Same Issue Rework)
-                      </h4>
-                      <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
-                        No additional parts or labor billed. No customer estimate or approval is required. Pre-authorized at ₹0.00.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('warranty')}
-                        className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
-                      >
-                        <span>View Full Warranty Claims Audit Table ({allClaims.length}) →</span>
-                      </button>
-                    </div>
+
+              {/* Standard Customer Authorization banner (shown for non-warranty jobs only) */}
+              {!isFreeWarranty && (
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">Customer Authorization:</span>
+                    <Badge status={job.approval_status} />
+                    {job.approval_decision_at && (
+                      <span className="text-slate-500 font-mono text-[11px]">
+                        ({new Date(job.approval_decision_at).toLocaleString()})
+                      </span>
+                    )}
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
-                    ₹0.00 Due
-                  </span>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={ExternalLink}
+                      onClick={() => window.open(`/repair/${job.job_number}/approval?token=${job.approval_token}`, '_blank')}
+                      disabled={isPaymentDone || isJobClosed}
+                      title={
+                        isPaymentDone || isJobClosed
+                          ? 'Payment settled. Customer approval page is closed.'
+                          : 'Open Customer Approval Page'
+                      }
+                      className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      Open Customer Approval Page
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={copiedLink ? Check : Copy}
+                      onClick={handleCopyApprovalLink}
+                      disabled={isPaymentDone || isJobClosed}
+                      title={
+                        isPaymentDone || isJobClosed
+                          ? 'Payment settled. Approval link is deactivated.'
+                          : 'Copy Link'
+                      }
+                      className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                      Copy Link
+                    </Button>
+                  </div>
                 </div>
               )}
 
-              {/* Approval status banner */}
-              <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-slate-700 dark:text-slate-300">Customer Authorization:</span>
-                  {isFreeWarranty ? (
-                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1.5">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Pre-Authorized (Warranty Covered — Free Rework)
-                    </span>
-                  ) : (
-                    <>
-                      <Badge status={job.approval_status} />
-                      {job.approval_decision_at && (
-                        <span className="text-slate-500 font-mono text-[11px]">
-                          ({new Date(job.approval_decision_at).toLocaleString()})
+              {isFreeWarranty ? (
+                /* WARRANTY PARTS & ESTIMATE VIEW: Shows Initial Parts First, Then Warranty Replacement Parts */
+                <div className="space-y-6">
+                  {/* 1. Initial Service Parts (Paid) */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-blue-500/15 text-blue-500 border border-blue-500/25">
+                          1. Initial Service Intake Parts & Charges
                         </span>
-                      )}
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {job.is_warranty_claim && !isFreeWarranty && (
-                    <Button
-                      size="sm"
-                      icon={ShieldCheck}
-                      onClick={handleAuthorizeWarrantyRework}
-                      loading={isSaving}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                    >
-                      Authorize Free Warranty Rework (Same Issue)
-                    </Button>
-                  )}
-                  {!isFreeWarranty && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={ExternalLink}
-                        onClick={() => window.open(`/repair/${job.job_number}/approval?token=${job.approval_token}`, '_blank')}
-                        disabled={isPaymentDone || isJobClosed}
-                        title={
-                          isPaymentDone || isJobClosed
-                            ? 'Payment settled. Customer approval page is closed.'
-                            : 'Open Customer Approval Page'
-                        }
-                        className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
-                      >
-                        Open Customer Approval Page
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        icon={copiedLink ? Check : Copy}
-                        onClick={handleCopyApprovalLink}
-                        disabled={isPaymentDone || isJobClosed}
-                        title={
-                          isPaymentDone || isJobClosed
-                            ? 'Payment settled. Approval link is deactivated.'
-                            : 'Copy Link'
-                        }
-                        className={isPaymentDone || isJobClosed ? 'opacity-50 cursor-not-allowed' : ''}
-                      >
-                        Copy Link
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Items Table */}
-              <div className="overflow-x-auto table-scrollbar border border-slate-200 rounded-xl pb-1">
-                <table className="w-full text-left text-xs min-w-[650px] whitespace-nowrap">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
-                    <tr>
-                      <th className="px-4 py-2.5 whitespace-nowrap">Item Description</th>
-                      <th className="px-4 py-2.5 text-center whitespace-nowrap">Warranty</th>
-                      <th className="px-4 py-2.5 text-center whitespace-nowrap">Quantity</th>
-                      <th className="px-4 py-2.5 text-right whitespace-nowrap">Unit Price</th>
-                      <th className="px-4 py-2.5 text-right whitespace-nowrap">Discount</th>
-                      <th className="px-4 py-2.5 text-right whitespace-nowrap">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {Number(job.estimate.labor_charge) > 0 && (
-                      <tr className="bg-white">
-                        <td className="px-4 py-2.5 font-medium text-slate-900">
-                          Diagnostic Bench Labor & Technical Service Fee
-                        </td>
-                        <td className="px-4 py-2.5 text-center text-slate-400 text-[11px]">—</td>
-                        <td className="px-4 py-2.5 text-center">1</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{currSym}0.00</td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                          {isFreeWarranty ? `${currSym}0.00 (Warranty)` : `${currSym}${Number(job.estimate.labor_charge).toFixed(2)}`}
-                        </td>
-                      </tr>
-                    )}
-                    {(job.estimate.items || []).map((item, index) => (
-                      <tr key={index} className="bg-white">
-                        <td className="px-4 py-2.5 font-medium text-slate-900">
-                          {item.item_name}
-                          {isFreeWarranty && (
-                            <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-emerald-100 text-emerald-800 font-bold">
-                              Warranty
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">
-                          {item.warranty ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                              {item.warranty}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">—</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-2.5 text-center">{item.quantity}</td>
-                        <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(item.unit_price).toFixed(2)}</td>
-                        <td className="px-4 py-2.5 text-right font-mono text-emerald-600">
-                          {item.discount > 0 ? `-${currSym}${Number(item.discount).toFixed(2)}` : `${currSym}0.00`}
-                        </td>
-                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
-                          {isFreeWarranty ? `${currSym}0.00 (Free)` : `${currSym}${Number(item.total_price).toFixed(2)}`}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals Summary */}
-              <div className="flex justify-end">
-                <div className="w-72 space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                  <div className="flex justify-between text-slate-600">
-                    <span>Parts Subtotal:</span>
-                    <span className="font-mono">{currSym}{Number(job.estimate.parts_subtotal).toFixed(2)}</span>
-                  </div>
-                  {Number(job.estimate.labor_charge) > 0 && (
-                    <div className="flex justify-between text-slate-600">
-                      <span>Labor Charge:</span>
-                      <span className="font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</span>
-                    </div>
-                  )}
-                  {job.estimate.discount > 0 && (
-                    <div className="flex justify-between text-emerald-600">
-                      <span>
-                        Discount
-                        {job.estimate.discount_type === 'PERCENTAGE' && job.estimate.discount_value
-                          ? ` (${job.estimate.discount_value}%)`
-                          : ''}:
+                        <span className="text-[11px] text-slate-600 dark:text-slate-400 font-medium">
+                          Billed on intake • Paid Amount: <strong className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{currSym}{Number(job.previous_total_amount || job.total_amount || 0).toFixed(2)}</strong>
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 font-mono">
+                        Job #{job.job_number}
                       </span>
-                      <span className="font-mono">-{currSym}{Number(job.estimate.discount).toFixed(2)}</span>
                     </div>
-                  )}
-                  <div className="flex justify-between text-slate-600">
-                    <span>{Number(job.estimate.tax_rate || 0) > 0 ? `GST / Tax (${job.estimate.tax_rate}%):` : 'GST / Tax:'}</span>
-                    <span className="font-mono">
-                      {Number(job.estimate.tax_rate || 0) > 0
-                        ? `${currSym}${Number(job.estimate.tax_amount).toFixed(2)}`
-                        : 'Nil / Exempt (₹0.00)'}
-                    </span>
+
+                    <div className="overflow-x-auto table-scrollbar border border-slate-200 dark:border-slate-700 rounded-xl">
+                      <table className="w-full text-left text-xs min-w-[650px] whitespace-nowrap">
+                        <thead className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 uppercase font-semibold text-[11px]">
+                          <tr>
+                            <th className="px-4 py-2.5">Item Description</th>
+                            <th className="px-4 py-2.5 text-center">Warranty</th>
+                            <th className="px-4 py-2.5 text-center">Quantity</th>
+                            <th className="px-4 py-2.5 text-right">Unit Price</th>
+                            <th className="px-4 py-2.5 text-right">Discount</th>
+                            <th className="px-4 py-2.5 text-right">Total (Paid)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {Number(job.estimate?.labor_charge || 0) > 0 && (
+                            <tr className="bg-white dark:bg-slate-900/40">
+                              <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                                Diagnostic Bench Labor & Technical Service Fee
+                              </td>
+                              <td className="px-4 py-2.5 text-center text-slate-400 text-[11px]">—</td>
+                              <td className="px-4 py-2.5 text-center">1</td>
+                              <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</td>
+                              <td className="px-4 py-2.5 text-right font-mono">{currSym}0.00</td>
+                              <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                {currSym}{Number(job.estimate.labor_charge).toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
+                          {(job.estimate?.items || []).map((item, index) => (
+                            <tr key={index} className="bg-white dark:bg-slate-900/40">
+                              <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                                {item.item_name}
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
+                                  {item.warranty || `${job.warranty_days || 30} Days`}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">{item.quantity}</td>
+                              <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(item.unit_price).toFixed(2)}</td>
+                              <td className="px-4 py-2.5 text-right font-mono text-emerald-600">
+                                {item.discount > 0 ? `-${currSym}${Number(item.discount).toFixed(2)}` : `${currSym}0.00`}
+                              </td>
+                              <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                {currSym}{Number(item.total_price || item.unit_price).toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                  {isFreeWarranty ? (
-                    <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5 mt-2">
-                      <div className="flex justify-between font-bold text-emerald-800 text-xs">
-                        <span>Covered Under Warranty:</span>
-                        <span>100% Free Rework</span>
+
+                  {/* 2. Warranty Claim Replacement Parts (Free Rework) */}
+                  <div className="space-y-3 pt-2">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-200 dark:border-slate-700 flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-500 border border-emerald-500/25 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          2. Replaced Parts During Warranty Claim #{job.reopen_count || 1}
+                        </span>
+                        <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">
+                          100% Free Rework • Pre-Authorized at ₹0.00
+                        </span>
                       </div>
-                      <div className="flex justify-between text-slate-500 text-[11px]">
-                        <span>Original Order Total:</span>
-                        <span className="font-mono line-through">{currSym}{Number(job.previous_total_amount || job.estimate.total_amount).toFixed(2)}</span>
+                      {['admin', 'technician'].includes(user?.role_id) && (
+                        <button
+                          type="button"
+                          onClick={handleOpenWarrantyPartModal}
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1 transition-all shadow-xs active:scale-95 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add Replaced Part</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0 ? (
+                      <div className="overflow-x-auto table-scrollbar border border-emerald-500/30 rounded-xl bg-emerald-950/[0.04]">
+                        <table className="w-full text-left text-xs min-w-[650px] whitespace-nowrap">
+                          <thead className="bg-emerald-50/50 dark:bg-emerald-950/20 border-b border-emerald-500/20 text-emerald-900 dark:text-emerald-300 uppercase font-semibold text-[11px]">
+                            <tr>
+                              <th className="px-4 py-2.5">Replacement Part Description</th>
+                              <th className="px-4 py-2.5 text-center">Claim #</th>
+                              <th className="px-4 py-2.5 text-center">Warranty</th>
+                              <th className="px-4 py-2.5 text-center">Quantity</th>
+                              <th className="px-4 py-2.5 text-right">Unit Price</th>
+                              <th className="px-4 py-2.5 text-right">Total (Customer Billed)</th>
+                              {['admin', 'technician'].includes(user?.role_id) && (
+                                <th className="px-4 py-2.5 text-center w-16">Action</th>
+                              )}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-emerald-500/15">
+                            {job.warranty_parts.map((p, pIdx) => (
+                              <tr key={p.id || pIdx} className="bg-emerald-50/[0.08] hover:bg-emerald-500/10 transition-colors">
+                                <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                                  <div className="flex items-center gap-2">
+                                    <Wrench className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                    <span>{p.item_name || p.part_name}</span>
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/15 text-emerald-400 font-bold border border-emerald-500/30">
+                                      Warranty Replacement
+                                    </span>
+                                  </div>
+                                  {p.notes && (
+                                    <div className="text-[10px] text-slate-400 dark:text-slate-500 italic mt-0.5 ml-5">
+                                      Note: {p.notes}
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className="font-mono text-emerald-400 font-bold">
+                                    #{p.claim_number || job.reopen_count || 1}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                                    {p.warranty || `${job.warranty_days || 30} Days`}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5 text-center font-mono">{p.quantity || 1}</td>
+                                <td className="px-4 py-2.5 text-right font-mono text-emerald-400 font-bold">
+                                  ₹0.00 (Free)
+                                </td>
+                                <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-400">
+                                  ₹0.00 (Free Rework)
+                                </td>
+                                {['admin', 'technician'].includes(user?.role_id) && (
+                                  <td className="px-4 py-2.5 text-center">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteWarrantyPart(p.id)}
+                                      className="p-1 rounded text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                      title="Remove this warranty replacement part"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                      <div className="flex justify-between text-base font-bold text-slate-900 pt-1.5 border-t border-emerald-200">
-                        <span>Current Due:</span>
-                        <span className="font-mono text-emerald-600">{currSym}0.00</span>
+                    ) : (
+                      <div className="p-4 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 text-center space-y-2">
+                        <p className="text-slate-500 text-xs">
+                          No replacement parts logged yet for Claim #{job.reopen_count || 1}. If any part was replaced during this rework, click below to record it.
+                        </p>
+                        {['admin', 'technician'].includes(user?.role_id) && (
+                          <Button
+                            size="sm"
+                            onClick={handleOpenWarrantyPartModal}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold inline-flex items-center gap-1.5 shadow-sm"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Warranty Replacement Part</span>
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 3. Totals Summary for Warranty Job */}
+                  <div className="flex justify-end pt-2">
+                    <div className="w-80 space-y-2 p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>Initial Service Paid Total:</span>
+                        <span className="font-mono font-bold text-slate-900 dark:text-slate-100">{currSym}{Number(job.previous_total_amount || job.total_amount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-600 dark:text-emerald-400 font-semibold">
+                        <span>Warranty Replacement Parts:</span>
+                        <span className="font-mono">₹0.00 (100% Free Rework)</span>
+                      </div>
+                      <div className="flex justify-between text-slate-600 dark:text-slate-400">
+                        <span>GST / Tax:</span>
+                        <span className="font-mono">Nil / Exempt (₹0.00)</span>
+                      </div>
+                      <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-sm font-bold">
+                        <span>Customer Balance Due:</span>
+                        <span className="font-mono text-emerald-600 dark:text-emerald-400 text-base">₹0.00</span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-200">
-                      <span>Estimated Total:</span>
-                      <span className="font-mono">{currSym}{Number(job.estimate.total_amount).toFixed(2)}</span>
-                    </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                /* STANDARD NON-WARRANTY PARTS & ESTIMATE TABLE */
+                <>
+                  <div className="overflow-x-auto table-scrollbar border border-slate-200 rounded-xl pb-1">
+                    <table className="w-full text-left text-xs min-w-[650px] whitespace-nowrap">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold text-[11px] whitespace-nowrap">
+                        <tr>
+                          <th className="px-4 py-2.5 whitespace-nowrap">Item Description</th>
+                          <th className="px-4 py-2.5 text-center whitespace-nowrap">Warranty</th>
+                          <th className="px-4 py-2.5 text-center whitespace-nowrap">Quantity</th>
+                          <th className="px-4 py-2.5 text-right whitespace-nowrap">Unit Price</th>
+                          <th className="px-4 py-2.5 text-right whitespace-nowrap">Discount</th>
+                          <th className="px-4 py-2.5 text-right whitespace-nowrap">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {Number(job.estimate.labor_charge) > 0 && (
+                          <tr className="bg-white">
+                            <td className="px-4 py-2.5 font-medium text-slate-900">
+                              Diagnostic Bench Labor & Technical Service Fee
+                            </td>
+                            <td className="px-4 py-2.5 text-center text-slate-400 text-[11px]">—</td>
+                            <td className="px-4 py-2.5 text-center">1</td>
+                            <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</td>
+                            <td className="px-4 py-2.5 text-right font-mono">{currSym}0.00</td>
+                            <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
+                              {currSym}{Number(job.estimate.labor_charge).toFixed(2)}
+                            </td>
+                          </tr>
+                        )}
+                        {(job.estimate.items || []).map((item, index) => (
+                          <tr key={index} className="bg-white">
+                            <td className="px-4 py-2.5 font-medium text-slate-900">
+                              {item.item_name}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">
+                              {item.warranty ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                                  {item.warranty}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-[11px]">—</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-center">{item.quantity}</td>
+                            <td className="px-4 py-2.5 text-right font-mono">{currSym}{Number(item.unit_price).toFixed(2)}</td>
+                            <td className="px-4 py-2.5 text-right font-mono text-emerald-600">
+                              {item.discount > 0 ? `-${currSym}${Number(item.discount).toFixed(2)}` : `${currSym}0.00`}
+                            </td>
+                            <td className="px-4 py-2.5 text-right font-mono font-semibold text-slate-900">
+                              {currSym}{Number(item.total_price).toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totals Summary */}
+                  <div className="flex justify-end">
+                    <div className="w-72 space-y-2 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                      <div className="flex justify-between text-slate-600">
+                        <span>Parts Subtotal:</span>
+                        <span className="font-mono">{currSym}{Number(job.estimate.parts_subtotal).toFixed(2)}</span>
+                      </div>
+                      {Number(job.estimate.labor_charge) > 0 && (
+                        <div className="flex justify-between text-slate-600">
+                          <span>Labor Charge:</span>
+                          <span className="font-mono">{currSym}{Number(job.estimate.labor_charge).toFixed(2)}</span>
+                        </div>
+                      )}
+                      {job.estimate.discount > 0 && (
+                        <div className="flex justify-between text-emerald-600">
+                          <span>
+                            Discount
+                            {job.estimate.discount_type === 'PERCENTAGE' && job.estimate.discount_value
+                              ? ` (${job.estimate.discount_value}%)`
+                              : ''}:
+                          </span>
+                          <span className="font-mono">-{currSym}{Number(job.estimate.discount).toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between text-slate-600">
+                        <span>{Number(job.estimate.tax_rate || 0) > 0 ? `GST / Tax (${job.estimate.tax_rate}%):` : 'GST / Tax:'}</span>
+                        <span className="font-mono">
+                          {Number(job.estimate.tax_rate || 0) > 0
+                            ? `${currSym}${Number(job.estimate.tax_amount).toFixed(2)}`
+                            : 'Nil / Exempt (₹0.00)'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-base font-bold text-slate-900 pt-2 border-t border-slate-200">
+                        <span>Estimated Total:</span>
+                        <span className="font-mono">{currSym}{Number(job.estimate.total_amount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <EmptyState
@@ -2619,6 +2844,121 @@ export const JobDetail = () => {
       )}
 
       
+      {/* ADD WARRANTY REPLACEMENT PART MODAL */}
+      <Modal
+        isOpen={isWarrantyPartModalOpen}
+        onClose={() => setIsWarrantyPartModalOpen(false)}
+        title="Add Warranty Replacement Part"
+        subtitle={`Job #${job?.job_number || ''} • Claim #${job?.reopen_count || 1} • Pre-authorized at ₹0.00 (100% Free Rework)`}
+        maxWidth="max-w-lg"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsWarrantyPartModalOpen(false)}
+              disabled={isSaving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="warranty-part-form"
+              size="sm"
+              loading={isSaving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+            >
+              Save Replacement Part (₹0 Free)
+            </Button>
+          </div>
+        }
+      >
+        <form id="warranty-part-form" onSubmit={handleSaveWarrantyPart} className="space-y-4 text-xs">
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-2.5 text-emerald-950 dark:text-emerald-200">
+            <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold">100% Free Warranty Replacement</p>
+              <p className="mt-0.5 opacity-90">
+                This replacement part is covered under warranty rework at ₹0.00. No estimate or payment request will be sent to the customer.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Select Replacement Part from Inventory or Custom Name <span className="text-rose-500">*</span>
+            </label>
+            <SpatialPartsPicker
+              availableParts={availableParts}
+              selectedPartId={warrantyPartForm.part_id}
+              customName={warrantyPartForm.item_name}
+              onSelectPart={(part) => {
+                if (part) {
+                  setWarrantyPartForm((prev) => ({
+                    ...prev,
+                    part_id: part.id,
+                    item_name: part.name || part.part_name,
+                    warranty: part.warranty_period || prev.warranty,
+                  }));
+                } else {
+                  setWarrantyPartForm((prev) => ({
+                    ...prev,
+                    part_id: null,
+                    item_name: '',
+                  }));
+                }
+              }}
+              onChangeCustomName={(val) => {
+                setWarrantyPartForm((prev) => ({
+                  ...prev,
+                  item_name: val,
+                  part_id: null,
+                }));
+              }}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Quantity
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="99"
+                value={warrantyPartForm.quantity}
+                onChange={(e) => setWarrantyPartForm((prev) => ({ ...prev, quantity: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl font-mono text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                Replacement Part Warranty
+              </label>
+              <SpatialWarrantyInput
+                value={warrantyPartForm.warranty}
+                onChange={(val) => setWarrantyPartForm((prev) => ({ ...prev, warranty: val }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Technical Rework Notes / Reason
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Touch digitizer unresponsive; replaced new assembly under warranty"
+              value={warrantyPartForm.notes}
+              onChange={(e) => setWarrantyPartForm((prev) => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+            />
+          </div>
+        </form>
+      </Modal>
+
       {/* EDIT WARRANTY DETAILS MODAL */}
       <Modal
         isOpen={isEditWarrantyModalOpen}

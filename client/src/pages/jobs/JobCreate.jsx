@@ -712,7 +712,7 @@ export const JobCreate = () => {
 
         {/* Section 4: Device Condition Checklist at Intake */}
         <Card
-          title="4. Inward Condition Checklist (12-Point Inspection)"
+          title="4. Inward Condition Checklist (14-Point Inspection)"
           subtitle="Record cosmetic and functional state matching the Service Order & Invoice checklist"
           className="relative z-[5]"
           hover={false}

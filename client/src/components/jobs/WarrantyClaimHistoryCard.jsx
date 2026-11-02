@@ -336,6 +336,27 @@ export const WarrantyClaimHistoryCard = ({
                           Staff Notes: {claim.staff_notes}
                         </div>
                       )}
+                      {Array.isArray(job.warranty_parts) &&
+                        job.warranty_parts.filter((p) => Number(p.claim_number) === Number(claim.claim_number)).length > 0 && (
+                          <div className="mt-2 pt-1.5 border-t border-emerald-500/25">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-1">
+                              Replaced Parts Under Claim #{claim.claim_number}:
+                            </span>
+                            <div className="flex flex-wrap gap-1">
+                              {job.warranty_parts
+                                .filter((p) => Number(p.claim_number) === Number(claim.claim_number))
+                                .map((cp, cpIdx) => (
+                                  <span
+                                    key={cp.id || cpIdx}
+                                    className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-medium border border-emerald-500/30"
+                                  >
+                                    <Wrench className="w-2.5 h-2.5 text-emerald-400" />
+                                    <span>{cp.item_name} ({cp.warranty || '30 Days'}) • ₹0.00 Free</span>
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+                        )}
                     </td>
 
                     {/* COVERAGE & COST */}

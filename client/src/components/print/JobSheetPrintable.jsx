@@ -581,7 +581,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
           {/* Dynamic 12-Point Inward Checklist */}
           <div className="border-t border-black p-1.5 bg-white">
             <div className="text-[8.5px] uppercase font-bold text-black mb-1">
-              Inward Inspection Checklist (12-Point)
+              Inward Inspection Checklist (14-Point)
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-3 gap-y-0.5 text-[8.5px]">
               {INWARD_CHECKLIST_CONFIG.map((item) => {

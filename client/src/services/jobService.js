@@ -92,6 +92,16 @@ export const jobService = {
     return res.data;
   },
 
+  addWarrantyPart: async (id, data = {}) => {
+    const res = await api.post(`/jobs/${id}/warranty-parts`, data);
+    return res.data;
+  },
+
+  deleteWarrantyPart: async (id, partId) => {
+    const res = await api.delete(`/jobs/${id}/warranty-parts/${partId}`);
+    return res.data;
+  },
+
   updateJobStatus: async (id, data = {}) => {
     const res = await api.post(`/jobs/${id}/status`, data);
     return res.data;

@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -1236,6 +1237,132 @@ export const updateWarrantyDetails = async (req, res, next) => {
     res.json({
       success: true,
       message: `Warranty Claim #${targetClaimNumber} audit details updated successfully.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const addWarrantyPart = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      part_id,
+      item_name,
+      warranty = '30 Days',
+      quantity = 1,
+      notes = '',
+      claim_number,
+    } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const targetClaimNumber = claim_number ? Number(claim_number) : (job.reopen_count || 1);
+    const parsedQty = Math.max(1, parseInt(quantity, 10) || 1);
+
+    const newPart = {
+      id: uuidv4(),
+      job_id: id,
+      claim_number: targetClaimNumber,
+      part_id: part_id || null,
+      item_name: (item_name || 'Replacement Hardware Component').trim(),
+      warranty: (warranty || '30 Days').trim(),
+      quantity: parsedQty,
+      unit_price: 0.00,
+      total_price: 0.00,
+      notes: (notes || '').trim(),
+      created_at: new Date().toISOString(),
+      created_by_name: req.user.full_name || req.user.email,
+    };
+
+    const existingWarrantyParts = Array.isArray(job.warranty_parts) ? [...job.warranty_parts] : [];
+    const updatedWarrantyParts = [...existingWarrantyParts, newPart];
+
+    // If part_id is from inventory, deduct stock
+    if (part_id) {
+      try {
+        await db.parts.adjustStock(
+          part_id,
+          -parsedQty,
+          `Warranty Claim #${targetClaimNumber} Free Rework for Job #${job.job_number}`
+        );
+      } catch (stockErr) {
+        console.warn('Warranty part stock deduction notice:', stockErr.message);
+      }
+    }
+
+    const updatePayload = {
+      warranty_parts: updatedWarrantyParts,
+    };
+
+    // If job was in DIAGNOSING, advance it to IN_PROGRESS or APPROVED without sending estimate
+    if (['DIAGNOSING', 'RECEIVED', 'ESTIMATE_SENT'].includes(job.status)) {
+      updatePayload.status = 'IN_PROGRESS';
+      updatePayload.approval_status = 'APPROVED';
+    }
+
+    await db.jobs.update(id, updatePayload);
+
+    await db.jobs.updateStatus(
+      id,
+      updatePayload.status || job.status,
+      `Warranty Replacement Part Added (Claim #${targetClaimNumber})`,
+      `Part: "${newPart.item_name}" (Qty: ${newPart.quantity}, Warranty: ${newPart.warranty}). Free rework authorized at ₹0.00. Logged by ${req.user.full_name || req.user.email}.${notes ? ` Notes: ${notes}` : ''}`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: `Warranty replacement part "${newPart.item_name}" added at ₹0.00 (Free Rework).`,
+      data: { job: updatedJob, part: newPart },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteWarrantyPart = async (req, res, next) => {
+  try {
+    const { id, partId } = req.params;
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const existingParts = Array.isArray(job.warranty_parts) ? job.warranty_parts : [];
+    const removedPart = existingParts.find(p => p.id === partId);
+    const updatedParts = existingParts.filter(p => p.id !== partId);
+
+    // If removed part had part_id, restore inventory
+    if (removedPart && removedPart.part_id) {
+      try {
+        await db.parts.adjustStock(
+          removedPart.part_id,
+          removedPart.quantity || 1,
+          `Restored warranty part for Job #${job.job_number}`
+        );
+      } catch (stockErr) {
+        console.warn('Warranty part stock restore notice:', stockErr.message);
+      }
+    }
+
+    await db.jobs.update(id, { warranty_parts: updatedParts });
+
+    await db.jobs.updateStatus(
+      id,
+      job.status,
+      'Warranty Replacement Part Removed',
+      `Removed part "${removedPart?.item_name || 'Hardware Part'}" from warranty rework. Updated by ${req.user.full_name || req.user.email}.`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: 'Warranty replacement part removed successfully.',
       data: { job: updatedJob },
     });
   } catch (err) {
