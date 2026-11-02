@@ -473,11 +473,30 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
                       • ${c.warranty_issue || 'Warranty issue reported'}
                     </td>
                     <td style="padding:2px 4px; vertical-align:top; color:#166534; font-weight:600;">
-                      <div>• ${c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}</div>
-                      ${warrantyParts
-                        .filter(p => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1)
-                        .map(wp => `<div style="font-size:9px; color:#15803d; margin-top:1px;">↳ Replaced Part: <b>${wp.item_name}</b> (${wp.warranty || '30 Days'}) [₹0.00 Free]</div>`)
-                        .join('')}
+                      ${(() => {
+                        const claimWp = warrantyParts.filter(
+                          p => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1
+                        );
+                        const rawReason = (c.rework_reason || '').trim();
+                        const isBoilerplate = !rawReason ||
+                          rawReason.toLowerCase().includes('same issue rework / part replacement authorized') ||
+                          rawReason.toLowerCase().includes('technical inspection verified') ||
+                          rawReason.toLowerCase().includes('free rework / replacement under warranty') ||
+                          rawReason.toLowerCase().includes('free warranty rework') ||
+                          rawReason.toLowerCase().includes('technical diagnosis & free component rework') ||
+                          rawReason.toLowerCase().includes('authorized at') ||
+                          rawReason.toLowerCase() === 'free rework' ||
+                          rawReason.toLowerCase() === 'same issue rework';
+                        const customReason = !isBoilerplate ? rawReason : null;
+
+                        if (claimWp.length > 0) {
+                          return `
+                            ${customReason ? `<div>• ${customReason}</div>` : ''}
+                            ${claimWp.map(wp => `<div>• ${wp.item_name}</div>`).join('')}
+                          `;
+                        }
+                        return `<div>• ${customReason || 'Same issue rework'}</div>`;
+                      })()}
                     </td>
                   </tr>
                 `).join('')}

@@ -993,7 +993,7 @@ export const reopenJob = async (req, res, next) => {
         // 2. Why mobile came back during warranty time:
         warranty_issue: reason || 'Customer reported issue under warranty period',
         // 3. Why part change or repair is needed:
-        rework_reason: warranty_rework_reason || notes || (isSameIssue ? 'Same issue rework / part replacement authorized at ₹0.00 under warranty' : 'New issue assessment & repair'),
+        rework_reason: warranty_rework_reason || notes || (isSameIssue ? 'Same issue rework' : 'New issue repair'),
         staff_notes: notes || '',
         status: 'ACTIVE',
       };

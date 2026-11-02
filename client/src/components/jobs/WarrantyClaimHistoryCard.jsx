@@ -341,34 +341,56 @@ export const WarrantyClaimHistoryCard = ({
 
                     {/* WHY PART CHANGED / REPAIRED */}
                     <td className="px-3.5 py-3.5 align-top">
-                      <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-500/35 text-emerald-200 text-xs font-semibold leading-relaxed">
-                        "{claim.rework_reason}"
-                      </div>
-                      {claim.staff_notes && (
-                        <div className="text-[10px] text-[var(--spatial-text-muted)] mt-1.5 italic">
-                          Staff Notes: {claim.staff_notes}
-                        </div>
-                      )}
-                      {allWarrantyParts.filter((p) => Number(p.claim_number) === Number(claim.claim_number) || allWarrantyParts.length === 1).length > 0 && (
-                          <div className="mt-2 pt-1.5 border-t border-emerald-500/25">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 block mb-1">
-                              Replaced Parts Under Claim #{claim.claim_number}:
-                            </span>
-                            <div className="flex flex-wrap gap-1">
-                              {allWarrantyParts
-                                .filter((p) => Number(p.claim_number) === Number(claim.claim_number) || allWarrantyParts.length === 1)
-                                .map((cp, cpIdx) => (
-                                  <span
-                                    key={cp.id || cpIdx}
-                                    className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[10px] font-medium border border-emerald-500/30"
-                                  >
-                                    <Wrench className="w-2.5 h-2.5 text-emerald-400" />
-                                    <span>{cp.item_name} ({cp.warranty || '30 Days'}) • ₹0.00 Free</span>
-                                  </span>
-                                ))}
-                            </div>
-                          </div>
-                        )}
+                      {(() => {
+                        const claimParts = allWarrantyParts.filter(
+                          (p) => Number(p.claim_number) === Number(claim.claim_number) || allWarrantyParts.length === 1
+                        );
+                        const rawReason = (claim.rework_reason || '').trim();
+                        const isBoilerplate = !rawReason ||
+                          rawReason.toLowerCase().includes('same issue rework / part replacement authorized') ||
+                          rawReason.toLowerCase().includes('technical inspection verified') ||
+                          rawReason.toLowerCase().includes('free rework / replacement under warranty') ||
+                          rawReason.toLowerCase().includes('free warranty rework') ||
+                          rawReason.toLowerCase().includes('technical diagnosis & free component rework') ||
+                          rawReason.toLowerCase().includes('authorized at') ||
+                          rawReason.toLowerCase() === 'free rework' ||
+                          rawReason.toLowerCase() === 'same issue rework';
+                        const customReason = !isBoilerplate ? rawReason : null;
+
+                        return (
+                          <>
+                            {customReason ? (
+                              <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-500/35 text-emerald-200 text-xs font-semibold leading-relaxed">
+                                "{customReason}"
+                              </div>
+                            ) : claimParts.length === 0 ? (
+                              <div className="p-2.5 rounded-lg bg-emerald-950/25 border border-emerald-500/35 text-emerald-200 text-xs font-semibold leading-relaxed">
+                                "Same issue rework"
+                              </div>
+                            ) : null}
+                            {claim.staff_notes && (
+                              <div className="text-[10px] text-[var(--spatial-text-muted)] mt-1.5 italic">
+                                Staff Notes: {claim.staff_notes}
+                              </div>
+                            )}
+                            {claimParts.length > 0 && (
+                              <div className={customReason ? "mt-2 pt-1.5 border-t border-emerald-500/25" : ""}>
+                                <div className="flex flex-wrap gap-1">
+                                  {claimParts.map((cp, cpIdx) => (
+                                    <span
+                                      key={cp.id || cpIdx}
+                                      className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded text-[11px] font-medium border border-emerald-500/30"
+                                    >
+                                      <Wrench className="w-2.5 h-2.5 text-emerald-400" />
+                                      <span>{cp.item_name}</span>
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
                     </td>
 
                     {/* COVERAGE & COST */}

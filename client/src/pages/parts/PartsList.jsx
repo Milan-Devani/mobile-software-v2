@@ -12,7 +12,8 @@ import {
   Trash2,
   Layers,
   TrendingDown,
-  X
+  X,
+  Tag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -63,6 +64,35 @@ export const PartsList = () => {
   const [adjustNotes, setAdjustNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Active Tab: 'parts' | 'categories'
+  const [activeTab, setActiveTab] = useState('parts');
+
+  // Category Management State
+  const [categories, setCategories] = useState([
+    'Screen / Display',
+    'Display',
+    'Battery',
+    'Charging Port',
+    'Camera',
+    'Speaker',
+    'Housing',
+    'Motherboard',
+    'Accessories',
+    'Back Glass',
+    'Touch Glass',
+    'Flex Cable',
+    'Tools & Consumables'
+  ]);
+  const [categoryDetails, setCategoryDetails] = useState([]);
+  const [categorySearch, setCategorySearch] = useState('');
+  const [selectedCategoryNames, setSelectedCategoryNames] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [isSavingCategory, setIsSavingCategory] = useState(false);
+  const [isCreatingCategoryInline, setIsCreatingCategoryInline] = useState(false);
+  const [inlineCategoryInput, setInlineCategoryInput] = useState('');
+
   const {
     register,
     handleSubmit,
@@ -75,7 +105,7 @@ export const PartsList = () => {
     defaultValues: {
       name: '',
       brand: 'Apple',
-      category: 'Display',
+      category: 'Screen / Display',
       purchase_cost: 0,
       selling_price: 0,
       stock_quantity: 5,
@@ -84,6 +114,29 @@ export const PartsList = () => {
       supplier: '',
     },
   });
+
+  const fetchCategories = async () => {
+    try {
+      setLoadingCategories(true);
+      const res = await partsService.getCategories();
+      const catList = Array.isArray(res) ? res : (res.categories || []);
+      const detList = res.details || catList.map((c) => ({
+        name: c,
+        count: 0,
+        is_custom: !(c === 'Screen / Display' || c === 'Display' || c === 'Battery' || c === 'Charging Port' || c === 'Camera' || c === 'Speaker' || c === 'Housing' || c === 'Motherboard' || c === 'Accessories'),
+      }));
+      setCategories(catList);
+      setCategoryDetails(detList);
+    } catch {
+      // Keep defaults
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
 
   const fetchParts = async (pageNum = page, sizeNum = pageSize) => {
     try {
@@ -165,9 +218,18 @@ export const PartsList = () => {
   const onAddSubmit = async (data) => {
     try {
       setIsSubmitting(true);
-      await partsService.createPart(data);
+      let targetCategory = data.category;
+      if (isCreatingCategoryInline && inlineCategoryInput.trim()) {
+        const clean = inlineCategoryInput.trim();
+        await partsService.createCategory(clean);
+        targetCategory = clean;
+        setCategories((prev) => Array.from(new Set([...prev, clean])).sort());
+      }
+      await partsService.createPart({ ...data, category: targetCategory });
       toast.success('Part added to inventory!');
       setIsAddModalOpen(false);
+      setIsCreatingCategoryInline(false);
+      setInlineCategoryInput('');
       reset();
       fetchParts();
     } catch (err) {
@@ -175,6 +237,96 @@ export const PartsList = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleCreateCategory = async (e) => {
+    if (e) e.preventDefault();
+    const clean = newCategoryName.trim();
+    if (!clean) {
+      toast.error('Please enter a category name');
+      return;
+    }
+    try {
+      setIsSavingCategory(true);
+      const res = await partsService.createCategory(clean);
+      toast.success(res.message || `Category "${clean}" created!`);
+      setNewCategoryName('');
+      setIsCategoryModalOpen(false);
+      fetchCategories();
+    } catch (err) {
+      toast.error(err.message || 'Failed to create category');
+    } finally {
+      setIsSavingCategory(false);
+    }
+  };
+
+  const filteredCategories = categoryDetails.filter((c) =>
+    (c.name || '').toLowerCase().includes(categorySearch.toLowerCase().trim())
+  );
+
+  const toggleSelectAllCategories = () => {
+    const pageNames = filteredCategories.map((c) => c.name);
+    const allSelected = pageNames.length > 0 && pageNames.every((name) => selectedCategoryNames.includes(name));
+    if (allSelected) {
+      setSelectedCategoryNames(selectedCategoryNames.filter((name) => !pageNames.includes(name)));
+    } else {
+      setSelectedCategoryNames(Array.from(new Set([...selectedCategoryNames, ...pageNames])));
+    }
+  };
+
+  const toggleSelectCategory = (name) => {
+    setSelectedCategoryNames((prev) =>
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name]
+    );
+  };
+
+  const handleDeleteCategory = (catName) => {
+    Swal.fire({
+      title: `Delete Category "${catName}"?`,
+      text: 'Are you sure you want to remove this category? Parts linked to this category in catalog will not be deleted.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: 'Yes, Delete',
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await partsService.deleteCategory(catName);
+          toast.success(res.message || `Category "${catName}" removed`);
+          setSelectedCategoryNames((prev) => prev.filter((name) => name !== catName));
+          fetchCategories();
+          fetchParts();
+        } catch (err) {
+          toast.error(err.message || 'Failed to remove category');
+        }
+      }
+    });
+  };
+
+  const handleBulkDeleteCategories = () => {
+    if (selectedCategoryNames.length === 0) return;
+    Swal.fire({
+      title: `Delete ${selectedCategoryNames.length} Category(ies)?`,
+      text: `Are you sure you want to remove the ${selectedCategoryNames.length} selected categories? Linked parts in catalog will remain intact.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `Yes, Delete (${selectedCategoryNames.length}) Categories`,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          const res = await partsService.bulkDeleteCategories(selectedCategoryNames);
+          toast.success(res.message || `Deleted ${selectedCategoryNames.length} categories`);
+          setSelectedCategoryNames([]);
+          fetchCategories();
+          fetchParts();
+        } catch (err) {
+          toast.error(err.message || 'Failed to delete categories');
+        }
+      }
+    });
   };
 
   const handleOpenAdjust = (part) => {
@@ -228,8 +380,6 @@ export const PartsList = () => {
     });
   };
 
-  const categories = ['Display', 'Battery', 'Charging Port', 'Camera', 'Speaker', 'Housing', 'Motherboard', 'Accessories'];
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -239,13 +389,67 @@ export const PartsList = () => {
             Manage replacement stock, wholesale costs, retail pricing, and threshold alerts
           </p>
         </div>
-        <Button icon={Plus} onClick={() => setIsAddModalOpen(true)}>
-          Add New Part
-        </Button>
+        <div className="flex items-center gap-2.5">
+          <Button
+            variant="outline"
+            icon={Layers}
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="border-[var(--spatial-border)] hover:bg-[var(--spatial-bg-card-subtle)]"
+          >
+            Create Category
+          </Button>
+          <Button
+            icon={Plus}
+            onClick={() => {
+              setIsCreatingCategoryInline(false);
+              setInlineCategoryInput('');
+              setIsAddModalOpen(true);
+            }}
+          >
+            Add New Part
+          </Button>
+        </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="spatial-card relative z-20 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Navigation Sub-Tabs */}
+      <div className="flex items-center gap-1.5 p-1.5 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl w-fit">
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('parts');
+            setSelectedCategoryNames([]);
+          }}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
+            activeTab === 'parts'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>Parts Catalog ({total})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setActiveTab('categories');
+            setSelectedIds([]);
+          }}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
+            activeTab === 'categories'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Categories ({categories.length})</span>
+        </button>
+      </div>
+
+      {/* TAB 1: PARTS CATALOG */}
+      {activeTab === 'parts' && (
+        <div className="space-y-6">
+          {/* Filter and Search Bar */}
+          <div className="spatial-card relative z-20 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 flex-1 max-w-2xl">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
@@ -459,6 +663,162 @@ export const PartsList = () => {
           </div>
         )}
       </Card>
+      </div>
+      )}
+
+      {/* TAB 2: CATEGORIES (TABLE FORMAT) */}
+      {activeTab === 'categories' && (
+        <div className="space-y-6">
+          {/* Categories Search & Action Bar */}
+          <div className="spatial-card relative z-20 p-3.5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="relative flex-1 max-w-md">
+              <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                placeholder="Search category name..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                className="w-full pl-8 pr-8 py-1.5 text-xs spatial-input rounded-xl"
+              />
+              {categorySearch && (
+                <button
+                  type="button"
+                  onClick={() => setCategorySearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <Button
+              icon={Plus}
+              onClick={() => setIsCategoryModalOpen(true)}
+              size="sm"
+            >
+              Add Category
+            </Button>
+          </div>
+
+          {/* Bulk Action Bar for Categories */}
+          <BulkActionBar
+            selectedCount={selectedCategoryNames.length}
+            onClearSelection={() => setSelectedCategoryNames([])}
+            onBulkDelete={handleBulkDeleteCategories}
+            deleteLabel={`Delete (${selectedCategoryNames.length})`}
+          />
+
+          {/* Categories Table Card */}
+          <Card
+            title={`Categories Catalog (${filteredCategories.length})`}
+            subtitle="Manage replacement component categories, linked inventory parts, and classification"
+            bodyClassName="p-0"
+          >
+            {loadingCategories ? (
+              <TableSkeleton rows={6} columns={5} showHeader={false} showPagination={false} />
+            ) : filteredCategories.length === 0 ? (
+              <EmptyState
+                icon={Layers}
+                title="No categories found"
+                description={categorySearch ? `No categories match "${categorySearch}"` : 'Create your first custom category to organize inventory parts.'}
+                actionLabel="Create Category"
+                onAction={() => setIsCategoryModalOpen(true)}
+              />
+            ) : (
+              <div className="spatial-tab-pane">
+                <div className="overflow-x-auto table-scrollbar w-full pb-2">
+                  <table className="w-full text-left text-xs min-w-[700px]">
+                    <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-semibold text-[11px] whitespace-nowrap">
+                      <tr>
+                        <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={filteredCategories.length > 0 && filteredCategories.every((c) => selectedCategoryNames.includes(c.name))}
+                            onChange={toggleSelectAllCategories}
+                            aria-label="Select all categories on this page"
+                            className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
+                          />
+                        </th>
+                        <th className="px-5 py-3 whitespace-nowrap">Category Name</th>
+                        <th className="px-5 py-3 text-center whitespace-nowrap">Linked Parts in Catalog</th>
+                        <th className="px-5 py-3 text-center whitespace-nowrap">Classification</th>
+                        <th className="px-5 py-3 text-center whitespace-nowrap">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--spatial-border)]">
+                      {filteredCategories.map((cat) => {
+                        const isSelected = selectedCategoryNames.includes(cat.name);
+                        return (
+                          <tr
+                            key={cat.name}
+                            className={`hover:bg-[var(--spatial-bg-card-subtle)] transition-colors ${
+                              isSelected ? 'bg-apple-blue/8' : ''
+                            }`}
+                          >
+                            <td className="w-10 px-4 py-3.5 text-center whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleSelectCategory(cat.name)}
+                                aria-label={`Select category ${cat.name}`}
+                                className="w-4 h-4 rounded text-apple-blue cursor-pointer accent-apple-blue"
+                              />
+                            </td>
+                            <td className="px-5 py-3.5 whitespace-nowrap">
+                              <div className="flex items-center gap-2.5 font-semibold text-[var(--spatial-text-title)]">
+                                <div className="w-7 h-7 rounded-lg bg-apple-blue/10 border border-apple-blue/20 flex items-center justify-center text-apple-blue shrink-0">
+                                  <Tag className="w-3.5 h-3.5" />
+                                </div>
+                                <span className="text-sm font-semibold">{cat.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setCategoryFilter(cat.name);
+                                  setActiveTab('parts');
+                                }}
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] hover:border-apple-blue hover:text-apple-blue transition-colors cursor-pointer"
+                                title={`View all ${cat.name} parts in catalog`}
+                              >
+                                <Package className="w-3.5 h-3.5 text-[var(--spatial-text-muted)]" />
+                                <span>{cat.count} part{cat.count === 1 ? '' : 's'}</span>
+                              </button>
+                            </td>
+                            <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                  cat.is_custom
+                                    ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                                    : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                }`}
+                              >
+                                {cat.is_custom ? 'Custom Category' : 'Standard Default'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCategory(cat.name)}
+                                className="p-1.5 text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors cursor-pointer inline-flex items-center justify-center"
+                                title={`Delete "${cat.name}" category`}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
 
       {/* Add Part Modal */}
       <Modal
@@ -481,14 +841,82 @@ export const PartsList = () => {
             {errors.name && <p className="text-[11px] text-rose-500 mt-1">{errors.name.message}</p>}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Category</label>
-              <SpatialSelect
-                value={watch('category') || 'Display'}
-                onChange={(val) => setValue('category', val, { shouldValidate: true })}
-                options={categories.map((c) => ({ value: c, label: c }))}
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase">Category</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCreatingCategoryInline(!isCreatingCategoryInline);
+                    if (!isCreatingCategoryInline) {
+                      setInlineCategoryInput('');
+                    }
+                  }}
+                  className="text-[11px] font-semibold text-apple-blue hover:underline cursor-pointer flex items-center gap-0.5"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>{isCreatingCategoryInline ? 'Select Existing' : 'Create Category'}</span>
+                </button>
+              </div>
+
+              {isCreatingCategoryInline ? (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="e.g. Back Glass, Touch IC..."
+                      value={inlineCategoryInput}
+                      onChange={(e) => {
+                        setInlineCategoryInput(e.target.value);
+                        setValue('category', e.target.value, { shouldValidate: true });
+                      }}
+                      className="w-full px-3 py-1.5 spatial-input rounded-xl text-xs"
+                      autoFocus
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={async () => {
+                        const clean = inlineCategoryInput.trim();
+                        if (!clean) {
+                          toast.error('Enter category name');
+                          return;
+                        }
+                        try {
+                          await partsService.createCategory(clean);
+                          setCategories((prev) => Array.from(new Set([...prev, clean])).sort());
+                          setValue('category', clean, { shouldValidate: true });
+                          toast.success(`Category "${clean}" added!`);
+                          setIsCreatingCategoryInline(false);
+                        } catch (err) {
+                          toast.error(err.message || 'Failed to add category');
+                        }
+                      }}
+                      disabled={!inlineCategoryInput.trim()}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-[var(--spatial-text-muted)]">Type custom category name to assign to this part</p>
+                </div>
+              ) : (
+                <SpatialSelect
+                  value={watch('category') || 'Screen / Display'}
+                  onChange={(val) => {
+                    if (val === '__CREATE_NEW__') {
+                      setIsCreatingCategoryInline(true);
+                      setInlineCategoryInput('');
+                    } else {
+                      setValue('category', val, { shouldValidate: true });
+                    }
+                  }}
+                  options={[
+                    ...categories.map((c) => ({ value: c, label: c })),
+                    { value: '__CREATE_NEW__', label: '+ Create Category...' },
+                  ]}
+                />
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">Brand</label>
@@ -620,6 +1048,64 @@ export const PartsList = () => {
           <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[var(--spatial-border)]">
             <Button variant="outline" size="sm" onClick={() => setIsAdjustModalOpen(false)}>Cancel</Button>
             <Button type="submit" size="sm" loading={isSubmitting}>Update Stock</Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Create Category Modal */}
+      <Modal
+        isOpen={isCategoryModalOpen}
+        onClose={() => {
+          setIsCategoryModalOpen(false);
+          setNewCategoryName('');
+        }}
+        title="Create Category"
+        subtitle="Add a new category to organize inventory and replacement parts"
+      >
+        <form onSubmit={handleCreateCategory} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1.5">
+              Category Name *
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="e.g. Screen / Display, Camera Lens, Back Glass..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+                autoFocus
+                required
+              />
+              <Button
+                type="submit"
+                icon={Plus}
+                loading={isSavingCategory}
+                disabled={!newCategoryName.trim()}
+              >
+                Create
+              </Button>
+            </div>
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
+              Newly created categories will be available in parts creation, edit, and filter menus.
+            </p>
+          </div>
+
+          <div className="pt-3 border-t border-[var(--spatial-border)]">
+            <label className="block text-xs font-bold text-[var(--spatial-text-muted)] uppercase mb-2">
+              Available Categories ({categories.length})
+            </label>
+            <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2.5 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-xl">
+              {categories.map((cat) => (
+                <span
+                  key={cat}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-[var(--spatial-card-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)]"
+                >
+                  <Tag className="w-3 h-3 text-apple-blue" />
+                  <span>{cat}</span>
+                </span>
+              ))}
+            </div>
           </div>
         </form>
       </Modal>

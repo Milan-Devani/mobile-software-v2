@@ -49,7 +49,7 @@ export const getAllWarrantyClaims = (job) => {
           entry.rework_reason ||
           entry.warranty_rework_reason ||
           (claimNum === job.reopen_count ? (job.warranty_rework_reason || job.reopen_notes) : '') ||
-          'Technical inspection verified failure in previous replacement assembly. Re-servicing and part replacement authorized under free warranty policy.',
+          'Same issue rework',
         staff_notes: entry.staff_notes || entry.notes || '',
         status: entry.status || (claimNum === job.reopen_count ? 'ACTIVE' : 'COMPLETED'),
       });
@@ -127,8 +127,8 @@ export const getAllWarrantyClaims = (job) => {
           ? (job.last_warranty_issue || 'Customer reported issue under warranty period')
           : `Warranty Claim #${c} - Hardware issue reported within warranty period`,
         rework_reason: isLatest
-          ? (job.warranty_rework_reason || job.reopen_notes || 'Technical inspection verified component failure. Free rework / replacement authorized under warranty policy.')
-          : `Warranty Claim #${c} - Technical diagnosis & free component rework authorized`,
+          ? (job.warranty_rework_reason || job.reopen_notes || 'Same issue rework')
+          : `Warranty Claim #${c} rework`,
         staff_notes: isLatest ? (job.reopen_notes || '') : '',
         status: isLatest ? 'ACTIVE' : 'COMPLETED',
       });

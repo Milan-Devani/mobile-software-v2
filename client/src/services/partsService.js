@@ -41,4 +41,24 @@ export const partsService = {
     const res = await api.post('/parts/bulk-delete', { ids });
     return res.data;
   },
+
+  getCategories: async () => {
+    const res = await api.get('/parts/categories');
+    return res.data?.data || res.data || {};
+  },
+
+  createCategory: async (name) => {
+    const res = await api.post('/parts/categories', { name });
+    return res.data?.data || res.data;
+  },
+
+  deleteCategory: async (name) => {
+    const res = await api.delete(`/parts/categories/${encodeURIComponent(name)}`);
+    return res.data?.data || res.data;
+  },
+
+  bulkDeleteCategories: async (names) => {
+    const res = await api.post('/parts/categories/bulk-delete', { names });
+    return res.data?.data || res.data;
+  },
 };

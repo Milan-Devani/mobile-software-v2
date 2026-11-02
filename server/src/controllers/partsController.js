@@ -149,3 +149,95 @@ export const bulkDeleteParts = async (req, res, next) => {
     next(err);
   }
 };
+
+export const getCategories = async (req, res, next) => {
+  try {
+    const categories = await db.parts.getCategories();
+    const partsRes = await db.parts.list({ limit: 0 });
+    const allParts = partsRes.parts || [];
+
+    const standardSet = new Set([
+      'Screen / Display',
+      'Display',
+      'Battery',
+      'Charging Port',
+      'Camera',
+      'Speaker',
+      'Housing',
+      'Motherboard',
+      'Accessories',
+      'Back Glass',
+      'Touch Glass',
+      'Flex Cable',
+      'Tools & Consumables'
+    ]);
+
+    const details = categories.map((cat) => {
+      const count = allParts.filter((p) => (p.category || '').toLowerCase() === cat.toLowerCase()).length;
+      return {
+        name: cat,
+        count,
+        is_custom: !standardSet.has(cat),
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        categories,
+        details,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const createCategory = async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      throw new AppError('Category name is required.', 400, 'VALIDATION_ERROR');
+    }
+    const categories = await db.parts.addCategory(name.trim());
+    res.status(201).json({
+      success: true,
+      message: `Category "${name.trim()}" created successfully.`,
+      data: { category: name.trim(), categories },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const deleteCategory = async (req, res, next) => {
+  try {
+    const { name } = req.params;
+    const cleanName = decodeURIComponent(name || '').trim();
+    const categories = await db.parts.removeCategory(cleanName);
+    res.json({
+      success: true,
+      message: `Category "${cleanName}" removed successfully.`,
+      data: { categories },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const bulkDeleteCategories = async (req, res, next) => {
+  try {
+    const { names } = req.body;
+    if (!Array.isArray(names) || names.length === 0) {
+      throw new AppError('No category names provided for deletion.', 400, 'NAMES_REQUIRED');
+    }
+    const categories = await db.parts.bulkRemoveCategories(names);
+    res.json({
+      success: true,
+      message: `Successfully deleted ${names.length} categor${names.length > 1 ? 'ies' : 'y'}.`,
+      data: { categories },
+    });
+  } catch (err) {
+    next(err);
+  }
+};

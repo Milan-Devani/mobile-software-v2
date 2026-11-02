@@ -1613,6 +1613,93 @@ export const db = {
         if (deleted) count++;
       }
       return count;
+    },
+    getCategories: async () => {
+      await ensureFreshSync(5000);
+      const customSetting = await db.settings.get('part_categories');
+      const customList = Array.isArray(customSetting) ? customSetting : [];
+      const deletedSetting = await db.settings.get('deleted_part_categories');
+      const deletedList = (Array.isArray(deletedSetting) ? deletedSetting : []).map(d => String(d).toLowerCase());
+
+      const partsCategories = (localDb.parts || []).map(p => p.category).filter(Boolean);
+      const defaultCategories = [
+        'Screen / Display',
+        'Display',
+        'Battery',
+        'Charging Port',
+        'Camera',
+        'Speaker',
+        'Housing',
+        'Motherboard',
+        'Accessories',
+        'Back Glass',
+        'Touch Glass',
+        'Flex Cable',
+        'Tools & Consumables'
+      ];
+      const set = new Set([...defaultCategories, ...customList, ...partsCategories]);
+      const active = Array.from(set).filter(cat => !deletedList.includes(cat.toLowerCase()));
+      return active.sort((a, b) => a.localeCompare(b));
+    },
+    addCategory: async (categoryName) => {
+      const clean = (categoryName || '').trim();
+      if (!clean) return db.parts.getCategories();
+
+      // If it was previously in deleted_part_categories, un-delete it
+      const deletedSetting = await db.settings.get('deleted_part_categories');
+      if (Array.isArray(deletedSetting)) {
+        const remainingDeleted = deletedSetting.filter(d => d.toLowerCase() !== clean.toLowerCase());
+        await db.settings.set('deleted_part_categories', remainingDeleted, 'Deleted categories blacklist');
+      }
+
+      const customSetting = await db.settings.get('part_categories');
+      const customList = Array.isArray(customSetting) ? [...customSetting] : [];
+      if (!customList.some(c => c.toLowerCase() === clean.toLowerCase())) {
+        customList.push(clean);
+        await db.settings.set('part_categories', customList, 'Custom part categories');
+      }
+      return db.parts.getCategories();
+    },
+    removeCategory: async (categoryName) => {
+      const clean = (categoryName || '').trim();
+      if (!clean) return db.parts.getCategories();
+
+      // Add to deleted blacklist
+      const deletedSetting = await db.settings.get('deleted_part_categories');
+      const deletedList = Array.isArray(deletedSetting) ? [...deletedSetting] : [];
+      if (!deletedList.some(d => d.toLowerCase() === clean.toLowerCase())) {
+        deletedList.push(clean);
+        await db.settings.set('deleted_part_categories', deletedList, 'Deleted categories blacklist');
+      }
+
+      // Remove from custom list
+      const customSetting = await db.settings.get('part_categories');
+      let customList = Array.isArray(customSetting) ? [...customSetting] : [];
+      customList = customList.filter(c => c.toLowerCase() !== clean.toLowerCase());
+      await db.settings.set('part_categories', customList, 'Custom part categories');
+
+      return db.parts.getCategories();
+    },
+    bulkRemoveCategories: async (names = []) => {
+      if (!Array.isArray(names) || names.length === 0) return db.parts.getCategories();
+      const cleanNames = names.map(n => String(n).trim()).filter(Boolean);
+      const lowerNames = cleanNames.map(n => n.toLowerCase());
+
+      const deletedSetting = await db.settings.get('deleted_part_categories');
+      const deletedList = Array.isArray(deletedSetting) ? [...deletedSetting] : [];
+      for (const name of cleanNames) {
+        if (!deletedList.some(d => d.toLowerCase() === name.toLowerCase())) {
+          deletedList.push(name);
+        }
+      }
+      await db.settings.set('deleted_part_categories', deletedList, 'Deleted categories blacklist');
+
+      const customSetting = await db.settings.get('part_categories');
+      let customList = Array.isArray(customSetting) ? [...customSetting] : [];
+      customList = customList.filter(c => !lowerNames.includes(c.toLowerCase()));
+      await db.settings.set('part_categories', customList, 'Custom part categories');
+
+      return db.parts.getCategories();
     }
   },
 

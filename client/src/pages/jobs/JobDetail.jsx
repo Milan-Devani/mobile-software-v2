@@ -979,8 +979,8 @@ export const JobDetail = () => {
                 </span>
               )}
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wider ${job.priority === 'URGENT' ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' :
-                  job.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
-                    'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
+                job.priority === 'HIGH' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20' :
+                  'bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]'
                 }`}>
                 {job.priority} Priority
               </span>
@@ -1203,8 +1203,8 @@ export const JobDetail = () => {
               setActiveTab(tab.key);
             }}
             className={`px-3.5 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1.5 ${activeTab === tab.key
-                ? 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] shadow-xs font-semibold border border-[var(--spatial-border)]'
-                : 'border border-transparent text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)]/50'
+              ? 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] shadow-xs font-semibold border border-[var(--spatial-border)]'
+              : 'border border-transparent text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)]/50'
               }`}
           >
             {tab.key === 'warranty' && (
@@ -1866,8 +1866,8 @@ export const JobDetail = () => {
                     onClick={handleOpenDiscountModal}
                     disabled={isPaymentDone || isJobClosed}
                     className={`border-emerald-500/50 font-semibold ${isPaymentDone || isJobClosed
-                        ? 'opacity-50 cursor-not-allowed text-slate-400 border-slate-300 dark:border-slate-700'
-                        : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
+                      ? 'opacity-50 cursor-not-allowed text-slate-400 border-slate-300 dark:border-slate-700'
+                      : 'text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40'
                       }`}
                     title={
                       isPaymentDone || isJobClosed
@@ -2964,8 +2964,8 @@ export const JobDetail = () => {
                       });
                     }}
                     className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${(warrantyEditForm.claim_number || 1) === c.claim_number
-                        ? 'bg-emerald-600 text-white shadow-xs'
-                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
                       }`}
                   >
                     Claim #{c.claim_number}
@@ -2998,7 +2998,7 @@ export const JobDetail = () => {
               rows={3}
               value={warrantyEditForm.warranty_rework_reason}
               onChange={(e) => setWarrantyEditForm({ ...warrantyEditForm, warranty_rework_reason: e.target.value })}
-              placeholder="e.g. Touch sensor digitizer IC failure detected on previous display. Replaced display assembly under free warranty coverage at ₹0.00..."
+              placeholder="e.g. Display touch digitizer replaced, IC repaired, etc."
               className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             />
           </div>
@@ -3151,7 +3151,7 @@ export const JobDetail = () => {
                 rows={2}
                 value={reopenForm.warranty_rework_reason || ''}
                 onChange={(e) => setReopenForm({ ...reopenForm, warranty_rework_reason: e.target.value })}
-                placeholder="e.g. Touch sensor digitizer IC failure detected on previous display. Replacing display assembly under free warranty coverage at ₹0.00..."
+                placeholder="e.g. Display touch digitizer replaced, IC repaired, etc."
                 className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
               />
             </div>
