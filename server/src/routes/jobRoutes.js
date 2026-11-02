@@ -18,6 +18,7 @@ import {
   reopenJob,
   authorizeWarrantyRework,
   updateWarrantyDetails,
+  saveWarrantyParts,
   addWarrantyPart,
   deleteWarrantyPart,
   updateJobStatus,
@@ -64,6 +65,7 @@ router.post('/:id/reopen', requireStaffOrAdmin, reopenJob);
 router.post('/:id/warranty-authorize', requireStaffOrAdmin, authorizeWarrantyRework);
 router.patch('/:id/warranty-details', requireStaffOrAdmin, updateWarrantyDetails);
 router.post('/:id/warranty-details', requireStaffOrAdmin, updateWarrantyDetails);
+router.put('/:id/warranty-parts', requireTechnicianOrAdmin, saveWarrantyParts);
 router.post('/:id/warranty-parts', requireTechnicianOrAdmin, addWarrantyPart);
 router.delete('/:id/warranty-parts/:partId', requireTechnicianOrAdmin, deleteWarrantyPart);
 router.post('/:id/status', requireStaffOrAdmin, updateJobStatus);

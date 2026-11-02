@@ -1244,6 +1244,100 @@ export const updateWarrantyDetails = async (req, res, next) => {
   }
 };
 
+export const saveWarrantyParts = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { items = [], notes = '', claim_number } = req.body;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const targetClaimNumber = claim_number ? Number(claim_number) : (job.reopen_count || 1);
+
+    // Keep parts from other claims
+    const otherClaimsParts = (job.warranty_parts || []).filter(
+      (p) => p.claim_number && Number(p.claim_number) !== targetClaimNumber
+    );
+
+    const prevThisClaimParts = (job.warranty_parts || []).filter(
+      (p) => !p.claim_number || Number(p.claim_number) === targetClaimNumber
+    );
+
+    // Process new parts
+    const newClaimParts = items.map((it) => {
+      const parsedQty = Math.max(1, parseInt(it.quantity, 10) || 1);
+      return {
+        id: it.id || uuidv4(),
+        job_id: id,
+        claim_number: targetClaimNumber,
+        part_id: it.part_id || null,
+        item_name: (it.item_name || 'Replacement Component').trim(),
+        warranty: (it.warranty || `${job.warranty_days || 30} Days`).trim(),
+        quantity: parsedQty,
+        unit_price: 0.00,
+        original_price: Math.max(0, parseFloat(it.unit_price) || 0),
+        total_price: 0.00,
+        notes: (notes || it.notes || '').trim(),
+        created_at: it.created_at || new Date().toISOString(),
+        created_by_name: req.user.full_name || req.user.email,
+      };
+    });
+
+    // Reconcile inventory adjustments for this claim
+    for (const p of newClaimParts) {
+      if (p.part_id) {
+        try {
+          const prev = prevThisClaimParts.find((prevP) => prevP.part_id === p.part_id);
+          const diff = prev ? (p.quantity - prev.quantity) : p.quantity;
+          if (diff !== 0) {
+            await db.parts.adjustStock(
+              p.part_id,
+              -diff,
+              `Warranty Claim #${targetClaimNumber} Free Rework for Job #${job.job_number}`
+            );
+          }
+        } catch (stockErr) {
+          console.warn('Warranty part stock deduction notice:', stockErr.message);
+        }
+      }
+    }
+
+    const updatedWarrantyParts = [...otherClaimsParts, ...newClaimParts];
+
+    const updatePayload = {
+      warranty_parts: updatedWarrantyParts,
+    };
+
+    // If job was in DIAGNOSING, advance it to IN_PROGRESS (workbench)
+    if (['DIAGNOSING', 'RECEIVED', 'ESTIMATE_SENT'].includes(job.status)) {
+      updatePayload.status = 'IN_PROGRESS';
+      updatePayload.approval_status = 'APPROVED';
+      updatePayload.approval_decision_at = new Date().toISOString();
+      updatePayload.approval_notes = 'Covered under warranty - Pre-authorized free rework';
+    }
+
+    await db.jobs.update(id, updatePayload);
+
+    await db.jobs.updateStatus(
+      id,
+      updatePayload.status || job.status,
+      `Warranty Replacement Parts Saved (Claim #${targetClaimNumber})`,
+      `${newClaimParts.length} replacement part(s) recorded under 100% free warranty rework. Pre-authorized at ₹0.00. Logged by ${req.user.full_name || req.user.email}.${notes ? ` Notes: ${notes}` : ''}`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: `Warranty replacement parts successfully recorded (${newClaimParts.length} parts).`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 export const addWarrantyPart = async (req, res, next) => {
   try {
     const { id } = req.params;

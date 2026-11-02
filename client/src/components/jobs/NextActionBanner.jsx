@@ -66,15 +66,16 @@ export const NextActionBanner = ({
 
       case 'DIAGNOSING':
         if (isFreeWarranty) {
+          const hasWarrantyParts = Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0;
           return {
-            title: 'Warranty Rework Authorized (100% Free)',
-            instruction: 'Same-issue warranty rework pre-authorized at ₹0. No estimate preparation or customer approval needed. Move device to workbench and begin repair.',
-            buttonLabel: 'Start Repair (In Progress)',
-            icon: Play,
+            title: 'Warranty Diagnosis & Repair Preparation',
+            instruction: 'Covered under warranty rework (₹0.00). Prepare repair and add replacement parts. No estimate notification will be sent to the customer.',
+            buttonLabel: hasWarrantyParts ? 'Start Repair (In Progress)' : 'Prepare Repair',
+            icon: hasWarrantyParts ? Play : Wrench,
             bg: 'bg-gradient-to-r from-emerald-500/10 via-blue-500/5 to-transparent border-emerald-300',
             textColor: 'text-emerald-950 dark:text-emerald-200',
-            btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
-            action: onStartRepair,
+            btnClass: hasWarrantyParts ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm',
+            action: hasWarrantyParts ? onStartRepair : onOpenEstimateModal,
             canPerform: ['admin', 'technician'].includes(userRole),
           };
         }

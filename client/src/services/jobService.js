@@ -92,6 +92,11 @@ export const jobService = {
     return res.data;
   },
 
+  saveWarrantyParts: async (id, data = {}) => {
+    const res = await api.put(`/jobs/${id}/warranty-parts`, data);
+    return res.data;
+  },
+
   addWarrantyPart: async (id, data = {}) => {
     const res = await api.post(`/jobs/${id}/warranty-parts`, data);
     return res.data;
