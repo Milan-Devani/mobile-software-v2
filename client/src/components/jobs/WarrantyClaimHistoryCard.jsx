@@ -20,6 +20,7 @@ export const WarrantyClaimHistoryCard = ({
   job,
   user,
   onEditWarrantyDetails,
+  onReopenJob,
   className = '',
 }) => {
   if (!job) return null;
@@ -34,16 +35,95 @@ export const WarrantyClaimHistoryCard = ({
     allClaims.length > 0
   );
 
-  if (!isWarrantyClaim && allClaims.length === 0) return null;
+  const initialDeliveredDate = job.previous_delivered_at || job.delivered_at;
+  const warrantyDuration = job.warranty_days || 30;
+
+  if (!isWarrantyClaim && allClaims.length === 0) {
+    const isDelivered = job.status === 'DELIVERED';
+    return (
+      <div className={`rounded-2xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] p-5 sm:p-6 space-y-5 shadow-xs ${className}`}>
+        <div className="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-[var(--spatial-border)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-bold text-[var(--spatial-text-title)]">
+                  Warranty Policy & Claim History
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 dark:bg-slate-800 text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]">
+                  0 Claims Recorded
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                  {warrantyDuration} Days Shop Policy
+                </span>
+              </div>
+              <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
+                Standard initial repair cycle. No warranty rework claims have been logged for this job.
+              </p>
+            </div>
+          </div>
+          {isDelivered && onReopenJob && (
+            <button
+              type="button"
+              onClick={onReopenJob}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-sm flex items-center gap-1.5 active:scale-95"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Reopen Job (Warranty Claim)</span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] block mb-1">
+              Warranty Coverage Window
+            </span>
+            <p className="font-bold text-[var(--spatial-text-title)] text-sm">
+              {warrantyDuration} Days Limited Hardware Warranty
+            </p>
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+              {initialDeliveredDate
+                ? `Active since handover on ${formatDateTime(initialDeliveredDate)}`
+                : 'Warranty coverage activates automatically once device is marked Delivered.'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] block mb-1">
+              Original Intake Complaint
+            </span>
+            <p className="font-semibold text-[var(--spatial-text-title)] italic">
+              "{job.customer_complaint || 'Device hardware fault'}"
+            </p>
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+              Initial Solution: {job.diagnosis?.recommended_solution || 'Component replacement / repair'}
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--spatial-text-muted)] block mb-1">
+              Claim Audit Policy
+            </span>
+            <p className="font-bold text-emerald-400">
+              100% Free Rework on Same Issues
+            </p>
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+              If the device returns with issues within warranty, claims are tracked in a full chronological audit table.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isFreeWarranty = Boolean(
     job.warranty_same_issue ||
     job.warranty_free_rework ||
     (job.approval_status === 'APPROVED' && Number(job.balance_due || 0) === 0)
   );
-
-  const initialDeliveredDate = job.previous_delivered_at || job.delivered_at;
-  const warrantyDuration = job.warranty_days || 30;
 
   // Get initial parts billed
   const estimateItems = job.estimate?.items || [];

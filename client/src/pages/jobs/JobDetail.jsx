@@ -190,6 +190,8 @@ export const JobDetail = () => {
     job?.status === 'REJECTED' || job?.approval_status === 'REJECTED'
   );
 
+  const allClaims = getAllWarrantyClaims(job);
+
   // Lock body scroll and set print-modal-active when invoice or jobsheet modal is open
   useEffect(() => {
     if (isPrintInvoiceOpen || isPrintJobSheetOpen) {
@@ -1115,6 +1117,10 @@ export const JobDetail = () => {
           { key: 'estimate', label: 'Parts & Estimate' },
           { key: 'testing', label: 'Quality Check (16-Point)' },
           { key: 'payments', label: 'Payments & Invoice' },
+          {
+            key: 'warranty',
+            label: allClaims.length > 0 ? `Warranty Claims (${allClaims.length})` : 'Warranty Claims',
+          },
           { key: 'timeline', label: 'Activity Audit Log' },
         ].map((tab) => (
           <button
@@ -1123,13 +1129,16 @@ export const JobDetail = () => {
               tabManuallySelectedRef.current = true;
               setActiveTab(tab.key);
             }}
-            className={`px-3.5 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
+            className={`px-3.5 py-1.5 text-xs rounded-xl whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 flex items-center gap-1.5 ${
               activeTab === tab.key
                 ? 'bg-[var(--spatial-bg-card)] text-[var(--spatial-text-title)] shadow-xs font-semibold border border-[var(--spatial-border)]'
                 : 'border border-transparent text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card)]/50'
             }`}
           >
-            {tab.label}
+            {tab.key === 'warranty' && (
+              <ShieldCheck className={`w-3.5 h-3.5 ${allClaims.length > 0 ? 'text-emerald-400' : 'text-slate-400'}`} />
+            )}
+            <span>{tab.label}</span>
           </button>
         ))}
       </div>
@@ -1137,13 +1146,6 @@ export const JobDetail = () => {
       {/* TAB 1: OVERVIEW */}
       {activeTab === 'overview' && (
         <div key="overview" className="spatial-tab-pane space-y-6">
-          {(job.is_warranty_claim || (job.reopen_count > 0)) && (
-            <WarrantyClaimHistoryCard
-              job={job}
-              user={user}
-              onEditWarrantyDetails={handleOpenWarrantyEditModal}
-            />
-          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Customer Info Card */}
             <Card
@@ -1365,6 +1367,13 @@ export const JobDetail = () => {
                       <p className="text-[11px] text-emerald-700 dark:text-emerald-300 mt-0.5">
                         No additional parts or labor billed. No customer estimate or approval is required. Pre-authorized at ₹0.00.
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('warranty')}
+                        className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-1 cursor-pointer"
+                      >
+                        <span>View Full Warranty Claims Audit Table ({allClaims.length}) →</span>
+                      </button>
                     </div>
                   </div>
                   <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-200 dark:bg-emerald-900 text-emerald-900 dark:text-emerald-100 border border-emerald-300 dark:border-emerald-700">
@@ -1373,13 +1382,6 @@ export const JobDetail = () => {
                 </div>
               )}
 
-              {(job.is_warranty_claim || (job.reopen_count > 0)) && (
-                <WarrantyClaimHistoryCard
-                  job={job}
-                  user={user}
-                  onEditWarrantyDetails={handleOpenWarrantyEditModal}
-                />
-              )}
               {/* Approval status banner */}
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1746,16 +1748,21 @@ export const JobDetail = () => {
         </div>
       )}
 
-      {/* TAB 6: TIMELINE */}
+      {/* TAB: WARRANTY CLAIMS AUDIT */}
+      {activeTab === 'warranty' && (
+        <div key="warranty" className="spatial-tab-pane space-y-6">
+          <WarrantyClaimHistoryCard
+            job={job}
+            user={user}
+            onEditWarrantyDetails={handleOpenWarrantyEditModal}
+            onReopenJob={handleOpenReopenModal}
+          />
+        </div>
+      )}
+
+      {/* TAB 6: TIMELINE (Activity Audit Log) */}
       {activeTab === 'timeline' && (
         <div key="timeline" className="spatial-tab-pane space-y-6">
-          {(job.is_warranty_claim || (job.reopen_count > 0)) && (
-            <WarrantyClaimHistoryCard
-              job={job}
-              user={user}
-              onEditWarrantyDetails={handleOpenWarrantyEditModal}
-            />
-          )}
           <Card title="Job Status Activity & Audit Trail" subtitle="Chronological history of all technician actions and state changes">
             <JobTimeline history={job.history || []} />
           </Card>
