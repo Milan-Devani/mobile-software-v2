@@ -799,35 +799,10 @@ export const JobDetail = () => {
       const updated = await jobService.recordPickup(job.id, pickupForm);
       setJob((prev) => ({ ...prev, ...updated }));
 
-      // Automatically trigger real official vector invoice PDF download for shop & customer
-      if (!isEstimateRejected) {
-        try {
-          const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-          const apiBase = rawApiBase.endsWith('/api') ? rawApiBase : `${rawApiBase.replace(/\/+$/, '')}/api`;
-          const token = localStorage.getItem('token');
-          const pdfRes = await fetch(`${apiBase}/invoices/job/${job.id}/download-pdf`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          });
-          if (pdfRes.ok) {
-            const blob = await pdfRes.blob();
-            const downloadUrl = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = downloadUrl;
-            a.download = `Mobotech_Tax_Invoice_${job.job_number || 'FINAL'}.pdf`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(downloadUrl);
-          }
-        } catch (downloadErr) {
-          console.warn('Auto invoice PDF download failed:', downloadErr);
-        }
-      }
-
       toast.success(
         isEstimateRejected
           ? 'Device returned to customer in original condition!'
-          : 'Device delivered & official real invoice PDF dispatched to customer!'
+          : 'Device delivered successfully!'
       );
       setIsPickupModalOpen(false);
     } catch (err) {
@@ -2778,12 +2753,12 @@ export const JobDetail = () => {
             <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
               <span className="font-semibold block">
-                {isEstimateRejected ? "Handover Return Notification" : "Automatic Invoice & Receipt Dispatch"}
+                {isEstimateRejected ? "Handover Return Confirmation" : "Delivery & Handover Confirmation"}
               </span>
               <p className="text-[11px] text-sky-700 leading-normal">
                 {isEstimateRejected
-                  ? "Handover confirmation message will be sent to customer's WhatsApp & Email confirming device return in original condition."
-                  : "Tax invoice and warranty certificate will be sent immediately to customer's WhatsApp & Email upon clicking delivery."}
+                  ? "Handover confirmation will be recorded and device marked returned in original condition."
+                  : "Device status will be marked as Delivered and repair invoice finalized. Official invoice can be printed or downloaded on-demand."}
               </p>
             </div>
           </div>

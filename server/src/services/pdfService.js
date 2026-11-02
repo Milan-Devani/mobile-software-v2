@@ -389,15 +389,25 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           </div>
 
           <!-- Customer Details -->
-          <div style="padding:4px 6px; border-bottom:1px solid #000; font-size:11.5px;">
-            <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Customer Details</div>
-            <div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Name:</span><b style="font-size:13px;">${cust.full_name || 'Milan Devani'}</b></div>
-            <div style="margin-top:1px;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Address:</span>${cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : 'pasodara')}</div>
-            <div style="display:flex; justify-content:space-between; margin-top:2px;">
-              <div style="width:50%;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Contact Number:</span><b>${cust.phone || '8758152507'}</b></div>
-              <div style="width:50%;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Email ID:</span><b>${cust.email || 'milandevani@gmail.com'}</b></div>
+          <div style="padding:4px 6px; border-bottom:1px solid #000; font-size:11px; line-height:1.35;">
+            <div style="font-weight:700; font-size:12px; text-transform:uppercase; margin-bottom:2px;">Customer Details</div>
+            <div style="margin-bottom:1.5px;">
+              <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Name : </span>
+              <b style="font-size:12px;">${cust.full_name || 'Milan Devani'}</b>
             </div>
-            ${cust.alternate_phone ? `<div style="margin-top:1px;"><span style="font-size:10.5px; text-transform:uppercase; font-weight:700; display:block;">Alternate Contact:</span><b>${cust.alternate_phone}</b></div>` : ''}
+            <div style="margin-bottom:1.5px;">
+              <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Address : </span>
+              <span style="font-size:11px;">${cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : 'pasodara')}</span>
+            </div>
+            <div style="margin-bottom:1.5px;">
+              <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Contact Number : </span>
+              <b style="font-size:11px;">${cust.phone || '8758152507'}</b>
+            </div>
+            <div style="margin-bottom:1.5px;">
+              <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Mail ID : </span>
+              <b style="font-size:11px;">${cust.email || 'milandevani994@gmail.com'}</b>
+            </div>
+            ${cust.alternate_phone ? `<div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Alternate Contact : </span><b style="font-size:11px;">${cust.alternate_phone}</b></div>` : ''}
           </div>
 
           <!-- Product Details -->

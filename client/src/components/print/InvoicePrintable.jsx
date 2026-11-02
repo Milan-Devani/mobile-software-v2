@@ -816,30 +816,28 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                     </div>
 
                     {/* Customer Details */}
-                    <div style={{ padding: '4px 6px', borderBottom: '1px solid #000', fontSize: '11.5px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '2px' }}>Customer Details</div>
-                      <div>
-                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Name:</span>
-                        <b style={{ fontSize: '13px' }}>{cust.full_name || 'Milan Devani'}</b>
+                    <div style={{ padding: '4px 6px', borderBottom: '1px solid #000', fontSize: '11px', lineHeight: 1.35 }}>
+                      <div style={{ fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', marginBottom: '2px' }}>Customer Details</div>
+                      <div style={{ marginBottom: '1.5px' }}>
+                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700 }}>Name : </span>
+                        <b style={{ fontSize: '12px' }}>{cust.full_name || 'Milan Devani'}</b>
                       </div>
-                      <div style={{ marginTop: '1px' }}>
-                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Address:</span>
-                        {cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : 'pasodara')}
+                      <div style={{ marginBottom: '1.5px' }}>
+                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700 }}>Address : </span>
+                        <span style={{ fontSize: '11px' }}>{cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : 'pasodara')}</span>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2px' }}>
-                        <div style={{ width: '50%' }}>
-                          <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Contact Number:</span>
-                          <b>{cust.phone || '8758152507'}</b>
-                        </div>
-                        <div style={{ width: '50%' }}>
-                          <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Email ID:</span>
-                          <b>{cust.email || 'milandevani@gmail.com'}</b>
-                        </div>
+                      <div style={{ marginBottom: '1.5px' }}>
+                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700 }}>Contact Number : </span>
+                        <b style={{ fontSize: '11px' }}>{cust.phone || '8758152507'}</b>
+                      </div>
+                      <div style={{ marginBottom: '1.5px' }}>
+                        <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700 }}>Mail ID : </span>
+                        <b style={{ fontSize: '11px' }}>{cust.email || 'milandevani994@gmail.com'}</b>
                       </div>
                       {cust.alternate_phone && (
-                        <div style={{ marginTop: '1px' }}>
-                          <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700, display: 'block' }}>Alternate Contact:</span>
-                          <b>{cust.alternate_phone}</b>
+                        <div>
+                          <span style={{ fontSize: '10.5px', textTransform: 'uppercase', fontWeight: 700 }}>Alternate Contact : </span>
+                          <b style={{ fontSize: '11px' }}>{cust.alternate_phone}</b>
                         </div>
                       )}
                     </div>
