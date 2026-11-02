@@ -1,3 +1,4 @@
+import { getAllWarrantyClaims } from '../../utils/warrantyUtils';
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Download,
@@ -317,6 +318,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   };
 
   const inwardDateStr = formatInwardDate(job.created_at);
+  const allWarrantyClaims = getAllWarrantyClaims(job);
   const signatureDateStr = formatSignatureDate(invoice?.issued_at || job.updated_at || job.created_at);
   const technicianName = job.technician?.full_name || 'Jaimini Patel';
 
@@ -841,33 +843,81 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       </div>
                     </div>
 
-                    {/* Issue Reported */}
+                    {/* Issue Reported & Complete Warranty Claims Table */}
                     <div style={{ padding: '4px 6px', fontSize: '11px' }}>
-                      <div style={{ fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '2px' }}>
-                        {job.is_warranty_claim ? 'Service & Warranty Claim History:' : 'Issue Reported by Customer:'}
-                      </div>
-                      <div style={{ border: '1px solid #000' }}>
-                        <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 700, padding: '1px 3px' }}>
-                          <span style={{ width: '35%' }}>Stage / Category</span>
-                          <span style={{ width: '65%' }}>Description & Findings</span>
-                        </div>
-                        <div style={{ display: 'flex', padding: '2px 3px', borderBottom: job.is_warranty_claim ? '1px dashed #cbd5e1' : 'none' }}>
-                          <span style={{ width: '35%', fontWeight: 700 }}>1. Initial Repair Intake</span>
-                          <span style={{ width: '65%', fontWeight: 600 }}>• {job.customer_complaint || 'display not working'}</span>
-                        </div>
-                        {job.is_warranty_claim && (
-                          <>
-                            <div style={{ display: 'flex', padding: '2px 3px', borderBottom: '1px dashed #cbd5e1', background: '#fefce8' }}>
-                              <span style={{ width: '35%', fontWeight: 700, color: '#854d0e' }}>2. Warranty Return Issue</span>
-                              <span style={{ width: '65%', fontWeight: 600, color: '#854d0e' }}>• {job.last_warranty_issue || 'Customer reported issue under warranty period'}</span>
+                      {allWarrantyClaims.length > 0 ? (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '11.5px', textTransform: 'uppercase', marginBottom: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>Service & Warranty Claim History ({allWarrantyClaims.length} Claim{allWarrantyClaims.length > 1 ? 's' : ''}):</span>
+                            <span style={{ color: '#166534', fontSize: '10px', fontWeight: 700 }}>100% Free Rework (₹0 Due)</span>
+                          </div>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #000', fontSize: '10px' }}>
+                            <thead>
+                              <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 700 }}>
+                                <th style={{ width: '22%', borderRight: '1px solid #000', padding: '2px 4px', textAlign: 'left' }}>Stage / Claim</th>
+                                <th style={{ width: '39%', borderRight: '1px solid #000', padding: '2px 4px', textAlign: 'left' }}>Reported Issue / Complaint</th>
+                                <th style={{ width: '39%', padding: '2px 4px', textAlign: 'left' }}>Why Part Changed / Repaired</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr style={{ borderBottom: '1px solid #000' }}>
+                                <td style={{ borderRight: '1px solid #000', padding: '2px 4px', verticalAlign: 'top', fontWeight: 700 }}>
+                                  Initial Service
+                                  <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>{inwardDateStr}</div>
+                                </td>
+                                <td style={{ borderRight: '1px solid #000', padding: '2px 4px', verticalAlign: 'top' }}>
+                                  • {job.customer_complaint || 'display not working'}
+                                </td>
+                                <td style={{ padding: '2px 4px', verticalAlign: 'top' }}>
+                                  • {job.diagnosis?.recommended_solution || 'Replace display / hardware component service'}
+                                </td>
+                              </tr>
+                              {allWarrantyClaims.map((c, cIdx) => (
+                                <tr
+                                  key={c.claim_number || cIdx}
+                                  style={{
+                                    borderBottom: cIdx === allWarrantyClaims.length - 1 ? 'none' : '1px solid #cbd5e1',
+                                    background: cIdx % 2 === 0 ? '#fefce8' : '#f0fdf4',
+                                  }}
+                                >
+                                  <td style={{ borderRight: '1px solid #000', padding: '2px 4px', verticalAlign: 'top', fontWeight: 700, color: '#854d0e' }}>
+                                    Warranty Claim #{c.claim_number}
+                                    <div style={{ fontSize: '9px', color: '#166534', fontWeight: 700 }}>
+                                      {c.is_free_rework ? '✓ 100% Free' : 'Chargeable'}
+                                    </div>
+                                    {c.claimed_at && (
+                                      <div style={{ fontSize: '9px', color: '#64748b', fontWeight: 500 }}>
+                                        {new Date(c.claimed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                        {c.days_after_delivery !== null && c.days_after_delivery !== undefined ? ` • Day ${c.days_after_delivery}` : ''}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td style={{ borderRight: '1px solid #000', padding: '2px 4px', verticalAlign: 'top', color: '#854d0e', fontWeight: 600 }}>
+                                    • {c.warranty_issue || 'Warranty issue reported'}
+                                  </td>
+                                  <td style={{ padding: '2px 4px', verticalAlign: 'top', color: '#166534', fontWeight: 600 }}>
+                                    • {c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontWeight: 700, fontSize: '12.5px', textTransform: 'uppercase', marginBottom: '2px' }}>Issue Reported by Customer:</div>
+                          <div style={{ border: '1px solid #000' }}>
+                            <div style={{ display: 'flex', background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 700, padding: '1px 3px' }}>
+                              <span style={{ width: '35%' }}>Category</span>
+                              <span style={{ width: '65%' }}>Description</span>
                             </div>
-                            <div style={{ display: 'flex', padding: '2px 3px', background: '#f0fdf4' }}>
-                              <span style={{ width: '35%', fontWeight: 700, color: '#166534' }}>3. Why Part Changed / Repaired</span>
-                              <span style={{ width: '65%', fontWeight: 600, color: '#166534' }}>• {job.warranty_rework_reason || job.reopen_notes || 'Free rework / part replacement covered under warranty (₹0 Due)'}</span>
+                            <div style={{ display: 'flex', padding: '2px 3px' }}>
+                              <span style={{ width: '35%', fontWeight: 700 }}>{job.service_type || 'Screen / Display Replacement'}</span>
+                              <span style={{ width: '65%', fontWeight: 600 }}>• {job.customer_complaint || 'display not working'}</span>
                             </div>
-                          </>
-                        )}
-                      </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 

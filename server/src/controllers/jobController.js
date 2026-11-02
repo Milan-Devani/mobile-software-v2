@@ -1,3 +1,4 @@
+import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
@@ -61,9 +62,10 @@ export const getJobById = async (req, res, next) => {
       throw new AppError('Repair Job not found.', 404, 'JOB_NOT_FOUND');
     }
 
+    const allClaims = getAllWarrantyClaims(job);
     res.json({
       success: true,
-      data: { job },
+      data: { job: { ...job, warranty_claims: allClaims } },
     });
   } catch (err) {
     next(err);
@@ -961,6 +963,7 @@ export const reopenJob = async (req, res, next) => {
       ? Math.max(0, Math.round((Date.now() - new Date(deliveryDate).getTime()) / (1000 * 60 * 60 * 24)))
       : 0;
 
+    const allPrevClaims = getAllWarrantyClaims(job);
     const existingWarrantyHistory = Array.isArray(job.warranty_history) ? [...job.warranty_history] : [];
     let updatedWarrantyHistory = existingWarrantyHistory;
 
@@ -993,7 +996,21 @@ export const reopenJob = async (req, res, next) => {
         staff_notes: notes || '',
         status: 'ACTIVE',
       };
-      updatedWarrantyHistory = [newWarrantyEntry, ...existingWarrantyHistory];
+
+      const map = new Map();
+      map.set(reopenCount, newWarrantyEntry);
+      existingWarrantyHistory.forEach(c => {
+        if (c && c.claim_number && !map.has(Number(c.claim_number))) {
+          map.set(Number(c.claim_number), c);
+        }
+      });
+      allPrevClaims.forEach(c => {
+        if (c && c.claim_number && !map.has(Number(c.claim_number))) {
+          map.set(Number(c.claim_number), c);
+        }
+      });
+
+      updatedWarrantyHistory = Array.from(map.values()).sort((a, b) => b.claim_number - a.claim_number);
     }
 
     const updatePayload = {
@@ -1159,6 +1176,7 @@ export const updateWarrantyDetails = async (req, res, next) => {
   try {
     const { id } = req.params;
     const {
+      claim_number,
       last_warranty_issue,
       warranty_rework_reason,
       reopen_notes,
@@ -1167,24 +1185,40 @@ export const updateWarrantyDetails = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    const updatePayload = {
-      last_warranty_issue: last_warranty_issue !== undefined ? last_warranty_issue : job.last_warranty_issue,
-      warranty_rework_reason: warranty_rework_reason !== undefined ? warranty_rework_reason : job.warranty_rework_reason,
-      reopen_notes: reopen_notes !== undefined ? reopen_notes : job.reopen_notes,
+    const allClaims = getAllWarrantyClaims(job);
+    const targetClaimNumber = claim_number ? Number(claim_number) : (job.reopen_count || 1);
+
+    const map = new Map();
+    allClaims.forEach(c => map.set(c.claim_number, { ...c }));
+
+    const existingEntry = map.get(targetClaimNumber) || {
+      claim_number: targetClaimNumber,
+      claimed_at: new Date().toISOString(),
+      claimed_by_name: req.user.full_name || req.user.email,
+      claim_type: 'SAME_ISSUE',
+      is_free_rework: true,
+      status: targetClaimNumber === (job.reopen_count || 1) ? 'ACTIVE' : 'COMPLETED',
     };
 
-    // Update latest warranty history entry if present
-    if (Array.isArray(job.warranty_history) && job.warranty_history.length > 0) {
-      const updatedHistory = [...job.warranty_history];
-      updatedHistory[0] = {
-        ...updatedHistory[0],
-        warranty_issue: updatePayload.last_warranty_issue || updatedHistory[0].warranty_issue,
-        rework_reason: updatePayload.warranty_rework_reason || updatedHistory[0].rework_reason,
-        staff_notes: updatePayload.reopen_notes !== undefined ? updatePayload.reopen_notes : updatedHistory[0].staff_notes,
-        updated_at: new Date().toISOString(),
-        updated_by_name: req.user.full_name || req.user.email,
-      };
-      updatePayload.warranty_history = updatedHistory;
+    map.set(targetClaimNumber, {
+      ...existingEntry,
+      warranty_issue: last_warranty_issue !== undefined ? last_warranty_issue : (existingEntry.warranty_issue || existingEntry.reason),
+      rework_reason: warranty_rework_reason !== undefined ? warranty_rework_reason : (existingEntry.rework_reason || existingEntry.notes),
+      staff_notes: reopen_notes !== undefined ? reopen_notes : existingEntry.staff_notes,
+      updated_at: new Date().toISOString(),
+      updated_by_name: req.user.full_name || req.user.email,
+    });
+
+    const updatedHistory = Array.from(map.values()).sort((a, b) => b.claim_number - a.claim_number);
+
+    const updatePayload = {
+      warranty_history: updatedHistory,
+    };
+
+    if (targetClaimNumber === (job.reopen_count || 1)) {
+      if (last_warranty_issue !== undefined) updatePayload.last_warranty_issue = last_warranty_issue;
+      if (warranty_rework_reason !== undefined) updatePayload.warranty_rework_reason = warranty_rework_reason;
+      if (reopen_notes !== undefined) updatePayload.reopen_notes = reopen_notes;
     }
 
     await db.jobs.update(id, updatePayload);
@@ -1192,8 +1226,8 @@ export const updateWarrantyDetails = async (req, res, next) => {
     await db.jobs.updateStatus(
       id,
       job.status,
-      'Warranty Details Updated',
-      `Warranty return issue: "${updatePayload.last_warranty_issue || 'N/A'}". Rework / Part action: "${updatePayload.warranty_rework_reason || 'N/A'}". Updated by ${req.user.full_name || req.user.email}.`,
+      `Warranty Details Updated (Claim #${targetClaimNumber})`,
+      `Claim #${targetClaimNumber} issue: "${last_warranty_issue || 'N/A'}". Rework action: "${warranty_rework_reason || 'N/A'}". Updated by ${req.user.full_name || req.user.email}.`,
       req.user.id
     );
 
@@ -1201,7 +1235,7 @@ export const updateWarrantyDetails = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: 'Warranty rework history & reasons updated successfully.',
+      message: `Warranty Claim #${targetClaimNumber} audit details updated successfully.`,
       data: { job: updatedJob },
     });
   } catch (err) {

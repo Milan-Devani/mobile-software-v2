@@ -1,3 +1,4 @@
+import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import { db } from '../db/db.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -21,11 +22,12 @@ export const getJobInvoice = async (req, res, next) => {
 
     const shop = await db.shops.getProfile();
 
+    const allClaims = getAllWarrantyClaims(job);
     res.json({
       success: true,
       data: {
         invoice,
-        job,
+        job: { ...job, warranty_claims: allClaims },
         shop,
       },
     });

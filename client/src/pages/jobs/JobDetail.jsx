@@ -49,6 +49,7 @@ import { SpatialPartsPicker } from '../../components/common/SpatialPartsPicker';
 import { SpatialWarrantyInput } from '../../components/common/SpatialWarrantyInput';
 import { NextActionBanner } from '../../components/jobs/NextActionBanner';
 import { WarrantyClaimHistoryCard } from '../../components/jobs/WarrantyClaimHistoryCard';
+import { getAllWarrantyClaims } from '../../utils/warrantyUtils';
 import { JobTimeline } from '../../components/jobs/JobTimeline';
 import { QualityChecklist } from '../../components/jobs/QualityChecklist';
 import { JobSheetPrintable } from '../../components/print/JobSheetPrintable';
@@ -497,11 +498,17 @@ export const JobDetail = () => {
     }
   };
 
-  const handleOpenWarrantyEditModal = () => {
+  const handleOpenWarrantyEditModal = (claimNum) => {
+    const allClaims = getAllWarrantyClaims(job);
+    const targetClaim =
+      allClaims.find((c) => c.claim_number === claimNum) ||
+      (allClaims.length > 0 ? allClaims[allClaims.length - 1] : null);
+
     setWarrantyEditForm({
-      last_warranty_issue: job?.last_warranty_issue || '',
-      warranty_rework_reason: job?.warranty_rework_reason || job?.reopen_notes || '',
-      reopen_notes: job?.reopen_notes || '',
+      claim_number: targetClaim?.claim_number || job.reopen_count || 1,
+      last_warranty_issue: targetClaim?.warranty_issue || job?.last_warranty_issue || '',
+      warranty_rework_reason: targetClaim?.rework_reason || job?.warranty_rework_reason || job?.reopen_notes || '',
+      reopen_notes: targetClaim?.staff_notes || job?.reopen_notes || '',
     });
     setIsEditWarrantyModalOpen(true);
   };
@@ -511,12 +518,13 @@ export const JobDetail = () => {
     try {
       setIsSaving(true);
       const res = await jobService.updateWarrantyDetails(job.id, {
+        claim_number: warrantyEditForm.claim_number,
         last_warranty_issue: (warrantyEditForm.last_warranty_issue || '').trim(),
         warranty_rework_reason: (warrantyEditForm.warranty_rework_reason || '').trim(),
         reopen_notes: (warrantyEditForm.reopen_notes || '').trim(),
       });
       setJob(res.data?.job || res.job || { ...job, ...warrantyEditForm });
-      toast.success('Warranty rework audit trail updated successfully!');
+      toast.success(`Warranty Claim #${warrantyEditForm.claim_number} audit details updated!`);
       setIsEditWarrantyModalOpen(false);
       fetchJobData();
     } catch (err) {
@@ -2609,7 +2617,7 @@ export const JobDetail = () => {
         isOpen={isEditWarrantyModalOpen}
         onClose={() => setIsEditWarrantyModalOpen(false)}
         title="Update Warranty Claim & Rework Audit"
-        subtitle={`Job #${job?.job_number || ''} • ${job?.customer?.full_name || 'Customer'} • Claim #${job?.reopen_count || 1}`}
+        subtitle={`Job #${job?.job_number || ''} • ${job?.customer?.full_name || 'Customer'} • Editing Claim #${warrantyEditForm.claim_number || job?.reopen_count || 1}`}
         maxWidth="max-w-xl"
         footer={
           <div className="flex items-center justify-end gap-3 w-full">
@@ -2638,12 +2646,41 @@ export const JobDetail = () => {
           <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3 text-xs text-emerald-950 dark:text-emerald-200">
             <ShieldCheck className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
             <div>
-              <p className="font-bold">Warranty Claim & Technical Rework Audit</p>
+              <p className="font-bold">Warranty Claim #{warrantyEditForm.claim_number || 1} & Technical Rework Audit</p>
               <p className="mt-0.5 opacity-90">
                 Update why the mobile returned during warranty and why parts were replaced or repaired. This history is permanently stored in the audit trail.
               </p>
             </div>
           </div>
+
+          {getAllWarrantyClaims(job).length > 1 && (
+            <div className="flex items-center gap-2 p-2 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">Select Claim to Edit:</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {getAllWarrantyClaims(job).map((c) => (
+                  <button
+                    key={c.claim_number}
+                    type="button"
+                    onClick={() => {
+                      setWarrantyEditForm({
+                        claim_number: c.claim_number,
+                        last_warranty_issue: c.warranty_issue || '',
+                        warranty_rework_reason: c.rework_reason || '',
+                        reopen_notes: c.staff_notes || '',
+                      });
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      (warrantyEditForm.claim_number || 1) === c.claim_number
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                    }`}
+                  >
+                    Claim #{c.claim_number}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">

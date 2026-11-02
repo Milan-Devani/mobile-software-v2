@@ -1,3 +1,4 @@
+import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -200,6 +201,8 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const d = job.created_at ? new Date(job.created_at) : new Date();
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const inwardDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  const inwardDateStr = inwardDate;
+  const allWarrantyClaims = getAllWarrantyClaims(job);
 
   const sigD = invoice?.issued_at ? new Date(invoice.issued_at) : new Date();
   const sigDate = `(${String(sigD.getDate()).padStart(2, '0')}-${String(sigD.getMonth() + 1).padStart(2, '0')}-${sigD.getFullYear()} ${String(sigD.getHours()).padStart(2, '0')}:${String(sigD.getMinutes()).padStart(2, '0')})`;
@@ -394,30 +397,71 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             </div>
           </div>
 
-          <!-- Issue Reported -->
+          <!-- Issue Reported & All Warranty Claims Table -->
           <div style="padding:4px 6px; font-size:11px;">
-            <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">
-              ${job.is_warranty_claim ? 'Service & Warranty Claim History:' : 'Issue Reported by Customer:'}
+            ${allWarrantyClaims.length > 0 ? `
+            <div style="font-weight:700; font-size:11.5px; text-transform:uppercase; margin-bottom:2px; display:flex; justify-content:space-between; align-items:center;">
+              <span>Service & Warranty Claim History (${allWarrantyClaims.length} Claim${allWarrantyClaims.length > 1 ? 's' : ''}):</span>
+              <span style="color:#166534; font-size:10px; font-weight:700;">100% Free Rework (₹0 Due)</span>
             </div>
+            <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:10px;">
+              <thead>
+                <tr style="background:#f1f5f9; border-bottom:1px solid #000; font-weight:700;">
+                  <th style="width:22%; border-right:1px solid #000; padding:2px 4px; text-align:left;">Stage / Claim</th>
+                  <th style="width:39%; border-right:1px solid #000; padding:2px 4px; text-align:left;">Reported Issue / Complaint</th>
+                  <th style="width:39%; padding:2px 4px; text-align:left;">Why Part Changed / Repaired</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style="border-bottom:1px solid #000;">
+                  <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top; font-weight:700;">
+                    Initial Service
+                    <div style="font-size:9px; color:#64748b; font-weight:500;">${inwardDateStr}</div>
+                  </td>
+                  <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top;">
+                    • ${job.customer_complaint || 'display not working'}
+                  </td>
+                  <td style="padding:2px 4px; vertical-align:top;">
+                    • ${job.diagnosis?.recommended_solution || 'Replace display / hardware component service'}
+                  </td>
+                </tr>
+                ${allWarrantyClaims.map((c, cIdx) => `
+                  <tr style="border-bottom:${cIdx === allWarrantyClaims.length - 1 ? 'none' : '1px solid #cbd5e1'}; background:${cIdx % 2 === 0 ? '#fefce8' : '#f0fdf4'};">
+                    <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top; font-weight:700; color:#854d0e;">
+                      Warranty Claim #${c.claim_number}
+                      <div style="font-size:9px; color:#166534; font-weight:700;">
+                        ${c.is_free_rework ? '✓ 100% Free' : 'Chargeable'}
+                      </div>
+                      ${c.claimed_at ? `
+                        <div style="font-size:9px; color:#64748b; font-weight:500;">
+                          ${new Date(c.claimed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                          ${c.days_after_delivery !== null && c.days_after_delivery !== undefined ? ` • Day ${c.days_after_delivery}` : ''}
+                        </div>
+                      ` : ''}
+                    </td>
+                    <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top; color:#854d0e; font-weight:600;">
+                      • ${c.warranty_issue || 'Warranty issue reported'}
+                    </td>
+                    <td style="padding:2px 4px; vertical-align:top; color:#166534; font-weight:600;">
+                      • ${c.rework_reason || 'Free rework / replacement under warranty (₹0 Due)'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+            ` : `
+            <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Issue Reported by Customer:</div>
             <div style="border:1px solid #000;">
               <div style="display:flex; background:#f1f5f9; border-bottom:1px solid #000; font-weight:700; padding:1px 3px;">
-                <span style="width:35%;">Stage / Category</span>
-                <span style="width:65%;">Description & Findings</span>
+                <span style="width:35%;">Category</span>
+                <span style="width:65%;">Description</span>
               </div>
-              <div style="display:flex; padding:2px 3px; ${job.is_warranty_claim ? 'border-bottom:1px dashed #cbd5e1;' : ''}">
-                <span style="width:35%; font-weight:700;">1. Initial Repair Intake</span>
+              <div style="display:flex; padding:2px 3px;">
+                <span style="width:35%; font-weight:700;">${job.service_type || 'Screen / Display Replacement'}</span>
                 <span style="width:65%; font-weight:600;">• ${job.customer_complaint || 'display not working'}</span>
               </div>
-              ${job.is_warranty_claim ? `
-              <div style="display:flex; padding:2px 3px; border-bottom:1px dashed #cbd5e1; background:#fefce8;">
-                <span style="width:35%; font-weight:700; color:#854d0e;">2. Warranty Return Issue</span>
-                <span style="width:65%; font-weight:600; color:#854d0e;">• ${job.last_warranty_issue || 'Customer reported issue under warranty period'}</span>
-              </div>
-              <div style="display:flex; padding:2px 3px; background:#f0fdf4;">
-                <span style="width:35%; font-weight:700; color:#166534;">3. Why Part Changed / Repaired</span>
-                <span style="width:65%; font-weight:600; color:#166534;">• ${job.warranty_rework_reason || job.reopen_notes || 'Free rework / part replacement covered under warranty (₹0 Due)'}</span>
-              </div>` : ''}
             </div>
+            `}
           </div>
         </div>
 
