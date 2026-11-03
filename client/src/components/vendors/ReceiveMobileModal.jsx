@@ -11,6 +11,8 @@ import {
   Plus,
   Tag,
   Hash,
+  CreditCard,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
@@ -57,6 +59,9 @@ export const ReceiveMobileModal = ({
     payment_status: 'PENDING',
     customer_name: '',
     estimated_cost: '',
+    received_amount: '',
+    payment_mode: 'CASH',
+    payment_ref: '',
     notes: '',
   });
 
@@ -73,10 +78,36 @@ export const ReceiveMobileModal = ({
         payment_status: 'PENDING',
         customer_name: '',
         estimated_cost: '',
+        received_amount: '',
+        payment_mode: 'CASH',
+        payment_ref: '',
         notes: '',
       });
     }
   }, [isOpen, vendors]);
+
+  // Handle amount change and auto update payment_status
+  const handleReceivedAmountChange = (val) => {
+    const numReceived = parseFloat(val) || 0;
+    const est = parseFloat(formData.estimated_cost) || 0;
+
+    let newStatus = formData.payment_status;
+    if (numReceived > 0) {
+      if (est > 0 && numReceived >= est) {
+        newStatus = 'PAID';
+      } else {
+        newStatus = 'ADVANCE';
+      }
+    } else if (newStatus === 'PAID' || newStatus === 'ADVANCE') {
+      newStatus = 'PENDING';
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      received_amount: val,
+      payment_status: newStatus,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,6 +133,8 @@ export const ReceiveMobileModal = ({
       return;
     }
 
+    const numReceived = parseFloat(formData.received_amount) || 0;
+
     try {
       setSubmitting(true);
       const selectedVendor = vendors.find((v) => v.id === formData.vendor_id);
@@ -109,6 +142,10 @@ export const ReceiveMobileModal = ({
         vendor_id: formData.vendor_id,
         txn_date: new Date().toISOString().split('T')[0],
         notes: formData.notes.trim(),
+        received_amount: numReceived,
+        paid_amount: numReceived,
+        payment_mode: numReceived > 0 ? (formData.payment_mode || 'CASH') : 'NONE',
+        payment_ref: formData.payment_ref.trim(),
         mobiles: [
           {
             brand: formData.brand.trim(),
@@ -135,6 +172,8 @@ export const ReceiveMobileModal = ({
       setSubmitting(false);
     }
   };
+
+  const showPaymentFields = parseFloat(formData.received_amount) > 0 || formData.payment_status === 'PAID' || formData.payment_status === 'ADVANCE';
 
   return (
     <Modal
@@ -232,7 +271,7 @@ export const ReceiveMobileModal = ({
               <input
                 type="text"
                 required
-                placeholder="e.g. iPhone 13, Galaxy A54, Vivo Y20"
+                placeholder="e.g. iPhone 13, Note 12 Pro"
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                 className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-medium text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
@@ -240,13 +279,10 @@ export const ReceiveMobileModal = ({
             </div>
 
             {/* IMEI Number */}
-            <div className="sm:col-span-2">
+            <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center justify-between">
                 <span>
                   IMEI / Serial Number <span className="text-rose-500">*</span>
-                </span>
-                <span className="text-[10px] text-[var(--spatial-text-muted)] font-mono">
-                  15 Digits recommended
                 </span>
               </label>
               <div className="relative">
@@ -254,12 +290,26 @@ export const ReceiveMobileModal = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. 863291048123456"
+                  placeholder="e.g. 354892091234567"
                   value={formData.imei}
                   onChange={(e) => setFormData({ ...formData, imei: e.target.value.trim() })}
                   className="w-full h-10 pl-9 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-mono font-bold tracking-wider text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
                 />
               </div>
+            </div>
+
+            {/* End Customer Name / Reference */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                End Customer Name <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Rahul Sharma (Vendor's client)"
+                value={formData.customer_name}
+                onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
+              />
             </div>
           </div>
         </div>
@@ -300,23 +350,6 @@ export const ReceiveMobileModal = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {/* Payment Status Dropdown Menu */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
-                Payment Status <span className="text-rose-500">*</span>
-              </label>
-              <SpatialSelect
-                value={formData.payment_status}
-                onChange={(val) => setFormData({ ...formData, payment_status: val })}
-                options={[
-                  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
-                  { value: 'PAID', label: '🟢 Fully Paid' },
-                  { value: 'ADVANCE', label: '🔵 Advance Received' },
-                  { value: 'FREE', label: '⚪ Free / Warranty Rework' },
-                ]}
-              />
-            </div>
-
             {/* Estimated Repair Charge */}
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
@@ -337,7 +370,110 @@ export const ReceiveMobileModal = ({
                 />
               </div>
             </div>
+
+            {/* Payment Input: Advance / Received Amount */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Payment / Advance Received (₹) <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-400">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 500"
+                  value={formData.received_amount}
+                  onChange={(e) => handleReceivedAmountChange(e.target.value)}
+                  className="w-full h-10 pl-7 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-semibold text-emerald-400 placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Payment Status Dropdown Menu */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Payment Status <span className="text-rose-500">*</span>
+              </label>
+              <SpatialSelect
+                value={formData.payment_status}
+                onChange={(val) => setFormData({ ...formData, payment_status: val })}
+                options={[
+                  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
+                  { value: 'PAID', label: '🟢 Fully Paid' },
+                  { value: 'ADVANCE', label: '🔵 Advance Received' },
+                  { value: 'FREE', label: '⚪ Free / Warranty Rework' },
+                ]}
+              />
+            </div>
+
+            {/* Payment Mode (shown if amount received > 0 or status is PAID/ADVANCE) */}
+            {showPaymentFields ? (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
+                  Payment Mode
+                </label>
+                <SpatialSelect
+                  value={formData.payment_mode}
+                  onChange={(val) => setFormData({ ...formData, payment_mode: val })}
+                  options={[
+                    { value: 'CASH', label: '💵 Cash' },
+                    { value: 'UPI', label: '📱 UPI / QR Code' },
+                    { value: 'CARD', label: '💳 Debit / Credit Card' },
+                    { value: 'BANK_TRANSFER', label: '🏦 Bank Transfer / NEFT' },
+                    { value: 'OTHER', label: '📑 Other' },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                  Additional Notes <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Urgent repair requested"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            )}
           </div>
+
+          {/* Optional Payment Ref & Notes if showPaymentFields is true */}
+          {showPaymentFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                  <FileText className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                  Payment Reference / UTR <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. UPI Ref / Cash receipt / Cheque No"
+                  value={formData.payment_ref}
+                  onChange={(e) => setFormData({ ...formData, payment_ref: e.target.value })}
+                  className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                  Additional Notes <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Urgent repair requested"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Actions */}
@@ -361,4 +497,3 @@ export const ReceiveMobileModal = ({
 };
 
 export default ReceiveMobileModal;
-

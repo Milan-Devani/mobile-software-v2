@@ -57,6 +57,11 @@ const STATUS_CONFIGS = {
     bg: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
     dot: 'bg-slate-400'
   },
+  RETURNED_UNREPAIRED: {
+    label: 'Returned Unrepaired',
+    bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
+    dot: 'bg-amber-500'
+  },
 
   // Payment Statuses
   PAID: {

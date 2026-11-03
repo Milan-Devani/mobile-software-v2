@@ -414,13 +414,20 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
     }
 
     const isWarranty = Boolean(job.is_warranty_claim || job.warranty_same_issue || job.warranty_free_rework);
+    const getGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) return 'Good Morning';
+      if (hour >= 12 && hour < 17) return 'Good Afternoon';
+      return 'Good Evening';
+    };
+
     const msg = isWarranty
-      ? `*Warranty Service Handover & Invoice - ${shopName}*\n` +
+      ? `${getGreeting()} *Warranty Service Handover & Invoice - ${shopName}*\n` +
         `Dear ${cust.full_name || 'Customer'},\n` +
         `Your warranty rework for ${dev.brand || ''} ${dev.model || ''} (Job #${job.job_number}) is completed and handed over (100% Free Rework - ${currencySymbol}0.00 Balance Due).\n` +
         `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
         `${shopName}, ${shopAddress}. Phone: ${shopPhone}`
-      : `*Service Record & Invoice - ${shopName}*\n` +
+      : `${getGreeting()} *Service Record & Invoice - ${shopName}*\n` +
         `Dear ${cust.full_name || 'Customer'},\n` +
         `Your service record & invoice #${invoice?.invoice_number || job.job_number} is ready.\n` +
         `Device: ${dev.brand || ''} ${dev.model || ''}\n` +

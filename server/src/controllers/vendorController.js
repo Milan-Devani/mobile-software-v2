@@ -240,7 +240,7 @@ export const receiveMobilesFromVendor = async (req, res, next) => {
 
 export const recordVendorJobInward = async (req, res, next) => {
   try {
-    const { vendor_id, txn_date, notes = '', mobiles = [] } = req.body;
+    const { vendor_id, txn_date, notes = '', mobiles = [], received_amount = 0, paid_amount = 0, payment_mode = 'NONE', payment_ref = '' } = req.body;
 
     if (!vendor_id) throw new AppError('Vendor selection is required.', 400, 'VALIDATION_ERROR');
     if (!Array.isArray(mobiles) || mobiles.length === 0) {
@@ -252,6 +252,9 @@ export const recordVendorJobInward = async (req, res, next) => {
       txn_date,
       notes,
       mobiles,
+      received_amount: received_amount || paid_amount || 0,
+      payment_mode,
+      payment_ref,
       created_by: req.user?.full_name || 'Shop Staff',
     });
 

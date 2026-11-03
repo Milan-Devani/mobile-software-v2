@@ -11,8 +11,16 @@ export const SpatialPartsPicker = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -57,12 +65,13 @@ export const SpatialPartsPicker = ({
       };
     } else if (!isOpen) {
       setSearch('');
+      setDebouncedSearch('');
     }
   }, [isOpen]);
 
   const filteredParts = useMemo(() => {
-    if (!search.trim()) return parts;
-    const q = search.toLowerCase();
+    if (!debouncedSearch.trim()) return parts;
+    const q = debouncedSearch.toLowerCase();
     return parts.filter((p) => {
       const matchName = (p.name || '').toLowerCase().includes(q);
       const matchBrand = (p.brand || '').toLowerCase().includes(q);
@@ -70,7 +79,7 @@ export const SpatialPartsPicker = ({
       const matchCompat = (p.model_compatibility || '').toLowerCase().includes(q);
       return matchName || matchBrand || matchSku || matchCompat;
     });
-  }, [parts, search]);
+  }, [parts, debouncedSearch]);
 
   const handleSelect = (part) => {
     onSelect?.(part);
@@ -123,7 +132,7 @@ export const SpatialPartsPicker = ({
           </div>
 
           {/* Parts List */}
-          <div className="max-h-64 overflow-y-auto table-scrollbar space-y-1 pr-0.5">
+          <div className="max-h-[300px] overflow-y-scroll space-y-1 pr-0.5">
             {filteredParts.length === 0 ? (
               <div className="py-6 text-center text-xs text-[var(--spatial-text-muted)]">
                 No matching parts found in inventory

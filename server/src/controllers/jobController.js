@@ -186,7 +186,7 @@ export const updateJob = async (req, res, next) => {
       throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
     }
 
-    if (['DELIVERED', 'CANCELLED'].includes(existing.status)) {
+    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(existing.status)) {
       throw new AppError(`Cannot edit a job with status "${existing.status}".`, 400, 'JOB_LOCKED');
     }
 
@@ -374,7 +374,7 @@ export const saveDiagnosis = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
       throw new AppError(`Cannot update diagnosis for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
     }
 
@@ -431,7 +431,7 @@ export const saveEstimate = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
       throw new AppError(`Cannot create estimate for ${job.status} job.`, 400, 'JOB_LOCKED');
     }
 
@@ -741,7 +741,7 @@ export const saveTests = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
       throw new AppError(`Cannot update tests for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
     }
 
@@ -836,7 +836,7 @@ export const recordPickup = async (req, res, next) => {
     }
 
     // Check payment balance (waived for free warranty rework AND rejected estimate returns, or if staff authorized payment remaining)
-    const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED';
+    const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED' || job.status === 'RETURNED_UNREPAIRED';
     const isFreeWarranty = job.warranty_same_issue || job.warranty_free_rework || (job.is_warranty_claim && (Number(job.balance_due) === 0 || Number(job.total_amount) === 0));
 
     if (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && !allow_payment_remaining) {
@@ -943,7 +943,7 @@ export const reopenJob = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    const allowedStatuses = ['DELIVERED', 'CANCELLED', 'REJECTED'];
+    const allowedStatuses = ['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'];
     if (!allowedStatuses.includes(job.status)) {
       throw new AppError(
         `Cannot reopen job with current status "${job.status}". Only delivered, cancelled, or rejected jobs can be reopened.`,
@@ -954,7 +954,7 @@ export const reopenJob = async (req, res, next) => {
 
     const validTargets = ['DIAGNOSING', 'ESTIMATE_SENT', 'IN_PROGRESS', 'RECEIVED', 'TESTING'];
     const finalTargetStatus = validTargets.includes(target_status) ? target_status : 'DIAGNOSING';
-    const isEstimateRejected = job.approval_status === 'REJECTED';
+    const isEstimateRejected = job.approval_status === 'REJECTED' || job.status === 'RETURNED_UNREPAIRED';
     const isWarrantyClaim = job.status === 'DELIVERED' && !isEstimateRejected;
     const isSameIssue = isWarrantyClaim && (claim_type === 'SAME_ISSUE');
     const reopenCount = (job.reopen_count || 0) + 1;
@@ -1526,6 +1526,7 @@ export const updateJobStatus = async (req, res, next) => {
       'TESTING',
       'READY_FOR_PICKUP',
       'DELIVERED',
+      'RETURNED_UNREPAIRED',
       'CANCELLED',
     ];
 
@@ -1565,6 +1566,15 @@ export const updateJobStatus = async (req, res, next) => {
       jobUpdates.delivered_by_user_id = req.user.id;
       jobUpdates.customer_tested_device = true;
       jobUpdates.customer_acceptance_confirmed = true;
+    } else if (status === 'RETURNED_UNREPAIRED') {
+      jobUpdates.delivered_at = new Date().toISOString();
+      jobUpdates.delivered_by_user_id = req.user.id;
+      jobUpdates.customer_tested_device = true;
+      jobUpdates.customer_acceptance_confirmed = true;
+      jobUpdates.balance_due = 0;
+      if (!job.approval_status || job.approval_status === 'PENDING') {
+        jobUpdates.approval_status = 'REJECTED';
+      }
     } else if (status === 'REJECTED') {
       jobUpdates.approval_status = 'REJECTED';
       jobUpdates.rejection_reason = notes?.trim() || job.rejection_reason || 'Declined by customer';
@@ -1717,6 +1727,74 @@ export const applyDiscount = async (req, res, next) => {
     res.json({
       success: true,
       message: `Discount successfully applied. New total: ₹${newTotal.toFixed(2)}.`,
+      data: { job: updatedJob },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateFinalCost = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { final_cost, notes = '' } = req.body;
+
+    const parsedCost = parseFloat(final_cost);
+    if (isNaN(parsedCost) || parsedCost < 0) {
+      throw new AppError('Final repair cost must be a valid non-negative number.', 400, 'INVALID_COST');
+    }
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const previousTotal = Number(job.total_amount || 0);
+    const paidAmount = Number(job.paid_amount || 0);
+    const newBalance = Math.max(0, parseFloat((parsedCost - paidAmount).toFixed(2)));
+    const paymentStatus = (parsedCost > 0 && newBalance === 0) ? 'PAID' : (paidAmount > 0 ? 'PARTIAL' : 'UNPAID');
+    const diff = parseFloat((parsedCost - previousTotal).toFixed(2));
+
+    await db.jobs.update(id, {
+      total_amount: parsedCost,
+      subtotal: job.subtotal ? parseFloat(((job.subtotal || 0) + diff).toFixed(2)) : parsedCost,
+      balance_due: newBalance,
+      payment_status: paymentStatus,
+    });
+
+    // Update estimate if exists so estimate & invoice match
+    const est = await db.estimates.getByJobId(id);
+    if (est) {
+      await db.estimates.updateDiscount({
+        jobId: id,
+        discount: est.discount || 0,
+        discountType: est.discount_type || 'AMOUNT',
+        discountValue: est.discount_value || 0,
+        taxAmount: est.tax_amount || 0,
+        totalAmount: parsedCost,
+      });
+      if (diff > 0) {
+        est.labor_charge = parseFloat(((est.labor_charge || 0) + diff).toFixed(2));
+        est.subtotal = parseFloat(((est.subtotal || 0) + diff).toFixed(2));
+        est.total_amount = parsedCost;
+      }
+    }
+
+    // Synchronize invoice
+    await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id }).catch(() => {});
+
+    // Log history
+    await db.jobs.updateStatus(
+      id,
+      job.status,
+      'Total Repair Cost Updated',
+      `Final repair cost adjusted from ₹${previousTotal.toFixed(2)} to ₹${parsedCost.toFixed(2)}. Remaining balance: ₹${newBalance.toFixed(2)}.${notes ? ` Notes: ${notes}` : ''}`,
+      req.user.id
+    );
+
+    const updatedJob = await db.jobs.findById(id);
+
+    res.json({
+      success: true,
+      message: `Total repair cost successfully updated to ₹${parsedCost.toFixed(2)}.`,
       data: { job: updatedJob },
     });
   } catch (err) {

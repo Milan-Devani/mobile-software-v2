@@ -575,7 +575,7 @@ export const SameToSameBillPrintable = ({
                       className="py-1.5 px-1 text-center font-semibold text-black whitespace-nowrap"
                       style={{ borderRight: "1px solid #000000" }}
                     >
-                      {item.quantity} {item.unit || "NOS"}
+                      {item.quantity || 1}
                     </td>
 
                     {/* Rate */}

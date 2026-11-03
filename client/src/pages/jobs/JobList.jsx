@@ -433,8 +433,15 @@ export const JobList = () => {
     const trackingUrl = `${window.location.origin}/repair/${directSendJob.job_number}/approval?token=${directSendJob.approval_token || ''}`;
     const downloadPdfLink = `${window.location.origin}/api/invoices/public/${directSendJob.id}/download-pdf`;
 
+    const getGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) return 'Good Morning';
+      if (hour >= 12 && hour < 17) return 'Good Afternoon';
+      return 'Good Evening';
+    };
+
     const text =
-      `*Service Record & Tax Invoice - Mobotech mobile care*\n` +
+      `${getGreeting()} *Service Record & Tax Invoice - Mobotech mobile care*\n` +
       `Dear ${directSendJob.customer?.full_name || 'Customer'},\n` +
       `Your repair invoice #${directSendJob.job_number} is ready.\n\n` +
       `📱 *Device:* ${directSendJob.device?.brand || ''} ${directSendJob.device?.model || ''}\n` +
@@ -570,7 +577,7 @@ export const JobList = () => {
       >
         {loading ? (
           <div className="p-4">
-            <TableSkeleton rows={7} columns={7} showHeader={false} showPagination={false} />
+            <TableSkeleton rows={7} columns={9} showHeader={false} showPagination={false} />
           </div>
         ) : jobs.length === 0 ? (
           <EmptyState
@@ -583,7 +590,7 @@ export const JobList = () => {
         ) : (
           <div className="spatial-tab-pane">
             <div className="overflow-x-auto table-scrollbar w-full pb-2">
-              <table className="w-full text-left text-xs min-w-[1250px]">
+              <table className="w-full text-left text-xs min-w-[1400px]">
                 <thead className="bg-[var(--spatial-bg-card-subtle)] border-b border-[var(--spatial-border)] text-[var(--spatial-text-muted)] uppercase font-medium text-[11px] tracking-wider whitespace-nowrap">
                   <tr>
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
@@ -601,6 +608,8 @@ export const JobList = () => {
                     <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
                     <th className="px-5 py-3 whitespace-nowrap">Complaint / Issue</th>
                     <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Warranty Claim</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Warranty Status</th>
                     <th className="px-5 py-3 text-right whitespace-nowrap">Estimate</th>
                     <th className="px-5 py-3 text-right whitespace-nowrap">Balance</th>
                     <th className="px-5 py-3 whitespace-nowrap">Date</th>
@@ -649,61 +658,69 @@ export const JobList = () => {
                           {job.customer_complaint || '—'}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <div className="flex flex-col gap-1 items-start">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <Badge status={job.status} />
-                              {job.is_warranty_claim && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[9.5px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20 whitespace-nowrap" title={`Warranty Claim #${job.reopen_count || 1}`}>
-                                  Warranty #{job.reopen_count || 1}
-                                </span>
-                              )}
-                            </div>
-                            {/* Pending or Remaining Warranty Days */}
-                            {(() => {
-                              const totalDays = job.warranty_days !== undefined ? Number(job.warranty_days) : 90;
-                              if (job.status === 'DELIVERED') {
-                                if (totalDays <= 0) {
-                                  return (
-                                    <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
-                                      No warranty
-                                    </span>
-                                  );
-                                }
-                                const deliveryDate = new Date(job.delivered_at || job.updated_at);
-                                const elapsed = Math.floor((new Date() - deliveryDate) / (1000 * 60 * 60 * 24));
-                                const remaining = Math.max(0, totalDays - elapsed);
-                                if (remaining > 0) {
-                                  return (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                                      <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
-                                      {remaining}d warranty left
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
-                                    Warranty expired
-                                  </span>
-                                );
-                              }
-                              if (['CANCELLED', 'REJECTED'].includes(job.status)) {
-                                return null;
-                              }
+                          <Badge status={job.status} />
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {job.is_warranty_claim || (job.reopen_count && job.reopen_count > 0) ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap"
+                              title={`Warranty Claim #${job.reopen_count || 1}`}
+                            >
+                              <RotateCcw className="w-3 h-3 text-amber-500" />
+                              Warranty #{job.reopen_count || 1}
+                            </span>
+                          ) : (
+                            <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {(() => {
+                            const totalDays = job.warranty_days !== undefined && job.warranty_days !== null
+                              ? Number(job.warranty_days)
+                              : 0;
+
+                            if (job.status === 'DELIVERED') {
                               if (totalDays <= 0) {
                                 return (
-                                  <span className="text-[10px] text-[var(--spatial-text-muted)] font-normal">
+                                  <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
                                     No warranty
                                   </span>
                                 );
                               }
+                              const deliveryDate = new Date(job.delivered_at || job.updated_at);
+                              const elapsed = Math.floor((new Date() - deliveryDate) / (1000 * 60 * 60 * 24));
+                              const remaining = Math.max(0, totalDays - elapsed);
+                              if (remaining > 0) {
+                                return (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 whitespace-nowrap">
+                                    <ShieldCheck className="w-3 h-3 text-emerald-500 shrink-0" />
+                                    {remaining}d left
+                                  </span>
+                                );
+                              }
                               return (
-                                <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-normal text-rose-600 dark:text-rose-400 bg-rose-500/10 border border-rose-500/20 whitespace-nowrap">
+                                  Expired
+                                </span>
+                              );
+                            }
+
+                            if (['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
+                              return <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>;
+                            }
+
+                            const hasEstimateStage = ['ESTIMATE_SENT', 'APPROVED', 'IN_PROGRESS', 'TESTING', 'READY_FOR_PICKUP'].includes(job.status);
+                            if (totalDays > 0 && hasEstimateStage) {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 font-medium whitespace-nowrap">
                                   <Clock className="w-3 h-3 text-amber-500 shrink-0" />
                                   Pending ({totalDays}d)
                                 </span>
                               );
-                            })()}
-                          </div>
+                            }
+
+                            return <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>;
+                          })()}
                         </td>
                         <td className="px-5 py-3.5 text-right font-medium text-[var(--spatial-text-title)] whitespace-nowrap tabular-nums">
                           ₹{Number(job.total_amount || 0).toLocaleString()}

@@ -1,13 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
+import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
 
 /**
  * Vendor Repository Helper Module
- * Provides unified data access for Vendors, Transactions, Mobiles, Ledger, Payments, and Reports.
+ * Provides unified, direct Supabase PostgreSQL data access for Vendors, Transactions,
+ * Mobiles, Ledger, Payments, and Reports, with automatic fallback to local memory
+ * when Supabase is unconfigured or offline.
  */
 
 export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, getRecycleBin = null, ensureFreshSync = null) => {
   const { safeInsert, safeUpdate, safeDelete, safeUpsert } = supabaseHelpers;
-  // Ensure vendor collections exist in in-memory Supabase mirror
+
+  // Ensure vendor collections exist in in-memory Supabase mirror for fallback
   const ensureCollections = () => {
     const db = getLocalDb();
     if (!db) return;
@@ -21,9 +25,27 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
   // Next Code & Sequence Generators
   const generateNextVendorCode = async () => {
+    const prefix = 'VND-';
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase
+          .from('vendors')
+          .select('vendor_code')
+          .order('created_at', { ascending: false })
+          .limit(100);
+        let highestSeq = 0;
+        for (const v of (data || [])) {
+          if (v.vendor_code && v.vendor_code.startsWith(prefix)) {
+            const num = parseInt(v.vendor_code.replace(prefix, ''), 10) || 0;
+            if (num > highestSeq) highestSeq = num;
+          }
+        }
+        return `${prefix}${String(highestSeq + 1).padStart(3, '0')}`;
+      } catch (_) {}
+    }
     ensureCollections();
     const db = getLocalDb();
-    const prefix = 'VND-';
     let highestSeq = 0;
     for (const v of (db?.vendors || [])) {
       if (v.vendor_code && v.vendor_code.startsWith(prefix)) {
@@ -35,8 +57,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
   };
 
   const generateNextVendorTxnNumber = async (type = 'SEND_TO_VENDOR') => {
-    ensureCollections();
-    const db = getLocalDb();
     const year = new Date().getFullYear();
     let code = 'OUT';
     if (type === 'RECEIVE_FROM_VENDOR') code = 'IN';
@@ -44,8 +64,30 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     else if (type === 'VENDOR_JOB_RETURN') code = 'RET';
 
     const prefix = `VND-${code}-${year}-`;
-    let highestSeq = 0;
 
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase
+          .from('vendor_transactions')
+          .select('txn_number')
+          .like('txn_number', `${prefix}%`)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        let highestSeq = 0;
+        for (const t of (data || [])) {
+          if (t.txn_number && t.txn_number.startsWith(prefix)) {
+            const num = parseInt(t.txn_number.replace(prefix, ''), 10) || 0;
+            if (num > highestSeq) highestSeq = num;
+          }
+        }
+        return `${prefix}${String(highestSeq + 1).padStart(4, '0')}`;
+      } catch (_) {}
+    }
+
+    ensureCollections();
+    const db = getLocalDb();
+    let highestSeq = 0;
     for (const t of (db?.vendor_transactions || [])) {
       if (t.txn_number && t.txn_number.startsWith(prefix)) {
         const num = parseInt(t.txn_number.replace(prefix, ''), 10) || 0;
@@ -56,12 +98,32 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
   };
 
   const generateNextVendorVoucherNumber = async () => {
-    ensureCollections();
-    const db = getLocalDb();
     const year = new Date().getFullYear();
     const prefix = `VND-PAY-${year}-`;
-    let highestSeq = 0;
 
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase
+          .from('vendor_payments')
+          .select('voucher_no')
+          .like('voucher_no', `${prefix}%`)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        let highestSeq = 0;
+        for (const p of (data || [])) {
+          if (p.voucher_no && p.voucher_no.startsWith(prefix)) {
+            const num = parseInt(p.voucher_no.replace(prefix, ''), 10) || 0;
+            if (num > highestSeq) highestSeq = num;
+          }
+        }
+        return `${prefix}${String(highestSeq + 1).padStart(4, '0')}`;
+      } catch (_) {}
+    }
+
+    ensureCollections();
+    const db = getLocalDb();
+    let highestSeq = 0;
     for (const p of (db?.vendor_payments || [])) {
       if (p.voucher_no && p.voucher_no.startsWith(prefix)) {
         const num = parseInt(p.voucher_no.replace(prefix, ''), 10) || 0;
@@ -72,7 +134,24 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
   };
 
   // Balance calculation helper
-  const calculateVendorBalance = (vendorId) => {
+  const calculateVendorBalance = async (vendorId) => {
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabase();
+        const { data } = await supabase
+          .from('vendor_ledger')
+          .select('credit, debit')
+          .eq('vendor_id', vendorId);
+        let balance = 0;
+        (data || []).forEach((e) => {
+          const credit = parseFloat(e.credit) || 0;
+          const debit = parseFloat(e.debit) || 0;
+          balance += (credit - debit);
+        });
+        return Math.round(balance * 100) / 100;
+      } catch (_) {}
+    }
+
     const db = getLocalDb();
     const entries = (db?.vendor_ledger || []).filter((l) => l.vendor_id === vendorId);
     let balance = 0;
@@ -84,91 +163,34 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     return Math.round(balance * 100) / 100;
   };
 
-  // -------------------------------------------------------------
-  // PERSISTENT BLACKLIST GUARDS & CASCADING DELETION HELPERS
-  // Prevents deleted records from resurrecting when Supabase sync runs
-  // -------------------------------------------------------------
-  const addToDeletedVendorBlacklist = async (vendorIds = []) => {
-    if (!Array.isArray(vendorIds) || vendorIds.length === 0) return;
-    const db = getLocalDb();
-    if (!db) return;
-    db.settings = db.settings || [];
-    let setting = db.settings.find((s) => s.key === 'deleted_vendor_ids');
-    const existing = Array.isArray(setting?.value) ? setting.value : [];
-    const updated = Array.from(new Set([...existing, ...vendorIds]));
-    if (setting) {
-      setting.value = updated;
-      setting.updated_at = new Date().toISOString();
-    } else {
-      setting = {
-        key: 'deleted_vendor_ids',
-        value: updated,
-        description: 'Blacklist of deleted vendor IDs to prevent resurrection on sync',
-        updated_at: new Date().toISOString(),
-      };
-      db.settings.push(setting);
-    }
-    saveLocalDb();
-    if (safeUpsert) {
-      await safeUpsert('settings', setting, 'key');
-    }
-  };
-
-  const removeFromDeletedVendorBlacklist = async (vendorId) => {
-    if (!vendorId) return;
-    const db = getLocalDb();
-    if (!db) return;
-    db.settings = db.settings || [];
-    let setting = db.settings.find((s) => s.key === 'deleted_vendor_ids');
-    if (setting && Array.isArray(setting.value)) {
-      setting.value = setting.value.filter((id) => id !== vendorId);
-      setting.updated_at = new Date().toISOString();
-      saveLocalDb();
-      if (safeUpsert) {
-        await safeUpsert('settings', setting, 'key');
-      }
-    }
-  };
-
-  const addToDeletedMobileBlacklist = async (mobileIds = []) => {
-    if (!Array.isArray(mobileIds) || mobileIds.length === 0) return;
-    const db = getLocalDb();
-    if (!db) return;
-    db.settings = db.settings || [];
-    let setting = db.settings.find((s) => s.key === 'deleted_vendor_mobile_ids');
-    const existing = Array.isArray(setting?.value) ? setting.value : [];
-    const updated = Array.from(new Set([...existing, ...mobileIds]));
-    if (setting) {
-      setting.value = updated;
-      setting.updated_at = new Date().toISOString();
-    } else {
-      setting = {
-        key: 'deleted_vendor_mobile_ids',
-        value: updated,
-        description: 'Blacklist of deleted vendor mobile IDs to prevent resurrection on sync',
-        updated_at: new Date().toISOString(),
-      };
-      db.settings.push(setting);
-    }
-    saveLocalDb();
-    if (safeUpsert) {
-      await safeUpsert('settings', setting, 'key');
-    }
-  };
-
+  // Cascading Deletion
   const performCascadingVendorDelete = async (ids = [], deletedBy = 'Staff', force = true) => {
-    ensureCollections();
-    const db = getLocalDb();
     if (!Array.isArray(ids) || ids.length === 0) return 0;
-
     const vendorIdSet = new Set(ids);
-    const vendorsToDelete = (db.vendors || []).filter((v) => vendorIdSet.has(v.id));
-    if (vendorsToDelete.length === 0) return 0;
+    const db = getLocalDb();
 
-    // Find all mobiles for these vendors
-    const associatedMobiles = (db.vendor_mobiles || []).filter((m) => vendorIdSet.has(m.vendor_id));
-    const associatedMobileIds = associatedMobiles.map((m) => m.id);
-    const mobileIdSet = new Set(associatedMobileIds);
+    let vendorsToDelete = [];
+    let associatedMobiles = [];
+    let associatedMobileIds = [];
+
+    if (isSupabaseConfigured()) {
+      try {
+        const supabase = getSupabase();
+        const { data: vData } = await supabase.from('vendors').select('*').in('id', ids);
+        vendorsToDelete = vData || [];
+        const { data: mData } = await supabase.from('vendor_mobiles').select('*').in('vendor_id', ids);
+        associatedMobiles = mData || [];
+        associatedMobileIds = associatedMobiles.map((m) => m.id);
+      } catch (_) {}
+    }
+
+    if (vendorsToDelete.length === 0 && db) {
+      vendorsToDelete = (db.vendors || []).filter((v) => vendorIdSet.has(v.id));
+      associatedMobiles = (db.vendor_mobiles || []).filter((m) => vendorIdSet.has(m.vendor_id));
+      associatedMobileIds = associatedMobiles.map((m) => m.id);
+    }
+
+    if (vendorsToDelete.length === 0) return 0;
 
     // Active mobiles check if !force
     const activeMobiles = associatedMobiles.filter(
@@ -183,15 +205,12 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       throw err;
     }
 
-    // Archive into Recycle Bin
+    // 1. Archive into Recycle Bin
     try {
       const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
       if (recycleBin && typeof recycleBin.add === 'function') {
         for (const v of vendorsToDelete) {
           const linkedMobiles = associatedMobiles.filter((m) => m.vendor_id === v.id);
-          const linkedLedger = (db.vendor_ledger || []).filter((l) => l.vendor_id === v.id);
-          const linkedPayments = (db.vendor_payments || []).filter((p) => p.vendor_id === v.id);
-          const linkedTxns = (db.vendor_transactions || []).filter((t) => t.vendor_id === v.id);
           await recycleBin.add({
             entity_type: 'vendor',
             original_id: v.id,
@@ -200,9 +219,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             data: {
               vendor: { ...v },
               mobiles: linkedMobiles,
-              ledger: linkedLedger,
-              payments: linkedPayments,
-              transactions: linkedTxns,
             },
             deleted_by: deletedBy,
           });
@@ -212,23 +228,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       console.warn('Recycle bin vendor archive error:', recycleErr);
     }
 
-    // 1. Clean in-memory collections
-    db.vendor_status_history = (db.vendor_status_history || []).filter((h) => !mobileIdSet.has(h.vendor_mobile_id));
-    db.vendor_mobiles = (db.vendor_mobiles || []).filter((m) => !vendorIdSet.has(m.vendor_id));
-    db.vendor_ledger = (db.vendor_ledger || []).filter((l) => !vendorIdSet.has(l.vendor_id));
-    db.vendor_payments = (db.vendor_payments || []).filter((p) => !vendorIdSet.has(p.vendor_id));
-    db.vendor_transactions = (db.vendor_transactions || []).filter((t) => !vendorIdSet.has(t.vendor_id));
-    db.vendors = (db.vendors || []).filter((v) => !vendorIdSet.has(v.id));
-
-    // 2. Add to persistent blacklist in db.settings (and sync to Supabase settings)
-    await addToDeletedVendorBlacklist(ids);
-    if (associatedMobileIds.length > 0) {
-      await addToDeletedMobileBlacklist(associatedMobileIds);
-    }
-
-    saveLocalDb();
-
-    // 3. Cascading delete in Supabase PostgreSQL in exact foreign-key order
+    // 2. Cascading delete directly in Supabase in exact foreign-key order
     if (safeDelete) {
       try {
         if (associatedMobileIds.length > 0) {
@@ -244,6 +244,18 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       }
     }
 
+    // 3. Mirror deletion in localDb memory
+    if (db) {
+      const mobileIdSet = new Set(associatedMobileIds);
+      db.vendor_status_history = (db.vendor_status_history || []).filter((h) => !mobileIdSet.has(h.vendor_mobile_id));
+      db.vendor_mobiles = (db.vendor_mobiles || []).filter((m) => !vendorIdSet.has(m.vendor_id));
+      db.vendor_ledger = (db.vendor_ledger || []).filter((l) => !vendorIdSet.has(l.vendor_id));
+      db.vendor_payments = (db.vendor_payments || []).filter((p) => !vendorIdSet.has(p.vendor_id));
+      db.vendor_transactions = (db.vendor_transactions || []).filter((t) => !vendorIdSet.has(t.vendor_id));
+      db.vendors = (db.vendors || []).filter((v) => !vendorIdSet.has(v.id));
+      saveLocalDb();
+    }
+
     return vendorsToDelete.length;
   };
 
@@ -254,17 +266,108 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     // -------------------------------------------------------------
     vendors: {
       list: async ({ search = '', status = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0, sortBy = 'created_at', sortDir = 'desc' } = {}) => {
-        if (ensureFreshSync) {
-          try { await ensureFreshSync(); } catch (_) {}
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            let query = supabase.from('vendors').select('*', { count: 'exact' });
+
+            if (status && status !== 'ALL') {
+              query = query.eq('status', status);
+            }
+            if (startDate) {
+              query = query.gte('created_at', startDate.length === 10 ? `${startDate}T00:00:00.000Z` : startDate);
+            }
+            if (endDate) {
+              query = query.lte('created_at', endDate.length === 10 ? `${endDate}T23:59:59.999Z` : endDate);
+            }
+            if (search) {
+              const q = search.trim();
+              query = query.or(
+                `name.ilike.%${q}%,shop_name.ilike.%${q}%,mobile.ilike.%${q}%,whatsapp.ilike.%${q}%,email.ilike.%${q}%,specialization.ilike.%${q}%,vendor_code.ilike.%${q}%,gst_number.ilike.%${q}%,address.ilike.%${q}%`
+              );
+            }
+
+            const isAsc = sortDir === 'asc';
+            const orderCol = ['name', 'created_at', 'status', 'vendor_code'].includes(sortBy) ? sortBy : 'created_at';
+            query = query.order(orderCol, { ascending: isAsc }).range(offset, offset + limit - 1);
+
+            const { data: vendorRows, count, error } = await query;
+            if (error) throw error;
+
+            const vendors = vendorRows || [];
+            if (vendors.length === 0) {
+              return { vendors: [], total: count || 0 };
+            }
+
+            const vendorIds = vendors.map((v) => v.id);
+
+            // Fetch live mobile counts for these vendors in batch
+            const { data: mobileRows } = await supabase
+              .from('vendor_mobiles')
+              .select('id, vendor_id, flow_type, current_status')
+              .in('vendor_id', vendorIds);
+
+            // Fetch live ledger entries for these vendors in batch
+            const { data: ledgerRows } = await supabase
+              .from('vendor_ledger')
+              .select('vendor_id, debit, credit')
+              .in('vendor_id', vendorIds);
+
+            const mobilesByVendor = {};
+            (mobileRows || []).forEach((m) => {
+              mobilesByVendor[m.vendor_id] = mobilesByVendor[m.vendor_id] || [];
+              mobilesByVendor[m.vendor_id].push(m);
+            });
+
+            const balancesByVendor = {};
+            (ledgerRows || []).forEach((l) => {
+              const cr = parseFloat(l.credit) || 0;
+              const db = parseFloat(l.debit) || 0;
+              balancesByVendor[l.vendor_id] = (balancesByVendor[l.vendor_id] || 0) + (cr - db);
+            });
+
+            const hydrated = vendors.map((v) => {
+              const allMobiles = mobilesByVendor[v.id] || [];
+              const sentMobiles = allMobiles.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
+              const receivedMobiles = sentMobiles.filter((m) => m.current_status === 'RETURNED');
+              const pendingWithVendor = sentMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
+
+              const b2bInwardMobiles = allMobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR');
+              const b2bPendingAtShop = b2bInwardMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
+
+              const liveBalance = balancesByVendor[v.id] !== undefined
+                ? Math.round(balancesByVendor[v.id] * 100) / 100
+                : (parseFloat(v.current_balance) || 0);
+
+              return {
+                ...v,
+                current_balance: liveBalance,
+                total_mobiles_sent: sentMobiles.length,
+                total_mobiles_received: receivedMobiles.length,
+                mobiles_currently_at_vendor: pendingWithVendor.length,
+                total_b2b_inward: b2bInwardMobiles.length,
+                mobiles_currently_at_shop: b2bPendingAtShop.length,
+              };
+            });
+
+            if (sortBy === 'current_balance') {
+              hydrated.sort((a, b) => {
+                const valA = parseFloat(a.current_balance) || 0;
+                const valB = parseFloat(b.current_balance) || 0;
+                return isAsc ? valA - valB : valB - valA;
+              });
+            }
+
+            return { vendors: hydrated, total: count || hydrated.length };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendors.list fallback to local:', err.message);
+          }
         }
+
+        // Fallback to local memory
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendors || [])];
-
-        // Apply deleted blacklist guard
-        const delSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
-        const deletedIds = new Set(Array.isArray(delSetting?.value) ? delSetting.value : []);
-        list = list.filter((v) => !deletedIds.has(v.id));
 
         if (status && status !== 'ALL') {
           list = list.filter((v) => v.status === status);
@@ -296,7 +399,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           );
         }
 
-        // Hydrate live counts and live balance
         const hydrated = list.map((v) => {
           const allMobiles = (db.vendor_mobiles || []).filter((m) => m.vendor_id === v.id);
           const sentMobiles = allMobiles.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
@@ -306,11 +408,14 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           const b2bInwardMobiles = allMobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR');
           const b2bPendingAtShop = b2bInwardMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
 
-          const liveBalance = calculateVendorBalance(v.id);
+          let balance = 0;
+          (db?.vendor_ledger || []).filter((l) => l.vendor_id === v.id).forEach((e) => {
+            balance += ((parseFloat(e.credit) || 0) - (parseFloat(e.debit) || 0));
+          });
 
           return {
             ...v,
-            current_balance: liveBalance,
+            current_balance: Math.round(balance * 100) / 100,
             total_mobiles_sent: sentMobiles.length,
             total_mobiles_received: receivedMobiles.length,
             mobiles_currently_at_vendor: pendingWithVendor.length,
@@ -319,7 +424,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           };
         });
 
-        // Sorting
         hydrated.sort((a, b) => {
           let valA = a[sortBy] ?? '';
           let valB = b[sortBy] ?? '';
@@ -340,12 +444,47 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       },
 
       findById: async (id) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const { data: vendor, error } = await supabase
+              .from('vendors')
+              .select('*')
+              .or(`id.eq.${id},vendor_code.eq.${id}`)
+              .maybeSingle();
+            if (error) throw error;
+            if (!vendor) return null;
+
+            const { data: allMobiles } = await supabase
+              .from('vendor_mobiles')
+              .select('*')
+              .eq('vendor_id', vendor.id);
+
+            const sentMobiles = (allMobiles || []).filter((m) => m.flow_type === 'SENT_TO_VENDOR');
+            const receivedMobiles = sentMobiles.filter((m) => m.current_status === 'RETURNED');
+            const pendingWithVendor = sentMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
+
+            const b2bInwardMobiles = (allMobiles || []).filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR');
+            const b2bPendingAtShop = b2bInwardMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
+
+            const liveBalance = await calculateVendorBalance(vendor.id);
+
+            return {
+              ...vendor,
+              current_balance: liveBalance,
+              total_mobiles_sent: sentMobiles.length,
+              total_mobiles_received: receivedMobiles.length,
+              mobiles_currently_at_vendor: pendingWithVendor.length,
+              total_b2b_inward: b2bInwardMobiles.length,
+              mobiles_currently_at_shop: b2bPendingAtShop.length,
+            };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendors.findById fallback to local:', err.message);
+          }
+        }
+
         ensureCollections();
         const db = getLocalDb();
-        const delSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
-        const deletedIds = new Set(Array.isArray(delSetting?.value) ? delSetting.value : []);
-        if (deletedIds.has(id)) return null;
-
         const vendor = (db.vendors || []).find((v) => v.id === id || v.vendor_code === id);
         if (!vendor) return null;
 
@@ -357,11 +496,14 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         const b2bInwardMobiles = allMobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR');
         const b2bPendingAtShop = b2bInwardMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status));
 
-        const liveBalance = calculateVendorBalance(vendor.id);
+        let balance = 0;
+        (db?.vendor_ledger || []).filter((l) => l.vendor_id === vendor.id).forEach((e) => {
+          balance += ((parseFloat(e.credit) || 0) - (parseFloat(e.debit) || 0));
+        });
 
         return {
           ...vendor,
-          current_balance: liveBalance,
+          current_balance: Math.round(balance * 100) / 100,
           total_mobiles_sent: sentMobiles.length,
           total_mobiles_received: receivedMobiles.length,
           mobiles_currently_at_vendor: pendingWithVendor.length,
@@ -395,12 +537,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           updated_at: new Date().toISOString(),
         };
 
-        db.vendors.push(newVendor);
-        await removeFromDeletedVendorBlacklist(newVendor.id);
+        if (db) {
+          db.vendors.push(newVendor);
+        }
 
-        // Record opening balance in ledger if non-zero
+        let opEntry = null;
         if (openingBal !== 0) {
-          db.vendor_ledger.push({
+          opEntry = {
             id: uuidv4(),
             vendor_id: newVendor.id,
             date: new Date().toISOString().split('T')[0],
@@ -416,16 +559,18 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             description: openingBal > 0 ? 'Opening Balance Payable to Vendor' : 'Opening Balance Receivable from Vendor',
             created_by: 'System',
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) {
+            db.vendor_ledger.push(opEntry);
+          }
         }
 
         saveLocalDb();
 
         if (safeInsert) {
           await safeInsert('vendors', newVendor);
-          if (openingBal !== 0) {
-            const opEntry = (db.vendor_ledger || []).find(l => l.vendor_id === newVendor.id && l.reference_no === 'OPN-BAL');
-            if (opEntry) await safeInsert('vendor_ledger', opEntry);
+          if (opEntry) {
+            await safeInsert('vendor_ledger', opEntry);
           }
         }
 
@@ -435,20 +580,29 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       update: async (id, updates) => {
         ensureCollections();
         const db = getLocalDb();
-        const idx = (db.vendors || []).findIndex((v) => v.id === id);
-        if (idx === -1) return null;
+        let updatedRecord = null;
 
-        const existing = db.vendors[idx];
-        const updated = {
-          ...existing,
-          ...updates,
-          updated_at: new Date().toISOString(),
-        };
+        if (db) {
+          const idx = (db.vendors || []).findIndex((v) => v.id === id);
+          if (idx !== -1) {
+            db.vendors[idx] = {
+              ...db.vendors[idx],
+              ...updates,
+              updated_at: new Date().toISOString(),
+            };
+            updatedRecord = db.vendors[idx];
+            saveLocalDb();
+          }
+        }
 
-        db.vendors[idx] = updated;
-        saveLocalDb();
-        if (safeUpdate) await safeUpdate('vendors', id, updates);
-        return updated;
+        if (safeUpdate) {
+          const res = await safeUpdate('vendors', id, updates);
+          if (Array.isArray(res) && res[0]) {
+            updatedRecord = res[0];
+          }
+        }
+
+        return updatedRecord;
       },
 
       delete: async (id, deletedBy = 'Staff', force = false) => {
@@ -461,36 +615,90 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       },
 
       getStats: async () => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const [
+              { data: vendors },
+              { data: mobiles },
+              { data: ledger }
+            ] = await Promise.all([
+              supabase.from('vendors').select('id, current_balance'),
+              supabase.from('vendor_mobiles').select('id, vendor_id, flow_type, current_status'),
+              supabase.from('vendor_ledger').select('vendor_id, debit, credit'),
+            ]);
+
+            const vList = vendors || [];
+            const mList = mobiles || [];
+            const lList = ledger || [];
+
+            const totalVendors = vList.length;
+
+            const sentMobiles = mList.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
+            const totalSent = sentMobiles.length;
+            const totalReceived = sentMobiles.filter((m) => m.current_status === 'RETURNED').length;
+            const currentlyAtVendors = sentMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)).length;
+
+            const pendingRepairs = mList.filter((m) => ['PENDING', 'IN_REPAIR', 'WAITING_PARTS'].includes(m.current_status)).length;
+            const readyForCollection = mList.filter((m) => m.current_status === 'READY_FOR_RETURN' || m.current_status === 'COMPLETED').length;
+
+            const balancesByVendor = {};
+            lList.forEach((e) => {
+              const cr = parseFloat(e.credit) || 0;
+              const db = parseFloat(e.debit) || 0;
+              balancesByVendor[e.vendor_id] = (balancesByVendor[e.vendor_id] || 0) + (cr - db);
+            });
+
+            let totalPayable = 0;
+            let totalReceivable = 0;
+
+            vList.forEach((v) => {
+              const bal = balancesByVendor[v.id] !== undefined
+                ? Math.round(balancesByVendor[v.id] * 100) / 100
+                : (parseFloat(v.current_balance) || 0);
+              if (bal > 0) totalPayable += bal;
+              if (bal < 0) totalReceivable += Math.abs(bal);
+            });
+
+            return {
+              total_vendors: totalVendors,
+              total_mobiles_sent: totalSent,
+              total_mobiles_received: totalReceived,
+              mobiles_currently_at_vendors: currentlyAtVendors,
+              pending_repair_mobiles: pendingRepairs,
+              ready_for_collection: readyForCollection,
+              total_vendor_payable: Math.round(totalPayable * 100) / 100,
+              total_vendor_receivable: Math.round(totalReceivable * 100) / 100,
+            };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendors.getStats fallback to local:', err.message);
+          }
+        }
+
         ensureCollections();
         const db = getLocalDb();
-        const delVndSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
-        const deletedVndIds = new Set(Array.isArray(delVndSetting?.value) ? delVndSetting.value : []);
-        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
-        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
-
-        const vendors = (db.vendors || []).filter((v) => !deletedVndIds.has(v.id));
-        const mobiles = (db.vendor_mobiles || []).filter((m) => !deletedMobIds.has(m.id) && !deletedVndIds.has(m.vendor_id));
+        const vendors = db.vendors || [];
+        const mobiles = db.vendor_mobiles || [];
 
         const totalVendors = vendors.length;
-
-        // Sent Mobiles (Outward)
         const sentMobiles = mobiles.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
         const totalSent = sentMobiles.length;
         const totalReceived = sentMobiles.filter((m) => m.current_status === 'RETURNED').length;
         const currentlyAtVendors = sentMobiles.filter((m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)).length;
 
-        // Status Counts
         const pendingRepairs = mobiles.filter((m) => ['PENDING', 'IN_REPAIR', 'WAITING_PARTS'].includes(m.current_status)).length;
         const readyForCollection = mobiles.filter((m) => m.current_status === 'READY_FOR_RETURN' || m.current_status === 'COMPLETED').length;
 
-        // Financial Balances
         let totalPayable = 0;
         let totalReceivable = 0;
 
         vendors.forEach((v) => {
-          const bal = calculateVendorBalance(v.id);
-          if (bal > 0) totalPayable += bal;
-          if (bal < 0) totalReceivable += Math.abs(bal);
+          let balance = 0;
+          (db?.vendor_ledger || []).filter((l) => l.vendor_id === v.id).forEach((e) => {
+            balance += ((parseFloat(e.credit) || 0) - (parseFloat(e.debit) || 0));
+          });
+          if (balance > 0) totalPayable += balance;
+          if (balance < 0) totalReceivable += Math.abs(balance);
         });
 
         return {
@@ -521,9 +729,82 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         sortBy = 'created_at',
         sortDir = 'desc',
       } = {}) => {
-        if (ensureFreshSync) {
-          try { await ensureFreshSync(); } catch (_) {}
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            let query = supabase.from('vendor_transactions').select('*', { count: 'exact' });
+
+            if (vendorId) {
+              query = query.eq('vendor_id', vendorId);
+            }
+            if (txnType && txnType !== 'ALL') {
+              query = query.eq('txn_type', txnType);
+            }
+            if (startDate) {
+              query = query.gte('txn_date', startDate);
+            }
+            if (endDate) {
+              query = query.lte('txn_date', endDate);
+            }
+            if (search) {
+              const q = search.trim();
+              query = query.or(`txn_number.ilike.%${q}%,notes.ilike.%${q}%`);
+            }
+
+            const isAsc = sortDir === 'asc';
+            const orderCol = ['created_at', 'txn_date', 'total_cost', 'total_mobiles'].includes(sortBy)
+              ? sortBy
+              : 'created_at';
+            query = query.order(orderCol, { ascending: isAsc }).range(offset, offset + limit - 1);
+
+            const { data: txns, count, error } = await query;
+            if (error) throw error;
+
+            const tList = txns || [];
+            if (tList.length === 0) {
+              return { transactions: [], total: count || 0 };
+            }
+
+            const vendorIds = Array.from(new Set(tList.map((t) => t.vendor_id).filter(Boolean)));
+            const txnIds = tList.map((t) => t.id);
+
+            const [
+              { data: vendors },
+              { data: mobiles }
+            ] = await Promise.all([
+              vendorIds.length > 0 ? supabase.from('vendors').select('*').in('id', vendorIds) : Promise.resolve({ data: [] }),
+              supabase.from('vendor_mobiles').select('*').or(`send_txn_id.in.(${txnIds.join(',')}),return_txn_id.in.(${txnIds.join(',')})`),
+            ]);
+
+            const vendorMap = new Map((vendors || []).map((v) => [v.id, v]));
+            const mobilesByTxn = {};
+            (mobiles || []).forEach((m) => {
+              if (m.send_txn_id) {
+                mobilesByTxn[m.send_txn_id] = mobilesByTxn[m.send_txn_id] || [];
+                mobilesByTxn[m.send_txn_id].push(m);
+              }
+              if (m.return_txn_id && m.return_txn_id !== m.send_txn_id) {
+                mobilesByTxn[m.return_txn_id] = mobilesByTxn[m.return_txn_id] || [];
+                mobilesByTxn[m.return_txn_id].push(m);
+              }
+            });
+
+            const hydrated = tList.map((t) => {
+              const mob = mobilesByTxn[t.id] || [];
+              return {
+                ...t,
+                vendor: vendorMap.get(t.vendor_id) || null,
+                mobiles: mob,
+                total_mobiles: mob.length || t.total_mobiles || 0,
+              };
+            });
+
+            return { transactions: hydrated, total: count || hydrated.length };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_transactions.list fallback to local:', err.message);
+          }
         }
+
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendor_transactions || [])];
@@ -556,7 +837,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             const numMatch = t.txn_number && t.txn_number.toLowerCase().includes(q);
             const notesMatch = t.notes && t.notes.toLowerCase().includes(q);
 
-            // Also search child mobiles
             const mobMatch = (db.vendor_mobiles || []).some(
               (m) =>
                 (m.send_txn_id === t.id || m.return_txn_id === t.id) &&
@@ -570,7 +850,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           });
         }
 
-        // Hydrate vendor and child mobiles
         const hydrated = list.map((t) => {
           const vendor = (db.vendors || []).find((v) => v.id === t.vendor_id) || null;
           const mobiles = (db.vendor_mobiles || []).filter(
@@ -584,7 +863,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           };
         });
 
-        // Sorting
         hydrated.sort((a, b) => {
           let valA = a[sortBy] ?? '';
           let valB = b[sortBy] ?? '';
@@ -605,6 +883,35 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       },
 
       findById: async (id) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const { data: txn, error } = await supabase
+              .from('vendor_transactions')
+              .select('*')
+              .or(`id.eq.${id},txn_number.eq.${id}`)
+              .maybeSingle();
+            if (error) throw error;
+            if (!txn) return null;
+
+            const [
+              { data: vendor },
+              { data: mobiles }
+            ] = await Promise.all([
+              txn.vendor_id ? supabase.from('vendors').select('*').eq('id', txn.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
+              supabase.from('vendor_mobiles').select('*').or(`send_txn_id.eq.${txn.id},return_txn_id.eq.${txn.id}`),
+            ]);
+
+            return {
+              ...txn,
+              vendor: vendor || null,
+              mobiles: mobiles || [],
+            };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_transactions.findById fallback to local:', err.message);
+          }
+        }
+
         ensureCollections();
         const db = getLocalDb();
         const txn = (db.vendor_transactions || []).find((t) => t.id === id || t.txn_number === id);
@@ -636,7 +943,16 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         ensureCollections();
         const db = getLocalDb();
 
-        const vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        let vendor = null;
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendors').select('*').eq('id', vendor_id).maybeSingle();
+            vendor = data;
+          } catch (_) {}
+        }
+        if (!vendor && db) {
+          vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        }
         if (!vendor) throw new Error('Selected vendor not found.');
 
         if (!Array.isArray(mobiles) || mobiles.length === 0) {
@@ -649,6 +965,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         let totalEstCost = 0;
         const createdMobiles = [];
+        const historyRecords = [];
 
         for (const mob of mobiles) {
           const estCost = parseFloat(mob.estimated_cost) || 0;
@@ -682,11 +999,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             updated_at: new Date().toISOString(),
           };
 
-          db.vendor_mobiles.push(mobileRecord);
           createdMobiles.push(mobileRecord);
+          if (db) db.vendor_mobiles.push(mobileRecord);
 
-          // Initial status history log
-          db.vendor_status_history.push({
+          const hist = {
             id: uuidv4(),
             vendor_mobile_id: mobileId,
             previous_status: null,
@@ -694,7 +1010,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             changed_by: created_by,
             remarks: `Mobile sent to vendor ${vendor.name} (${vendor.shop_name || 'Lab'}). Problem: ${mobileRecord.repair_problem}`,
             created_at: new Date().toISOString(),
-          });
+          };
+          historyRecords.push(hist);
+          if (db) db.vendor_status_history.push(hist);
         }
 
         const numPaid = parseFloat(paid_amount) || 0;
@@ -717,12 +1035,14 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           updated_at: new Date().toISOString(),
         };
 
-        db.vendor_transactions.push(masterTxn);
+        if (db) db.vendor_transactions.push(masterTxn);
 
-        // Record immediate advance payment if any
+        let paymentRecord = null;
+        let ledgerRecord = null;
+
         if (numPaid > 0) {
           const voucherNo = await generateNextVendorVoucherNumber();
-          db.vendor_payments.push({
+          paymentRecord = {
             id: uuidv4(),
             voucher_no: voucherNo,
             vendor_id: vendor.id,
@@ -734,9 +1054,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             notes: `Advance payment for batch ${txnNumber}`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_payments.push(paymentRecord);
 
-          db.vendor_ledger.push({
+          const currentBal = await calculateVendorBalance(vendor.id);
+          ledgerRecord = {
             id: uuidv4(),
             vendor_id: vendor.id,
             date: dateStr,
@@ -746,13 +1068,14 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             debit: numPaid,
             credit: 0,
             amount: numPaid,
-            running_balance: calculateVendorBalance(vendor.id) - numPaid,
+            running_balance: currentBal - numPaid,
             payment_mode: payment_mode || 'CASH',
             reference_no: payment_ref || txnNumber,
-            description: `Advance payment on Send (${txnNumber})`,
+            description: `Advance payment to vendor (${txnNumber})`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_ledger.push(ledgerRecord);
         }
 
         saveLocalDb();
@@ -760,14 +1083,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         if (safeInsert) {
           await safeInsert('vendor_transactions', masterTxn);
           await safeInsert('vendor_mobiles', createdMobiles);
-          const historyForTxn = (db.vendor_status_history || []).filter(h => createdMobiles.some(m => m.id === h.vendor_mobile_id));
-          if (historyForTxn.length > 0) await safeInsert('vendor_status_history', historyForTxn);
-          if (numPaid > 0) {
-            const payEntry = (db.vendor_payments || []).find(p => p.reference_no === txnNumber || (p.notes && p.notes.includes(txnNumber)));
-            if (payEntry) await safeInsert('vendor_payments', payEntry);
-            const legEntry = (db.vendor_ledger || []).find(l => l.txn_id === txnId);
-            if (legEntry) await safeInsert('vendor_ledger', legEntry);
-          }
+          if (historyRecords.length > 0) await safeInsert('vendor_status_history', historyRecords);
+          if (paymentRecord) await safeInsert('vendor_payments', paymentRecord);
+          if (ledgerRecord) await safeInsert('vendor_ledger', ledgerRecord);
         }
 
         return {
@@ -777,21 +1095,30 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         };
       },
 
-      // Action 2: Receive Mobiles from Vendor (INWARD RETURN with Partial Return support!)
+      // Action 2: Receive Mobiles from Vendor (INWARD / RETURN)
       createReceiveTransaction: async ({
         vendor_id,
         txn_date,
-        received_items = [], // Array of { mobile_id, actual_cost, repair_result, remarks, warranty }
+        notes = '',
+        received_items = [],
         paid_amount = 0,
         payment_mode = 'NONE',
         payment_ref = '',
-        notes = '',
         created_by = 'Shop Owner',
       }) => {
         ensureCollections();
         const db = getLocalDb();
 
-        const vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        let vendor = null;
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendors').select('*').eq('id', vendor_id).maybeSingle();
+            vendor = data;
+          } catch (_) {}
+        }
+        if (!vendor && db) {
+          vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        }
         if (!vendor) throw new Error('Selected vendor not found.');
 
         if (!Array.isArray(received_items) || received_items.length === 0) {
@@ -804,12 +1131,21 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         let totalActualCost = 0;
         const updatedMobiles = [];
+        const historyRecords = [];
 
         for (const item of received_items) {
-          const mobIdx = (db.vendor_mobiles || []).findIndex((m) => m.id === item.mobile_id);
-          if (mobIdx === -1) continue;
+          let existing = null;
+          if (isSupabaseConfigured()) {
+            try {
+              const { data } = await getSupabase().from('vendor_mobiles').select('*').eq('id', item.mobile_id).maybeSingle();
+              existing = data;
+            } catch (_) {}
+          }
+          if (!existing && db) {
+            existing = (db.vendor_mobiles || []).find((m) => m.id === item.mobile_id);
+          }
+          if (!existing) continue;
 
-          const existing = db.vendor_mobiles[mobIdx];
           const cost = parseFloat(item.actual_cost) || 0;
           totalActualCost += cost;
 
@@ -829,11 +1165,14 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             updated_at: new Date().toISOString(),
           };
 
-          db.vendor_mobiles[mobIdx] = updatedMobile;
           updatedMobiles.push(updatedMobile);
 
-          // Status history entry
-          db.vendor_status_history.push({
+          if (db) {
+            const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === item.mobile_id);
+            if (idx !== -1) db.vendor_mobiles[idx] = updatedMobile;
+          }
+
+          const hist = {
             id: uuidv4(),
             vendor_mobile_id: existing.id,
             previous_status: existing.current_status,
@@ -841,7 +1180,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             changed_by: created_by,
             remarks: `Received back from ${vendor.name}. Result: ${result}. Actual Charge: ₹${cost}. ${item.remarks || ''}`.trim(),
             created_at: new Date().toISOString(),
-          });
+          };
+          historyRecords.push(hist);
+          if (db) db.vendor_status_history.push(hist);
         }
 
         const numPaid = parseFloat(paid_amount) || 0;
@@ -864,11 +1205,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           updated_at: new Date().toISOString(),
         };
 
-        db.vendor_transactions.push(masterTxn);
+        if (db) db.vendor_transactions.push(masterTxn);
 
-        // Ledger: Post total repair charge as Credit (we owe the vendor)
+        let repairLedger = null;
         if (totalActualCost > 0) {
-          db.vendor_ledger.push({
+          repairLedger = {
             id: uuidv4(),
             vendor_id: vendor.id,
             date: dateStr,
@@ -878,19 +1219,21 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             debit: 0,
             credit: totalActualCost,
             amount: totalActualCost,
-            running_balance: 0, // Recalculated below
+            running_balance: 0,
             payment_mode: 'NONE',
             reference_no: txnNumber,
             description: `Repair charges for ${updatedMobiles.length} mobile(s) received (${txnNumber})`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_ledger.push(repairLedger);
         }
 
-        // Ledger: Post payment made if any
+        let paymentRecord = null;
+        let paymentLedger = null;
         if (numPaid > 0) {
           const voucherNo = await generateNextVendorVoucherNumber();
-          db.vendor_payments.push({
+          paymentRecord = {
             id: uuidv4(),
             voucher_no: voucherNo,
             vendor_id: vendor.id,
@@ -902,9 +1245,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             notes: `Payment on Receive ${txnNumber}`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_payments.push(paymentRecord);
 
-          db.vendor_ledger.push({
+          paymentLedger = {
             id: uuidv4(),
             vendor_id: vendor.id,
             date: dateStr,
@@ -914,18 +1258,15 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             debit: numPaid,
             credit: 0,
             amount: numPaid,
-            running_balance: 0, // Recalculated below
+            running_balance: 0,
             payment_mode: payment_mode || 'CASH',
             reference_no: payment_ref || txnNumber,
             description: `Payment to vendor on receive (${txnNumber})`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_ledger.push(paymentLedger);
         }
-
-        // Recalculate running balance
-        const updatedBal = calculateVendorBalance(vendor.id);
-        vendor.current_balance = updatedBal;
 
         saveLocalDb();
 
@@ -934,19 +1275,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           for (const mob of updatedMobiles) {
             if (safeUpdate) await safeUpdate('vendor_mobiles', mob.id, mob);
           }
-          const historyForTxn = (db.vendor_status_history || []).filter(h => updatedMobiles.some(m => m.id === h.vendor_mobile_id));
-          if (historyForTxn.length > 0) await safeInsert('vendor_status_history', historyForTxn);
-          if (totalActualCost > 0) {
-            const repairLedger = (db.vendor_ledger || []).find(l => l.txn_id === txnId && l.entry_type === 'REPAIR_CHARGE');
-            if (repairLedger) await safeInsert('vendor_ledger', repairLedger);
-          }
-          if (numPaid > 0) {
-            const payEntry = (db.vendor_payments || []).find(p => p.reference_no === txnNumber || (p.notes && p.notes.includes(txnNumber)));
-            if (payEntry) await safeInsert('vendor_payments', payEntry);
-            const legEntry = (db.vendor_ledger || []).find(l => l.txn_id === txnId && l.entry_type === 'PAYMENT_MADE');
-            if (legEntry) await safeInsert('vendor_ledger', legEntry);
-          }
-          if (safeUpdate) await safeUpdate('vendors', vendor.id, { current_balance: vendor.current_balance });
+          if (historyRecords.length > 0) await safeInsert('vendor_status_history', historyRecords);
+          if (repairLedger) await safeInsert('vendor_ledger', repairLedger);
+          if (paymentRecord) await safeInsert('vendor_payments', paymentRecord);
+          if (paymentLedger) await safeInsert('vendor_ledger', paymentLedger);
+
+          const updatedBal = await calculateVendorBalance(vendor.id);
+          if (safeUpdate) await safeUpdate('vendors', vendor.id, { current_balance: updatedBal });
         }
 
         return {
@@ -962,12 +1297,25 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         txn_date,
         notes = '',
         mobiles = [],
+        received_amount = 0,
+        paid_amount = 0,
+        payment_mode = 'NONE',
+        payment_ref = '',
         created_by = 'Shop Owner',
       }) => {
         ensureCollections();
         const db = getLocalDb();
 
-        const vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        let vendor = null;
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendors').select('*').eq('id', vendor_id).maybeSingle();
+            vendor = data;
+          } catch (_) {}
+        }
+        if (!vendor && db) {
+          vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        }
         if (!vendor) throw new Error('Selected vendor not found.');
 
         if (!Array.isArray(mobiles) || mobiles.length === 0) {
@@ -980,6 +1328,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         let totalEstCost = 0;
         const createdMobiles = [];
+        const historyRecords = [];
 
         for (const mob of mobiles) {
           const estCost = parseFloat(mob.estimated_cost) || 0;
@@ -1013,10 +1362,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             updated_at: new Date().toISOString(),
           };
 
-          db.vendor_mobiles.push(mobileRecord);
           createdMobiles.push(mobileRecord);
+          if (db) db.vendor_mobiles.push(mobileRecord);
 
-          db.vendor_status_history.push({
+          const hist = {
             id: uuidv4(),
             vendor_mobile_id: mobileId,
             previous_status: null,
@@ -1024,8 +1373,12 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             changed_by: created_by,
             remarks: `Received handset from vendor ${vendor.name} for repair at our shop.`,
             created_at: new Date().toISOString(),
-          });
+          };
+          historyRecords.push(hist);
+          if (db) db.vendor_status_history.push(hist);
         }
+
+        const numReceived = parseFloat(received_amount || paid_amount) || 0;
 
         const masterTxn = {
           id: txnId,
@@ -1035,9 +1388,9 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           txn_date: dateStr,
           total_mobiles: mobiles.length,
           total_cost: totalEstCost,
-          paid_amount: 0,
-          payment_mode: 'NONE',
-          payment_ref: '',
+          paid_amount: numReceived,
+          payment_mode: numReceived > 0 ? (payment_mode || 'CASH') : 'NONE',
+          payment_ref: payment_ref || '',
           notes,
           parent_txn_id: null,
           created_by,
@@ -1045,14 +1398,57 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           updated_at: new Date().toISOString(),
         };
 
-        db.vendor_transactions.push(masterTxn);
+        if (db) db.vendor_transactions.push(masterTxn);
+
+        let paymentRecord = null;
+        let ledgerRecord = null;
+
+        if (numReceived > 0) {
+          const voucherNo = await generateNextVendorVoucherNumber();
+          paymentRecord = {
+            id: uuidv4(),
+            voucher_no: voucherNo,
+            vendor_id: vendor.id,
+            payment_type: 'PAYMENT_FROM_VENDOR',
+            date: dateStr,
+            amount: numReceived,
+            payment_mode: payment_mode || 'CASH',
+            reference_no: payment_ref || txnNumber,
+            notes: `Advance payment received from vendor for job inward ${txnNumber}`,
+            created_by,
+            created_at: new Date().toISOString(),
+          };
+          if (db) db.vendor_payments.push(paymentRecord);
+
+          const currentBal = await calculateVendorBalance(vendor.id);
+          ledgerRecord = {
+            id: uuidv4(),
+            vendor_id: vendor.id,
+            date: dateStr,
+            entry_type: 'PAYMENT_RECEIVED',
+            txn_id: txnId,
+            vendor_mobile_id: null,
+            debit: 0,
+            credit: numReceived,
+            amount: numReceived,
+            running_balance: currentBal - numReceived,
+            payment_mode: payment_mode || 'CASH',
+            reference_no: payment_ref || txnNumber,
+            description: `Advance payment received for inward job ${txnNumber}`,
+            created_by,
+            created_at: new Date().toISOString(),
+          };
+          if (db) db.vendor_ledger.push(ledgerRecord);
+        }
+
         saveLocalDb();
 
         if (safeInsert) {
           await safeInsert('vendor_transactions', masterTxn);
           await safeInsert('vendor_mobiles', createdMobiles);
-          const historyForTxn = (db.vendor_status_history || []).filter(h => createdMobiles.some(m => m.id === h.vendor_mobile_id));
-          if (historyForTxn.length > 0) await safeInsert('vendor_status_history', historyForTxn);
+          if (historyRecords.length > 0) await safeInsert('vendor_status_history', historyRecords);
+          if (paymentRecord) await safeInsert('vendor_payments', paymentRecord);
+          if (ledgerRecord) await safeInsert('vendor_ledger', ledgerRecord);
         }
 
         return {
@@ -1066,7 +1462,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       createVendorJobReturn: async ({
         vendor_id,
         txn_date,
-        return_items = [], // Array of { mobile_id, actual_charge, repair_result, remarks }
+        return_items = [],
         received_amount = 0,
         payment_mode = 'NONE',
         payment_ref = '',
@@ -1076,7 +1472,16 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         ensureCollections();
         const db = getLocalDb();
 
-        const vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        let vendor = null;
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendors').select('*').eq('id', vendor_id).maybeSingle();
+            vendor = data;
+          } catch (_) {}
+        }
+        if (!vendor && db) {
+          vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        }
         if (!vendor) throw new Error('Selected vendor not found.');
 
         if (!Array.isArray(return_items) || return_items.length === 0) {
@@ -1089,41 +1494,55 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         let totalCharges = 0;
         const updatedMobiles = [];
+        const historyRecords = [];
 
         for (const item of return_items) {
-          const mobIdx = (db.vendor_mobiles || []).findIndex((m) => m.id === item.mobile_id);
-          if (mobIdx === -1) continue;
+          let existing = null;
+          if (isSupabaseConfigured()) {
+            try {
+              const { data } = await getSupabase().from('vendor_mobiles').select('*').eq('id', item.mobile_id).maybeSingle();
+              existing = data;
+            } catch (_) {}
+          }
+          if (!existing && db) {
+            existing = (db.vendor_mobiles || []).find((m) => m.id === item.mobile_id);
+          }
+          if (!existing) continue;
 
-          const existing = db.vendor_mobiles[mobIdx];
           const charge = parseFloat(item.actual_charge) || 0;
           totalCharges += charge;
 
           const result = item.repair_result || 'REPAIRED';
-          const newStatus = result === 'NOT_REPAIRED' ? 'NOT_REPAIRABLE' : 'RETURNED';
 
           const updatedMobile = {
             ...existing,
             return_txn_id: txnId,
             actual_cost: charge,
             repair_result: result,
-            current_status: newStatus,
+            current_status: 'RETURNED',
             returned_date: dateStr,
             notes: item.remarks ? `${existing.notes || ''} | ${item.remarks}`.trim() : existing.notes,
             updated_at: new Date().toISOString(),
           };
 
-          db.vendor_mobiles[mobIdx] = updatedMobile;
           updatedMobiles.push(updatedMobile);
 
-          db.vendor_status_history.push({
+          if (db) {
+            const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === item.mobile_id);
+            if (idx !== -1) db.vendor_mobiles[idx] = updatedMobile;
+          }
+
+          const hist = {
             id: uuidv4(),
             vendor_mobile_id: existing.id,
             previous_status: existing.current_status,
-            new_status: newStatus,
+            new_status: 'RETURNED',
             changed_by: created_by,
-            remarks: `Returned repaired device to vendor ${vendor.name}. Repair Charge: ₹${charge}. Result: ${result}`,
+            remarks: `Returned device back to partner vendor ${vendor.name}. Repair Result: ${result}. Our Service Charge: ₹${charge}. ${item.remarks || ''}`.trim(),
             created_at: new Date().toISOString(),
-          });
+          };
+          historyRecords.push(hist);
+          if (db) db.vendor_status_history.push(hist);
         }
 
         const numReceived = parseFloat(received_amount) || 0;
@@ -1146,11 +1565,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           updated_at: new Date().toISOString(),
         };
 
-        db.vendor_transactions.push(masterTxn);
+        if (db) db.vendor_transactions.push(masterTxn);
 
-        // Ledger: Post repair charge as Debit (vendor owes us money)
+        let repairLedger = null;
         if (totalCharges > 0) {
-          db.vendor_ledger.push({
+          repairLedger = {
             id: uuidv4(),
             vendor_id: vendor.id,
             date: dateStr,
@@ -1166,13 +1585,15 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             description: `Our repair service charges for ${updatedMobiles.length} device(s) returned (${txnNumber})`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_ledger.push(repairLedger);
         }
 
-        // Ledger: Post payment received from vendor if any
+        let paymentRecord = null;
+        let paymentLedger = null;
         if (numReceived > 0) {
           const voucherNo = await generateNextVendorVoucherNumber();
-          db.vendor_payments.push({
+          paymentRecord = {
             id: uuidv4(),
             voucher_no: voucherNo,
             vendor_id: vendor.id,
@@ -1184,9 +1605,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             notes: `Payment collected from vendor on return ${txnNumber}`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_payments.push(paymentRecord);
 
-          db.vendor_ledger.push({
+          paymentLedger = {
             id: uuidv4(),
             vendor_id: vendor.id,
             date: dateStr,
@@ -1202,11 +1624,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             description: `Payment received from vendor (${txnNumber})`,
             created_by,
             created_at: new Date().toISOString(),
-          });
+          };
+          if (db) db.vendor_ledger.push(paymentLedger);
         }
 
-        // Recalculate balance
-        vendor.current_balance = calculateVendorBalance(vendor.id);
         saveLocalDb();
 
         if (safeInsert) {
@@ -1214,19 +1635,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           for (const mob of updatedMobiles) {
             if (safeUpdate) await safeUpdate('vendor_mobiles', mob.id, mob);
           }
-          const historyForTxn = (db.vendor_status_history || []).filter(h => updatedMobiles.some(m => m.id === h.vendor_mobile_id));
-          if (historyForTxn.length > 0) await safeInsert('vendor_status_history', historyForTxn);
-          if (totalCharges > 0) {
-            const repairLedger = (db.vendor_ledger || []).find(l => l.txn_id === txnId && l.entry_type === 'REPAIR_CHARGE');
-            if (repairLedger) await safeInsert('vendor_ledger', repairLedger);
-          }
-          if (numReceived > 0) {
-            const payEntry = (db.vendor_payments || []).find(p => p.reference_no === txnNumber || (p.notes && p.notes.includes(txnNumber)));
-            if (payEntry) await safeInsert('vendor_payments', payEntry);
-            const legEntry = (db.vendor_ledger || []).find(l => l.txn_id === txnId && l.entry_type === 'PAYMENT_RECEIVED');
-            if (legEntry) await safeInsert('vendor_ledger', legEntry);
-          }
-          if (safeUpdate) await safeUpdate('vendors', vendor.id, { current_balance: vendor.current_balance });
+          if (historyRecords.length > 0) await safeInsert('vendor_status_history', historyRecords);
+          if (repairLedger) await safeInsert('vendor_ledger', repairLedger);
+          if (paymentRecord) await safeInsert('vendor_payments', paymentRecord);
+          if (paymentLedger) await safeInsert('vendor_ledger', paymentLedger);
+
+          const updatedBal = await calculateVendorBalance(vendor.id);
+          if (safeUpdate) await safeUpdate('vendors', vendor.id, { current_balance: updatedBal });
         }
 
         return {
@@ -1255,19 +1670,87 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         sortBy = 'created_at',
         sortDir = 'desc',
       } = {}) => {
-        if (ensureFreshSync) {
-          try { await ensureFreshSync(); } catch (_) {}
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            let query = supabase.from('vendor_mobiles').select('*', { count: 'exact' });
+
+            if (vendorId) {
+              query = query.eq('vendor_id', vendorId);
+            }
+            if (flowType && flowType !== 'ALL') {
+              if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
+                query = query.in('flow_type', ['RECEIVED_FROM_VENDOR', 'VENDOR_JOB_INWARD']);
+              } else {
+                query = query.eq('flow_type', flowType);
+              }
+            }
+            if (status && status !== 'ALL') {
+              query = query.eq('current_status', status);
+            }
+            if (paymentStatus && paymentStatus !== 'ALL') {
+              query = query.eq('payment_status', paymentStatus);
+            }
+            if (imei) {
+              query = query.ilike('imei', `%${imei.trim()}%`);
+            }
+            if (startDate) {
+              query = query.gte('created_at', startDate.length === 10 ? `${startDate}T00:00:00.000Z` : startDate);
+            }
+            if (endDate) {
+              query = query.lte('created_at', endDate.length === 10 ? `${endDate}T23:59:59.999Z` : endDate);
+            }
+            if (search) {
+              const q = search.trim();
+              query = query.or(`brand.ilike.%${q}%,model.ilike.%${q}%,imei.ilike.%${q}%,customer_name.ilike.%${q}%,repair_problem.ilike.%${q}%`);
+            }
+
+            const isAsc = sortDir === 'asc';
+            const orderCol = ['created_at', 'sent_date', 'received_date', 'returned_date', 'model', 'brand'].includes(sortBy)
+              ? sortBy
+              : 'created_at';
+            query = query.order(orderCol, { ascending: isAsc }).range(offset, offset + limit - 1);
+
+            const { data: mobiles, count, error } = await query;
+            if (error) throw error;
+
+            const mList = mobiles || [];
+            if (mList.length === 0) {
+              return { mobiles: [], total: count || 0 };
+            }
+
+            const vendorIds = Array.from(new Set(mList.map((m) => m.vendor_id).filter(Boolean)));
+            const sendTxnIds = Array.from(new Set(mList.map((m) => m.send_txn_id).filter(Boolean)));
+            const returnTxnIds = Array.from(new Set(mList.map((m) => m.return_txn_id).filter(Boolean)));
+            const allTxnIds = Array.from(new Set([...sendTxnIds, ...returnTxnIds]));
+
+            const [
+              { data: vendors },
+              { data: txns }
+            ] = await Promise.all([
+              vendorIds.length > 0 ? supabase.from('vendors').select('*').in('id', vendorIds) : Promise.resolve({ data: [] }),
+              allTxnIds.length > 0 ? supabase.from('vendor_transactions').select('*').in('id', allTxnIds) : Promise.resolve({ data: [] }),
+            ]);
+
+            const vendorMap = new Map((vendors || []).map((v) => [v.id, v]));
+            const txnMap = new Map((txns || []).map((t) => [t.id, t]));
+
+            const hydrated = mList.map((m) => ({
+              ...m,
+              vendor: vendorMap.get(m.vendor_id) || null,
+              send_txn: txnMap.get(m.send_txn_id) || null,
+              return_txn: txnMap.get(m.return_txn_id) || null,
+            }));
+
+            return { mobiles: hydrated, total: count || hydrated.length };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_mobiles.list fallback to local:', err.message);
+          }
         }
+
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendor_mobiles || [])];
-
-        // Filter out deleted mobiles and mobiles belonging to deleted vendors
-        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
-        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
-        const delVndSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_ids');
-        const deletedVndIds = new Set(Array.isArray(delVndSetting?.value) ? delVndSetting.value : []);
-        list = list.filter((m) => !deletedMobIds.has(m.id) && !deletedVndIds.has(m.vendor_id));
 
         if (vendorId) {
           list = list.filter((m) => m.vendor_id === vendorId);
@@ -1326,7 +1809,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           });
         }
 
-        // Hydrate vendor and latest txn
         const hydrated = list.map((m) => {
           const vendor = (db.vendors || []).find((v) => v.id === m.vendor_id) || null;
           const sendTxn = (db.vendor_transactions || []).find((t) => t.id === m.send_txn_id) || null;
@@ -1339,7 +1821,6 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           };
         });
 
-        // Sorting
         hydrated.sort((a, b) => {
           let valA = a[sortBy] ?? '';
           let valB = b[sortBy] ?? '';
@@ -1357,36 +1838,91 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       },
 
       getPendingWithVendor: async (vendorId) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const { data } = await supabase
+              .from('vendor_mobiles')
+              .select('*')
+              .eq('vendor_id', vendorId)
+              .eq('flow_type', 'SENT_TO_VENDOR')
+              .not('current_status', 'in', '("RETURNED","CANCELLED")');
+            return data || [];
+          } catch (_) {}
+        }
+
         ensureCollections();
         const db = getLocalDb();
-        const mobiles = (db.vendor_mobiles || []).filter(
+        return (db.vendor_mobiles || []).filter(
           (m) =>
             m.vendor_id === vendorId &&
             m.flow_type === 'SENT_TO_VENDOR' &&
             !['RETURNED', 'CANCELLED'].includes(m.current_status)
         );
-        return mobiles;
       },
 
       getPendingAtMyShop: async (vendorId) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const { data } = await supabase
+              .from('vendor_mobiles')
+              .select('*')
+              .eq('vendor_id', vendorId)
+              .eq('flow_type', 'RECEIVED_FROM_VENDOR')
+              .not('current_status', 'in', '("RETURNED","CANCELLED")');
+            return data || [];
+          } catch (_) {}
+        }
+
         ensureCollections();
         const db = getLocalDb();
-        const mobiles = (db.vendor_mobiles || []).filter(
+        return (db.vendor_mobiles || []).filter(
           (m) =>
             m.vendor_id === vendorId &&
             m.flow_type === 'RECEIVED_FROM_VENDOR' &&
             !['RETURNED', 'CANCELLED'].includes(m.current_status)
         );
-        return mobiles;
       },
 
       findById: async (id) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const { data: mobile, error } = await supabase
+              .from('vendor_mobiles')
+              .select('*')
+              .eq('id', id)
+              .maybeSingle();
+            if (error) throw error;
+            if (!mobile) return null;
+
+            const [
+              { data: vendor },
+              { data: sendTxn },
+              { data: returnTxn },
+              { data: history }
+            ] = await Promise.all([
+              mobile.vendor_id ? supabase.from('vendors').select('*').eq('id', mobile.vendor_id).maybeSingle() : Promise.resolve({ data: null }),
+              mobile.send_txn_id ? supabase.from('vendor_transactions').select('*').eq('id', mobile.send_txn_id).maybeSingle() : Promise.resolve({ data: null }),
+              mobile.return_txn_id ? supabase.from('vendor_transactions').select('*').eq('id', mobile.return_txn_id).maybeSingle() : Promise.resolve({ data: null }),
+              supabase.from('vendor_status_history').select('*').eq('vendor_mobile_id', mobile.id).order('created_at', { ascending: false })
+            ]);
+
+            return {
+              ...mobile,
+              vendor: vendor || null,
+              send_txn: sendTxn || null,
+              return_txn: returnTxn || null,
+              status_history: history || [],
+            };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_mobiles.findById fallback to local:', err.message);
+          }
+        }
+
         ensureCollections();
         const db = getLocalDb();
-        const delMobSetting = (db.settings || []).find((s) => s.key === 'deleted_vendor_mobile_ids');
-        const deletedMobIds = new Set(Array.isArray(delMobSetting?.value) ? delMobSetting.value : []);
-        if (deletedMobIds.has(id)) return null;
-
         const mobile = (db.vendor_mobiles || []).find((m) => m.id === id);
         if (!mobile) return null;
 
@@ -1409,13 +1945,21 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       updateStatus: async (id, newStatus, changedBy = 'Shop Owner', remarks = '') => {
         ensureCollections();
         const db = getLocalDb();
-        const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === id);
-        if (idx === -1) throw new Error('Mobile record not found.');
+        let existing = null;
 
-        const existing = db.vendor_mobiles[idx];
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendor_mobiles').select('*').eq('id', id).maybeSingle();
+            existing = data;
+          } catch (_) {}
+        }
+        if (!existing && db) {
+          existing = (db.vendor_mobiles || []).find((m) => m.id === id);
+        }
+        if (!existing) throw new Error('Mobile record not found.');
+
         const oldStatus = existing.current_status;
-
-        db.vendor_mobiles[idx] = {
+        const updated = {
           ...existing,
           current_status: newStatus,
           updated_at: new Date().toISOString(),
@@ -1431,8 +1975,12 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           created_at: new Date().toISOString(),
         };
 
-        db.vendor_status_history.push(historyRecord);
-        saveLocalDb();
+        if (db) {
+          const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === id);
+          if (idx !== -1) db.vendor_mobiles[idx] = updated;
+          db.vendor_status_history.push(historyRecord);
+          saveLocalDb();
+        }
 
         if (safeUpdate) {
           await safeUpdate('vendor_mobiles', id, { current_status: newStatus, updated_at: new Date().toISOString() });
@@ -1442,7 +1990,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         }
 
         return {
-          mobile: db.vendor_mobiles[idx],
+          mobile: updated,
           history: historyRecord,
         };
       },
@@ -1450,13 +1998,21 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       updatePaymentStatus: async (id, paymentStatus, changedBy = 'Shop Owner', remarks = '') => {
         ensureCollections();
         const db = getLocalDb();
-        const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === id);
-        if (idx === -1) throw new Error('Mobile record not found.');
+        let existing = null;
 
-        const existing = db.vendor_mobiles[idx];
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendor_mobiles').select('*').eq('id', id).maybeSingle();
+            existing = data;
+          } catch (_) {}
+        }
+        if (!existing && db) {
+          existing = (db.vendor_mobiles || []).find((m) => m.id === id);
+        }
+        if (!existing) throw new Error('Mobile record not found.');
+
         const oldPaymentStatus = existing.payment_status || 'PENDING';
-
-        db.vendor_mobiles[idx] = {
+        const updated = {
           ...existing,
           payment_status: paymentStatus,
           updated_at: new Date().toISOString(),
@@ -1472,8 +2028,12 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           created_at: new Date().toISOString(),
         };
 
-        db.vendor_status_history.push(historyRecord);
-        saveLocalDb();
+        if (db) {
+          const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === id);
+          if (idx !== -1) db.vendor_mobiles[idx] = updated;
+          db.vendor_status_history.push(historyRecord);
+          saveLocalDb();
+        }
 
         if (safeUpdate) {
           await safeUpdate('vendor_mobiles', id, { payment_status: paymentStatus, updated_at: new Date().toISOString() });
@@ -1483,16 +2043,27 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         }
 
         return {
-          mobile: db.vendor_mobiles[idx],
+          mobile: updated,
           history: historyRecord,
         };
       },
 
       bulkDelete: async (ids = [], deletedBy = 'Staff') => {
+        if (!Array.isArray(ids) || ids.length === 0) return 0;
+        const idSet = new Set(ids);
         ensureCollections();
         const db = getLocalDb();
-        const idSet = new Set(ids);
-        const selected = (db.vendor_mobiles || []).filter((mobile) => idSet.has(mobile.id));
+
+        let selected = [];
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendor_mobiles').select('*').in('id', ids);
+            selected = data || [];
+          } catch (_) {}
+        }
+        if (selected.length === 0 && db) {
+          selected = (db.vendor_mobiles || []).filter((mobile) => idSet.has(mobile.id));
+        }
         if (selected.length === 0) return 0;
 
         // Archive into Recycle Bin
@@ -1500,15 +2071,13 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           const recycleBin = typeof getRecycleBin === 'function' ? getRecycleBin() : null;
           if (recycleBin && typeof recycleBin.add === 'function') {
             for (const m of selected) {
-              const vendor = (db.vendors || []).find((v) => v.id === m.vendor_id);
               await recycleBin.add({
                 entity_type: 'vendor_mobile',
                 original_id: m.id,
                 title: `Handset: ${m.brand} ${m.model}`,
-                subtitle: `IMEI: ${m.imei || 'N/A'} • Lab: ${vendor?.name || 'Vendor'} • Flow: ${m.flow_type === 'SENT_TO_VENDOR' ? 'Dispatched' : 'Received Inward'} • Problem: ${m.repair_problem || 'N/A'}`,
+                subtitle: `IMEI: ${m.imei || 'N/A'} • Flow: ${m.flow_type === 'SENT_TO_VENDOR' ? 'Dispatched' : 'Received Inward'} • Problem: ${m.repair_problem || 'N/A'}`,
                 data: {
                   mobile: { ...m },
-                  history: (db.vendor_status_history || []).filter((h) => h.vendor_mobile_id === m.id),
                 },
                 deleted_by: deletedBy,
               });
@@ -1518,25 +2087,28 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           console.warn('Recycle bin vendor mobile archive error:', recycleErr);
         }
 
-        db.vendor_mobiles = (db.vendor_mobiles || []).filter((mobile) => !idSet.has(mobile.id));
-        db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
-        (db.vendor_ledger || []).forEach((l) => {
-          if (idSet.has(l.vendor_mobile_id)) {
-            l.vendor_mobile_id = null;
-          }
-        });
-
-        await addToDeletedMobileBlacklist(ids);
-        saveLocalDb();
-
+        // Delete from Supabase in FK dependency order
         if (safeDelete) {
           try {
-            await safeDelete('vendor_status_history', Array.from(idSet), 'vendor_mobile_id');
-            await safeDelete('vendor_mobiles', Array.from(idSet), 'id');
+            await safeDelete('vendor_status_history', ids, 'vendor_mobile_id');
+            await safeDelete('vendor_mobiles', ids, 'id');
           } catch (sbErr) {
             console.warn('Supabase vendor mobile delete notice:', sbErr.message);
           }
         }
+
+        // Mirror in local memory
+        if (db) {
+          db.vendor_mobiles = (db.vendor_mobiles || []).filter((mobile) => !idSet.has(mobile.id));
+          db.vendor_status_history = (db.vendor_status_history || []).filter((history) => !idSet.has(history.vendor_mobile_id));
+          (db.vendor_ledger || []).forEach((l) => {
+            if (idSet.has(l.vendor_mobile_id)) {
+              l.vendor_mobile_id = null;
+            }
+          });
+          saveLocalDb();
+        }
+
         return selected.length;
       },
     },
@@ -1546,12 +2118,34 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     // -------------------------------------------------------------
     vendor_ledger: {
       getVendorStatement: async (vendorId, { startDate = '', endDate = '' } = {}) => {
-        ensureCollections();
-        const db = getLocalDb();
-        const vendor = (db.vendors || []).find((v) => v.id === vendorId);
-        if (!vendor) throw new Error('Vendor not found.');
+        let vendor = null;
+        let entries = [];
 
-        let entries = (db.vendor_ledger || []).filter((l) => l.vendor_id === vendorId);
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            const [
+              { data: vData },
+              { data: lData }
+            ] = await Promise.all([
+              supabase.from('vendors').select('*').eq('id', vendorId).maybeSingle(),
+              supabase.from('vendor_ledger').select('*').eq('vendor_id', vendorId)
+            ]);
+            vendor = vData;
+            entries = lData || [];
+          } catch (err) {
+            console.warn('⚠️ Supabase getVendorStatement fallback to local:', err.message);
+          }
+        }
+
+        if (!vendor) {
+          ensureCollections();
+          const db = getLocalDb();
+          vendor = (db.vendors || []).find((v) => v.id === vendorId);
+          entries = (db.vendor_ledger || []).filter((l) => l.vendor_id === vendorId);
+        }
+
+        if (!vendor) throw new Error('Vendor not found.');
 
         if (startDate) {
           entries = entries.filter((e) => e.date >= startDate);
@@ -1595,7 +2189,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
     vendor_payments: {
       recordPayment: async ({
         vendor_id,
-        payment_type = 'PAYMENT_TO_VENDOR', // or 'PAYMENT_FROM_VENDOR'
+        payment_type = 'PAYMENT_TO_VENDOR',
         amount,
         payment_mode = 'CASH',
         reference_no = '',
@@ -1606,7 +2200,16 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         ensureCollections();
         const db = getLocalDb();
 
-        const vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        let vendor = null;
+        if (isSupabaseConfigured()) {
+          try {
+            const { data } = await getSupabase().from('vendors').select('*').eq('id', vendor_id).maybeSingle();
+            vendor = data;
+          } catch (_) {}
+        }
+        if (!vendor && db) {
+          vendor = (db.vendors || []).find((v) => v.id === vendor_id);
+        }
         if (!vendor) throw new Error('Vendor not found.');
 
         const numAmount = parseFloat(amount);
@@ -1631,11 +2234,11 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           created_at: new Date().toISOString(),
         };
 
-        db.vendor_payments.push(paymentRecord);
+        if (db) db.vendor_payments.push(paymentRecord);
 
         // Ledger Entry
         const isToVendor = payment_type === 'PAYMENT_TO_VENDOR';
-        db.vendor_ledger.push({
+        const ledgerRecord = {
           id: uuidv4(),
           vendor_id: vendor.id,
           date: dateStr,
@@ -1653,19 +2256,19 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
             : `Payment received from vendor via ${payment_mode} (${voucherNo})`,
           created_by,
           created_at: new Date().toISOString(),
-        });
+        };
 
-        // Recalculate vendor balance
-        vendor.current_balance = calculateVendorBalance(vendor.id);
+        if (db) db.vendor_ledger.push(ledgerRecord);
         saveLocalDb();
 
         if (safeInsert) {
           await safeInsert('vendor_payments', paymentRecord);
-          const ledgerEntry = (db.vendor_ledger || []).find(l => l.reference_no === (reference_no || voucherNo) && l.amount === numAmount);
-          if (ledgerEntry) await safeInsert('vendor_ledger', ledgerEntry);
-        }
-        if (safeUpdate) {
-          await safeUpdate('vendors', vendor.id, { current_balance: vendor.current_balance });
+          await safeInsert('vendor_ledger', ledgerRecord);
+          const updatedBal = await calculateVendorBalance(vendor.id);
+          if (safeUpdate) {
+            await safeUpdate('vendors', vendor.id, { current_balance: updatedBal });
+          }
+          vendor.current_balance = updatedBal;
         }
 
         return {
@@ -1676,6 +2279,36 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
       },
 
       list: async ({ vendorId = '', limit = 50, offset = 0 } = {}) => {
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            let query = supabase.from('vendor_payments').select('*', { count: 'exact' });
+            if (vendorId) {
+              query = query.eq('vendor_id', vendorId);
+            }
+            query = query.order('date', { ascending: false }).order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+
+            const { data: payments, count, error } = await query;
+            if (error) throw error;
+
+            const pList = payments || [];
+            const vendorIds = Array.from(new Set(pList.map((p) => p.vendor_id).filter(Boolean)));
+            const { data: vendors } = vendorIds.length > 0
+              ? await supabase.from('vendors').select('*').in('id', vendorIds)
+              : { data: [] };
+
+            const vendorMap = new Map((vendors || []).map((v) => [v.id, v]));
+            const hydrated = pList.map((p) => ({
+              ...p,
+              vendor: vendorMap.get(p.vendor_id) || null,
+            }));
+
+            return { payments: hydrated, total: count || hydrated.length };
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_payments.list fallback to local:', err.message);
+          }
+        }
+
         ensureCollections();
         const db = getLocalDb();
         let list = [...(db.vendor_payments || [])];
@@ -1711,49 +2344,110 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         status = 'ALL',
         flowType = 'ALL',
       } = {}) => {
-        ensureCollections();
-        const db = getLocalDb();
+        let mobiles = [];
+        let txns = [];
+        let payments = [];
+        let vendors = [];
 
-        let mobiles = [...(db.vendor_mobiles || [])];
-        let txns = [...(db.vendor_transactions || [])];
-        let payments = [...(db.vendor_payments || [])];
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            let mobQuery = supabase.from('vendor_mobiles').select('*');
+            let txnQuery = supabase.from('vendor_transactions').select('*');
+            let payQuery = supabase.from('vendor_payments').select('*');
 
-        if (vendorId) {
-          mobiles = mobiles.filter((m) => m.vendor_id === vendorId);
-          txns = txns.filter((t) => t.vendor_id === vendorId);
-          payments = payments.filter((p) => p.vendor_id === vendorId);
-        }
+            if (vendorId) {
+              mobQuery = mobQuery.eq('vendor_id', vendorId);
+              txnQuery = txnQuery.eq('vendor_id', vendorId);
+              payQuery = payQuery.eq('vendor_id', vendorId);
+            }
+            if (status && status !== 'ALL') {
+              mobQuery = mobQuery.eq('current_status', status);
+            }
+            if (flowType && flowType !== 'ALL') {
+              if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
+                mobQuery = mobQuery.in('flow_type', ['RECEIVED_FROM_VENDOR', 'VENDOR_JOB_INWARD']);
+              } else {
+                mobQuery = mobQuery.eq('flow_type', flowType);
+              }
+            }
+            if (startDate) {
+              mobQuery = mobQuery.gte('created_at', startDate.length === 10 ? `${startDate}T00:00:00.000Z` : startDate);
+              txnQuery = txnQuery.gte('txn_date', startDate);
+              payQuery = payQuery.gte('date', startDate);
+            }
+            if (endDate) {
+              mobQuery = mobQuery.lte('created_at', endDate.length === 10 ? `${endDate}T23:59:59.999Z` : endDate);
+              txnQuery = txnQuery.lte('txn_date', endDate);
+              payQuery = payQuery.lte('date', endDate);
+            }
 
-        if (status && status !== 'ALL') {
-          mobiles = mobiles.filter((m) => m.current_status === status);
-        }
+            const [
+              { data: mData },
+              { data: tData },
+              { data: pData },
+              { data: vData }
+            ] = await Promise.all([
+              mobQuery,
+              txnQuery,
+              payQuery,
+              supabase.from('vendors').select('*')
+            ]);
 
-        if (flowType && flowType !== 'ALL') {
-          if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
-            mobiles = mobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD');
-          } else {
-            mobiles = mobiles.filter((m) => m.flow_type === flowType);
+            mobiles = mData || [];
+            txns = tData || [];
+            payments = pData || [];
+            vendors = vData || [];
+          } catch (err) {
+            console.warn('⚠️ Supabase vendor_reports.getSummary fallback to local:', err.message);
           }
         }
 
-        if (startDate) {
-          mobiles = mobiles.filter((m) => (m.sent_date || m.received_date || m.created_at) >= startDate);
-          txns = txns.filter((t) => (t.txn_date || t.created_at) >= startDate);
-          payments = payments.filter((p) => (p.date || p.created_at) >= startDate);
+        if (mobiles.length === 0 && txns.length === 0 && payments.length === 0) {
+          ensureCollections();
+          const db = getLocalDb();
+          mobiles = [...(db.vendor_mobiles || [])];
+          txns = [...(db.vendor_transactions || [])];
+          payments = [...(db.vendor_payments || [])];
+          vendors = [...(db.vendors || [])];
+
+          if (vendorId) {
+            mobiles = mobiles.filter((m) => m.vendor_id === vendorId);
+            txns = txns.filter((t) => t.vendor_id === vendorId);
+            payments = payments.filter((p) => p.vendor_id === vendorId);
+          }
+
+          if (status && status !== 'ALL') {
+            mobiles = mobiles.filter((m) => m.current_status === status);
+          }
+
+          if (flowType && flowType !== 'ALL') {
+            if (flowType === 'VENDOR_JOB_INWARD' || flowType === 'RECEIVED_FROM_VENDOR') {
+              mobiles = mobiles.filter((m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD');
+            } else {
+              mobiles = mobiles.filter((m) => m.flow_type === flowType);
+            }
+          }
+
+          if (startDate) {
+            mobiles = mobiles.filter((m) => (m.sent_date || m.received_date || m.created_at) >= startDate);
+            txns = txns.filter((t) => (t.txn_date || t.created_at) >= startDate);
+            payments = payments.filter((p) => (p.date || p.created_at) >= startDate);
+          }
+
+          if (endDate) {
+            mobiles = mobiles.filter((m) => (m.sent_date || m.received_date || m.created_at) <= endDate);
+            txns = txns.filter((t) => (t.txn_date || t.created_at) <= endDate);
+            payments = payments.filter((p) => (p.date || p.created_at) <= endDate);
+          }
         }
 
-        if (endDate) {
-          mobiles = mobiles.filter((m) => (m.sent_date || m.received_date || m.created_at) <= endDate);
-          txns = txns.filter((t) => (t.txn_date || t.created_at) <= endDate);
-          payments = payments.filter((p) => (p.date || p.created_at) <= endDate);
-        }
+        const vendorMap = new Map(vendors.map((v) => [v.id, v]));
+        const hydratedMobiles = mobiles.map((m) => ({
+          ...m,
+          vendor: vendorMap.get(m.vendor_id) || null,
+        }));
 
-        const hydratedMobiles = mobiles.map((m) => {
-          const v = (db.vendors || []).find((vnd) => vnd.id === m.vendor_id) || null;
-          return { ...m, vendor: v };
-        });
-
-        // Totals
         const totalEstimated = mobiles.reduce((acc, m) => acc + (parseFloat(m.estimated_cost) || 0), 0);
         const totalActual = mobiles.reduce((acc, m) => acc + (parseFloat(m.actual_cost) || 0), 0);
         const totalPaidToVendors = payments

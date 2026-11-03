@@ -39,6 +39,7 @@ import {
 } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
+import { SpatialTableSelect } from '../../components/common/SpatialTableSelect';
 import { Modal } from '../../components/common/Modal';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import { SendMobileModal } from '../../components/vendors/SendMobileModal';
@@ -66,6 +67,30 @@ const REPAIR_STATUS_OPTIONS = [
   { value: 'RETURNED', label: 'Returned' },
   { value: 'NOT_REPAIRABLE', label: 'Not Repairable / Dead' },
   { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const TABLE_REPAIR_STATUS_OPTIONS = [
+  { value: 'PENDING', label: 'Pending' },
+  { value: 'IN_REPAIR', label: 'In Repair' },
+  { value: 'WAITING_PARTS', label: 'Waiting Parts' },
+  { value: 'REPAIR_COMPLETED', label: 'Repaired / Ready' },
+  { value: 'RETURNED', label: 'Returned' },
+  { value: 'NOT_REPAIRABLE', label: 'Not Repairable / Dead' },
+  { value: 'CANCELLED', label: 'Cancelled' },
+];
+
+const TABLE_PAYMENT_STATUS_OPTIONS_SENT = [
+  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
+  { value: 'PAID', label: '🟢 Fully Paid' },
+  { value: 'ADVANCE', label: '🔵 Advance Paid' },
+  { value: 'FREE', label: '⚪ Free / Warranty' },
+];
+
+const TABLE_PAYMENT_STATUS_OPTIONS_RECEIVED = [
+  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
+  { value: 'PAID', label: '🟢 Fully Paid' },
+  { value: 'ADVANCE', label: '🔵 Advance Received' },
+  { value: 'FREE', label: '⚪ Free / Warranty' },
 ];
 
 export const VendorDashboard = () => {
@@ -430,6 +455,12 @@ export const VendorDashboard = () => {
         return (
           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">
             Waiting Parts
+          </span>
+        );
+      case 'CANCELLED':
+        return (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">
+            Cancelled
           </span>
         );
       case 'PENDING':
@@ -868,16 +899,12 @@ export const VendorDashboard = () => {
                                 className="px-5 py-3.5 text-center whitespace-nowrap"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <select
+                                <SpatialTableSelect
                                   value={mob.payment_status || 'PENDING'}
-                                  onChange={(e) => handlePaymentStatusChange(mob.id, e.target.value)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 cursor-pointer"
-                                >
-                                  <option value="PENDING">🟡 Pending / Unpaid</option>
-                                  <option value="PAID">🟢 Fully Paid</option>
-                                  <option value="ADVANCE">🔵 Advance Paid</option>
-                                  <option value="FREE">⚪ Free / Warranty</option>
-                                </select>
+                                  onChange={(val) => handlePaymentStatusChange(mob.id, val)}
+                                  options={TABLE_PAYMENT_STATUS_OPTIONS_SENT}
+                                  colorScheme="sky"
+                                />
                               </td>
 
                               {/* Repair Status Dropdown */}
@@ -885,18 +912,12 @@ export const VendorDashboard = () => {
                                 className="px-5 py-3.5 text-center whitespace-nowrap"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <select
+                                <SpatialTableSelect
                                   value={mob.current_status || 'PENDING'}
-                                  onChange={(e) => handleRepairStatusChange(mob.id, e.target.value)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 cursor-pointer"
-                                >
-                                  <option value="PENDING">Pending</option>
-                                  <option value="IN_REPAIR">In Repair</option>
-                                  <option value="WAITING_PARTS">Waiting Parts</option>
-                                  <option value="REPAIR_COMPLETED">Repaired</option>
-                                  <option value="RETURNED">Returned</option>
-                                  <option value="NOT_REPAIRABLE">Not Fixed</option>
-                                </select>
+                                  onChange={(val) => handleRepairStatusChange(mob.id, val)}
+                                  options={TABLE_REPAIR_STATUS_OPTIONS}
+                                  colorScheme="sky"
+                                />
                               </td>
 
                               {/* Date */}
@@ -1066,16 +1087,12 @@ export const VendorDashboard = () => {
                                 className="px-5 py-3.5 text-center whitespace-nowrap"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <select
+                                <SpatialTableSelect
                                   value={mob.payment_status || 'PENDING'}
-                                  onChange={(e) => handlePaymentStatusChange(mob.id, e.target.value)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500 cursor-pointer"
-                                >
-                                  <option value="PENDING">🟡 Pending / Unpaid</option>
-                                  <option value="PAID">🟢 Fully Paid</option>
-                                  <option value="ADVANCE">🔵 Advance Received</option>
-                                  <option value="FREE">⚪ Free / Warranty</option>
-                                </select>
+                                  onChange={(val) => handlePaymentStatusChange(mob.id, val)}
+                                  options={TABLE_PAYMENT_STATUS_OPTIONS_RECEIVED}
+                                  colorScheme="emerald"
+                                />
                               </td>
 
                               {/* Repair Status Dropdown */}
@@ -1083,18 +1100,12 @@ export const VendorDashboard = () => {
                                 className="px-5 py-3.5 text-center whitespace-nowrap"
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <select
+                                <SpatialTableSelect
                                   value={mob.current_status || 'PENDING'}
-                                  onChange={(e) => handleRepairStatusChange(mob.id, e.target.value)}
-                                  className="text-[11px] font-bold px-2 py-1 rounded-lg bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-emerald-500 cursor-pointer"
-                                >
-                                  <option value="PENDING">Pending</option>
-                                  <option value="IN_REPAIR">In Repair</option>
-                                  <option value="WAITING_PARTS">Waiting Parts</option>
-                                  <option value="REPAIR_COMPLETED">Repaired / Ready</option>
-                                  <option value="RETURNED">Returned to Vendor</option>
-                                  <option value="NOT_REPAIRABLE">Not Fixed</option>
-                                </select>
+                                  onChange={(val) => handleRepairStatusChange(mob.id, val)}
+                                  options={TABLE_REPAIR_STATUS_OPTIONS}
+                                  colorScheme="emerald"
+                                />
                               </td>
 
                               {/* Date */}

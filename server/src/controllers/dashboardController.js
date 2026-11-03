@@ -21,6 +21,7 @@ export const getDashboardStats = async (req, res, next) => {
       TESTING: 0,
       READY_FOR_PICKUP: 0,
       DELIVERED: 0,
+      RETURNED_UNREPAIRED: 0,
       CANCELLED: 0,
     };
 
@@ -34,7 +35,7 @@ export const getDashboardStats = async (req, res, next) => {
         counts[j.status] += 1;
       }
 
-      if (j.balance_due && j.balance_due > 0 && !['CANCELLED', 'REJECTED'].includes(j.status)) {
+      if (j.balance_due && j.balance_due > 0 && !['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(j.status)) {
         totalPendingPayments += Number(j.balance_due);
       }
 
@@ -71,7 +72,7 @@ export const getDashboardStats = async (req, res, next) => {
       { status: 'TESTING', label: 'Quality Testing', count: counts.TESTING, color: 'purple' },
       { status: 'READY_FOR_PICKUP', label: 'Ready for Pickup', count: counts.READY_FOR_PICKUP, color: 'emerald' },
       { status: 'DELIVERED', label: 'Delivered / Completed', count: counts.DELIVERED, color: 'teal' },
-      { status: 'CANCELLED', label: 'Cancelled / Rejected', count: counts.CANCELLED + counts.REJECTED, color: 'rose' },
+      { status: 'CANCELLED', label: 'Cancelled / Returned', count: counts.CANCELLED + counts.REJECTED + (counts.RETURNED_UNREPAIRED || 0), color: 'rose' },
     ];
 
     res.json({

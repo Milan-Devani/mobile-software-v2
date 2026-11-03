@@ -11,6 +11,8 @@ import {
   Plus,
   Tag,
   Hash,
+  CreditCard,
+  FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
@@ -57,6 +59,9 @@ export const SendMobileModal = ({
     payment_status: 'PENDING',
     expected_return_date: '',
     estimated_cost: '',
+    paid_amount: '',
+    payment_mode: 'CASH',
+    payment_ref: '',
     notes: '',
   });
 
@@ -73,10 +78,36 @@ export const SendMobileModal = ({
         payment_status: 'PENDING',
         expected_return_date: '',
         estimated_cost: '',
+        paid_amount: '',
+        payment_mode: 'CASH',
+        payment_ref: '',
         notes: '',
       });
     }
   }, [isOpen, vendors]);
+
+  // Handle amount change and auto update payment_status
+  const handlePaidAmountChange = (val) => {
+    const numPaid = parseFloat(val) || 0;
+    const est = parseFloat(formData.estimated_cost) || 0;
+
+    let newStatus = formData.payment_status;
+    if (numPaid > 0) {
+      if (est > 0 && numPaid >= est) {
+        newStatus = 'PAID';
+      } else {
+        newStatus = 'ADVANCE';
+      }
+    } else if (newStatus === 'PAID' || newStatus === 'ADVANCE') {
+      newStatus = 'PENDING';
+    }
+
+    setFormData((prev) => ({
+      ...prev,
+      paid_amount: val,
+      payment_status: newStatus,
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -102,12 +133,17 @@ export const SendMobileModal = ({
       return;
     }
 
+    const numPaid = parseFloat(formData.paid_amount) || 0;
+
     try {
       setSubmitting(true);
       const payload = {
         vendor_id: formData.vendor_id,
         txn_date: new Date().toISOString().split('T')[0],
         notes: formData.notes.trim(),
+        paid_amount: numPaid,
+        payment_mode: numPaid > 0 ? (formData.payment_mode || 'CASH') : 'NONE',
+        payment_ref: formData.payment_ref.trim(),
         mobiles: [
           {
             brand: formData.brand.trim(),
@@ -134,6 +170,8 @@ export const SendMobileModal = ({
       setSubmitting(false);
     }
   };
+
+  const showPaymentFields = parseFloat(formData.paid_amount) > 0 || formData.payment_status === 'PAID' || formData.payment_status === 'ADVANCE';
 
   return (
     <Modal
@@ -299,23 +337,6 @@ export const SendMobileModal = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            {/* Payment Status Dropdown Menu */}
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
-                Payment Status <span className="text-rose-500">*</span>
-              </label>
-              <SpatialSelect
-                value={formData.payment_status}
-                onChange={(val) => setFormData({ ...formData, payment_status: val })}
-                options={[
-                  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
-                  { value: 'PAID', label: '🟢 Fully Paid' },
-                  { value: 'ADVANCE', label: '🔵 Advance Paid' },
-                  { value: 'FREE', label: '⚪ Free / Warranty Rework' },
-                ]}
-              />
-            </div>
-
             {/* Estimated Cost */}
             <div>
               <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
@@ -336,7 +357,114 @@ export const SendMobileModal = ({
                 />
               </div>
             </div>
+
+            {/* Payment Input: Advance / Paid Amount */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Payment / Advance Paid (₹) <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-sky-400">
+                  ₹
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="e.g. 500"
+                  value={formData.paid_amount}
+                  onChange={(e) => handlePaidAmountChange(e.target.value)}
+                  className="w-full h-10 pl-7 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-semibold text-sky-400 placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Payment Status Dropdown Menu */}
+            <div>
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                Payment Status <span className="text-rose-500">*</span>
+              </label>
+              <SpatialSelect
+                value={formData.payment_status}
+                onChange={(val) => setFormData({ ...formData, payment_status: val })}
+                options={[
+                  { value: 'PENDING', label: '🟡 Pending / Unpaid' },
+                  { value: 'PAID', label: '🟢 Fully Paid' },
+                  { value: 'ADVANCE', label: '🔵 Advance Paid' },
+                  { value: 'FREE', label: '⚪ Free / Warranty Rework' },
+                ]}
+              />
+            </div>
+
+            {/* Payment Mode (shown if amount paid > 0 or status is PAID/ADVANCE) */}
+            {showPaymentFields ? (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                  <CreditCard className="w-3.5 h-3.5 text-sky-400" />
+                  Payment Mode
+                </label>
+                <SpatialSelect
+                  value={formData.payment_mode}
+                  onChange={(val) => setFormData({ ...formData, payment_mode: val })}
+                  options={[
+                    { value: 'CASH', label: '💵 Cash' },
+                    { value: 'UPI', label: '📱 UPI / QR Code' },
+                    { value: 'CARD', label: '💳 Debit / Credit Card' },
+                    { value: 'BANK_TRANSFER', label: '🏦 Bank Transfer / NEFT' },
+                    { value: 'OTHER', label: '📑 Other' },
+                  ]}
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                  Expected Return Date <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <Calendar className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="date"
+                    value={formData.expected_return_date}
+                    onChange={(e) => setFormData({ ...formData, expected_return_date: e.target.value })}
+                    className="w-full h-10 pl-9 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-medium text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 transition-all cursor-pointer"
+                  />
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Optional Payment Ref & Expected Return Date if showPaymentFields is true */}
+          {showPaymentFields && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                  <FileText className="w-3 h-3 text-[var(--spatial-text-muted)]" />
+                  Payment Reference / UTR <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. UPI Ref / Cheque No / Cash note"
+                  value={formData.payment_ref}
+                  onChange={(e) => setFormData({ ...formData, payment_ref: e.target.value })}
+                  className="w-full h-10 px-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs text-[var(--spatial-text-title)] placeholder:text-[var(--spatial-text-muted)] focus:outline-none focus:border-sky-500 transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1">
+                  Expected Return Date <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <Calendar className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="date"
+                    value={formData.expected_return_date}
+                    onChange={(e) => setFormData({ ...formData, expected_return_date: e.target.value })}
+                    className="w-full h-10 pl-9 pr-3 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-xl text-xs font-medium text-[var(--spatial-text-title)] focus:outline-none focus:border-sky-500 transition-all cursor-pointer"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Actions */}
@@ -359,4 +487,3 @@ export const SendMobileModal = ({
 };
 
 export default SendMobileModal;
-

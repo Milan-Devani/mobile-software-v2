@@ -25,7 +25,8 @@ import {
   deleteJob,
   bulkDeleteJobs,
   bulkUpdateJobStatus,
-  applyDiscount
+  applyDiscount,
+  updateFinalCost
 } from '../controllers/jobController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -71,5 +72,7 @@ router.delete('/:id/warranty-parts/:partId', requireTechnicianOrAdmin, deleteWar
 router.post('/:id/status', requireStaffOrAdmin, updateJobStatus);
 router.put('/:id/status', requireStaffOrAdmin, updateJobStatus);
 router.post('/:id/discount', requireStaffOrAdmin, applyDiscount);
+router.post('/:id/final-cost', requireStaffOrAdmin, updateFinalCost);
+router.patch('/:id/final-cost', requireStaffOrAdmin, updateFinalCost);
 
 export default router;

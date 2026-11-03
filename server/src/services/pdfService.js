@@ -189,10 +189,10 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const warrantyParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
     ? job.warranty_parts
     : (Array.isArray(job.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0
-        ? job.device_condition.warranty_parts
-        : (Array.isArray(job.warranty_history)
-            ? job.warranty_history.flatMap(h => h.replacement_parts || [])
-            : []));
+      ? job.device_condition.warranty_parts
+      : (Array.isArray(job.warranty_history)
+        ? job.warranty_history.flatMap(h => h.replacement_parts || [])
+        : []));
   const items = [
     ...baseItems,
     ...warrantyParts.map((wp, idx) => ({
@@ -474,29 +474,29 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
                     </td>
                     <td style="padding:2px 4px; vertical-align:top; color:#166534; font-weight:600;">
                       ${(() => {
-                        const claimWp = warrantyParts.filter(
-                          p => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1
-                        );
-                        const rawReason = (c.rework_reason || '').trim();
-                        const isBoilerplate = !rawReason ||
-                          rawReason.toLowerCase().includes('same issue rework / part replacement authorized') ||
-                          rawReason.toLowerCase().includes('technical inspection verified') ||
-                          rawReason.toLowerCase().includes('free rework / replacement under warranty') ||
-                          rawReason.toLowerCase().includes('free warranty rework') ||
-                          rawReason.toLowerCase().includes('technical diagnosis & free component rework') ||
-                          rawReason.toLowerCase().includes('authorized at') ||
-                          rawReason.toLowerCase() === 'free rework' ||
-                          rawReason.toLowerCase() === 'same issue rework';
-                        const customReason = !isBoilerplate ? rawReason : null;
+      const claimWp = warrantyParts.filter(
+        p => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1
+      );
+      const rawReason = (c.rework_reason || '').trim();
+      const isBoilerplate = !rawReason ||
+        rawReason.toLowerCase().includes('same issue rework / part replacement authorized') ||
+        rawReason.toLowerCase().includes('technical inspection verified') ||
+        rawReason.toLowerCase().includes('free rework / replacement under warranty') ||
+        rawReason.toLowerCase().includes('free warranty rework') ||
+        rawReason.toLowerCase().includes('technical diagnosis & free component rework') ||
+        rawReason.toLowerCase().includes('authorized at') ||
+        rawReason.toLowerCase() === 'free rework' ||
+        rawReason.toLowerCase() === 'same issue rework';
+      const customReason = !isBoilerplate ? rawReason : null;
 
-                        if (claimWp.length > 0) {
-                          return `
+      if (claimWp.length > 0) {
+        return `
                             ${customReason ? `<div>• ${customReason}</div>` : ''}
                             ${claimWp.map(wp => `<div>• ${wp.item_name}</div>`).join('')}
                           `;
-                        }
-                        return `<div>• ${customReason || 'Same issue rework'}</div>`;
-                      })()}
+      }
+      return `<div>• ${customReason || 'Same issue rework'}</div>`;
+    })()}
                     </td>
                   </tr>
                 `).join('')}
@@ -1076,7 +1076,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
               ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#000000; font-family:monospace; margin-top:1px;">${it.imei.startsWith('IMEI') ? it.imei : `IMEI: ${it.imei}`}</div>` : ''}
             </td>
             <td style="text-align:center; font-weight:600; color:#000000;">${cleanWarrantyText(it.warranty)}</td>
-            <td style="text-align:center; font-weight:700; color:#000000;">${it.quantity} ${it.unit || 'NOS'}</td>
+            <td style="text-align:center; font-weight:700; color:#000000;">${it.quantity || 1}</td>
             <td style="text-align:right; font-family:monospace; color:#000000;">${formatInr(it.rate)}</td>
             ${gstEnabled ? `
               <td style="padding:0; font-family:monospace; color:#000000;">

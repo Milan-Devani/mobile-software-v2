@@ -124,8 +124,14 @@ export const JobSheetPrintable = ({ job, shop }) => {
   const getWhatsAppMessage = (isAlternate = false) => {
     const shopName = shop?.name || 'Mobile Repair Center';
     const trackingUrl = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
+    const getGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) return 'Good Morning';
+      if (hour >= 12 && hour < 17) return 'Good Afternoon';
+      return 'Good Evening';
+    };
 
-    let msg = `*Service Order Confirmation - ${shopName}*\n\n`;
+    let msg = `${getGreeting()} *Service Order Confirmation - ${shopName}*\n\n`;
     msg += `Dear *${cust.full_name || 'Customer'}*,\n`;
     if (isAlternate) {
       msg += `📌 _Sending to your alternate WhatsApp as your phone is submitted to our workbench._\n\n`;

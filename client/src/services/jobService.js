@@ -132,6 +132,11 @@ export const jobService = {
     return res.data;
   },
 
+  updateFinalCost: async (id, { final_cost, notes = '' }) => {
+    const res = await api.post(`/jobs/${id}/final-cost`, { final_cost, notes });
+    return res.data;
+  },
+
   uploadFile: async (formData) => {
     const res = await api.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },

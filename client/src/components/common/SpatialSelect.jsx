@@ -182,7 +182,7 @@ export const SpatialSelect = ({
         <div
           className={`absolute left-0 right-0 ${
             placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
-          } z-[9999] spatial-dropdown-panel p-1.5 max-h-72 flex flex-col animate-in fade-in zoom-in-95 duration-140 ${menuClassName}`}
+          } z-[9999] spatial-dropdown-panel p-1.5 max-h-60 flex flex-col animate-in fade-in zoom-in-95 duration-140 ${menuClassName}`}
         >
           {/* Optional Search Bar */}
           {isSearchEnabled && (
@@ -216,7 +216,7 @@ export const SpatialSelect = ({
           )}
 
           {/* Options List */}
-          <div className="overflow-y-auto flex-1 space-y-0.5 max-h-56 pr-0.5 custom-scrollbar">
+          <div className="overflow-y-auto flex-1 space-y-0.5 max-h-44 pr-0.5 custom-scrollbar">
             {filteredOptions.length === 0 ? (
               <div className="py-4 px-3 text-center text-xs text-[var(--spatial-text-muted)]">
                 No matching options found

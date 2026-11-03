@@ -7,6 +7,34 @@ import { getBaileysStatus, sendBaileysMessage } from './baileysService.js';
 import { sendMsg91Sms } from './msg91SmsService.js';
 import { generateInvoicePdfBuffer, generateSaleInvoicePdfBuffer } from './pdfService.js';
 
+/**
+ * Returns dynamic customer greeting based on current hour in IST (Asia/Kolkata):
+ * - 05:00 - 11:59: "Good Morning"
+ * - 12:00 - 16:59: "Good Afternoon"
+ * - 17:00 - 04:59: "Good Evening" (never "Good Night" per business communication rule)
+ */
+export const getDynamicGreeting = () => {
+  let hour;
+  try {
+    const istTimeStr = new Date().toLocaleTimeString('en-US', {
+      timeZone: 'Asia/Kolkata',
+      hour12: false,
+      hour: 'numeric',
+    });
+    hour = parseInt(istTimeStr, 10);
+  } catch (_) {
+    hour = new Date().getHours();
+  }
+
+  if (hour >= 5 && hour < 12) {
+    return 'Good Morning';
+  }
+  if (hour >= 12 && hour < 17) {
+    return 'Good Afternoon';
+  }
+  return 'Good Evening';
+};
+
 export const dispatchNotification = async ({
   job,
   customer,
@@ -42,6 +70,7 @@ export const dispatchNotification = async ({
   const clientBaseUrl = resolveFrontendBase();
   const approvalUrl = `${clientBaseUrl}/repair/${job.job_number}/approval?token=${job.approval_token}`;
 
+  const greeting = getDynamicGreeting();
   let subject = '';
   let emailHtml = '';
   let plainMessage = '';
@@ -64,11 +93,10 @@ export const dispatchNotification = async ({
       console.warn('⚠️ Invoice PDF buffer generation warning:', pdfErr.message);
     }
   }
-
   switch (type) {
     case 'JOB_CREATED':
       subject = `[${shopName}] Repair Job Sheet Created - #${job.job_number}`;
-      plainMessage = `Hello ${customer.full_name}, your ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". We will diagnose it shortly and send you an estimate. Shop Phone: ${shopPhone}`;
+      plainMessage = `${greeting} ${customer.full_name}, your ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". We will diagnose it shortly and send you an estimate. Shop Phone: ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -91,7 +119,7 @@ export const dispatchNotification = async ({
 
     case 'ESTIMATE_SENT':
       subject = `[${shopName}] Repair Estimate Ready for Approval - Job #${job.job_number}`;
-      plainMessage = `Hello ${customer.full_name}, your repair estimate for Job #${job.job_number} (${job.device?.model}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Please review and authorize your repair here: ${approvalUrl}`;
+      plainMessage = `${greeting} ${customer.full_name}, your repair estimate for Job #${job.job_number} (${job.device?.model}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Please review and authorize your repair here: ${approvalUrl}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -115,7 +143,7 @@ export const dispatchNotification = async ({
 
     case 'READY_FOR_PICKUP':
       subject = `[${shopName}] Your Device is Repaired & Ready for Pickup! - Job #${job.job_number}`;
-      plainMessage = `Great news ${customer.full_name}! Your ${job.device?.model || 'Device'} (Job #${job.job_number}) has been fully repaired, passed all quality checks, and is READY FOR PICKUP at ${shopName} (${shopAddress}). Amount Due: ${currSym}${Number(job.balance_due || 0).toFixed(2)}.`;
+      plainMessage = `${greeting} Great news ${customer.full_name}! Your ${job.device?.model || 'Device'} (Job #${job.job_number}) has been fully repaired, passed all quality checks, and is READY FOR PICKUP at ${shopName} (${shopAddress}). Amount Due: ${currSym}${Number(job.balance_due || 0).toFixed(2)}.`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #10b981; margin-bottom: 4px;">🎉 Ready for Pickup!</h2>
@@ -147,7 +175,7 @@ export const dispatchNotification = async ({
       );
       if (isWarranty) {
         subject = `[${shopName}] Warranty Handover & Service Receipt - Job #${job.job_number}`;
-        plainMessage = `Dear ${customer.full_name}, your warranty rework for ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
+        plainMessage = `${greeting} Dear ${customer.full_name}, your warranty rework for ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #059669; margin-bottom: 4px;">${shopName}</h2>
@@ -175,7 +203,7 @@ export const dispatchNotification = async ({
       } else {
         const downloadPdfLink = `${clientBaseUrl}/api/invoices/public/${job.id}/download-pdf`;
         subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
-        plainMessage = `Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
+        plainMessage = `${greeting} Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -206,7 +234,7 @@ export const dispatchNotification = async ({
 
     case 'PAYMENT_RECEIVED':
       subject = `[${shopName}] Payment Receipt - Job #${job.job_number}`;
-      plainMessage = `Thank you ${customer.full_name}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. ${shopName}`;
+      plainMessage = `${greeting} Thank you ${customer.full_name}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. ${shopName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -229,7 +257,7 @@ export const dispatchNotification = async ({
 
     case 'JOB_REOPENED':
       subject = `[${shopName}] Warranty Claim / Repair Reopened - Job #${job.job_number}`;
-      plainMessage = `Hello ${customer.full_name}, your repair Job #${job.job_number} for ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
+      plainMessage = `${greeting} Hello ${customer.full_name}, your repair Job #${job.job_number} for ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #d97706; margin-bottom: 4px;">${shopName}</h2>
@@ -256,7 +284,7 @@ export const dispatchNotification = async ({
     case 'ESTIMATE_REJECTED':
       subject = `[${shopName}] Estimate Declined - Job #${job.job_number} Ready for Return Pickup`;
       plainMessage =
-        `❌ *REPAIR ESTIMATE DECLINED* - *${shopName}*\n\n` +
+        `${greeting} ❌ *REPAIR ESTIMATE DECLINED* - *${shopName}*\n\n` +
         `Hello *${customer.full_name}*,\n` +
         `We acknowledge that you have declined the repair estimate for your handset:\n\n` +
         `📱 *Device:* ${job.device?.brand || ''} ${job.device?.model || 'Device'}\n` +
@@ -304,13 +332,14 @@ export const dispatchNotification = async ({
     case 'DEVICE_RETURNED_UNREPAIRED':
       subject = `[${shopName}] Handset Return Confirmation (Unrepaired) - Job #${job.job_number}`;
       plainMessage =
-        `📦 *HANDSET RETURN CONFIRMATION* - *${shopName}*\n\n` +
+        `${greeting} 📦 *HANDSET RETURN CONFIRMATION* - *${shopName}*\n\n` +
         `Hello *${customer.full_name}*,\n` +
         `Your ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) has been returned and handed over to you in its original intake condition (Estimate declined • ${currSym}0.00 Charged).\n\n` +
         `Thank you for visiting ${shopName}! Feel free to reach out anytime for your mobile needs.\n\n` +
         `🏢 *${shopName}*\n` +
         `📍 ${shopAddress}\n` +
-        `📞 ${shopPhone}`;
+        `📞 ${shopPhone}\n\n` +
+        `${shopName} • ${shopAddress} • ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -557,8 +586,9 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
     )
     .join('\n');
 
+  const greeting = getDynamicGreeting();
   const plainMessage =
-    `🧾 *TAX INVOICE / BILL* - *${shopName}*\n\n` +
+    `${greeting} 🧾 *TAX INVOICE / BILL* - *${shopName}*\n\n` +
     `Hello *${customerName}*,\n` +
     `Thank you for your purchase! Here is your bill summary:\n\n` +
     `📄 *Bill / Invoice #:* ${sale.invoice_number}\n` +
@@ -572,7 +602,8 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
     `📄 *Download Official PDF Bill:*\nhttp://localhost:5000/api/sales/public/${sale.id}/download-pdf\n\n` +
     `🏢 *${shopName}*\n` +
     `📍 ${shopAddress}\n` +
-    `📞 ${shopPhone}`;
+    `📞 ${shopPhone}\n\n` +
+    `${shopName} • ${shopAddress} • ${shopPhone}`;
 
   const emailSubject = `[${shopName}] Tax Invoice / Bill #${sale.invoice_number}`;
 

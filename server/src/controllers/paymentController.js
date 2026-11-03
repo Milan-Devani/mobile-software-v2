@@ -24,7 +24,14 @@ function isDuplicatePayment(jobId, amount, userId) {
 
 export const recordPayment = async (req, res, next) => {
   try {
-    const { job_id, amount, payment_method = 'CASH', transaction_reference = '', notes = '' } = req.body;
+    const {
+      job_id,
+      amount,
+      payment_method = 'CASH',
+      transaction_reference = '',
+      notes = '',
+      final_total_amount = null,
+    } = req.body;
 
     if (!job_id) {
       throw new AppError('Job ID is required.', 400, 'JOB_ID_REQUIRED');
@@ -49,6 +56,7 @@ export const recordPayment = async (req, res, next) => {
         transactionReference: transaction_reference,
         notes,
         userId: req.user.id,
+        finalTotalAmount: final_total_amount,
       });
     } catch (dbErr) {
       throw new AppError(dbErr.message, 400, 'PAYMENT_FAILED');

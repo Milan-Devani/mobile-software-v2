@@ -28,7 +28,8 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Tag,
-  Percent
+  Percent,
+  Sparkles
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -71,6 +72,7 @@ export const getDefaultTabForStatus = (status) => {
       return 'testing';
     case 'READY_FOR_PICKUP':
     case 'DELIVERED':
+    case 'RETURNED_UNREPAIRED':
       return 'payments';
     default:
       return 'overview';
@@ -87,6 +89,7 @@ const STATUS_OPTIONS = [
   { key: 'TESTING', label: 'QC Testing', desc: '16-point Quality Check checklist testing bench' },
   { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup', desc: 'All tests verified, packaged for customer pickup' },
   { key: 'DELIVERED', label: 'Delivered', desc: 'Device handed over to customer & invoice finalized' },
+  { key: 'RETURNED_UNREPAIRED', label: 'Returned Unrepaired', desc: 'Device returned to customer without repair' },
   { key: 'CANCELLED', label: 'Cancelled', desc: 'Repair order cancelled and ticket closed' },
 ];
 
@@ -170,6 +173,12 @@ export const JobDetail = () => {
     notes: '',
   });
 
+  const [isEditCostModalOpen, setIsEditCostModalOpen] = useState(false);
+  const [finalCostForm, setFinalCostForm] = useState({
+    final_cost: '',
+    notes: '',
+  });
+
   const [pickupForm, setPickupForm] = useState({
     customer_tested_device: true,
     customer_acceptance_confirmed: true,
@@ -187,7 +196,11 @@ export const JobDetail = () => {
   );
 
   const isEstimateRejected = Boolean(
-    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED'
+    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED' || job?.status === 'RETURNED_UNREPAIRED'
+  );
+
+  const isJobCancelledOrReturned = Boolean(
+    isEstimateRejected || job?.status === 'CANCELLED' || job?.status === 'RETURNED_UNREPAIRED'
   );
 
   const allClaims = getAllWarrantyClaims(job);
@@ -834,6 +847,40 @@ export const JobDetail = () => {
       fetchJobData();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleOpenEditCostModal = () => {
+    setFinalCostForm({
+      final_cost: Number(job?.total_amount || 0) > 0 ? String(job.total_amount) : '',
+      notes: '',
+    });
+    setIsEditCostModalOpen(true);
+  };
+
+  const handleUpdateFinalCostSubmit = async (e) => {
+    e.preventDefault();
+    const parsed = parseFloat(finalCostForm.final_cost);
+    if (isNaN(parsed) || parsed < 0) {
+      toast.error('Please enter a valid final repair cost');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const res = await jobService.updateFinalCost(job.id, {
+        final_cost: parsed,
+        notes: finalCostForm.notes.trim(),
+      });
+      if (res.data?.job) {
+        setJob((prev) => ({ ...prev, ...res.data.job }));
+      }
+      toast.success(res.message || 'Total repair cost updated successfully!');
+      setIsEditCostModalOpen(false);
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.response?.data?.message || err.message || 'Failed to update final repair cost');
     } finally {
       setIsSaving(false);
     }
@@ -1819,7 +1866,19 @@ export const JobDetail = () => {
           {/* Financial Overview Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-white rounded-xl border border-slate-200">
-              <p className="text-[11px] font-bold text-slate-500 uppercase">Total Cost</p>
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-bold text-slate-500 uppercase">Total Repair Cost</p>
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                  <button
+                    type="button"
+                    onClick={handleOpenEditCostModal}
+                    className="p-1 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-colors cursor-pointer"
+                    title="Edit Final Repair Cost"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               <p className="text-2xl font-black text-slate-900 font-mono mt-1">
                 {isFreeWarranty ? `${currSym}0.00` : `${currSym}${Number(job.total_amount).toFixed(2)}`}
               </p>
@@ -1841,14 +1900,17 @@ export const JobDetail = () => {
             </div>
             <div className="p-4 bg-white rounded-xl border border-slate-200">
               <p className="text-[11px] font-bold text-slate-500 uppercase">Remaining Balance</p>
-              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                {isFreeWarranty || isEstimateRejected ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
+              <p className={`text-2xl font-black font-mono mt-1 ${!isFreeWarranty && !isJobCancelledOrReturned && job.balance_due > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                {isFreeWarranty || isJobCancelledOrReturned ? `${currSym}0.00` : `${currSym}${Number(job.balance_due || 0).toFixed(2)}`}
               </p>
               {isFreeWarranty && (
                 <span className="text-[10px] text-emerald-600 font-semibold mt-0.5 block">No balance due</span>
               )}
               {isEstimateRejected && (
                 <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Estimate declined — {currSym}0.00 due</span>
+              )}
+              {!isEstimateRejected && (job?.status === 'CANCELLED' || job?.status === 'RETURNED_UNREPAIRED') && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Job cancelled / returned — {currSym}0.00 due</span>
               )}
             </div>
           </div>
@@ -1858,6 +1920,17 @@ export const JobDetail = () => {
             subtitle="Record transactions via Cash, Card, UPI, or Bank Transfer"
             action={
               <div className="flex items-center gap-2">
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    icon={Pencil}
+                    onClick={handleOpenEditCostModal}
+                    title="Update final repair price"
+                  >
+                    Edit Total Cost
+                  </Button>
+                )}
                 {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
@@ -2573,7 +2646,7 @@ export const JobDetail = () => {
         title="Record Customer Payment"
         subtitle={
           Number(job.balance_due || 0) > 0
-            ? `Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}`
+            ? `Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)} • Quote Total: ${currSym}${Number(job.total_amount || 0).toFixed(2)}`
             : (Number(job.total_amount || 0) > 0
               ? `Remaining Balance: ${currSym}0.00 (Fully Settled)`
               : 'Customer Advance Deposit / Intake Payment')
@@ -2581,35 +2654,65 @@ export const JobDetail = () => {
       >
         <form onSubmit={handleRecordPayment} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
-              Payment Amount ({currSym}) *
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase">
+                Payment Amount ({currSym}) *
+              </label>
+              {Number(job.total_amount || 0) > 0 && (
+                <span className="text-[11px] text-[var(--spatial-text-muted)]">
+                  Estimate Quote: <strong className="text-[var(--spatial-text-title)]">{currSym}{Number(job.total_amount).toFixed(2)}</strong>
+                </span>
+              )}
+            </div>
             <input
               type="number"
               step="0.01"
               min="0.01"
-              max={Math.min(MAX_CURRENCY_AMOUNT, Number(job.balance_due || 0) > 0 ? job.balance_due : MAX_CURRENCY_AMOUNT)}
+              max={MAX_CURRENCY_AMOUNT}
               {...numberInputProps()}
               required
               placeholder={Number(job.balance_due || 0) > 0 ? String(job.balance_due) : "Enter payment / deposit amount"}
               value={paymentForm.amount}
               onChange={(e) => setPaymentForm({
                 ...paymentForm,
-                amount: limitNumberValue(e.target.value, {
-                  max: Math.min(MAX_CURRENCY_AMOUNT, Number(job.balance_due || 0) > 0 ? job.balance_due : MAX_CURRENCY_AMOUNT),
-                }),
+                amount: limitNumberValue(e.target.value, { max: MAX_CURRENCY_AMOUNT }),
               })}
               className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
             />
             {Number(job.balance_due || 0) > 0 && (
-              <button
-                type="button"
-                onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
-                className="text-[11px] text-primary-600 hover:underline font-medium mt-1 inline-block"
-              >
-                Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
-              </button>
+              <div className="flex items-center justify-between mt-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentForm({ ...paymentForm, amount: String(job.balance_due) })}
+                  className="text-[11px] text-primary-600 hover:underline font-medium inline-block cursor-pointer"
+                >
+                  Pay Full Remaining Balance ({currSym}{Number(job.balance_due).toFixed(2)})
+                </button>
+              </div>
             )}
+
+            {/* Dynamic notice when payment amount exceeds current estimate balance */}
+            {(() => {
+              const entered = parseFloat(paymentForm.amount) || 0;
+              const currentBalance = Number(job.balance_due || 0);
+              const currentTotal = Number(job.total_amount || 0);
+              const paidSoFar = Number(job.paid_amount || 0);
+              if (currentTotal > 0 && entered > (currentBalance + 0.01)) {
+                const newTotal = (paidSoFar + entered).toFixed(2);
+                return (
+                  <div className="mt-2.5 p-3 rounded-xl border border-blue-500/30 bg-blue-500/10 text-xs text-blue-900 dark:text-blue-200">
+                    <div className="flex items-center gap-1.5 font-semibold text-[#0071e3] dark:text-[#0a84ff]">
+                      <Sparkles className="w-4 h-4 shrink-0" />
+                      <span>Final Repair Cost will update to {currSym}{newTotal}</span>
+                    </div>
+                    <p className="text-[11px] opacity-85 mt-1">
+                      Payment ({currSym}{entered.toFixed(2)}) exceeds previous estimate ({currSym}{currentTotal.toFixed(2)}). Total repair cost in Payment Ledger & Tax Invoice will automatically adjust to <strong>{currSym}{newTotal}</strong>.
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div>
@@ -3076,54 +3179,22 @@ export const JobDetail = () => {
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                 Warranty Claim Coverage Type <span className="text-rose-500">*</span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label
-                  onClick={() => setReopenForm((prev) => ({ ...prev, claim_type: 'SAME_ISSUE' }))}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${reopenForm.claim_type === 'SAME_ISSUE'
-                    ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                    }`}
-                >
-                  <div className="flex items-center gap-2 font-bold mb-1">
-                    <input
-                      type="radio"
-                      name="claim_type"
-                      checked={reopenForm.claim_type === 'SAME_ISSUE'}
-                      onChange={() => setReopenForm((prev) => ({ ...prev, claim_type: 'SAME_ISSUE' }))}
-                      className="text-emerald-600 focus:ring-emerald-500"
-                    />
-                    <span>Same Issue (Free Warranty Rework)</span>
-                  </div>
-                  <p className="text-[11px] opacity-80 pl-5 space-y-0.5">
-                    <span className="block">✓ No approval required from customer</span>
-                    <span className="block">✓ ₹0.00 cost / No payment needed</span>
-                    <span className="block">✓ Handover once QC test passes</span>
-                  </p>
-                </label>
-
-                <label
-                  onClick={() => setReopenForm((prev) => ({ ...prev, claim_type: 'NEW_ISSUE' }))}
-                  className={`p-3 rounded-xl border text-xs cursor-pointer flex flex-col justify-between transition-all ${reopenForm.claim_type === 'NEW_ISSUE'
-                    ? 'border-amber-500 bg-amber-50/70 dark:bg-amber-950/30 text-amber-950 dark:text-amber-200 ring-2 ring-amber-500/20'
-                    : 'border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300'
-                    }`}
-                >
-                  <div className="flex items-center gap-2 font-bold mb-1">
-                    <input
-                      type="radio"
-                      name="claim_type"
-                      checked={reopenForm.claim_type === 'NEW_ISSUE'}
-                      onChange={() => setReopenForm((prev) => ({ ...prev, claim_type: 'NEW_ISSUE' }))}
-                      className="text-amber-600 focus:ring-amber-500"
-                    />
-                    <span>New Issue / Different Parts</span>
-                  </div>
-                  <p className="text-[11px] opacity-80 pl-5 space-y-0.5">
-                    <span className="block">• Additional/new parts replacement</span>
-                    <span className="block">• Chargeable repair quote prepared</span>
-                    <span className="block">• Requires customer approval & payment</span>
-                  </p>
-                </label>
+              <div className="p-3.5 rounded-xl border border-emerald-500/80 bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-200 ring-2 ring-emerald-500/20 text-xs">
+                <div className="flex items-center gap-2 font-bold mb-1">
+                  <input
+                    type="radio"
+                    name="claim_type"
+                    checked={true}
+                    readOnly
+                    className="text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-default"
+                  />
+                  <span>Same Issue (Free Warranty Rework)</span>
+                </div>
+                <p className="text-[11px] opacity-80 pl-5 space-y-0.5">
+                  <span className="block">✓ No approval required from customer</span>
+                  <span className="block">✓ ₹0.00 cost / No payment needed</span>
+                  <span className="block">✓ Handover once QC test passes</span>
+                </p>
               </div>
             </div>
           )}
@@ -3517,6 +3588,75 @@ export const JobDetail = () => {
             </form>
           );
         })()}
+      </Modal>
+
+      {/* EDIT FINAL REPAIR COST MODAL */}
+      <Modal
+        isOpen={isEditCostModalOpen}
+        onClose={() => setIsEditCostModalOpen(false)}
+        title="Update Final Repair Cost"
+        subtitle={`Job #${job.job_number} • Current Cost: ${currSym}${Number(job.total_amount || 0).toFixed(2)}`}
+        maxWidth="max-w-md"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditCostModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="final-cost-form"
+              size="sm"
+              loading={isSaving}
+              icon={CheckCircle2}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm"
+            >
+              Update Final Cost
+            </Button>
+          </div>
+        }
+      >
+        <form id="final-cost-form" onSubmit={handleUpdateFinalCostSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
+              New Final Repair Cost ({currSym}) *
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max={MAX_CURRENCY_AMOUNT}
+              {...numberInputProps()}
+              required
+              placeholder={`e.g. ${Number(job.total_amount || 0).toFixed(2)}`}
+              value={finalCostForm.final_cost}
+              onChange={(e) => setFinalCostForm({
+                ...finalCostForm,
+                final_cost: limitNumberValue(e.target.value, { max: MAX_CURRENCY_AMOUNT }),
+              })}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-base font-bold font-mono"
+            />
+            <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1">
+              Updates the total repair cost and remaining balance in the Payment Ledger and Invoice.
+            </p>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase mb-1">
+              Reason / Technical Notes (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Additional IC replacement required during repair"
+              value={finalCostForm.notes}
+              onChange={(e) => setFinalCostForm({ ...finalCostForm, notes: e.target.value })}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
+          </div>
+        </form>
       </Modal>
     </div>
   );
