@@ -27,12 +27,16 @@ export const getDynamicGreeting = () => {
   }
 
   if (hour >= 5 && hour < 12) {
-    return 'Good Morning';
+
+    return '☀️ Good Morning';
   }
   if (hour >= 12 && hour < 17) {
-    return 'Good Afternoon';
+    return '🌤️ Good Afternoon';
   }
-  return 'Good Evening';
+  if (hour >= 17 && hour < 21) {
+    return '🌆 Good Evening';
+  }
+  return '🌙 Hello';
 };
 
 export const dispatchNotification = async ({
@@ -71,9 +75,15 @@ export const dispatchNotification = async ({
   const approvalUrl = `${clientBaseUrl}/repair/${job.job_number}/approval?token=${job.approval_token}`;
 
   const greeting = getDynamicGreeting();
+  const customerName = (customer.full_name || 'Customer').trim();
+  const deviceBrand = (job.device?.brand || '').trim();
+  const deviceModel = (job.device?.model || 'Device').trim();
+  const deviceFullName = `${deviceBrand} ${deviceModel}`.trim() || 'Device';
+
   let subject = '';
   let emailHtml = '';
   let plainMessage = '';
+  let whatsappMessage = '';
 
   let pdfBuffer = null;
   let invoiceFilename = `Mobotech_Invoice_${(job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
@@ -93,20 +103,32 @@ export const dispatchNotification = async ({
       console.warn('⚠️ Invoice PDF buffer generation warning:', pdfErr.message);
     }
   }
+
   switch (type) {
     case 'JOB_CREATED':
       subject = `[${shopName}] Repair Job Sheet Created - #${job.job_number}`;
-      plainMessage = `${greeting} ${customer.full_name}, your ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". We will diagnose it shortly and send you an estimate. Shop Phone: ${shopPhone}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `Thank you for choosing *${shopName}*.\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Inspection'}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n\n` +
+        `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n` +
+        `🌐 *Track Status:* ${approvalUrl}\n` +
+        `📞 *Shop Contact:* ${shopPhone}\n\n` +
+        `Thank you for trusting us! ❤️\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". We will diagnose it shortly. Contact: ${shopPhone}`;
       emailHtml = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; rounded: 8px;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">Device Intake Confirmation</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>Your device has been received and checked in for repair services.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-            <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">${job.job_number}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">#${job.job_number}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Reported Issue:</td><td style="padding: 6px;">${job.customer_complaint}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Current Status:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
           </table>
@@ -119,14 +141,23 @@ export const dispatchNotification = async ({
 
     case 'ESTIMATE_SENT':
       subject = `[${shopName}] Repair Estimate Ready for Approval - Job #${job.job_number}`;
-      plainMessage = `${greeting} ${customer.full_name}, your repair estimate for Job #${job.job_number} (${job.device?.model}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Please review and authorize your repair here: ${approvalUrl}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `Your repair estimate is ready!\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n\n` +
+        `💰 *Estimated Repair Cost:* ${currSym}${Number(job.total_amount).toFixed(2)}\n\n` +
+        `Please review the estimate and authorize the repair using the link below.\n\n` +
+        `🔗 *Approve Repair:*\n${approvalUrl}\n\n` +
+        `Thank you for choosing *${shopName}*! ❤️`;
+      plainMessage = `${greeting} ${customerName}, your repair estimate for Job #${job.job_number} (${deviceFullName}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Please review and authorize your repair here: ${approvalUrl}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">Diagnosis & Repair Estimate</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
-          <p>We have completed diagnosis of your <strong>${job.device?.brand || ''} ${job.device?.model || 'Device'}</strong> (Job #${job.job_number}).</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
+          <p>We have completed diagnosis of your <strong>${deviceFullName}</strong> (Job #${job.job_number}).</p>
           <div style="background-color: #f8fafc; padding: 15px; border-radius: 6px; margin: 15px 0;">
             <p style="margin: 0 0 8px 0;"><strong>Estimated Total:</strong> <span style="font-size: 20px; color: #0f172a; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</span></p>
             <p style="margin: 0; color: #64748b; font-size: 13px;">Includes diagnostic labor and genuine replacement parts.</p>
@@ -141,16 +172,65 @@ export const dispatchNotification = async ({
       `;
       break;
 
+    case 'ESTIMATE_APPROVED':
+      subject = `[${shopName}] Repair Approved - Job #${job.job_number}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `✅ *Repair Approved Successfully!*\n\n` +
+        `Your repair request has been approved.\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        `📌 *Status:* APPROVED\n\n` +
+        `Our technician will proceed with the repair.\n\n` +
+        `🌐 *Track Status:*\n${approvalUrl}\n\n` +
+        `Thank you for choosing *${shopName}*! ❤️`;
+      plainMessage = `${greeting} ${customerName}, your repair request for ${deviceFullName} (Job #${job.job_number}) is approved. Our technicians are proceeding with the repair. Track: ${approvalUrl}. ${shopName}`;
+      emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
+          <p style="color: #16a34a; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Repair Approved Successfully</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
+          <p>Your repair order <strong>Job #${job.job_number}</strong> has been approved. Our technician will proceed with the repair work.</p>
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
+            <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">#${job.job_number}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Status:</td><td style="padding: 6px; color: #16a34a; font-weight: bold;">APPROVED</td></tr>
+          </table>
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Track Repair Progress</a>
+          </div>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
+        </div>
+      `;
+      break;
+
     case 'READY_FOR_PICKUP':
       subject = `[${shopName}] Your Device is Repaired & Ready for Pickup! - Job #${job.job_number}`;
-      plainMessage = `${greeting} Great news ${customer.full_name}! Your ${job.device?.model || 'Device'} (Job #${job.job_number}) has been fully repaired, passed all quality checks, and is READY FOR PICKUP at ${shopName} (${shopAddress}). Amount Due: ${currSym}${Number(job.balance_due || 0).toFixed(2)}.`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `🎉 *Great News! Your Device Is Ready!*\n\n` +
+        `Your device has been successfully repaired and passed all quality checks.\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n\n` +
+        `✅ Repair Completed\n` +
+        `✅ Quality Check Passed\n` +
+        `📦 *Status: READY FOR PICKUP*\n\n` +
+        `💰 *Repair Amount:* ${currSym}${Number(job.total_amount).toFixed(2)}\n` +
+        (Number(job.balance_due || 0) > 0 ? `⚠️ *Remaining Balance:* ${currSym}${Number(job.balance_due).toFixed(2)}\n\n` : `✅ *Payment Status: FULLY PAID*\n\n`) +
+        `📍 *Pickup Location:*\n${shopAddress}\n\n` +
+        `📞 *Contact:* ${shopPhone}\n\n` +
+        `We look forward to seeing you! 😊\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} Great news ${customerName}! Your ${deviceFullName} (Job #${job.job_number}) is fully repaired & READY FOR PICKUP at ${shopName} (${shopAddress}). Amount Due: ${currSym}${Number(job.balance_due || 0).toFixed(2)}.`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #10b981; margin-bottom: 4px;">🎉 Ready for Pickup!</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">${shopName} Service Center</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
-          <p>Your repair for <strong>${job.device?.brand || ''} ${job.device?.model || 'Device'}</strong> (Job #${job.job_number}) is complete! The device has successfully passed our 16-point hardware quality assurance test.</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
+          <p>Your repair for <strong>${deviceFullName}</strong> (Job #${job.job_number}) is complete! The device has successfully passed our 16-point hardware quality assurance test.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
             <tr><td style="padding: 6px; color: #64748b;">Total Amount:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Paid to date:</td><td style="padding: 6px; color: #10b981;">${currSym}${Number(job.paid_amount || 0).toFixed(2)}</td></tr>
@@ -175,17 +255,28 @@ export const dispatchNotification = async ({
       );
       if (isWarranty) {
         subject = `[${shopName}] Warranty Handover & Service Receipt - Job #${job.job_number}`;
-        plainMessage = `${greeting} Dear ${customer.full_name}, your warranty rework for ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
+        whatsappMessage =
+          `${greeting} *${customerName}*!\n\n` +
+          `🛡️ *Warranty Service Handover & Receipt*\n\n` +
+          `Your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over.\n\n` +
+          `📱 *Device:* ${deviceFullName}\n` +
+          `🆔 *Job ID:* #${job.job_number}\n` +
+          `🛡️ *Warranty Claim:* Claim #${job.reopen_count || 1} (100% Free Rework)\n` +
+          `💰 *Balance Due:* ${currSym}0.00\n\n` +
+          `📄 Your official warranty service receipt PDF is attached below.\n` +
+          `🌐 *Track Record:* ${approvalUrl}\n\n` +
+          `Thank you for trusting *${shopName}*! ❤️`;
+        plainMessage = `${greeting} ${customerName}, your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #059669; margin-bottom: 4px;">${shopName}</h2>
             <p style="color: #059669; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Warranty Handover & Service Receipt (100% Free Rework)</p>
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-            <p>Dear <strong>${customer.full_name}</strong>,</p>
+            <p>${greeting}, <strong>${customerName}</strong>!</p>
             <p>Your device rework has been completed and handed over to you under warranty coverage.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
               <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
-              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Warranty Claim:</td><td style="padding: 6px; font-weight: bold; color: #059669;">Claim #${job.reopen_count || 1} (Covered Under Warranty)</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Rework Cost:</td><td style="padding: 6px; font-weight: bold; color: #059669;">${currSym}0.00 (100% Free Rework)</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Balance Due:</td><td style="padding: 6px; font-weight: bold;">${currSym}0.00</td></tr>
@@ -203,17 +294,30 @@ export const dispatchNotification = async ({
       } else {
         const downloadPdfLink = `${clientBaseUrl}/api/invoices/public/${job.id}/download-pdf`;
         subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
-        plainMessage = `${greeting} Thank you ${customer.full_name}! Your device (${job.device?.brand || ''} ${job.device?.model || 'Device'}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
+        whatsappMessage =
+          `${greeting} *${customerName}*!\n\n` +
+          `🎊 *Thank You for Choosing ${shopName}!* ❤️\n\n` +
+          `Your device has been successfully delivered.\n\n` +
+          `📱 *Device:* ${deviceFullName}\n` +
+          `🆔 *Job ID:* #${job.job_number}\n\n` +
+          `✅ Device Delivered\n` +
+          `✅ Payment Settled\n` +
+          `💰 *Total Paid:* ${currSym}${Number(job.paid_amount || job.total_amount || 0).toFixed(2)}\n\n` +
+          `🧾 *Your Official Invoice:*\n${downloadPdfLink}\n\n` +
+          `🌐 *View Repair Record:*\n${approvalUrl}\n\n` +
+          `Thank you for trusting *${shopName}*.\n\n` +
+          `We appreciate your business and look forward to serving you again! ❤️`;
+        plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
             <p style="color: #16a34a; font-size: 14px; font-weight: bold; margin-top: 0;">✓ Tax Invoice & Delivery Receipt</p>
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-            <p>Dear <strong>${customer.full_name}</strong>,</p>
+            <p>${greeting}, <strong>${customerName}</strong>!</p>
             <p>Thank you for choosing ${shopName}. Your device has been delivered and service payment finalized.</p>
             <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
               <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
-              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+              <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Total Amount:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.total_amount).toFixed(2)}</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #16a34a;">${currSym}${Number(job.paid_amount || job.total_amount).toFixed(2)}</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
@@ -234,16 +338,32 @@ export const dispatchNotification = async ({
 
     case 'PAYMENT_RECEIVED':
       subject = `[${shopName}] Payment Receipt - Job #${job.job_number}`;
-      plainMessage = `${greeting} Thank you ${customer.full_name}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. ${shopName}`;
+      const isPaidFull = Number(job.balance_due || 0) <= 0;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `💳 *Payment Received Successfully!*\n\n` +
+        `We have successfully received your payment.\n\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        `📱 *Device:* ${deviceFullName}\n\n` +
+        `💰 *Payment Details:*\n` +
+        `• Total Amount: ${currSym}${Number(job.total_amount).toFixed(2)}\n` +
+        `• Amount Paid: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}\n` +
+        `• Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}\n\n` +
+        (isPaidFull
+          ? `✅ *Payment Status: FULLY PAID*\n\n`
+          : `⏳ *Payment Status: PARTIALLY PAID*\n\n`) +
+        `Thank you for your business! ❤️\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} Thank you ${customerName}! Payment received for Job #${job.job_number}. Amount: ${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}. Remaining Balance: ${currSym}${Number(job.balance_due || 0).toFixed(2)}. ${shopName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">Payment Receipt Confirmation</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>We have successfully recorded your payment for Job #${job.job_number}.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Payment Method:</td><td style="padding: 6px; font-weight: bold;">${metadata.paymentMethod || 'CASH'}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #10b981;">${currSym}${Number(metadata.paymentAmount || job.paid_amount).toFixed(2)}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
@@ -257,17 +377,28 @@ export const dispatchNotification = async ({
 
     case 'JOB_REOPENED':
       subject = `[${shopName}] Warranty Claim / Repair Reopened - Job #${job.job_number}`;
-      plainMessage = `${greeting} Hello ${customer.full_name}, your repair Job #${job.job_number} for ${job.device?.brand || ''} ${job.device?.model || 'Device'} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `🔄 *Warranty Claim Reopened*\n\n` +
+        `Your repair order Job #${job.job_number} for ${deviceFullName} has been reopened under warranty service.\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        `🔧 *Reported Issue:* ${job.last_warranty_issue || 'Warranty rework'}\n\n` +
+        `Our technicians will inspect and address this issue under your warranty policy. We will notify you when ready.\n\n` +
+        `🌐 *Track Live Status:*\n${approvalUrl}\n\n` +
+        `📞 *Shop Contact:* ${shopPhone}\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} Hello ${customerName}, your repair Job #${job.job_number} for ${deviceFullName} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #d97706; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">Warranty Claim & Service Reopened</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>Your repair order <strong>Job #${job.job_number}</strong> has been reopened under warranty service.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0;">
             <tr><td style="padding: 6px; color: #64748b;">Job Number:</td><td style="padding: 6px; font-family: monospace; font-weight: bold;">#${job.job_number}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Reported Warranty Issue:</td><td style="padding: 6px; font-weight: bold; color: #d97706;">${job.last_warranty_issue || 'Warranty claim'}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Current Stage:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
           </table>
@@ -283,27 +414,29 @@ export const dispatchNotification = async ({
 
     case 'ESTIMATE_REJECTED':
       subject = `[${shopName}] Estimate Declined - Job #${job.job_number} Ready for Return Pickup`;
-      plainMessage =
-        `${greeting} ❌ *REPAIR ESTIMATE DECLINED* - *${shopName}*\n\n` +
-        `Hello *${customer.full_name}*,\n` +
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `❌ *Repair Estimate Declined*\n\n` +
         `We acknowledge that you have declined the repair estimate for your handset:\n\n` +
-        `📱 *Device:* ${job.device?.brand || ''} ${job.device?.model || 'Device'}\n` +
-        `📄 *Job Sheet:* #${job.job_number}\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
         (metadata?.reason ? `💬 *Reason:* "${metadata.reason}"\n` : '') +
         `\nℹ️ *Important Information:*\n` +
         `• No repair work has been performed on your phone.\n` +
         `• Repair charge is cancelled (Balance Due: ${currSym}0.00).\n` +
         `• Your phone is safely reassembled in its original intake condition.\n` +
         `• Your device is *READY FOR RETURN PICKUP* at our service center.\n\n` +
-        `📍 *Collection Location:*\n${shopAddress}\n\n` +
+        `📍 *Pickup Location:*\n${shopAddress}\n\n` +
         `📞 *Contact Us:* ${shopPhone}\n` +
-        `🌐 *Track Record:* ${approvalUrl}`;
+        `🌐 *Track Record:* ${approvalUrl}\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} ${customerName}, repair estimate declined for Job #${job.job_number} (${deviceFullName}). Your device is ready for return pickup with 0 charge. ${shopName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
           <h2 style="color: #e11d48; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">Estimate Declined • Device Ready for Return Pickup</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>We have recorded your decision to decline the repair estimate for your device.</p>
           <div style="background-color: #fff1f2; border: 1px solid #fecdd3; padding: 12px 15px; border-radius: 8px; margin: 15px 0;">
             <p style="margin: 0; color: #9f1239; font-weight: bold; font-size: 13px;">✓ No Repair Conducted — Zero Balance Due</p>
@@ -311,7 +444,7 @@ export const dispatchNotification = async ({
           </div>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px;">
             <tr><td style="padding: 6px; color: #64748b;">Job Sheet:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">#${job.job_number}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px; font-weight: bold;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px; font-weight: bold;">${deviceFullName}</td></tr>
             ${metadata?.reason ? `<tr><td style="padding: 6px; color: #64748b;">Customer Note:</td><td style="padding: 6px; color: #e11d48; font-style: italic;">"${metadata.reason}"</td></tr>` : ''}
             <tr><td style="padding: 6px; color: #64748b;">Repair Charges:</td><td style="padding: 6px; font-weight: bold; color: #64748b; text-decoration: line-through;">${currSym}${Number(job.total_amount || 0).toFixed(2)}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Total Payable:</td><td style="padding: 6px; font-weight: bold; color: #059669; font-size: 15px;">${currSym}0.00</td></tr>
@@ -331,25 +464,25 @@ export const dispatchNotification = async ({
 
     case 'DEVICE_RETURNED_UNREPAIRED':
       subject = `[${shopName}] Handset Return Confirmation (Unrepaired) - Job #${job.job_number}`;
-      plainMessage =
-        `${greeting} 📦 *HANDSET RETURN CONFIRMATION* - *${shopName}*\n\n` +
-        `Hello *${customer.full_name}*,\n` +
-        `Your ${job.device?.brand || ''} ${job.device?.model || 'Device'} (Job #${job.job_number}) has been returned and handed over to you in its original intake condition (Estimate declined • ${currSym}0.00 Charged).\n\n` +
-        `Thank you for visiting ${shopName}! Feel free to reach out anytime for your mobile needs.\n\n` +
-        `🏢 *${shopName}*\n` +
-        `📍 ${shopAddress}\n` +
-        `📞 ${shopPhone}\n\n` +
-        `${shopName} • ${shopAddress} • ${shopPhone}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `📦 *Handset Returned (Unrepaired)*\n\n` +
+        `Your ${deviceFullName} (Job #${job.job_number}) has been returned and handed over to you in its original intake condition (${currSym}0.00 Charged).\n\n` +
+        `Thank you for visiting *${shopName}*! Feel free to reach out anytime for your mobile needs. ❤️\n\n` +
+        `📍 *Address:* ${shopAddress}\n` +
+        `📞 *Contact:* ${shopPhone}\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} (Job #${job.job_number}) has been returned to you in original condition with 0 charge. Thank you for visiting ${shopName}!`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
           <p style="color: #64748b; font-size: 14px; margin-top: 0;">✓ Handset Returned in Original Condition</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
-          <p>Dear <strong>${customer.full_name}</strong>,</p>
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>This is to confirm that your device has been handed over to you in its original intake condition as the repair estimate was declined.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px;">
             <tr><td style="padding: 6px; color: #64748b;">Job Sheet:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">#${job.job_number}</td></tr>
-            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px; font-weight: bold;">${job.device?.brand || ''} ${job.device?.model || 'Device'}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px; font-weight: bold;">${deviceFullName}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Status:</td><td style="padding: 6px; font-weight: bold; color: #0284c7;">Returned Unrepaired</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Amount Charged:</td><td style="padding: 6px; font-weight: bold; color: #059669;">${currSym}0.00</td></tr>
           </table>
@@ -362,8 +495,17 @@ export const dispatchNotification = async ({
 
     default:
       subject = `[${shopName}] Update on Repair Job #${job.job_number}`;
-      plainMessage = `Hello ${customer.full_name}, your repair job #${job.job_number} status is now: ${job.status}. ${shopName}`;
-      emailHtml = `<p>Hello ${customer.full_name}, your repair job #${job.job_number} status is now: <strong>${job.status}</strong>.</p>`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `📱 *Repair Status Update*\n\n` +
+        `Your repair job #${job.job_number} status is now: *${job.status}*.\n\n` +
+        `• *Device:* ${deviceFullName}\n` +
+        `• *Current Stage:* ${job.status}\n\n` +
+        `🌐 *Track Live:* ${approvalUrl}\n\n` +
+        `📞 *Contact:* ${shopPhone}\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} ${customerName}, your repair job #${job.job_number} status is now: ${job.status}. ${shopName}`;
+      emailHtml = `<p>${greeting}, <strong>${customerName}</strong>!</p><p>Your repair job #${job.job_number} status is now: <strong>${job.status}</strong>.</p>`;
   }
 
   const results = [];
@@ -438,6 +580,7 @@ export const dispatchNotification = async ({
 
   if (channels.includes('WHATSAPP') && waRecipients.length > 0) {
     const baileysState = getBaileysStatus();
+    const msgToSend = whatsappMessage || plainMessage;
 
     for (const waNumber of waRecipients) {
       try {
@@ -447,31 +590,31 @@ export const dispatchNotification = async ({
         if (baileysState.isConnected) {
           waResult = await sendBaileysMessage({
             phone: waNumber,
-            message: plainMessage,
+            message: msgToSend,
             ...(pdfBuffer ? {
               documentBuffer: pdfBuffer,
               documentFilename: invoiceFilename,
-              caption: plainMessage,
+              caption: msgToSend,
             } : {}),
           });
           providerName = 'BAILEYS_LOCAL';
         } else if (env.FAST2SMS_API_KEY && env.FAST2SMS_API_KEY.trim()) {
           waResult = await sendFast2SmsWhatsApp({
             phone: waNumber,
-            message: plainMessage,
+            message: msgToSend,
           });
           providerName = waResult.provider || 'FAST2SMS';
         } else if (env.OPENWA_API_KEY) {
           waResult = await sendOpenWaMessage({
             phone: waNumber,
-            message: plainMessage,
+            message: msgToSend,
           });
           providerName = 'OPENWA';
         } else {
           // Default development simulator
           waResult = await sendFast2SmsWhatsApp({
             phone: waNumber,
-            message: plainMessage,
+            message: msgToSend,
           });
           providerName = 'FAST2SMS_SIMULATOR';
         }
@@ -588,22 +731,21 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
 
   const greeting = getDynamicGreeting();
   const plainMessage =
-    `${greeting} 🧾 *TAX INVOICE / BILL* - *${shopName}*\n\n` +
-    `Hello *${customerName}*,\n` +
-    `Thank you for your purchase! Here is your bill summary:\n\n` +
+    `${greeting} *${customerName}*!\n\n` +
+    `🎊 *Thank You for Choosing ${shopName}!* ❤️\n\n` +
+    `Here is your official sales bill & invoice summary:\n\n` +
     `📄 *Bill / Invoice #:* ${sale.invoice_number}\n` +
     `📅 *Date:* ${sale.invoice_date}\n\n` +
-    `*Items:*\n${itemsListText}\n\n` +
-    `*Subtotal:* ₹${Number(sale.subtotal).toFixed(2)}\n` +
-    (sale.discount_amount > 0 ? `*Discount:* -₹${Number(sale.discount_amount).toFixed(2)}\n` : '') +
-    (sale.gst_enabled ? `*GST (${sale.gst_rate}%):* +₹${Number(sale.total_tax).toFixed(2)}\n` : '') +
-    `*Total Paid:* ₹${Number(sale.total_amount).toFixed(2)}\n` +
-    `*Payment Mode:* ${sale.payment_mode || 'CASH'}\n\n` +
+    `🛒 *Items Purchased:*\n${itemsListText}\n\n` +
+    `💰 *Payment Details:*\n` +
+    `• Subtotal: ₹${Number(sale.subtotal).toFixed(2)}\n` +
+    (sale.discount_amount > 0 ? `• Discount: -₹${Number(sale.discount_amount).toFixed(2)}\n` : '') +
+    (sale.gst_enabled ? `• GST (${sale.gst_rate}%): +₹${Number(sale.total_tax).toFixed(2)}\n` : '') +
+    `• Total Paid: ₹${Number(sale.total_amount).toFixed(2)}\n` +
+    `• Payment Mode: ${sale.payment_mode || 'CASH'}\n\n` +
     `📄 *Download Official PDF Bill:*\nhttp://localhost:5000/api/sales/public/${sale.id}/download-pdf\n\n` +
-    `🏢 *${shopName}*\n` +
-    `📍 ${shopAddress}\n` +
-    `📞 ${shopPhone}\n\n` +
-    `${shopName} • ${shopAddress} • ${shopPhone}`;
+    `We appreciate your business and look forward to serving you again! ❤️\n\n` +
+    `*${shopName}*`;
 
   const emailSubject = `[${shopName}] Tax Invoice / Bill #${sale.invoice_number}`;
 

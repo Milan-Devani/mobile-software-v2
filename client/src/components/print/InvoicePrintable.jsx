@@ -415,25 +415,42 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
     const isWarranty = Boolean(job.is_warranty_claim || job.warranty_same_issue || job.warranty_free_rework);
     const getGreeting = () => {
-      const hour = new Date().getHours();
-      if (hour >= 5 && hour < 12) return 'Good Morning';
-      if (hour >= 12 && hour < 17) return 'Good Afternoon';
-      return 'Good Evening';
+      let hour;
+      try {
+        const istTimeStr = new Date().toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: 'numeric',
+        });
+        hour = parseInt(istTimeStr, 10);
+      } catch (_) {
+        hour = new Date().getHours();
+      }
+      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
+      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
+      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
+      return '🌙 Hello';
     };
+    const customerName = (cust.full_name || 'Customer').trim();
+    const deviceName = `${dev.brand || ''} ${dev.model || 'Device'}`.trim();
 
     const msg = isWarranty
-      ? `${getGreeting()} *Warranty Service Handover & Invoice - ${shopName}*\n` +
-        `Dear ${cust.full_name || 'Customer'},\n` +
-        `Your warranty rework for ${dev.brand || ''} ${dev.model || ''} (Job #${job.job_number}) is completed and handed over (100% Free Rework - ${currencySymbol}0.00 Balance Due).\n` +
-        `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
-        `${shopName}, ${shopAddress}. Phone: ${shopPhone}`
-      : `${getGreeting()} *Service Record & Invoice - ${shopName}*\n` +
-        `Dear ${cust.full_name || 'Customer'},\n` +
-        `Your service record & invoice #${invoice?.invoice_number || job.job_number} is ready.\n` +
-        `Device: ${dev.brand || ''} ${dev.model || ''}\n` +
-        `Total: ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
-        `Track online: ${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n` +
-        `Mobotech Mobile Care, Central Bazar, Surat. Phone: ${shopPhone}`;
+      ? `${getGreeting()} *${customerName}*!\n\n` +
+        `🛡️ *Warranty Service Handover & Invoice - ${shopName}*\n\n` +
+        `Your warranty rework for ${deviceName} (Job #${job.job_number}) is completed and handed over (100% Free Rework - ${currencySymbol}0.00 Balance Due).\n\n` +
+        `📱 *Device:* ${deviceName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        `💰 *Balance Due:* ${currencySymbol}0.00\n\n` +
+        `🌐 *Track Online:*\n${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n\n` +
+        `Thank you for trusting *${shopName}*! ❤️`
+      : `${getGreeting()} *${customerName}*!\n\n` +
+        `🎊 *Thank You for Choosing ${shopName}!* ❤️\n\n` +
+        `Your device has been delivered and invoice #${invoice?.invoice_number || job.job_number} is settled.\n\n` +
+        `📱 *Device:* ${deviceName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        `💰 *Total Amount:* ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n\n` +
+        `🌐 *View Repair Record:*\n${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n\n` +
+        `Thank you for choosing *${shopName}*! ❤️`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 

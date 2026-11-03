@@ -84,10 +84,12 @@ export const testWhatsAppDispatch = async (req, res, next) => {
   try {
     const { phone, message } = req.body;
     const { sendFast2SmsWhatsApp } = await import('../services/fast2smsService.js');
+    const { getDynamicGreeting } = await import('../services/notificationService.js');
+    const greeting = getDynamicGreeting();
 
     const result = await sendFast2SmsWhatsApp({
       phone: phone || '8758152507',
-      message: message || `*Mobotech Mobile Care - Verification*\nHello Milan, Fast2SMS WhatsApp is active and working properly!`,
+      message: message || `${greeting} *Customer*!\n\n*Mobotech Mobile Care - Verification*\nWhatsApp notification service is active and working properly! ❤️`,
     });
 
     res.json({

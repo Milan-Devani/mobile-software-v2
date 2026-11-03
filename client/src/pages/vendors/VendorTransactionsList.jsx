@@ -160,14 +160,34 @@ export const VendorTransactionsList = () => {
       )
       .join('\n');
 
+    const getGreeting = () => {
+      let hour;
+      try {
+        const istTimeStr = new Date().toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: 'numeric',
+        });
+        hour = parseInt(istTimeStr, 10);
+      } catch (_) {
+        hour = new Date().getHours();
+      }
+      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
+      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
+      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
+      return '🌙 Hello';
+    };
+
     const msg = encodeURIComponent(
-      `*${shopProfile?.name || 'Mobotech mobile care'}*\n` +
-        `*Vendor Transaction Receipt #${txn.txn_number}*\n` +
-        `Date: ${formatInvoiceDate(txn.txn_date || txn.created_at)}\n` +
-        `Type: ${txn.txn_type.replace(/_/g, ' ')}\n\n` +
+      `${getGreeting()} *${vendor.name || 'Vendor'}*!\n\n` +
+        `📋 *Vendor Transaction Receipt #${txn.txn_number}*\n` +
+        `*${shopProfile?.name || 'Mobotech mobile care'}*\n\n` +
+        `📅 *Date:* ${formatInvoiceDate(txn.txn_date || txn.created_at)}\n` +
+        `🔄 *Type:* ${txn.txn_type.replace(/_/g, ' ')}\n\n` +
         `*Items Handled:*\n${itemsText}\n\n` +
-        `*Total Charges:* ₹${parseFloat(txn.total_cost || 0).toFixed(2)}\n` +
-        `*Paid:* ₹${parseFloat(txn.paid_amount || 0).toFixed(2)}\n`
+        `💰 *Total Charges:* ₹${parseFloat(txn.total_cost || 0).toFixed(2)}\n` +
+        `💳 *Paid:* ₹${parseFloat(txn.paid_amount || 0).toFixed(2)}\n\n` +
+        `*${shopProfile?.name || 'Mobotech mobile care'}* ❤️`
     );
 
     const intlPhone = rawPhone.startsWith('91') ? rawPhone : `91${rawPhone}`;

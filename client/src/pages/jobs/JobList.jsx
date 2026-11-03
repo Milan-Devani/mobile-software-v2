@@ -434,22 +434,38 @@ export const JobList = () => {
     const downloadPdfLink = `${window.location.origin}/api/invoices/public/${directSendJob.id}/download-pdf`;
 
     const getGreeting = () => {
-      const hour = new Date().getHours();
-      if (hour >= 5 && hour < 12) return 'Good Morning';
-      if (hour >= 12 && hour < 17) return 'Good Afternoon';
-      return 'Good Evening';
+      let hour;
+      try {
+        const istTimeStr = new Date().toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: 'numeric',
+        });
+        hour = parseInt(istTimeStr, 10);
+      } catch (_) {
+        hour = new Date().getHours();
+      }
+      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
+      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
+      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
+      return '🌙 Hello';
     };
 
+    const customerName = (directSendJob.customer?.full_name || 'Customer').trim();
+    const deviceName = `${directSendJob.device?.brand || ''} ${directSendJob.device?.model || 'Device'}`.trim();
+
     const text =
-      `${getGreeting()} *Service Record & Tax Invoice - Mobotech mobile care*\n` +
-      `Dear ${directSendJob.customer?.full_name || 'Customer'},\n` +
+      `${getGreeting()} *${customerName}*!\n\n` +
+      `🎊 *Thank You for Choosing Mobotech Mobile Care!* ❤️\n\n` +
       `Your repair invoice #${directSendJob.job_number} is ready.\n\n` +
-      `📱 *Device:* ${directSendJob.device?.brand || ''} ${directSendJob.device?.model || ''}\n` +
+      `📱 *Device:* ${deviceName}\n` +
+      `🆔 *Job ID:* #${directSendJob.job_number}\n` +
       `💰 *Total Amount:* ₹${Number(directSendJob.total_amount || 0).toFixed(2)}\n` +
-      (directSendJob.balance_due > 0 ? `⚠️ *Balance Due:* ₹${Number(directSendJob.balance_due).toFixed(2)}\n` : `✓ *Paid in Full*\n`) +
-      `\n📄 *Download Invoice PDF:* ${downloadPdfLink}\n` +
-      `🌐 *View Repair Record Online:* ${trackingUrl}\n\n` +
-      `Thank you for choosing Mobotech mobile care!`;
+      (directSendJob.balance_due > 0 ? `⚠️ *Balance Due:* ₹${Number(directSendJob.balance_due).toFixed(2)}\n\n` : `✅ *Payment Status: FULLY PAID*\n\n`) +
+      `🧾 *Your Official Invoice:*\n${downloadPdfLink}\n\n` +
+      `🌐 *View Repair Record:*\n${trackingUrl}\n\n` +
+      `Thank you for trusting *Mobotech Mobile Care*!\n` +
+      `We appreciate your business and look forward to serving you again! ❤️`;
 
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };

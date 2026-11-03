@@ -109,18 +109,36 @@ export const VendorReceiptPrintable = ({
       )
       .join('\n\n');
 
+    const getGreeting = () => {
+      let hour;
+      try {
+        const istTimeStr = new Date().toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: 'numeric',
+        });
+        hour = parseInt(istTimeStr, 10);
+      } catch (_) {
+        hour = new Date().getHours();
+      }
+      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
+      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
+      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
+      return '🌙 Hello';
+    };
+
     const msg = encodeURIComponent(
-      `*${shop?.name || 'Mobotech mobile care'}*\n` +
-        `*${titleBadge}*\n` +
-        `Transaction #: ${transaction.txn_number}\n` +
-        `Date: ${formatInvoiceDate(transaction.txn_date || transaction.created_at)}\n\n` +
-        `Dear ${vendor.name} (${vendor.shop_name || 'Vendor'}),\n` +
+      `${getGreeting()} *${vendor.name || 'Vendor'}*!\n\n` +
+        `📋 *${titleBadge}* - *${shop?.name || 'Mobotech mobile care'}*\n\n` +
+        `🆔 *Transaction #:* ${transaction.txn_number}\n` +
+        `📅 *Date:* ${formatInvoiceDate(transaction.txn_date || transaction.created_at)}\n\n` +
         `Here is the itemized summary of ${mobiles.length} mobile(s):\n\n` +
         `${itemsText}\n\n` +
-        `*Total Charges:* ₹${parseFloat(transaction.total_cost || 0).toFixed(2)}\n` +
-        `*Paid Amount:* ₹${parseFloat(transaction.paid_amount || 0).toFixed(2)}\n` +
-        (transaction.notes ? `*Notes:* ${transaction.notes}\n\n` : '\n') +
-        `Please verify and confirm upon receipt.`
+        `💰 *Total Charges:* ₹${parseFloat(transaction.total_cost || 0).toFixed(2)}\n` +
+        `💳 *Paid Amount:* ₹${parseFloat(transaction.paid_amount || 0).toFixed(2)}\n` +
+        (transaction.notes ? `📝 *Notes:* ${transaction.notes}\n\n` : '\n') +
+        `Please verify and confirm upon receipt.\n\n` +
+        `*${shop?.name || 'Mobotech mobile care'}* ❤️`
     );
 
     const intlPhone = rawPhone.startsWith('91') ? rawPhone : `91${rawPhone}`;

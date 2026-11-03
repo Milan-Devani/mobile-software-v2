@@ -122,32 +122,41 @@ export const JobSheetPrintable = ({ job, shop }) => {
   };
 
   const getWhatsAppMessage = (isAlternate = false) => {
-    const shopName = shop?.name || 'Mobile Repair Center';
+    const shopName = shop?.name || 'Mobotech Mobile Care';
     const trackingUrl = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
     const getGreeting = () => {
-      const hour = new Date().getHours();
-      if (hour >= 5 && hour < 12) return 'Good Morning';
-      if (hour >= 12 && hour < 17) return 'Good Afternoon';
-      return 'Good Evening';
+      let hour;
+      try {
+        const istTimeStr = new Date().toLocaleTimeString('en-US', {
+          timeZone: 'Asia/Kolkata',
+          hour12: false,
+          hour: 'numeric',
+        });
+        hour = parseInt(istTimeStr, 10);
+      } catch (_) {
+        hour = new Date().getHours();
+      }
+      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
+      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
+      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
+      return '🌙 Hello';
     };
 
-    let msg = `${getGreeting()} *Service Order Confirmation - ${shopName}*\n\n`;
-    msg += `Dear *${cust.full_name || 'Customer'}*,\n`;
+    const customerName = (cust.full_name || 'Customer').trim();
+    const deviceName = `${dev.brand || ''} ${dev.model || 'Device'}`.trim();
+
+    let msg = `${getGreeting()} *${customerName}*!\n\n`;
+    msg += `Thank you for choosing *${shopName}*.\n\n`;
     if (isAlternate) {
       msg += `📌 _Sending to your alternate WhatsApp as your phone is submitted to our workbench._\n\n`;
-    } else {
-      msg += `Your device has been checked in for repair.\n\n`;
     }
-    msg += `📄 *Order No:* ${job.job_number}\n`;
-    msg += `📱 *Device:* ${dev.brand || ''} ${dev.model || ''}\n`;
-    msg += `🔢 *IMEI/SN:* ${dev.imei || dev.serial_number || 'N/A'}\n`;
-    msg += `⚠️ *Reported Issue:* ${job.customer_complaint || 'Diagnostic'}\n`;
-    msg += `🔧 *Service:* ${job.service_type || 'Hardware Repair'}\n`;
-    if (job.total_amount > 0) {
-      msg += `💰 *Estimated Total:* ₹${Number(job.total_amount).toFixed(2)}\n`;
-    }
-    msg += `\n🔍 *Live Status & Track:* ${trackingUrl}\n\n`;
-    msg += `Thank you for choosing ${shopName}! Queries: ${shop?.phone || ''}`;
+    msg += `📱 *Device:* ${deviceName}\n`;
+    msg += `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Assessment'}\n`;
+    msg += `🆔 *Job ID:* #${job.job_number}\n\n`;
+    msg += `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n`;
+    msg += `🌐 *Track Status:*\n${trackingUrl}\n\n`;
+    msg += `📞 *Shop Contact:* ${shop?.phone || '080000 24439'}\n\n`;
+    msg += `Thank you for trusting us! ❤️\n*${shopName}*`;
     return encodeURIComponent(msg);
   };
 

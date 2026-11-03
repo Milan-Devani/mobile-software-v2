@@ -6,6 +6,7 @@ import {
   sendBaileysMessage,
 } from '../services/baileysService.js';
 import { generateInvoicePdfBuffer } from '../services/pdfService.js';
+import { getDynamicGreeting } from '../services/notificationService.js';
 import { db } from '../db/db.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { AppError } from '../middleware/errorHandler.js';
@@ -62,7 +63,8 @@ router.post('/send-test', authenticateToken, async (req, res, next) => {
     const { phone, message } = req.body;
     if (!phone) throw new AppError('Phone number is required.', 400);
 
-    const text = message || `*Mobotech Mobile Care*\nHello! This is an automated background test message sent via your linked WhatsApp number.`;
+    const greeting = getDynamicGreeting();
+    const text = message || `${greeting}!\n\n*Mobotech Mobile Care - Verification*\nThis is an automated background test message sent via your linked WhatsApp number. ❤️`;
     const result = await sendBaileysMessage({ phone, message: text });
 
     res.json({ success: true, message: 'Message sent successfully in background!', data: result });
@@ -102,15 +104,22 @@ router.post('/send-invoice/:jobId', authenticateToken, async (req, res, next) =>
     const cleanJobNum = (invoice?.invoice_number || job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `Mobotech_Invoice_${cleanJobNum}.pdf`;
 
+    const greeting = getDynamicGreeting();
+    const customerName = (customer?.full_name || 'Customer').trim();
+    const deviceName = `${job.device?.brand || ''} ${job.device?.model || 'Device'}`.trim();
+    const shopName = shop?.name || 'Mobotech mobile care';
+    const currSym = shop?.currency_symbol || '₹';
+
     const caption =
-      `*Service Record & Tax Invoice - ${shop?.name || 'Mobotech mobile care'}*\n` +
-      `Dear ${customer?.full_name || 'Customer'},\n` +
-      `Your service record & invoice #${invoice?.invoice_number || job.job_number} is ready.\n\n` +
-      `📱 *Device:* ${job.device?.brand || ''} ${job.device?.model || ''}\n` +
-      `💰 *Total Amount:* ${shop?.currency_symbol || '₹'}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
-      `🔧 *Status:* ${job.status || 'READY_FOR_PICKUP'}\n` +
-      `📍 *Shop:* ${shop?.address || 'Central Bazar, Surat'}\n\n` +
-      `_Please find your official tax invoice document attached._`;
+      `${greeting} *${customerName}*!\n\n` +
+      `🎊 *Thank You for Choosing ${shopName}!* ❤️\n\n` +
+      `Your service record & tax invoice #${invoice?.invoice_number || job.job_number} is ready.\n\n` +
+      `📱 *Device:* ${deviceName}\n` +
+      `🆔 *Job ID:* #${job.job_number}\n` +
+      `💰 *Total Amount:* ${currSym}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
+      `🔧 *Status:* ${job.status || 'COMPLETED'}\n\n` +
+      `🧾 *Please find your official tax invoice PDF attached below.*\n\n` +
+      `Thank you for trusting *${shopName}*! ❤️`;
 
     // 2. Dispatch automatically via Baileys in background
     const result = await sendBaileysMessage({
