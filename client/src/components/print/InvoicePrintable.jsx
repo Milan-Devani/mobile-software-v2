@@ -342,6 +342,40 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const signatureDateStr = formatSignatureDate(invoice?.issued_at || job.updated_at || job.created_at);
   const technicianName = job.technician?.full_name || 'Jaimini Patel';
 
+  const isWarrantyClaim = Boolean(
+    job.is_warranty_claim ||
+    job.warranty_same_issue ||
+    job.warranty_free_rework ||
+    (job.reopen_count && job.reopen_count > 0) ||
+    allWarrantyClaims.length > 0
+  );
+
+  const extractDays = (val) => {
+    if (!val) return null;
+    const num = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+    return !isNaN(num) && num > 0 ? num : null;
+  };
+
+  const itemWarrantyDays = (items || [])
+    .map((it) => extractDays(it.warranty))
+    .filter(Boolean);
+  const maxItemDays = itemWarrantyDays.length > 0 ? Math.max(...itemWarrantyDays) : null;
+
+  const resolvedWarrantyDays =
+    extractDays(job.warranty_days) ||
+    extractDays(invoice?.warranty_period) ||
+    maxItemDays ||
+    (isWarrantyClaim ? 30 : null);
+
+  const hasRepairWarranty = Boolean(
+    isWarrantyClaim ||
+    resolvedWarrantyDays ||
+    (invoice?.warranty_period && !invoice.warranty_period.toLowerCase().includes('out of warranty') && !invoice.warranty_period.toLowerCase().includes('none')) ||
+    (job.warranty_days && Number(job.warranty_days) > 0)
+  );
+
+  const warrantyDaysText = resolvedWarrantyDays ? `${resolvedWarrantyDays} Days` : (invoice?.warranty_period || '30 Days');
+
   // 12 Checklist items matching PDF exactly
   const checklistData = INWARD_CHECKLIST_CONFIG.map((item) => ({
     label: item.label,
@@ -441,7 +475,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         `📱 *Device:* ${deviceName}\n` +
         `🆔 *Job ID:* #${job.job_number}\n` +
         `💰 *Balance Due:* ${currencySymbol}0.00\n\n` +
-        `🌐 *Track Online:*\n${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n\n` +
         `Thank you for trusting *${shopName}*! ❤️`
       : `${getGreeting()} *${customerName}*!\n\n` +
         `🎊 *Thank You for Choosing ${shopName}!* ❤️\n\n` +
@@ -449,7 +482,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         `📱 *Device:* ${deviceName}\n` +
         `🆔 *Job ID:* #${job.job_number}\n` +
         `💰 *Total Amount:* ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n\n` +
-        `🌐 *View Repair Record:*\n${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}\n\n` +
         `Thank you for choosing *${shopName}*! ❤️`;
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
@@ -834,7 +866,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       </div>
                       <div style={{ fontSize: '11px', paddingTop: '2px', borderTop: '1px solid #cbd5e1', lineHeight: 1.25 }}>
                         <div>Service Mode: <b>Carry in</b></div>
-                        <div>*Service Coverage Status: <b>{dev.warranty_status || 'Out of Warranty'}</b></div>
+                        {hasRepairWarranty && (
+                          <div>Warranty Status: <b style={{ color: isWarrantyClaim ? '#166534' : 'inherit' }}>{isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</b></div>
+                        )}
                         <div>Date of Device Inward: <b>{inwardDateStr}</b></div>
                       </div>
                     </div>
@@ -879,10 +913,14 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           <BarcodeSvg value={dev.imei || dev.serial_number || '789654123654789'} height={18} align="left" />
                         </div>
                       </div>
-                      <div style={{ display: 'flex' }}>
-                        <span style={{ width: '50%', fontWeight: 700, textTransform: 'uppercase', fontSize: '11px' }}>Product Warranty Status:</span>
-                        <span style={{ width: '50%', fontWeight: 700, fontSize: '12px' }}>{dev.warranty_status || 'Out of Warranty'}</span>
-                      </div>
+                      {hasRepairWarranty && (
+                        <div style={{ display: 'flex' }}>
+                          <span style={{ width: '50%', fontWeight: 700, textTransform: 'uppercase', fontSize: '11px' }}>Warranty Status:</span>
+                          <span style={{ width: '50%', fontWeight: 700, fontSize: '12px', color: '#166534' }}>
+                            {isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Issue Reported & Complete Warranty Claims Table */}
@@ -1225,7 +1263,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                 </div>
                 <ul style={{ margin: 0, paddingLeft: '14px' }}>
                   <li style={{ marginBottom: '2px' }}>In case of any Tempering/Unauthorised Modification found While doing micro inspection at our centre then Mobotech will not be able to provide any service on this unit. device will be return back to customer un-repaired in the damaged condition itself, Mobotech will not be responsible for returning the product in the same condition as received from the customer, Deterioration to normal functioning, including a total shutdown of the device can happen in such scenarios, also Mobotech may not be able to provide any service on this unit in future.</li>
-                  <li style={{ marginBottom: '2px' }}>While submitting device (warranty/Out of Warranty) if there is any damage are present Then there may be a chance while opening/servicing your device by Mobotech Repair Centre that damage may be increased or any other hardware issue May appeared, for that Mobotech is not responsible.</li>
+                  <li style={{ marginBottom: '2px' }}>While submitting device (warranty/non-warranty) if there is any damage are present Then there may be a chance while opening/servicing your device by Mobotech Repair Centre that damage may be increased or any other hardware issue May appeared, for that Mobotech is not responsible.</li>
                   <li style={{ marginBottom: '2px' }}>While submitting device Remove any SIM card, case, screen protector or accessories from your device. As a part of repair Mobotech may have to remove and discard such accessories, in such cases Mobotech is not responsible for any damage or loss of SIM card, case, screen protector or accessories.</li>
                   <li style={{ marginBottom: '2px' }}>The charges for labour as well as spares used for non-warranty repair shall be as per the applicable price lists approved and recommended by Mobotech.</li>
                   <li style={{ marginBottom: '2px' }}>The Estimate price given at the time of acceptance of the Product to repairs are Provisional and may vary at the time of detailed inspection. Should the final expected charges be more than the initial estimate, Mobotech will proceed only after taking the approval of the Customer.</li>

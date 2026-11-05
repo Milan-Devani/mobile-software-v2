@@ -77,7 +77,7 @@ export const recordPayment = async (req, res, next) => {
       job: fullJob,
       customer,
       type: 'PAYMENT_RECEIVED',
-      channels: ['EMAIL', 'WHATSAPP', 'SMS'],
+      channels: ['EMAIL', 'WHATSAPP'],
       metadata: {
         paymentAmount: parsedAmount,
         paymentMethod: payment_method,

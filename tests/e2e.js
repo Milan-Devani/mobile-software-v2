@@ -219,14 +219,14 @@ export const runE2ETest = async () => {
 
     // 18. Verify Notification Audit Logs
     const logsRes = await req('/notifications/logs', { headers: authHeaders });
-    console.log(`✅ 18. Notification logs checked: ${logsRes.data.logs.length} logged dispatches recorded across Email, WhatsApp, and SMS.`);
+    console.log(`✅ 18. Notification logs checked: ${logsRes.data.logs.length} logged dispatches recorded across Email and WhatsApp.`);
 
     // 19. Verify Dashboard KPIs
     const dashRes = await req('/dashboard/stats', { headers: authHeaders });
     console.log(`✅ 19. Dashboard operations metrics updated:`);
     console.log(`       - Total Jobs: ${dashRes.data.summary.total_jobs}`);
     console.log(`       - Completed: ${dashRes.data.summary.completed}`);
-    console.log(`       - Revenue: $${dashRes.data.summary.total_revenue}`);
+    console.log(`       - Revenue: ₹${dashRes.data.summary.total_revenue}`);
 
     console.log('\n====================================================');
     console.log('🎉 ALL 19 WORKFLOW PHASES VERIFIED WITH 100% SUCCESS!');

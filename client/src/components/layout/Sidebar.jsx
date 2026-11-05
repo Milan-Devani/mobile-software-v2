@@ -6,7 +6,7 @@ import {
   Wrench,
   Users,
   Package,
-  CreditCard,
+  IndianRupee,
   Bell,
   Settings,
   LogOut,
@@ -15,6 +15,7 @@ import {
   Receipt,
   Building2,
   Trash2,
+  Star,
 } from 'lucide-react';
 import { logout } from '../../store/authSlice';
 import Swal from 'sweetalert2';
@@ -48,7 +49,8 @@ export const Sidebar = ({ isOpen, onClose }) => {
     { label: 'Vendor Management', path: '/vendors', icon: Building2, roles: ['admin', 'technician', 'staff'] },
     { label: 'Customers', path: '/customers', icon: Users, roles: ['admin', 'technician', 'staff'] },
     { label: 'Parts & Stock', path: '/parts', icon: Package, roles: ['admin', 'technician', 'staff'] },
-    { label: 'Payments', path: '/payments', icon: CreditCard, roles: ['admin', 'staff'] },
+    { label: 'Payments', path: '/payments', icon: IndianRupee, roles: ['admin', 'staff'] },
+    { label: 'Google Reviews', path: '/reviews', icon: Star, roles: ['admin', 'staff'] },
     { label: 'Notifications', path: '/notifications', icon: Bell, roles: ['admin', 'staff', 'technician'] },
     { label: 'Shop Settings', path: '/settings', icon: Settings, roles: ['admin'] },
     { label: 'Recycle Bin', path: '/recycle-bin', icon: Trash2, roles: ['admin', 'technician', 'staff'] },

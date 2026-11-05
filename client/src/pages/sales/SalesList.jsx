@@ -379,7 +379,7 @@ export const SalesList = () => {
 
         <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex items-center gap-3.5">
           <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 dark:text-indigo-400 border border-indigo-500/20 flex items-center justify-center shrink-0">
-            <CreditCard className="w-5 h-5" />
+            <IndianRupee className="w-5 h-5" />
           </div>
           <div>
             <div className="text-[11px] font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">

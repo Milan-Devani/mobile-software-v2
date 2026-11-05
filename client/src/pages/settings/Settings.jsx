@@ -29,6 +29,7 @@ import {
   Database,
   Upload,
   Image as ImageIcon,
+  Send,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
@@ -90,6 +91,7 @@ export const Settings = () => {
   const [isEditingSenderEmail, setIsEditingSenderEmail] = useState(false);
   const [senderEmailInput, setSenderEmailInput] = useState('');
   const [isSavingSenderEmail, setIsSavingSenderEmail] = useState(false);
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
 
   // Shop Logo & Instagram QR Upload state
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -281,7 +283,7 @@ export const Settings = () => {
       setNotifications(updatedConfig);
       await settingsService.updateNotifications({
         email_enabled: channelKey === 'email_enabled' ? value : notifications.email_enabled,
-        sms_enabled: channelKey === 'sms_enabled' ? value : notifications.sms_enabled,
+        sms_enabled: false,
         whatsapp_enabled: channelKey === 'whatsapp_enabled' ? value : notifications.whatsapp_enabled,
         sender_email: notifications.sender_email || notifications.brevo_sender,
       });
@@ -308,7 +310,7 @@ export const Settings = () => {
       setIsSavingSenderEmail(true);
       await settingsService.updateNotifications({
         email_enabled: notifications.email_enabled,
-        sms_enabled: notifications.sms_enabled,
+        sms_enabled: false,
         whatsapp_enabled: notifications.whatsapp_enabled,
         sender_email: trimmed,
         brevo_sender: trimmed,
@@ -324,6 +326,19 @@ export const Settings = () => {
       toast.error(err.message || 'Failed to update sender email');
     } finally {
       setIsSavingSenderEmail(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setIsSendingTestEmail(true);
+    try {
+      const targetEmail = notifications.sender_email || 'milandevani994@gmail.com';
+      const res = await settingsService.testEmail(targetEmail);
+      toast.success(res?.message || `Test email dispatched to ${targetEmail}! Check inbox and spam folders.`);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to dispatch test email.');
+    } finally {
+      setIsSendingTestEmail(false);
     }
   };
 
@@ -926,7 +941,7 @@ export const Settings = () => {
                 {/* 1. Shop Logo Input & Upload */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
                       <ImageIcon className="w-3.5 h-3.5 text-sky-500" />
                       <span>Shop Logo</span>
                     </label>
@@ -1010,7 +1025,7 @@ export const Settings = () => {
                 {/* 2. Instagram Profile QR Code Input & Upload */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
+                    <label className="text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
                       <QrCode className="w-3.5 h-3.5 text-pink-500" />
                       <span>Instagram Profile QR</span>
                       <span className="px-1.5 py-0.2 rounded text-[9px] font-semibold bg-pink-500/15 text-pink-500 border border-pink-500/20">
@@ -1385,7 +1400,7 @@ export const Settings = () => {
         <div key="notifications" className="spatial-tab-pane">
           <Card
             title="Notification Dispatchers"
-            subtitle="Customer notification pipelines (Email, WhatsApp, SMS)"
+            subtitle="Customer notification pipelines (Email & WhatsApp)"
           >
           <div className="space-y-4 text-xs">
             {/* WhatsApp Linked Device */}
@@ -1533,48 +1548,32 @@ export const Settings = () => {
                 )}
               </div>
 
-              <label className="flex items-center gap-2 cursor-pointer self-start sm:self-center">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)]">Enabled</span>
-                <input
-                  type="checkbox"
-                  checked={notifications.email_enabled}
-                  onChange={(e) => handleToggleNotification('email_enabled', e.target.checked)}
-                  className="w-4 h-4 text-sky-500 rounded"
-                />
-              </label>
-            </div>
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap self-start sm:self-center">
+                <button
+                  type="button"
+                  onClick={handleSendTestEmail}
+                  disabled={isSendingTestEmail}
+                  className="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 bg-sky-500/15 text-sky-400 border border-sky-400/30 hover:bg-sky-500/25 disabled:opacity-50 transition-colors cursor-pointer"
+                  title="Send diagnostic test email"
+                >
+                  {isSendingTestEmail ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isSendingTestEmail ? 'Sending...' : 'Send Test Email'}</span>
+                </button>
 
-            {/* SMS Notifications */}
-            <div className="p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-[var(--spatial-text-title)] flex items-center gap-1.5">
-                    <Phone className="w-4 h-4 text-amber-400" />
-                    SMS Notifications
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      notifications.msg91_configured
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : 'bg-amber-500/10 text-amber-400'
-                    }`}
-                  >
-                    {notifications.msg91_configured ? 'Active' : 'Dev Simulator Mode'}
-                  </span>
-                </div>
-                <p className="text-[var(--spatial-text-muted)] text-[11px] mt-0.5">
-                  Sender ID: {notifications.msg91_sender || 'TCHFIX'}
-                </p>
+                <label className="flex items-center gap-1.5 cursor-pointer border-l border-[var(--spatial-border)] pl-3">
+                  <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)]">Enabled</span>
+                  <input
+                    type="checkbox"
+                    checked={notifications.email_enabled}
+                    onChange={(e) => handleToggleNotification('email_enabled', e.target.checked)}
+                    className="w-4 h-4 text-sky-500 rounded"
+                  />
+                </label>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <span className="text-[11px] font-semibold text-[var(--spatial-text-muted)]">Enabled</span>
-                <input
-                  type="checkbox"
-                  checked={notifications.sms_enabled}
-                  onChange={(e) => handleToggleNotification('sms_enabled', e.target.checked)}
-                  className="w-4 h-4 text-sky-500 rounded"
-                />
-              </label>
             </div>
           </div>
         </Card>

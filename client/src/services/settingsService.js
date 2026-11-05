@@ -28,4 +28,9 @@ export const settingsService = {
     });
     return res?.data || res;
   },
+
+  testEmail: async (email) => {
+    const res = await api.post('/settings/test-email', { email });
+    return res?.data || res;
+  },
 };

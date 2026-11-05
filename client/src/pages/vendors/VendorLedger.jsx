@@ -13,7 +13,7 @@ import {
   Building2,
   Phone,
   ShieldCheck,
-  CreditCard,
+  IndianRupee,
   AlertCircle
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';

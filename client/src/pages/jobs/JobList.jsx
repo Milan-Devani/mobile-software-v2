@@ -20,7 +20,7 @@ import {
   PhoneForwarded,
   MessageSquare,
   Receipt,
-  CreditCard
+  IndianRupee
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -359,7 +359,7 @@ export const JobList = () => {
               Device: ${job.device?.brand || ''} ${job.device?.model || 'Device'} • Total: ₹${Number(job.total_amount || 0).toLocaleString()}
             </div>
           </div>
-          <p style="font-size: 11px; opacity: 0.7; margin: 0;">Dispatches via WhatsApp & SMS with vector PDF invoice attached.</p>
+          <p style="font-size: 11px; opacity: 0.7; margin: 0;">Dispatches via WhatsApp & Email with vector PDF invoice attached.</p>
         </div>
       `,
       icon: 'question',
@@ -372,7 +372,7 @@ export const JobList = () => {
     if (result.isConfirmed) {
       const toastId = toast.loading(`Sending invoice to ${phone}...`);
       try {
-        await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP', 'SMS']);
+        await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP']);
         toast.success(`Invoice sent to ${phone} successfully!`, { id: toastId });
       } catch (err) {
         toast.error(err.response?.data?.message || err.message || 'Failed to send invoice', { id: toastId });
@@ -410,7 +410,7 @@ export const JobList = () => {
       const toastId = toast.loading(`Dispatching invoice to ${directPhone.trim()}...`);
       await invoiceService.resendInvoice(directSendJob.id, {
         targetPhone: directPhone.trim(),
-        channels: ['WHATSAPP', 'SMS'],
+        channels: ['WHATSAPP'],
       });
       toast.success(`Invoice sent to ${directPhone.trim()} successfully!`, { id: toastId });
       handleCloseDirectSendModal();
@@ -462,8 +462,6 @@ export const JobList = () => {
       `🆔 *Job ID:* #${directSendJob.job_number}\n` +
       `💰 *Total Amount:* ₹${Number(directSendJob.total_amount || 0).toFixed(2)}\n` +
       (directSendJob.balance_due > 0 ? `⚠️ *Balance Due:* ₹${Number(directSendJob.balance_due).toFixed(2)}\n\n` : `✅ *Payment Status: FULLY PAID*\n\n`) +
-      `🧾 *Your Official Invoice:*\n${downloadPdfLink}\n\n` +
-      `🌐 *View Repair Record:*\n${trackingUrl}\n\n` +
       `Thank you for trusting *Mobotech Mobile Care*!\n` +
       `We appreciate your business and look forward to serving you again! ❤️`;
 
@@ -796,7 +794,7 @@ export const JobList = () => {
                               className="p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Record Payment / Open Payments Tab"
                             >
-                              <CreditCard className="w-4 h-4" />
+                              <IndianRupee className="w-4 h-4" />
                             </button>
 
                             {/* View / Edit Job Sheet */}

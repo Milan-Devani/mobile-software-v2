@@ -15,7 +15,7 @@ const settingsSlice = createSlice({
     },
     notifications: {
       email_enabled: true,
-      sms_enabled: true,
+      sms_enabled: false,
       whatsapp_enabled: true,
     },
   },

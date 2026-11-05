@@ -18,7 +18,6 @@ import {
   IndianRupee,
   ArrowLeft,
   X,
-  CreditCard,
   Building,
   CheckCircle2,
   FileText,

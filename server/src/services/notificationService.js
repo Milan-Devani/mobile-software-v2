@@ -2,10 +2,9 @@ import { db } from '../db/db.js';
 import { env } from '../config/env.js';
 import { sendBrevoEmail } from './brevoEmailService.js';
 import { sendOpenWaMessage } from './openWaService.js';
-import { sendFast2SmsWhatsApp, sendFast2SmsSms } from './fast2smsService.js';
+import { sendFast2SmsWhatsApp } from './fast2smsService.js';
 import { getBaileysStatus, sendBaileysMessage } from './baileysService.js';
-import { sendMsg91Sms } from './msg91SmsService.js';
-import { generateInvoicePdfBuffer, generateSaleInvoicePdfBuffer } from './pdfService.js';
+import { generateInvoicePdfBuffer, generateSaleInvoicePdfBuffer, generateJobSheetPdfBuffer } from './pdfService.js';
 
 /**
  * Returns dynamic customer greeting based on current hour in IST (Asia/Kolkata):
@@ -43,13 +42,16 @@ export const dispatchNotification = async ({
   job,
   customer,
   type, // JOB_CREATED, ESTIMATE_SENT, ESTIMATE_APPROVED, READY_FOR_PICKUP, PAYMENT_RECEIVED, INVOICE_GENERATED
-  channels = ['EMAIL', 'WHATSAPP', 'SMS'],
+  channels = ['EMAIL', 'WHATSAPP'],
   metadata = {}
 }) => {
   if (!job || !customer) {
     console.warn('⚠️ Missing job or customer data for notification dispatch');
     return { success: false, error: 'Missing job or customer' };
   }
+
+  // Gracefully filter out legacy SMS channel to ensure older callers don't break
+  const activeChannels = (Array.isArray(channels) ? channels : ['EMAIL', 'WHATSAPP']).filter((ch) => ch !== 'SMS');
 
   const shop = await db.shops.getProfile();
   const shopName = shop?.name || 'Mobotech mobile care';
@@ -86,9 +88,17 @@ export const dispatchNotification = async ({
   let whatsappMessage = '';
 
   let pdfBuffer = null;
-  let invoiceFilename = `Mobotech_Invoice_${(job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+  let documentFilename = `Mobotech_Invoice_${(job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
 
-  if (type === 'INVOICE_GENERATED') {
+  if (type === 'JOB_CREATED') {
+    try {
+      pdfBuffer = await generateJobSheetPdfBuffer({ job, shop, trackingUrl: approvalUrl });
+      const cleanNum = (job.job_number || 'SO').replace(/[^a-zA-Z0-9_-]/g, '_');
+      documentFilename = `Service_Order_${cleanNum}.pdf`;
+    } catch (pdfErr) {
+      console.warn('⚠️ Service Order Sheet PDF buffer generation warning:', pdfErr.message);
+    }
+  } else if (type === 'INVOICE_GENERATED') {
     try {
       let invoice = await db.invoices.getByJobId(job.id);
       if (!invoice) {
@@ -97,7 +107,7 @@ export const dispatchNotification = async ({
       pdfBuffer = await generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl: approvalUrl });
       if (invoice?.invoice_number) {
         const cleanInv = invoice.invoice_number.replace(/[^a-zA-Z0-9_-]/g, '_');
-        invoiceFilename = `Mobotech_Invoice_${cleanInv}.pdf`;
+        documentFilename = `Mobotech_Invoice_${cleanInv}.pdf`;
       }
     } catch (pdfErr) {
       console.warn('⚠️ Invoice PDF buffer generation warning:', pdfErr.message);
@@ -106,7 +116,7 @@ export const dispatchNotification = async ({
 
   switch (type) {
     case 'JOB_CREATED':
-      subject = `[${shopName}] Repair Job Sheet Created - #${job.job_number}`;
+      subject = `[${shopName}] Service Order Sheet Created - #${job.job_number}`;
       whatsappMessage =
         `${greeting} *${customerName}*!\n\n` +
         `Thank you for choosing *${shopName}*.\n\n` +
@@ -114,15 +124,15 @@ export const dispatchNotification = async ({
         `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Inspection'}\n` +
         `🆔 *Job ID:* #${job.job_number}\n\n` +
         `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n` +
-        `🌐 *Track Status:* ${approvalUrl}\n` +
+        `📄 *Your official Service Order Sheet PDF is attached below.*\n\n` +
         `📞 *Shop Contact:* ${shopPhone}\n\n` +
         `Thank you for trusting us! ❤️\n` +
         `*${shopName}*`;
-      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". We will diagnose it shortly. Contact: ${shopPhone}`;
+      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". Your Service Order Sheet PDF is attached. Contact: ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
-          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Device Intake Confirmation</p>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">Device Intake & Service Order Confirmation</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p>${greeting}, <strong>${customerName}</strong>!</p>
           <p>Your device has been received and checked in for repair services.</p>
@@ -133,6 +143,9 @@ export const dispatchNotification = async ({
             <tr><td style="padding: 6px; color: #64748b;">Current Status:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
           </table>
           <p style="font-size: 14px; color: #475569;">Our technicians are assessing the device. You will receive an inspection diagnosis and quotation before any repair work commences.</p>
+          <p style="font-size: 13px; color: #475569; margin: 15px 0; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            📎 <strong>Official Service Order Sheet PDF is attached to this email.</strong> Please retain this document for pickup reference.
+          </p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
         </div>
@@ -147,10 +160,10 @@ export const dispatchNotification = async ({
         `📱 *Device:* ${deviceFullName}\n` +
         `🆔 *Job ID:* #${job.job_number}\n\n` +
         `💰 *Estimated Repair Cost:* ${currSym}${Number(job.total_amount).toFixed(2)}\n\n` +
-        `Please review the estimate and authorize the repair using the link below.\n\n` +
+        `Please review and approve your repair:\n\n` +
         `🔗 *Approve Repair:*\n${approvalUrl}\n\n` +
         `Thank you for choosing *${shopName}*! ❤️`;
-      plainMessage = `${greeting} ${customerName}, your repair estimate for Job #${job.job_number} (${deviceFullName}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Please review and authorize your repair here: ${approvalUrl}`;
+      plainMessage = `${greeting} ${customerName}, your repair estimate for Job #${job.job_number} (${deviceFullName}) is ready. Estimated Total: ${currSym}${Number(job.total_amount).toFixed(2)}. Approve Repair: ${approvalUrl}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -163,9 +176,9 @@ export const dispatchNotification = async ({
             <p style="margin: 0; color: #64748b; font-size: 13px;">Includes diagnostic labor and genuine replacement parts.</p>
           </div>
           <div style="text-align: center; margin: 25px 0;">
-            <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Review & Approve Repair Online</a>
+            <a href="${approvalUrl}" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Approve Repair Online</a>
           </div>
-          <p style="font-size: 13px; color: #64748b; text-align: center;">Or copy link: <a href="${approvalUrl}">${approvalUrl}</a></p>
+          <p style="font-size: 13px; color: #64748b; text-align: center;">Or click link: <a href="${approvalUrl}" style="color: #0284c7; text-decoration: underline;">${approvalUrl}</a></p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
         </div>
@@ -181,10 +194,10 @@ export const dispatchNotification = async ({
         `📱 *Device:* ${deviceFullName}\n` +
         `🆔 *Job ID:* #${job.job_number}\n` +
         `📌 *Status:* APPROVED\n\n` +
-        `Our technician will proceed with the repair.\n\n` +
-        `🌐 *Track Status:*\n${approvalUrl}\n\n` +
+        `Our technician is proceeding with the repair on the workbench. We will notify you when your device is ready for pickup.\n\n` +
+        `📞 *Shop Contact:* ${shopPhone}\n\n` +
         `Thank you for choosing *${shopName}*! ❤️`;
-      plainMessage = `${greeting} ${customerName}, your repair request for ${deviceFullName} (Job #${job.job_number}) is approved. Our technicians are proceeding with the repair. Track: ${approvalUrl}. ${shopName}`;
+      plainMessage = `${greeting} ${customerName}, your repair request for ${deviceFullName} (Job #${job.job_number}) is approved. Our technicians are proceeding with the repair. Contact: ${shopPhone}. ${shopName}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -197,9 +210,7 @@ export const dispatchNotification = async ({
             <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px;">${deviceFullName}</td></tr>
             <tr><td style="padding: 6px; color: #64748b;">Status:</td><td style="padding: 6px; color: #16a34a; font-weight: bold;">APPROVED</td></tr>
           </table>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Track Repair Progress</a>
-          </div>
+          <p style="font-size: 14px; color: #475569;">Our technician is proceeding with the repair on the workbench. We will notify you when your device is ready for pickup.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
         </div>
@@ -263,10 +274,9 @@ export const dispatchNotification = async ({
           `🆔 *Job ID:* #${job.job_number}\n` +
           `🛡️ *Warranty Claim:* Claim #${job.reopen_count || 1} (100% Free Rework)\n` +
           `💰 *Balance Due:* ${currSym}0.00\n\n` +
-          `📄 Your official warranty service receipt PDF is attached below.\n` +
-          `🌐 *Track Record:* ${approvalUrl}\n\n` +
+          `📄 *Your official warranty service receipt PDF is attached below.*\n\n` +
           `Thank you for trusting *${shopName}*! ❤️`;
-        plainMessage = `${greeting} ${customerName}, your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. Track: ${approvalUrl}. ${shopName}`;
+        plainMessage = `${greeting} ${customerName}, your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. ${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #059669; margin-bottom: 4px;">${shopName}</h2>
@@ -284,15 +294,11 @@ export const dispatchNotification = async ({
             <p style="font-size: 13px; color: #475569; margin: 15px 0;">
               📎 <strong>Official Warranty Service Invoice PDF is attached to this email.</strong> Please keep this receipt for your records.
             </p>
-            <div style="text-align: center; margin: 20px 0;">
-              <a href="${approvalUrl}" style="background-color: #059669; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
-            </div>
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
             <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
           </div>
         `;
       } else {
-        const downloadPdfLink = `${clientBaseUrl}/api/invoices/public/${job.id}/download-pdf`;
         subject = `[${shopName}] Official Tax Invoice & Delivery Receipt - Job #${job.job_number}`;
         whatsappMessage =
           `${greeting} *${customerName}*!\n\n` +
@@ -303,11 +309,10 @@ export const dispatchNotification = async ({
           `✅ Device Delivered\n` +
           `✅ Payment Settled\n` +
           `💰 *Total Paid:* ${currSym}${Number(job.paid_amount || job.total_amount || 0).toFixed(2)}\n\n` +
-          `🧾 *Your Official Invoice:*\n${downloadPdfLink}\n\n` +
-          `🌐 *View Repair Record:*\n${approvalUrl}\n\n` +
+          `📄 *Your official tax invoice PDF is attached below.*\n\n` +
           `Thank you for trusting *${shopName}*.\n\n` +
           `We appreciate your business and look forward to serving you again! ❤️`;
-        plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}.\n\n📄 Download Official Invoice PDF: ${downloadPdfLink}\n🌐 View Repair Record: ${approvalUrl}\n\n${shopName}`;
+        plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. Your official tax invoice PDF is attached. ${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -323,11 +328,8 @@ export const dispatchNotification = async ({
               <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
             </table>
             <p style="font-size: 13px; color: #475569; margin: 15px 0;">
-              📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> You can also <a href="${downloadPdfLink}" style="color: #0284c7; font-weight: bold;">download your vector PDF invoice directly here</a>.
+              📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> Please retain this invoice for your records and warranty validation.
             </p>
-            <div style="text-align: center; margin: 20px 0;">
-              <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
-            </div>
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
             <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
           </div>
@@ -385,7 +387,6 @@ export const dispatchNotification = async ({
         `🆔 *Job ID:* #${job.job_number}\n` +
         `🔧 *Reported Issue:* ${job.last_warranty_issue || 'Warranty rework'}\n\n` +
         `Our technicians will inspect and address this issue under your warranty policy. We will notify you when ready.\n\n` +
-        `🌐 *Track Live Status:*\n${approvalUrl}\n\n` +
         `📞 *Shop Contact:* ${shopPhone}\n\n` +
         `*${shopName}*`;
       plainMessage = `${greeting} Hello ${customerName}, your repair Job #${job.job_number} for ${deviceFullName} has been reopened for warranty service. Issue: "${job.last_warranty_issue || 'Warranty issue reported'}". We are working on it and will notify you when ready. Shop Phone: ${shopPhone}`;
@@ -403,9 +404,6 @@ export const dispatchNotification = async ({
             <tr><td style="padding: 6px; color: #64748b;">Current Stage:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
           </table>
           <p style="font-size: 14px; color: #475569;">Our technicians will inspect and address this issue under your warranty policy.</p>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${approvalUrl}" style="background-color: #d97706; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Status</a>
-          </div>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
         </div>
@@ -427,8 +425,7 @@ export const dispatchNotification = async ({
         `• Your phone is safely reassembled in its original intake condition.\n` +
         `• Your device is *READY FOR RETURN PICKUP* at our service center.\n\n` +
         `📍 *Pickup Location:*\n${shopAddress}\n\n` +
-        `📞 *Contact Us:* ${shopPhone}\n` +
-        `🌐 *Track Record:* ${approvalUrl}\n\n` +
+        `📞 *Contact Us:* ${shopPhone}\n\n` +
         `*${shopName}*`;
       plainMessage = `${greeting} ${customerName}, repair estimate declined for Job #${job.job_number} (${deviceFullName}). Your device is ready for return pickup with 0 charge. ${shopName}`;
       emailHtml = `
@@ -452,9 +449,6 @@ export const dispatchNotification = async ({
           <div style="background-color: #f8fafc; padding: 12px; border-radius: 6px; margin: 15px 0; font-size: 12px;">
             <p style="margin: 0; font-weight: bold; color: #334155;">Pickup Location & Hours:</p>
             <p style="margin: 4px 0 0 0; color: #475569;">${shopAddress}<br/>Phone: <strong>${shopPhone}</strong></p>
-          </div>
-          <div style="text-align: center; margin: 20px 0;">
-            <a href="${approvalUrl}" style="background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">View Repair Record Online</a>
           </div>
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
@@ -501,7 +495,6 @@ export const dispatchNotification = async ({
         `Your repair job #${job.job_number} status is now: *${job.status}*.\n\n` +
         `• *Device:* ${deviceFullName}\n` +
         `• *Current Stage:* ${job.status}\n\n` +
-        `🌐 *Track Live:* ${approvalUrl}\n\n` +
         `📞 *Contact:* ${shopPhone}\n\n` +
         `*${shopName}*`;
       plainMessage = `${greeting} ${customerName}, your repair job #${job.job_number} status is now: ${job.status}. ${shopName}`;
@@ -511,7 +504,7 @@ export const dispatchNotification = async ({
   const results = [];
 
   // Channel 1: Email (Brevo)
-  if (channels.includes('EMAIL') && customer.email) {
+  if (activeChannels.includes('EMAIL') && customer.email) {
     try {
       const emailResult = await sendBrevoEmail({
         toEmail: customer.email,
@@ -519,7 +512,7 @@ export const dispatchNotification = async ({
         subject,
         htmlContent: emailHtml,
         textContent: plainMessage,
-        attachments: pdfBuffer ? [{ name: invoiceFilename, content: pdfBuffer, contentType: 'application/pdf' }] : [],
+        attachments: pdfBuffer ? [{ name: documentFilename, content: pdfBuffer, contentType: 'application/pdf' }] : [],
       });
 
       await db.notifications.log({
@@ -529,7 +522,7 @@ export const dispatchNotification = async ({
         messageType: type,
         recipient: customer.email,
         status: emailResult.success ? 'SENT' : 'FAILED',
-        provider: 'BREVO',
+        provider: emailResult.provider || 'BREVO_SMTP',
         providerResponse: emailResult,
       });
       results.push({ channel: 'EMAIL', success: true });
@@ -578,7 +571,7 @@ export const dispatchNotification = async ({
   if (customer.whatsapp_number) addRecipient(customer.whatsapp_number);
   if (customer.phone) addRecipient(customer.phone);
 
-  if (channels.includes('WHATSAPP') && waRecipients.length > 0) {
+  if (activeChannels.includes('WHATSAPP') && waRecipients.length > 0) {
     const baileysState = getBaileysStatus();
     const msgToSend = whatsappMessage || plainMessage;
 
@@ -593,7 +586,7 @@ export const dispatchNotification = async ({
             message: msgToSend,
             ...(pdfBuffer ? {
               documentBuffer: pdfBuffer,
-              documentFilename: invoiceFilename,
+              documentFilename: documentFilename,
               caption: msgToSend,
             } : {}),
           });
@@ -644,64 +637,6 @@ export const dispatchNotification = async ({
         });
         results.push({ channel: 'WHATSAPP', recipient: waNumber, success: false, error: err.message });
       }
-    }
-  }
-
-  // Channel 3: SMS (Fast2SMS / MSG91)
-  if (channels.includes('SMS') && customer.phone) {
-    try {
-      let smsResult;
-      let smsProvider = 'FAST2SMS';
-
-      if (env.FAST2SMS_API_KEY && env.FAST2SMS_API_KEY.trim()) {
-        smsResult = await sendFast2SmsSms({
-          phone: customer.phone,
-          message: plainMessage,
-        });
-        smsProvider = smsResult.provider || 'FAST2SMS';
-      } else if (env.MSG91_AUTH_KEY) {
-        smsResult = await sendMsg91Sms({
-          phone: customer.phone,
-          message: plainMessage,
-          templateVariables: {
-            name: customer.full_name,
-            job_number: job.job_number,
-            amount: String(job.total_amount),
-          },
-        });
-        smsProvider = 'MSG91';
-      } else {
-        smsResult = await sendFast2SmsSms({
-          phone: customer.phone,
-          message: plainMessage,
-        });
-        smsProvider = 'FAST2SMS_SMS_SIMULATOR';
-      }
-
-      await db.notifications.log({
-        jobId: job.id,
-        customerId: customer.id,
-        channel: 'SMS',
-        messageType: type,
-        recipient: customer.phone,
-        status: smsResult.success ? 'SENT' : 'FAILED',
-        provider: smsProvider,
-        providerResponse: smsResult,
-      });
-      results.push({ channel: 'SMS', success: true });
-    } catch (err) {
-      console.warn('❌ SMS dispatch failed:', err.message);
-      await db.notifications.log({
-        jobId: job.id,
-        customerId: customer.id,
-        channel: 'SMS',
-        messageType: type,
-        recipient: customer.phone,
-        status: 'FAILED',
-        provider: 'FAST2SMS',
-        errorMessage: err.message,
-      });
-      results.push({ channel: 'SMS', success: false, error: err.message });
     }
   }
 

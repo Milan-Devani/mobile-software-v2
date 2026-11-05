@@ -14,7 +14,7 @@ import { requireAnyRole, requireAdmin } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 
-// Public download route for WhatsApp / SMS customer links
+// Public download route for WhatsApp customer links
 router.get('/public/:id/download-pdf', downloadSalePdf);
 
 // Authenticated routes

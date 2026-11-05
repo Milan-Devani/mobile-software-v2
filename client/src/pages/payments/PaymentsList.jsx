@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard,
+  IndianRupee,
   Search,
   ExternalLink,
   Trash2,
@@ -305,7 +306,7 @@ export const PaymentsList = () => {
           <TableSkeleton rows={7} columns={6} showHeader={false} showPagination={false} />
         ) : payments.length === 0 ? (
           <EmptyState
-            icon={CreditCard}
+            icon={IndianRupee}
             title="No payments recorded"
             description="When customers pay deposits or settle repair balances, receipts will show here."
           />

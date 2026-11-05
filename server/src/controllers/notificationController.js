@@ -37,16 +37,19 @@ export const resendNotification = async (req, res, next) => {
     const customer = await db.customers.findById(job.customer_id);
     if (!customer) throw new AppError('Customer not found.', 404, 'CUSTOMER_NOT_FOUND');
 
+    const targetChannel = channel === 'SMS' ? 'WHATSAPP' : channel;
     const result = await dispatchNotification({
       job,
       customer,
       type: type || 'JOB_CREATED',
-      channels: [channel],
+      channels: [targetChannel],
     });
 
     res.json({
       success: true,
-      message: `Notification resent through ${channel}.`,
+      message: channel === 'SMS'
+        ? 'Notification resent through WhatsApp (SMS channel is disabled).'
+        : `Notification resent through ${channel}.`,
       data: result,
     });
   } catch (err) {

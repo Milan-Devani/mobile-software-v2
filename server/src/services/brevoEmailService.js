@@ -16,6 +16,12 @@ const getTransporter = () => {
         user: env.EMAIL_USER,
         pass: env.EMAIL_PASSWORD,
       },
+      tls: {
+        rejectUnauthorized: false,
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
     });
   }
   return transporter;
@@ -32,23 +38,28 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
   const notificationConfig = await db.settings.get('notification_config').catch(() => null);
   const activeEmailFrom = notificationConfig?.sender_email || env.EMAIL_FROM;
 
-  // 1. Try Brevo REST API v3 if BREVO_API_KEY is provided
-  if (env.BREVO_API_KEY) {
-    try {
-      let senderName = 'MoboTech Mobile Care';
-      let senderEmail = 'milandevani.mobotech@gmail.com';
-      if (activeEmailFrom) {
-        if (activeEmailFrom.includes('<')) {
-          const match = activeEmailFrom.match(/^(.*?)\s*<([^>]+)>/);
-          if (match) {
-            senderName = match[1]?.trim() || senderName;
-            senderEmail = match[2]?.trim() || senderEmail;
-          }
-        } else {
-          senderEmail = activeEmailFrom.trim();
-        }
-      }
+  // Parse sender name and email from active config / env
+  let senderName = env.BREVO_SENDER_NAME || 'MoboTech Mobile Care';
+  let senderEmail = 'mobotechmobilecare.support@gmail.com';
 
+  if (activeEmailFrom) {
+    if (activeEmailFrom.includes('<')) {
+      const match = activeEmailFrom.match(/^(.*?)\s*<([^>]+)>/);
+      if (match) {
+        senderName = match[1]?.trim() || senderName;
+        senderEmail = match[2]?.trim() || senderEmail;
+      }
+    } else {
+      senderEmail = activeEmailFrom.trim();
+    }
+  }
+
+  const formattedFrom = `"${senderName}" <${senderEmail}>`;
+
+  // 1. Try Brevo REST API v3 if a valid REST API key (starts with xkeysib-) is provided
+  const isBrevoApiKey = env.BREVO_API_KEY && !env.BREVO_API_KEY.startsWith('xsmtpsib-');
+  if (isBrevoApiKey) {
+    try {
       const brevoAttachments = attachments && attachments.length > 0
         ? attachments.map((att) => ({
             name: att.name || att.filename || 'attachment.pdf',
@@ -65,6 +76,10 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
           email: senderEmail,
         },
         to: [{ email: toEmail, name: toName || toEmail }],
+        replyTo: {
+          name: senderName,
+          email: senderEmail,
+        },
         subject,
         htmlContent,
         textContent: textContent || subject,
@@ -102,14 +117,35 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
           }))
         : undefined;
 
-      const info = await smtpTransport.sendMail({
-        from: activeEmailFrom || env.EMAIL_FROM,
-        to: `"${toName || toEmail}" <${toEmail}>`,
-        subject,
-        text: textContent || subject,
-        html: htmlContent,
-        ...(smtpAttachments ? { attachments: smtpAttachments } : {}),
-      });
+      let info;
+      try {
+        info = await smtpTransport.sendMail({
+          from: formattedFrom,
+          replyTo: formattedFrom,
+          to: `"${toName || toEmail}" <${toEmail}>`,
+          subject,
+          text: textContent || subject,
+          html: htmlContent,
+          ...(smtpAttachments ? { attachments: smtpAttachments } : {}),
+        });
+      } catch (firstErr) {
+        if (['ESOCKET', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'].includes(firstErr.code)) {
+          console.warn('⚠️ SMTP socket closed/timeout, reconnecting fresh transport...', firstErr.message);
+          transporter = null;
+          smtpTransport = getTransporter();
+          info = await smtpTransport.sendMail({
+            from: formattedFrom,
+            replyTo: formattedFrom,
+            to: `"${toName || toEmail}" <${toEmail}>`,
+            subject,
+            text: textContent || subject,
+            html: htmlContent,
+            ...(smtpAttachments ? { attachments: smtpAttachments } : {}),
+          });
+        } else {
+          throw firstErr;
+        }
+      }
       return { success: true, messageId: info.messageId, provider: 'BREVO_SMTP' };
     } catch (err) {
       console.warn('⚠️ Brevo SMTP failed:', err.message);

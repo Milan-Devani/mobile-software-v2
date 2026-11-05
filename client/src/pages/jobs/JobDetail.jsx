@@ -19,7 +19,6 @@ import {
   Send,
   Plus,
   Trash2,
-  CreditCard,
   History,
   Copy,
   Check,
@@ -728,7 +727,7 @@ export const JobDetail = () => {
   const handleResendInvoice = async () => {
     try {
       setIsSendingInvoice(true);
-      await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP', 'SMS']);
+      await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP']);
       toast.success('Tax Invoice & Delivery Receipt sent to customer via WhatsApp and Email!');
       fetchJobData();
     } catch (err) {
@@ -1966,7 +1965,7 @@ export const JobDetail = () => {
                 {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
-                    icon={CreditCard}
+                    icon={IndianRupee}
                     onClick={() => {
                       setPaymentForm({
                         amount: Number(job.balance_due || 0) > 0 ? String(job.balance_due) : '',
@@ -2015,7 +2014,7 @@ export const JobDetail = () => {
               </div>
             ) : (
               <EmptyState
-                icon={CreditCard}
+                icon={IndianRupee}
                 title="No payments recorded"
                 description="Record customer deposit or final payment to settle invoice."
                 actionLabel={!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) ? "Record Payment" : null}
@@ -3402,7 +3401,7 @@ export const JobDetail = () => {
                 onChange={(e) => setSendStatusNotification(e.target.checked)}
                 className="w-4 h-4 text-primary-600 rounded border-slate-300 focus:ring-primary-500 cursor-pointer"
               />
-              <span>Send notification update to customer (Email / WhatsApp / SMS)</span>
+              <span>Send notification update to customer (Email / WhatsApp)</span>
             </label>
           </div>
         </form>

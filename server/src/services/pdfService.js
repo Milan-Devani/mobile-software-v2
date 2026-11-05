@@ -224,6 +224,40 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const inwardDateStr = inwardDate;
   const allWarrantyClaims = getAllWarrantyClaims(job);
 
+  const isWarrantyClaim = Boolean(
+    job.is_warranty_claim ||
+    job.warranty_same_issue ||
+    job.warranty_free_rework ||
+    (job.reopen_count && job.reopen_count > 0) ||
+    allWarrantyClaims.length > 0
+  );
+
+  const extractDays = (val) => {
+    if (!val) return null;
+    const num = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+    return !isNaN(num) && num > 0 ? num : null;
+  };
+
+  const itemWarrantyDays = (items || [])
+    .map((it) => extractDays(it.warranty))
+    .filter(Boolean);
+  const maxItemDays = itemWarrantyDays.length > 0 ? Math.max(...itemWarrantyDays) : null;
+
+  const resolvedWarrantyDays =
+    extractDays(job.warranty_days) ||
+    extractDays(invoice?.warranty_period) ||
+    maxItemDays ||
+    (isWarrantyClaim ? 30 : null);
+
+  const hasRepairWarranty = Boolean(
+    isWarrantyClaim ||
+    resolvedWarrantyDays ||
+    (invoice?.warranty_period && !invoice.warranty_period.toLowerCase().includes('out of warranty') && !invoice.warranty_period.toLowerCase().includes('none')) ||
+    (job.warranty_days && Number(job.warranty_days) > 0)
+  );
+
+  const warrantyDaysText = resolvedWarrantyDays ? `${resolvedWarrantyDays} Days` : (invoice?.warranty_period || '30 Days');
+
   const sigD = invoice?.issued_at ? new Date(invoice.issued_at) : new Date();
   const sigDate = `(${String(sigD.getDate()).padStart(2, '0')}-${String(sigD.getMonth() + 1).padStart(2, '0')}-${sigD.getFullYear()} ${String(sigD.getHours()).padStart(2, '0')}:${String(sigD.getMinutes()).padStart(2, '0')})`;
   const techName = job.technician?.full_name || 'Jaimini Patel';
@@ -383,7 +417,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             </div>
             <div style="font-size:11px; padding-top:2px; border-top:1px solid #cbd5e1; line-height:1.25;">
               <div>Service Mode: <b>Carry in</b></div>
-              <div>*Service Coverage Status: <b>${dev.warranty_status || 'Out of Warranty'}</b></div>
+              ${hasRepairWarranty ? `<div>Warranty Status: <b style="${isWarrantyClaim ? 'color:#166534;' : ''}">${isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</b></div>` : ''}
               <div>Date of Device Inward: <b>${inwardDate}</b></div>
             </div>
           </div>
@@ -421,10 +455,11 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px; padding-top:2px;">IMEI / Serial Number:</span>
               <div style="width:50%;">${generateBarcodeSvg(dev.imei || dev.serial_number || '789654123654789', 18, 'left')}</div>
             </div>
+            ${hasRepairWarranty ? `
             <div style="display:flex;">
-              <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px;">Product Warranty Status:</span>
-              <span style="width:50%; font-weight:700; font-size:12px;">${dev.warranty_status || 'Out of Warranty'}</span>
-            </div>
+              <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px;">Warranty Status:</span>
+              <span style="width:50%; font-weight:700; font-size:12px; color:#166534;">${isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</span>
+            </div>` : ''}
           </div>
 
           <!-- Issue Reported & All Warranty Claims Table -->
@@ -700,7 +735,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
       <div style="font-weight:700; margin-bottom:2px;">All device intake, diagnostic, and repair services conducted by Mobotech mobile care are subject to the following standard service terms and conditions:</div>
       <ul style="margin:0; padding-left:14px;">
         <li style="margin-bottom:2px;">In case of any Tempering/Unauthorised Modification found While doing micro inspection at our centre then Mobotech will not be able to provide any service on this unit. device will be return back to customer un-repaired in the damaged condition itself, Mobotech will not be responsible for returning the product in the same condition as received from the customer, Deterioration to normal functioning, including a total shutdown of the device can happen in such scenarios, also Mobotech may not be able to provide any service on this unit in future.</li>
-        <li style="margin-bottom:2px;">While submitting device (warranty/Out of Warranty) if there is any damage are present Then there may be a chance while opening/servicing your device by Mobotech Repair Centre that damage may be increased or any other hardware issue May appeared, for that Mobotech is not responsible.</li>
+        <li style="margin-bottom:2px;">While submitting device (warranty/non-warranty) if there is any damage are present Then there may be a chance while opening/servicing your device by Mobotech Repair Centre that damage may be increased or any other hardware issue May appeared, for that Mobotech is not responsible.</li>
         <li style="margin-bottom:2px;">While submitting device Remove any SIM card, case, screen protector or accessories from your device. As a part of repair Mobotech may have to remove and discard such accessories, in such cases Mobotech is not responsible for any damage or loss of SIM card, case, screen protector or accessories.</li>
         <li style="margin-bottom:2px;">The charges for labour as well as spares used for non-warranty repair shall be as per the applicable price lists approved and recommended by Mobotech.</li>
         <li style="margin-bottom:2px;">The Estimate price given at the time of acceptance of the Product to repairs are Provisional and may vary at the time of detailed inspection. Should the final expected charges be more than the initial estimate, Mobotech will proceed only after taking the approval of the Customer.</li>
@@ -1250,4 +1285,449 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
     try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
 }
+
+/**
+ * Generates an official vector PDF buffer for the Service Order / Job Sheet (Intake Receipt)
+ * matching JobSheetPrintable styling on a single A4 page.
+ */
+export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' }) {
+  const browserBinary = findBrowserBinary();
+  if (!browserBinary) {
+    throw new Error('Chromium/Edge browser binary not found on host for vector PDF generation');
+  }
+
+  const shopObj = shop || {
+    name: 'Mobotech mobile care',
+    tagline: 'Professional Smartphone & Tablet Repair Services',
+    address: 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006',
+    phone: '080000 24439',
+    email: 'support@mobotech.com',
+  };
+
+  const shopLogoDataUrl = await imageSourceToDataUrl(shopObj.logo_url || shopObj.logo);
+
+  const dev = job.device || {};
+  const cust = job.customer || {};
+  const cond = job.device_condition || {};
+  const accessories = Array.isArray(job.accessories_received)
+    ? job.accessories_received
+    : (typeof job.accessories_received === 'string'
+        ? job.accessories_received.split(',').map(s => s.trim()).filter(Boolean)
+        : []);
+
+  const createDateStr = job.created_at
+    ? new Date(job.created_at).toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+
+  const barcodeSvg = generateBarcodeSvg(job.job_number || 'JOB', 22, 'center');
+  const currencySymbol = shopObj.currency_symbol || '₹';
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Service Order Sheet #${job.job_number || ''}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 6mm 8mm;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 9px;
+      line-height: 1.25;
+      color: #000;
+      background: #fff;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .sheet-wrapper {
+      width: 100%;
+      max-width: 194mm;
+      margin: 0 auto;
+    }
+    .box {
+      border: 1px solid #000;
+      margin-bottom: 5px;
+    }
+    .box-header {
+      background: #f1f5f9;
+      border-bottom: 1px solid #000;
+      padding: 2px 6px;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+    }
+    .cell {
+      padding: 3px 5px;
+      border-right: 1px solid #000;
+    }
+    .cell:last-child {
+      border-right: none;
+    }
+    .border-top {
+      border-top: 1px solid #000;
+    }
+    .label {
+      font-size: 7px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #64748b;
+      display: block;
+      margin-bottom: 1px;
+    }
+    .val {
+      font-size: 9px;
+      color: #000;
+    }
+    .val-bold {
+      font-size: 9px;
+      font-weight: 700;
+      color: #000;
+    }
+    .checklist-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px 8px;
+      padding: 3px 6px;
+      font-size: 7.5px;
+      background: #fff;
+    }
+    .checklist-item {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid #f1f5f9;
+      padding: 1px 0;
+    }
+    .terms-text {
+      font-size: 7px;
+      line-height: 1.25;
+      text-align: justify;
+      color: #1e293b;
+    }
+    .terms-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 10px;
+      padding: 4px 6px;
+    }
+    .sig-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .sig-box {
+      border: 1px solid #000;
+      padding: 5px 6px;
+      height: 52px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+  <div class="sheet-wrapper">
+    <!-- HEADER: SHOP DETAILS (LEFT) & ORDER BARCODE (RIGHT) -->
+    <div class="box" style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px;">
+      <!-- Left: Shop Info -->
+      <div style="width:62%; padding-right:8px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${shopLogoDataUrl ? `
+            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:34px; height:34px; object-fit:contain; border:1px solid #cbd5e1; border-radius:3px; padding:1px;" />
+          ` : `
+            <div style="width:32px; height:32px; background:#000; color:#fff; border-radius:3px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px;">
+              M
+            </div>
+          `}
+          <div>
+            <div style="font-size:14px; font-weight:900; text-transform:uppercase; line-height:1; color:#000;">
+              ${shopObj.name || 'Mobotech mobile care'}
+            </div>
+            <div style="font-size:8px; color:#475569; font-weight:500; margin-top:2px;">
+              ${shopObj.tagline || 'Professional Smartphone & Tablet Repair Services'}
+            </div>
+          </div>
+        </div>
+        <div style="font-size:8px; color:#334155; margin-top:4px; line-height:1.2;">
+          <div><b>Address:</b> ${shopObj.address || 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006'}</div>
+          <div><b>Phone:</b> ${shopObj.phone || '080000 24439'} ${shopObj.email ? `• <b>Email:</b> ${shopObj.email}` : ''}</div>
+        </div>
+      </div>
+
+      <!-- Right: Barcode & Order Title -->
+      <div style="width:38%; border-left:1px solid #000; padding-left:8px; text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <div style="font-size:10px; font-weight:900; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:2px;">
+          SERVICE ORDER / JOB SHEET
+        </div>
+        ${barcodeSvg}
+        <div style="font-size:7.5px; color:#475569; margin-top:2px;">
+          Intake Date: <b style="font-family:monospace; color:#000;">${createDateStr}</b>
+          ${job.technician?.full_name ? ` • Tech: <b style="color:#000;">${job.technician.full_name}</b>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- 1. CUSTOMER INFORMATION -->
+    <div class="box">
+      <div class="box-header">
+        <span>Customer Information</span>
+        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Code: ${cust.customer_code || 'CUST'}</span>
+      </div>
+      <div class="grid-4">
+        <div class="cell">
+          <span class="label">Customer Name</span>
+          <span class="val-bold" style="text-transform:uppercase;">${cust.full_name || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Primary Phone</span>
+          <span class="val-bold" style="font-family:monospace;">${cust.phone || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Primary WhatsApp</span>
+          <span class="val" style="font-family:monospace;">${cust.whatsapp_number || cust.phone || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Customer Type</span>
+          <span class="val">${cust.user_type || 'End User'}</span>
+        </div>
+      </div>
+      <div class="grid-4 border-top">
+        <div class="cell">
+          <span class="label">Email (Mail ID)</span>
+          <span class="val">${cust.email || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Alternate Contact</span>
+          <span class="val" style="font-family:monospace;">${cust.alternate_phone || 'N/A'}</span>
+        </div>
+        <div class="cell" style="background:#f0fdf4;">
+          <span class="label" style="color:#166534;">Alt WhatsApp (In-Repair)</span>
+          <span class="val-bold" style="font-family:monospace; color:#14532d;">${cust.alternate_whatsapp || cust.alternate_phone || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">City / Area</span>
+          <span class="val" style="text-transform:uppercase;">${cust.city || 'Surat'}${cust.state ? `, ${cust.state}` : ''}</span>
+        </div>
+      </div>
+      <div class="border-top" style="padding:2px 5px; background:#f8fafc; font-size:8px;">
+        <span style="font-weight:700; color:#64748b; text-transform:uppercase; margin-right:4px;">Address:</span>
+        <span style="color:#000;">${cust.address || (cust.city ? `${cust.city}${cust.state ? ', ' + cust.state : ''}` : 'Local Walk-In / Surat, Gujarat')}</span>
+      </div>
+    </div>
+
+    <!-- 2. DEVICE DETAILS & INTAKE CONDITION -->
+    <div class="box">
+      <div class="box-header">
+        <span>Device Details & Intake Inspection Condition</span>
+        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Status: ${job.status || 'RECEIVED'}</span>
+      </div>
+      <div class="grid-4">
+        <div class="cell">
+          <span class="label">Device Brand & Model</span>
+          <span class="val-bold" style="text-transform:uppercase;">${dev.brand ? `${dev.brand} ` : ''}${dev.model || 'Smartphone'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Color / Storage</span>
+          <span class="val">${dev.color || 'Standard'} ${dev.storage_capacity ? `• ${dev.storage_capacity}` : ''}</span>
+        </div>
+        <div class="cell">
+          <span class="label">IMEI / Serial Number</span>
+          <span class="val-bold" style="font-family:monospace;">${dev.imei || dev.serial_number || 'N/A'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Passcode / Pattern (Testing)</span>
+          <span class="val-bold" style="font-family:monospace; background:#f1f5f9; padding:0 3px; border-radius:2px;">${dev.passcode || 'None'}</span>
+        </div>
+      </div>
+      <div class="grid-4 border-top">
+        <div class="cell">
+          <span class="label">Screen State at Intake</span>
+          <span class="val-bold">${cond.screen || 'Intact'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Body / Frame Cosmetic</span>
+          <span class="val-bold">${dev.cosmetic_condition || cond.body || 'Wear And Tear'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Liquid / Water Damage</span>
+          <span class="val-bold" style="color:${cond.water_damage ? '#b91c1c' : '#15803d'};">
+            ${cond.water_damage ? 'YES (Liquid Damage Detected)' : 'NO'}
+          </span>
+        </div>
+        <div class="cell">
+          <span class="label">Charging / Port State</span>
+          <span class="val-bold">${cond.charging_port || 'Normal'}</span>
+        </div>
+      </div>
+
+      <!-- Inward 14-Point Checklist -->
+      <div class="border-top" style="padding:2px 5px; background:#fafafa;">
+        <div style="font-size:7px; font-weight:700; text-transform:uppercase; color:#000; margin-bottom:1px;">
+          Inward Inspection Checklist (14-Point)
+        </div>
+        <div class="checklist-grid">
+          ${INWARD_CHECKLIST_CONFIG.map(item => {
+            const val = resolveChecklistValue(item.key, cond);
+            return `
+              <div class="checklist-item">
+                <span style="color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding-right:4px;">${item.label}</span>
+                <strong style="font-family:monospace; color:#000; flex-shrink:0;">${val}</strong>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Accessories Received -->
+      <div class="border-top" style="padding:2px 5px; background:#f8fafc; font-size:8px; display:flex; justify-content:space-between;">
+        <div>
+          <span style="font-weight:700; color:#64748b; text-transform:uppercase; margin-right:4px;">Accessories Received:</span>
+          <span style="font-weight:600; color:#000;">
+            ${accessories.length > 0 ? accessories.join(', ') : 'Device Only (No accessories handed in)'}
+          </span>
+        </div>
+        ${cond.notes ? `
+          <div style="font-style:italic; color:#475569; font-size:7.5px;">Notes: ${cond.notes}</div>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- 3. FAULT DIAGNOSIS & REPAIR ESTIMATE -->
+    <div class="box">
+      <div class="box-header">
+        <span>Fault Diagnosis & Repair Estimate</span>
+      </div>
+      <div style="display:grid; grid-template-columns:35% 65%;">
+        <div class="cell">
+          <span class="label">Repair Job Category</span>
+          <span class="val-bold" style="text-transform:uppercase;">${job.service_type || 'Hardware Component Repair'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">Customer Reported Fault</span>
+          <span class="val-bold" style="font-size:9.5px;">"${job.customer_complaint || 'Diagnostic Assessment'}"</span>
+        </div>
+      </div>
+      <div class="grid-4 border-top" style="background:#f8fafc;">
+        <div class="cell">
+          <span class="label">Estimated Total</span>
+          <span class="val-bold" style="font-size:10.5px; font-family:monospace;">
+            ${currencySymbol}${Number(job.total_amount || 0).toFixed(2)}
+          </span>
+        </div>
+        <div class="cell">
+          <span class="label">Advance Deposit</span>
+          <span class="val-bold" style="font-size:10.5px; font-family:monospace; color:#15803d;">
+            ${currencySymbol}${Number(job.paid_amount || 0).toFixed(2)}
+          </span>
+        </div>
+        <div class="cell">
+          <span class="label">Remaining Due</span>
+          <span class="val-bold" style="font-size:10.5px; font-family:monospace;">
+            ${currencySymbol}${Number(job.balance_due || 0).toFixed(2)}
+          </span>
+        </div>
+        <div class="cell">
+          <span class="label">Shop Warranty Coverage</span>
+          <span class="val-bold" style="font-size:8.5px;">
+            ${job.warranty_days || 30} Days Limited Shop Warranty
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. AFTERMARKET REPAIR SHOP TERMS -->
+    <div class="box" style="padding:4px 6px;">
+      <div style="font-size:7.5px; font-weight:700; text-transform:uppercase; color:#000; border-bottom:1px solid #cbd5e1; padding-bottom:1px; margin-bottom:2px;">
+        Aftermarket Mobile Repair Terms & Conditions
+      </div>
+      <div class="terms-grid terms-text">
+        <div>
+          <p style="margin-bottom:2px;"><strong>1. Estimate & Concealed Faults:</strong> Initial charges are estimates based on preliminary visual inspection. If internal board faults or corrosion are detected during disassembly, customer approval will be requested before proceeding.</p>
+          <p style="margin-bottom:2px;"><strong>2. Data Backup Disclaimer:</strong> Customer is solely responsible for backing up personal data prior to check-in. The shop exercises utmost care, but assumes no responsibility for data loss or firmware corruption.</p>
+          <p style="margin-bottom:2px;"><strong>3. Replacement Components:</strong> Premium OEM-grade / aftermarket replacement parts are fitted. Defective replaced parts will be responsibly recycled unless requested at intake.</p>
+          <p><strong>4. Liquid & Impact Vulnerability:</strong> Devices with prior liquid immersion or severe drops have stressed circuitry. Shop is not responsible if a pre-damaged device fails during bench diagnostics.</p>
+        </div>
+        <div>
+          <p style="margin-bottom:2px;"><strong>5. Passcode & Quality Testing:</strong> Passcode/PIN is requested strictly to verify hardware functionality (touchscreen, cameras, mic, speaker, charging). If passcode is omitted, full test cannot be guaranteed.</p>
+          <p style="margin-bottom:2px;"><strong>6. Delivery on Claim Slip:</strong> This Service Order sheet must be produced at pickup. Handset will be released to the holder upon payment of outstanding balance.</p>
+          <p style="margin-bottom:2px;"><strong>7. Limited Shop Warranty:</strong> Standard shop warranty covers replaced hardware parts. Warranty is void if device suffers physical damage, cracked glass, liquid ingress, or tampering.</p>
+          <p><strong>8. Uncollected Devices:</strong> Handsets left unclaimed for more than 30 days following completion notification will incur storage fees or may be disposed of to recover service and parts costs.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. SIGNATURES -->
+    <div class="sig-grid">
+      <!-- Customer Signature Box -->
+      <div class="sig-box">
+        <p style="font-size:7px; color:#475569;">
+          I verify the device intake specifications, reported issues, and authorize repair per the terms above:
+        </p>
+        <div style="border-top:1px solid #000; padding-top:1px; display:flex; justify-content:space-between; align-items:center;">
+          <strong style="font-size:8px; color:#000;">Customer Signature</strong>
+          <span style="font-size:7.5px; font-family:monospace; color:#64748b;">Date: ____________</span>
+        </div>
+      </div>
+
+      <!-- Workshop Technician Signature Box -->
+      <div class="sig-box">
+        <p style="font-size:7px; color:#475569;">
+          Device received and checked into repair workbench by authorized technician:
+        </p>
+        <div style="border-top:1px solid #000; padding-top:1px; display:flex; justify-content:space-between; align-items:center;">
+          <strong style="font-size:8px; color:#000;">Authorized Technician / Workshop Seal</strong>
+          <span style="font-size:7.5px; font-family:monospace; color:#64748b;">Staff: ${job.technician?.full_name || 'Workbench'}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  const tempId = `jobsheet_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const tmpDir = os.tmpdir();
+  const htmlPath = path.join(tmpDir, `${tempId}.html`);
+  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
+
+  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+
+  try {
+    execSync(`"${browserBinary}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
+      timeout: 25000,
+    });
+
+    if (!fs.existsSync(pdfPath)) {
+      throw new Error('Chromium headless failed to produce Job Sheet PDF output file');
+    }
+
+    return fs.readFileSync(pdfPath);
+  } finally {
+    try { fs.unlinkSync(htmlPath); } catch (e) { }
+    try { fs.unlinkSync(pdfPath); } catch (e) { }
+  }
+}
+
 

@@ -174,7 +174,7 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
                   <p className="font-bold text-slate-800">How to scan with your phone:</p>
                   <ol className="list-decimal list-outside ml-4 space-y-1">
                     <li>Open <strong>WhatsApp</strong> on your phone.</li>
-                    <li>Tap <strong>Settings</strong> (or 3 dots menu) $\to$ <strong>Linked Devices</strong>.</li>
+                    <li>Tap <strong>Settings</strong> (or 3 dots menu) → <strong>Linked Devices</strong>.</li>
                     <li>Tap <strong>Link a Device</strong> and point your camera at the QR code above.</li>
                   </ol>
                   <p className="text-[11px] text-emerald-700 bg-emerald-50 p-2 rounded-lg font-medium mt-2">

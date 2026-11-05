@@ -3,6 +3,7 @@ import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
+import { triggerAutoReviewInvitation } from '../services/reviewInvitationService.js';
 
 const extractClientUrl = (req) => {
   const origin = req.get('origin');
@@ -633,7 +634,7 @@ export const publicSubmitApproval = async (req, res, next) => {
         job: updatedJob,
         customer,
         type: isApproved ? 'ESTIMATE_APPROVED' : 'ESTIMATE_REJECTED',
-        channels: ['EMAIL', 'WHATSAPP', 'SMS'],
+        channels: ['EMAIL', 'WHATSAPP'],
         metadata: { reason, clientUrl: extractClientUrl(req) },
       }).catch(err => console.error('Estimate decision notification error:', err));
     }
@@ -825,7 +826,7 @@ export const recordPickup = async (req, res, next) => {
       customer_signature,
       delivery_notes,
       allow_payment_remaining = false,
-      channels = ['EMAIL', 'WHATSAPP', 'SMS']
+      channels = ['EMAIL', 'WHATSAPP']
     } = req.body;
 
     const job = await db.jobs.findById(id);
@@ -871,13 +872,19 @@ export const recordPickup = async (req, res, next) => {
 
     if (!isEstimateRejected) {
       // Ensure final invoice is generated
-      await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id });
+      const invoice = await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id });
+      // Trigger automated Google review invitation in background (non-blocking, idempotent)
+      triggerAutoReviewInvitation({
+        jobId: id,
+        invoiceId: invoice?.id,
+        clientUrl: extractClientUrl(req),
+      }).catch((rErr) => console.warn('Review invitation trigger warning:', rErr.message));
     }
 
     const updatedJob = await db.jobs.findById(id);
     const customer = await db.customers.findById(updatedJob.customer_id);
 
-    // Automatically send final receipt/handover notification via Email (Brevo), WhatsApp, and SMS
+    // Automatically send final receipt/handover notification via Email (Brevo) and WhatsApp
     dispatchNotification({
       job: updatedJob,
       customer,
@@ -1602,7 +1609,14 @@ export const updateJobStatus = async (req, res, next) => {
     );
 
     if (status === 'DELIVERED') {
-      await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id }).catch(() => {});
+      const inv = await db.invoices.createOrUpdateForJob({ jobId: id, userId: req.user.id }).catch(() => {});
+      if (job.approval_status !== 'REJECTED') {
+        triggerAutoReviewInvitation({
+          jobId: id,
+          invoiceId: inv?.id,
+          clientUrl: extractClientUrl(req),
+        }).catch((rErr) => console.warn('Review invitation trigger warning:', rErr.message));
+      }
     }
 
     const updatedJob = await db.jobs.findById(id);

@@ -68,7 +68,7 @@ export const generateInvoice = async (req, res, next) => {
 export const resendInvoice = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const { channels = ['EMAIL', 'WHATSAPP', 'SMS'], targetPhone, customPhone, phone } = req.body || {};
+    const { channels = ['EMAIL', 'WHATSAPP'], targetPhone, customPhone, phone } = req.body || {};
 
     const job = await db.jobs.findById(jobId);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
@@ -83,7 +83,7 @@ export const resendInvoice = async (req, res, next) => {
     }
 
     const directPhone = (targetPhone || customPhone || phone || '').trim();
-    let effectiveChannels = [...channels];
+    let effectiveChannels = (Array.isArray(channels) ? channels : ['EMAIL', 'WHATSAPP']).filter(c => c !== 'SMS');
     if (directPhone) {
       customer = {
         ...customer,
@@ -92,7 +92,7 @@ export const resendInvoice = async (req, res, next) => {
         alternate_whatsapp: null,
       };
       if (!req.body.channels) {
-        effectiveChannels = ['WHATSAPP', 'SMS'];
+        effectiveChannels = ['WHATSAPP'];
       }
     }
 

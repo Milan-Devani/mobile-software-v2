@@ -204,7 +204,7 @@ export const NotificationLogs = () => {
             Notification Logs & Dispatch
           </h2>
           <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
-            Audit trail of customer automated messages sent via Email, WhatsApp, and SMS
+            Audit trail of customer automated messages sent via Email and WhatsApp
           </p>
         </div>
         <Button variant="outline" icon={RotateCcw} size="sm" onClick={fetchLogs} loading={loading}>
@@ -254,7 +254,7 @@ export const NotificationLogs = () => {
                 { value: 'ALL', label: 'All Channels' },
                 { value: 'WHATSAPP', label: 'WhatsApp' },
                 { value: 'EMAIL', label: 'Email' },
-                { value: 'SMS', label: 'SMS' },
+                { value: 'SMS', label: 'SMS (Historical)' },
               ]}
             />
           </div>

@@ -129,7 +129,7 @@ export const createInitialSeedData = async () => {
         key: 'notification_config',
         value: {
           email_enabled: true,
-          sms_enabled: true,
+          sms_enabled: false,
           whatsapp_enabled: true,
           brevo_configured: false,
           msg91_configured: false,

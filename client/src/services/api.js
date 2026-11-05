@@ -53,7 +53,10 @@ api.interceptors.response.use(
 
     // Handle token expiration or unauthorized access
     if (status === 401) {
-      const isAuthRoute = window.location.pathname.startsWith('/login') || window.location.pathname.startsWith('/repair/');
+      const isAuthRoute =
+        window.location.pathname.startsWith('/login') ||
+        window.location.pathname.startsWith('/repair/') ||
+        window.location.pathname.startsWith('/review/');
       if (!isAuthRoute) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');

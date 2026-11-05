@@ -11,7 +11,6 @@ import {
   Plus,
   Tag,
   Hash,
-  CreditCard,
   FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -278,7 +277,7 @@ export const SendMobileModal = ({
 
             {/* IMEI Number */}
             <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center justify-between">
+              <label className="text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center justify-between">
                 <span>
                   IMEI / Serial Number <span className="text-rose-500">*</span>
                 </span>
@@ -399,8 +398,8 @@ export const SendMobileModal = ({
             {/* Payment Mode (shown if amount paid > 0 or status is PAID/ADVANCE) */}
             {showPaymentFields ? (
               <div>
-                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
-                  <CreditCard className="w-3.5 h-3.5 text-sky-400" />
+                <label className="text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-sky-400" />
                   Payment Mode
                 </label>
                 <SpatialSelect
@@ -437,7 +436,7 @@ export const SendMobileModal = ({
           {showPaymentFields && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div>
-                <label className="block text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
+                <label className="text-xs font-semibold text-[var(--spatial-text-title)] mb-1 flex items-center gap-1">
                   <FileText className="w-3 h-3 text-[var(--spatial-text-muted)]" />
                   Payment Reference / UTR <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">(Optional)</span>
                 </label>

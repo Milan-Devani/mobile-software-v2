@@ -193,6 +193,8 @@ export const syncFromSupabase = async () => {
       'vendor_ledger',
       'vendor_payments',
       'recycle_bin',
+      'review_settings',
+      'review_requests',
     ];
 
     const seedFallbackTables = new Set(['shops', 'roles', 'users']);
@@ -252,6 +254,8 @@ export const initDb = async () => {
   localDb.attachments = localDb.attachments || [];
   localDb.backup_logs = localDb.backup_logs || [];
   localDb.recycle_bin = localDb.recycle_bin || [];
+  localDb.review_settings = localDb.review_settings || [];
+  localDb.review_requests = localDb.review_requests || [];
 
   if (isSupabaseConfigured()) {
     console.log('✅ Supabase PostgreSQL is connected as permanent primary database. Syncing live tables...');
@@ -3102,6 +3106,328 @@ export const db = {
         }
       }
       return count;
+    },
+  },
+
+  // GOOGLE REVIEW ASSISTANT SETTINGS
+  reviewSettings: {
+    get: async () => {
+      await ensureFreshSync(5000);
+      const defaultSettings = {
+        id: 'e0000000-0000-0000-0000-000000000001',
+        google_review_url: 'https://g.page/r/CX_tsygbzKLqEBM/review',
+        review_dialog_url: 'https://g.page/r/CX_tsygbzKLqEBM/review',
+        is_enabled: true,
+        invitation_channel: 'WHATSAPP',
+        invitation_message: 'Thank you for choosing {shop_name}! We hope your repair experience was good. We would appreciate your honest feedback. Please share your experience here:\n{review_link}',
+        ai_enabled: true,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (isSupabaseConfigured()) {
+        try {
+          const { data, error } = await getSupabase()
+            .from('review_settings')
+            .select('*')
+            .limit(1)
+            .maybeSingle();
+          if (!error && data) {
+            return { ...defaultSettings, ...data };
+          }
+        } catch (_) {}
+      }
+
+      // Check fallback key in settings table
+      try {
+        const custom = await db.settings.get('google_review_settings');
+        if (custom && typeof custom === 'object') {
+          return { ...defaultSettings, ...custom };
+        }
+      } catch (_) {}
+
+      if (localDb.review_settings && localDb.review_settings.length > 0) {
+        return { ...defaultSettings, ...localDb.review_settings[0] };
+      }
+
+      return defaultSettings;
+    },
+
+    update: async (updates) => {
+      const current = await db.reviewSettings.get();
+      const updated = {
+        ...current,
+        ...sanitizeRecord(updates),
+        id: (current?.id && current.id.length === 36 && !current.id.includes('default')) ? current.id : 'e0000000-0000-0000-0000-000000000001',
+        updated_at: new Date().toISOString(),
+      };
+
+      localDb.review_settings = [updated];
+      saveLocalDb();
+
+      // Mirror to settings key for permanent persistence
+      await db.settings.set('google_review_settings', updated, 'Google Review Assistant Configuration');
+
+      if (isSupabaseConfigured()) {
+        try {
+          await safeSupabaseUpsert('review_settings', updated, 'id');
+        } catch (err) {
+          console.warn('⚠️ Supabase review_settings upsert fallback to settings:', err.message);
+        }
+      }
+
+      return updated;
+    },
+  },
+
+  // GOOGLE REVIEW REQUESTS (IDEMPOTENT & SECURE)
+  reviewRequests: {
+    create: async (data) => {
+      localDb.review_requests = localDb.review_requests || [];
+
+      // Idempotency check: 1 invitation per job
+      const existing = localDb.review_requests.find(r => r.job_id === data.job_id);
+      if (existing) {
+        return existing;
+      }
+
+      const id = data.id || uuidv4();
+      const newRequest = {
+        id,
+        shop_id: data.shop_id || null,
+        job_id: data.job_id,
+        invoice_id: data.invoice_id || null,
+        customer_id: data.customer_id,
+        unique_token: data.unique_token,
+        unique_token_hash: data.unique_token_hash,
+        rating: data.rating || null,
+        customer_feedback: data.customer_feedback || null,
+        generated_review: data.generated_review || null,
+        edited_review: data.edited_review || null,
+        ai_provider: data.ai_provider || null,
+        invitation_status: data.invitation_status || 'PENDING',
+        invitation_sent_at: data.invitation_sent_at || null,
+        review_page_opened_at: null,
+        google_redirected_at: null,
+        error_message: data.error_message || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      localDb.review_requests.unshift(newRequest);
+      saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        try {
+          await safeSupabaseInsert('review_requests', newRequest);
+        } catch (err) {
+          console.warn('⚠️ Supabase review_requests insert fallback to local:', err.message);
+        }
+      }
+
+      // Keep recent cached requests in settings table as durable backup
+      try {
+        await db.settings.set('cached_review_requests', localDb.review_requests.slice(0, 500));
+      } catch (_) {}
+
+      return newRequest;
+    },
+
+    findByToken: async (token) => {
+      if (!token) return null;
+      await ensureFreshSync(3000);
+      localDb.review_requests = localDb.review_requests || [];
+
+      let found = localDb.review_requests.find(
+        r => r.unique_token === token || r.unique_token_hash === token
+      );
+
+      if (!found && isSupabaseConfigured()) {
+        try {
+          const { data } = await getSupabase()
+            .from('review_requests')
+            .select('*')
+            .or(`unique_token.eq.${token},unique_token_hash.eq.${token}`)
+            .maybeSingle();
+          if (data) {
+            found = data;
+            if (!localDb.review_requests.some(r => r.id === data.id)) {
+              localDb.review_requests.unshift(data);
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!found) {
+        try {
+          const cached = await db.settings.get('cached_review_requests');
+          if (Array.isArray(cached)) {
+            const match = cached.find(r => r.unique_token === token || r.unique_token_hash === token);
+            if (match) {
+              found = match;
+              if (!localDb.review_requests.some(r => r.id === match.id)) {
+                localDb.review_requests.unshift(match);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!found) return null;
+
+      // Populate related job and customer details safely
+      const job = (localDb.repair_jobs || []).find(j => j.id === found.job_id) || null;
+      const customer = (localDb.customers || []).find(c => c.id === found.customer_id) || null;
+      const shop = await db.shops.getProfile();
+
+      return {
+        ...found,
+        job,
+        customer,
+        shop,
+      };
+    },
+
+    findByJobId: async (jobId) => {
+      localDb.review_requests = localDb.review_requests || [];
+      return localDb.review_requests.find(r => r.job_id === jobId) || null;
+    },
+
+    findById: async (id) => {
+      localDb.review_requests = localDb.review_requests || [];
+      let found = localDb.review_requests.find(r => r.id === id);
+      if (!found) {
+        try {
+          const cached = await db.settings.get('cached_review_requests');
+          if (Array.isArray(cached)) {
+            const match = cached.find(r => r.id === id);
+            if (match) {
+              found = match;
+              if (!localDb.review_requests.some(r => r.id === match.id)) {
+                localDb.review_requests.unshift(match);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      return found || null;
+    },
+
+    update: async (id, updates) => {
+      localDb.review_requests = localDb.review_requests || [];
+      const idx = localDb.review_requests.findIndex(r => r.id === id);
+      if (idx === -1) return null;
+
+      const updated = {
+        ...localDb.review_requests[idx],
+        ...sanitizeRecord(updates),
+        updated_at: new Date().toISOString(),
+      };
+
+      localDb.review_requests[idx] = updated;
+      saveLocalDb();
+
+      if (isSupabaseConfigured()) {
+        try {
+          await safeSupabaseUpdate('review_requests', id, updates);
+        } catch (_) {}
+      }
+
+      try {
+        await db.settings.set('cached_review_requests', localDb.review_requests.slice(0, 500));
+      } catch (_) {}
+
+      return updated;
+    },
+
+    list: async ({ page = 1, limit = 20, status = 'ALL', search = '', rating = 'ALL' } = {}) => {
+      await ensureFreshSync(5000);
+      localDb.review_requests = localDb.review_requests || [];
+
+      // If local list is empty, try restoring from cached settings
+      if (localDb.review_requests.length === 0) {
+        try {
+          const cached = await db.settings.get('cached_review_requests');
+          if (Array.isArray(cached) && cached.length > 0) {
+            localDb.review_requests = cached;
+          }
+        } catch (_) {}
+      }
+
+      let all = [...localDb.review_requests];
+
+      // Enrich with customer and job details
+      const enriched = all.map(r => {
+        const job = (localDb.repair_jobs || []).find(j => j.id === r.job_id);
+        const customer = (localDb.customers || []).find(c => c.id === r.customer_id);
+        return {
+          ...r,
+          customer_name: customer?.full_name || 'Customer',
+          customer_phone: customer?.phone || customer?.whatsapp_number || 'N/A',
+          job_number: job?.job_number || 'N/A',
+          device_brand: job?.device?.brand || '',
+          device_model: job?.device?.model || 'Device',
+          problem: job?.customer_complaint || '',
+        };
+      });
+
+      let filtered = enriched;
+
+      if (status && status !== 'ALL') {
+        filtered = filtered.filter(r => r.invitation_status === status);
+      }
+
+      if (rating && rating !== 'ALL') {
+        const star = parseInt(rating, 10);
+        filtered = filtered.filter(r => r.rating === star);
+      }
+
+      if (search && search.trim()) {
+        const q = search.toLowerCase().trim();
+        filtered = filtered.filter(r =>
+          (r.customer_name || '').toLowerCase().includes(q) ||
+          (r.customer_phone || '').includes(q) ||
+          (r.job_number || '').toLowerCase().includes(q) ||
+          (r.device_brand || '').toLowerCase().includes(q) ||
+          (r.device_model || '').toLowerCase().includes(q)
+        );
+      }
+
+      filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+      const total = filtered.length;
+      const startIndex = (page - 1) * limit;
+      const paginated = filtered.slice(startIndex, startIndex + limit);
+
+      // Compute statistics
+      const stats = {
+        total: all.length,
+        sent: all.filter(r => r.invitation_status === 'SENT').length,
+        pending: all.filter(r => r.invitation_status === 'PENDING').length,
+        failed: all.filter(r => r.invitation_status === 'FAILED').length,
+        opened: all.filter(r => Boolean(r.review_page_opened_at)).length,
+        redirected: all.filter(r => Boolean(r.google_redirected_at)).length,
+      };
+
+      return {
+        requests: paginated,
+        total,
+        page,
+        limit,
+        stats,
+      };
+    },
+
+    getStats: async () => {
+      localDb.review_requests = localDb.review_requests || [];
+      const all = localDb.review_requests;
+      return {
+        total: all.length,
+        sent: all.filter(r => r.invitation_status === 'SENT').length,
+        pending: all.filter(r => r.invitation_status === 'PENDING').length,
+        failed: all.filter(r => r.invitation_status === 'FAILED').length,
+        opened: all.filter(r => Boolean(r.review_page_opened_at)).length,
+        redirected: all.filter(r => Boolean(r.google_redirected_at)).length,
+      };
     },
   },
 

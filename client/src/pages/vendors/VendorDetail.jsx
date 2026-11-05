@@ -220,7 +220,7 @@ export const VendorDetail = () => {
           <Button
             variant="outline"
             size="sm"
-            icon={CreditCard}
+            icon={IndianRupee}
             onClick={() => setIsPaymentModalOpen(true)}
           >
             Record Payment
@@ -358,7 +358,7 @@ export const VendorDetail = () => {
             onClick={() => setIsPaymentModalOpen(true)}
             className="mt-3 text-xs font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 cursor-pointer"
           >
-            <CreditCard className="w-3.5 h-3.5" />
+            <IndianRupee className="w-3.5 h-3.5" />
             <span>Record Payment / Khata Entry &rarr;</span>
           </button>
         </div>
@@ -400,7 +400,7 @@ export const VendorDetail = () => {
           {
             key: 'payments',
             label: `Payment Vouchers (${payments.length})`,
-            icon: CreditCard,
+            icon: IndianRupee,
           },
           {
             key: 'transactions',
@@ -713,7 +713,7 @@ export const VendorDetail = () => {
           >
             {payments.length === 0 ? (
               <EmptyState
-                icon={CreditCard}
+                icon={IndianRupee}
                 title="No payment vouchers recorded"
                 description="Record cash, UPI, or bank transfer payments to clear vendor dues."
                 actionLabel="Record Payment"

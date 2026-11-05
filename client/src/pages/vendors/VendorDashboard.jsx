@@ -8,7 +8,7 @@ import {
   Plus,
   Search,
   Filter,
-  CreditCard,
+  IndianRupee,
   Printer,
   Copy,
   Check,
@@ -406,7 +406,7 @@ export const VendorDashboard = () => {
       case 'ADVANCE':
         return (
           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/30">
-            <CreditCard className="w-3 h-3" /> Advance Paid
+            <IndianRupee className="w-3 h-3" /> Advance Paid
           </span>
         );
       case 'FREE':
@@ -705,7 +705,7 @@ export const VendorDashboard = () => {
             to="/vendors/ledger"
             className="text-xs font-semibold text-[var(--spatial-text-muted)] hover:text-sky-400 px-2.5 py-1.5 rounded-xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] hover:border-sky-500/30 transition-all inline-flex items-center gap-1.5"
           >
-            <CreditCard className="w-3.5 h-3.5 text-sky-400" />
+            <IndianRupee className="w-3.5 h-3.5 text-sky-400" />
             <span>Vendor Khata Ledger</span>
           </NavLink>
         </div>

@@ -7,7 +7,7 @@ import {
   ArrowDownLeft,
   Receipt,
   Clock,
-  CreditCard,
+  IndianRupee,
   BarChart3,
 } from 'lucide-react';
 
@@ -17,7 +17,7 @@ const TABS = [
   { path: '/vendors/send', label: 'Send Mobiles', icon: ArrowUpRight },
   { path: '/vendors/receive', label: 'Receive Mobiles', icon: ArrowDownLeft },
   { path: '/vendors/pending', label: 'Pending Repairs', icon: Clock },
-  { path: '/vendors/ledger', label: 'Vendor Ledger (Khata)', icon: CreditCard },
+  { path: '/vendors/ledger', label: 'Vendor Ledger (Khata)', icon: IndianRupee },
   { path: '/vendors/transactions', label: 'Transactions', icon: Receipt },
   { path: '/vendors/reports', label: 'Reports', icon: BarChart3 },
 ];

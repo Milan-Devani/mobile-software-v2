@@ -316,7 +316,7 @@ export default function VendorReports() {
           { key: 'overview', label: 'Executive Overview', icon: BarChart3 },
           { key: 'mobile_history', label: 'Mobile History & IMEI Audit', icon: Smartphone },
           { key: 'vendor_wise', label: 'Vendor-wise Performance', icon: Building2 },
-          { key: 'balances', label: 'Outstanding Balances & Dues', icon: CreditCard },
+          { key: 'balances', label: 'Outstanding Balances & Dues', icon: IndianRupee },
         ].map((tab) => {
           const Icon = tab.icon;
           const active = activeReportTab === tab.key;

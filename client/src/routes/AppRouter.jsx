@@ -14,6 +14,8 @@ import { JobList } from '../pages/jobs/JobList';
 import { JobCreate } from '../pages/jobs/JobCreate';
 import { JobDetail } from '../pages/jobs/JobDetail';
 import { CustomerApprovalPage } from '../pages/public/CustomerApprovalPage';
+import { CustomerReviewPage } from '../pages/public/CustomerReviewPage';
+import { GoogleReviewsManagement } from '../pages/reviews/GoogleReviewsManagement';
 import { PartsList } from '../pages/parts/PartsList';
 import { PaymentsList } from '../pages/payments/PaymentsList';
 import { NotificationLogs } from '../pages/notifications/NotificationLogs';
@@ -39,6 +41,9 @@ export const AppRouter = () => {
 
       {/* 2. Public Customer Approval Route (No login required) */}
       <Route path="/repair/:tokenOrJobNumber/approval" element={<CustomerApprovalPage />} />
+
+      {/* 2b. Public Customer Review Route (No login required) */}
+      <Route path="/review/:uniqueToken" element={<CustomerReviewPage />} />
 
       {/* 3. Protected Employee Routes */}
       <Route
@@ -91,6 +96,9 @@ export const AppRouter = () => {
 
         {/* Notifications */}
         <Route path="notifications" element={<NotificationLogs />} />
+
+        {/* Google Reviews Management */}
+        <Route path="reviews" element={<GoogleReviewsManagement />} />
 
         {/* Recycle Bin (Soft Delete & 30-Day Auto Purge) */}
         <Route path="recycle-bin" element={<RecycleBin />} />

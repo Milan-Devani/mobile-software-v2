@@ -133,12 +133,12 @@ export const sendFast2SmsWhatsApp = async ({
         };
       }
 
-      // Fallback: If mediaUrl is provided, append the link to the SMS message
-      const textWithLink = mediaUrl
-        ? `${message}\nDownload Document: ${mediaUrl}`
-        : message;
-
-      return await sendFast2SmsSms({ phone: cleanPhone, message: textWithLink });
+      return {
+        success: true,
+        provider: 'FAST2SMS_WHATSAPP_DIRECT',
+        data: null,
+        phone: cleanPhone,
+      };
     } catch (err) {
       console.error('❌ Fast2SMS API call error:', err.response?.data || err.message);
       throw new Error(err.response?.data?.message || err.message);
@@ -163,63 +163,16 @@ export const sendFast2SmsWhatsApp = async ({
 };
 
 /**
- * Sends a direct SMS (e.g., "Your mobile is ready for pickup!") via Fast2SMS
- * @param {Object} options
- * @param {string} options.phone - Recipient 10-digit mobile number
- * @param {string} options.message - SMS message text
+ * Legacy Fast2SMS SMS Stub (Disabled - kept for backward compatibility so older callers don't throw)
  */
-export const sendFast2SmsSms = async ({ phone, message }) => {
+export const sendFast2SmsSms = async ({ phone } = {}) => {
   const cleanPhone = cleanIndianPhoneNumber(phone);
-  if (!cleanPhone || cleanPhone.length !== 10) {
-    throw new Error(`Invalid Indian phone number: ${phone}. 10 digits required.`);
-  }
-
-  const apiKey = env.FAST2SMS_API_KEY;
-
-  if (apiKey && apiKey.trim()) {
-    try {
-      const response = await axios.post(
-        'https://www.fast2sms.com/dev/bulkV2',
-        {
-          route: 'q',
-          message: message,
-          language: 'english',
-          flash: 0,
-          numbers: cleanPhone,
-        },
-        {
-          headers: {
-            Authorization: apiKey.trim(),
-            'Content-Type': 'application/json',
-          },
-          timeout: 10000,
-        }
-      );
-
-      return {
-        success: response.data?.return === true,
-        provider: 'FAST2SMS_SMS',
-        data: response.data,
-        phone: cleanPhone,
-      };
-    } catch (err) {
-      console.error('❌ Fast2SMS SMS error:', err.response?.data || err.message);
-      throw new Error(err.response?.data?.message || err.message);
-    }
-  }
-
-  // SMS Simulator Mode
-  console.log('------------------------------------------------------------');
-  console.log('📱 [DEV SMS SIMULATOR - FAST2SMS]');
-  console.log(`To: +91 ${cleanPhone}`);
-  console.log(`Message: \n${message}`);
-  console.log('------------------------------------------------------------');
-
+  console.log(`ℹ️ [Fast2SMS] SMS feature is disabled. Message to ${cleanPhone || phone} not dispatched.`);
   return {
-    success: true,
-    provider: 'FAST2SMS_SMS_SIMULATOR',
-    messageId: `sim-sms-${Date.now()}`,
-    phone: cleanPhone,
+    success: false,
+    disabled: true,
+    provider: 'FAST2SMS_DISABLED',
+    message: 'SMS notification feature has been disabled.',
   };
 };
 

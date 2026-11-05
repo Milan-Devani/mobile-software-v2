@@ -154,7 +154,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
     msg += `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Assessment'}\n`;
     msg += `🆔 *Job ID:* #${job.job_number}\n\n`;
     msg += `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n`;
-    msg += `🌐 *Track Status:*\n${trackingUrl}\n\n`;
+    msg += `📄 *Your official Service Order Sheet is ready.*\n\n`;
     msg += `📞 *Shop Contact:* ${shop?.phone || '080000 24439'}\n\n`;
     msg += `Thank you for trusting us! ❤️\n*${shopName}*`;
     return encodeURIComponent(msg);
@@ -653,19 +653,19 @@ export const JobSheetPrintable = ({ job, shop }) => {
             <div className="p-1.5">
               <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Estimated Total</span>
               <span className="font-mono font-bold text-black text-[12px]">
-                ${Number(job.total_amount || 0).toFixed(2)}
+                {shop?.currency_symbol || '₹'}{Number(job.total_amount || 0).toFixed(2)}
               </span>
             </div>
             <div className="p-1.5">
               <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Advance Deposit</span>
               <span className="font-mono font-bold text-emerald-800 text-[12px]">
-                ${Number(job.paid_amount || 0).toFixed(2)}
+                {shop?.currency_symbol || '₹'}{Number(job.paid_amount || 0).toFixed(2)}
               </span>
             </div>
             <div className="p-1.5">
               <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Remaining Due</span>
               <span className="font-mono font-bold text-black text-[12px]">
-                ${Number(job.balance_due || 0).toFixed(2)}
+                {shop?.currency_symbol || '₹'}{Number(job.balance_due || 0).toFixed(2)}
               </span>
             </div>
             <div className="p-1.5">

@@ -72,4 +72,28 @@ export const env = {
   BACKUP_TEMP_DIR: process.env.BACKUP_TEMP_DIR || '',
   BACKUP_TIMEOUT_MS: parseInt(process.env.BACKUP_TIMEOUT_MS || '300000', 10),
   BACKUP_SCHEDULE: process.env.BACKUP_SCHEDULE || '0 2 * * *',
+
+  // AI Review Assistant Providers & Priority
+  AI_PRIMARY_PROVIDER: process.env.AI_PRIMARY_PROVIDER || 'gemini',
+  AI_FALLBACK_PROVIDERS: (process.env.AI_FALLBACK_PROVIDERS || 'groq,openrouter')
+    .split(',')
+    .map(p => p.trim().toLowerCase())
+    .filter(Boolean),
+
+  // Google Gemini (Primary)
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_TEXT_MODEL: process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash',
+
+  // Groq (First Fallback)
+  GROQ_API_KEY: process.env.GROQ_API_KEY || '',
+  GROQ_TEXT_MODEL: process.env.GROQ_TEXT_MODEL || 'qwen/qwen3.8-27b',
+
+  // OpenRouter (Second Fallback)
+  OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY || '',
+  OPENROUTER_TEXT_MODEL: process.env.OPENROUTER_TEXT_MODEL || 'nvidia/nemotron-3.5-lightning:free',
+
+  // AI Review Settings
+  AI_REQUEST_TIMEOUT: parseInt(process.env.AI_REQUEST_TIMEOUT || '20000', 10),
+  AI_MAX_RETRIES: parseInt(process.env.AI_MAX_RETRIES || '1', 10),
+  AI_REVIEW_MAX_WORDS: parseInt(process.env.AI_REVIEW_MAX_WORDS || '55', 10),
 };

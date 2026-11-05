@@ -10,16 +10,16 @@ export const getSettings = async (req, res, next) => {
     // Never expose plain text API keys or passwords
     const sanitizedNotifications = {
       email_enabled: notificationConfig?.email_enabled ?? true,
-      sms_enabled: notificationConfig?.sms_enabled ?? true,
+      sms_enabled: false,
       whatsapp_enabled: notificationConfig?.whatsapp_enabled ?? true,
       brevo_configured: Boolean(env.BREVO_API_KEY || env.EMAIL_USER),
       brevo_sender: notificationConfig?.sender_email || env.EMAIL_FROM,
       sender_email: notificationConfig?.sender_email || env.EMAIL_FROM,
       openwa_configured: Boolean(env.OPENWA_API_KEY || (env.OPENWA_API_URL && env.OPENWA_API_URL !== 'http://localhost:8000')),
       openwa_url: env.OPENWA_API_URL,
-      msg91_configured: Boolean(env.MSG91_AUTH_KEY),
-      msg91_sender: env.MSG91_SENDER_ID,
-      msg91_test_mode: env.MSG91_TEST_MODE,
+      msg91_configured: false,
+      msg91_sender: 'DISABLED',
+      msg91_test_mode: true,
     };
 
     res.json({
@@ -59,7 +59,7 @@ export const updateNotificationSettings = async (req, res, next) => {
       {
         ...current,
         email_enabled: email_enabled !== undefined ? email_enabled : current.email_enabled,
-        sms_enabled: sms_enabled !== undefined ? sms_enabled : current.sms_enabled,
+        sms_enabled: false,
         whatsapp_enabled: whatsapp_enabled !== undefined ? whatsapp_enabled : current.whatsapp_enabled,
         sender_email: newSenderEmail !== undefined ? newSenderEmail : current.sender_email,
         sender_name: sender_name !== undefined ? sender_name : current.sender_name,
@@ -95,6 +95,49 @@ export const testWhatsAppDispatch = async (req, res, next) => {
     res.json({
       success: true,
       message: 'WhatsApp test dispatched successfully.',
+      data: result,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const testEmailDispatch = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const { sendBrevoEmail } = await import('../services/brevoEmailService.js');
+    const { getDynamicGreeting } = await import('../services/notificationService.js');
+    const greeting = getDynamicGreeting();
+    const recipient = email || 'milandevani994@gmail.com';
+
+    const result = await sendBrevoEmail({
+      toEmail: recipient,
+      toName: 'Shop Admin',
+      subject: 'MoboTech Mobile Care - Email Service Verification',
+      textContent: `${greeting}! This is a test email verifying that the MoboTech email dispatch service is active and properly delivering.`,
+      htmlContent: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
+          <div style="background: linear-gradient(135deg, #0284c7, #0369a1); padding: 16px; border-radius: 8px; text-align: center; color: white;">
+            <h2 style="margin: 0; font-size: 20px;">MoboTech Mobile Care</h2>
+            <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Email Service Verification</p>
+          </div>
+          <div style="padding: 20px 0; color: #334155; font-size: 14px; line-height: 1.6;">
+            <p>${greeting}!</p>
+            <p>Your email notification dispatcher is working properly and is connected to the Brevo email relay.</p>
+            <div style="background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
+              <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Recipient:</strong> ${recipient}</p>
+              <p style="margin: 0 0 8px 0; font-size: 13px;"><strong>Timestamp:</strong> ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}</p>
+              <p style="margin: 0; font-size: 13px;"><strong>Status:</strong> Queued successfully via Brevo SMTP</p>
+            </div>
+            <p style="font-size: 12px; color: #94a3b8; margin-top: 16px;">MoboTech Mobile Care • Verified Notification System</p>
+          </div>
+        </div>
+      `,
+    });
+
+    res.json({
+      success: true,
+      message: `Test email sent successfully to ${recipient}.`,
       data: result,
     });
   } catch (err) {
