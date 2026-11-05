@@ -195,7 +195,7 @@ export const getPublicReviewPage = async (req, res, next) => {
         tagline: shop?.tagline || 'Professional Smartphone Repair Care',
         logo_url: shop?.logo_url || null,
         phone: shop?.phone || '',
-        google_review_url: settings?.google_review_url || 'https://g.page/r/CX_tsygbzKLqEBM/review',
+        google_review_url: settings?.google_review_url || 'https://g.page/r/CROHWMY3TX9dEBM/review',
       },
       repair: {
         job_number: job?.job_number || 'JOB-001',
@@ -228,7 +228,7 @@ export const getPublicReviewPage = async (req, res, next) => {
 export const generatePublicAiReview = async (req, res, next) => {
   try {
     const { token } = req.params;
-    const { rating, customerFeedback } = req.body;
+    const { rating, customerFeedback, previousDraft, regenerate } = req.body;
 
     const reviewRequest = await db.reviewRequests.findByToken(token);
     if (!reviewRequest) {
@@ -247,9 +247,17 @@ export const generatePublicAiReview = async (req, res, next) => {
     const job = reviewRequest.job;
     const stars = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
 
+    const prevReview = previousDraft || reviewRequest.generated_review || '';
+    // Avoid treating previous AI output as the customer's personal input
+    const cleanFeedback = (customerFeedback && customerFeedback.trim() !== prevReview.trim())
+      ? customerFeedback.trim()
+      : (reviewRequest.customer_feedback || '');
+
     const aiResult = await generateReviewText({
       rating: stars,
-      customerFeedback: customerFeedback || '',
+      customerFeedback: cleanFeedback,
+      previousDraft: prevReview,
+      regenerate: Boolean(regenerate || prevReview),
       deviceBrand: job?.device?.brand || '',
       deviceModel: job?.device?.model || '',
       problem: job?.customer_complaint || '',
@@ -340,7 +348,7 @@ export const continuePublicGoogleReview = async (req, res, next) => {
     res.json({
       success: true,
       data: {
-        google_review_url: settings?.google_review_url || 'https://g.page/r/CX_tsygbzKLqEBM/review',
+        google_review_url: settings?.google_review_url || 'https://g.page/r/CROHWMY3TX9dEBM/review',
       },
     });
   } catch (err) {

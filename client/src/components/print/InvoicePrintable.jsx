@@ -13,6 +13,7 @@ import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
 import QRCode from 'qrcode';
 import { WhatsAppQrModal } from '../common/WhatsAppQrModal';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
 // Code 39 Barcode Generator for crisp vector barcodes in PDF and Print
@@ -527,7 +528,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const handleCopyDetails = () => {
+  const handleCopyDetails = async () => {
     const summary =
       `MOBOTECH MOBILE CARE - SERVICE RECORD & INVOICE\n` +
       `Ref ID: ${job.job_number}\n` +
@@ -537,7 +538,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       `Total Amount: ${currencySymbol}${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}\n` +
       `Address: ${shopAddress}, ${shopCity}, ${shopState} ${shopPostal}\n` +
       `Phone: ${shopPhone}`;
-    navigator.clipboard.writeText(summary);
+    await copyTextToClipboard(summary);
     setCopied(true);
     toast.success('Invoice & Service Record details copied!');
     setTimeout(() => setCopied(false), 2000);

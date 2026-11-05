@@ -38,8 +38,13 @@ export const reviewService = {
     return res.data;
   },
 
-  generateAiReview: async (token, { rating, customerFeedback }) => {
-    const res = await api.post(`/public/reviews/${token}/generate`, { rating, customerFeedback });
+  generateAiReview: async (token, { rating, customerFeedback, previousDraft, regenerate }) => {
+    const res = await api.post(`/public/reviews/${token}/generate`, {
+      rating,
+      customerFeedback,
+      previousDraft,
+      regenerate,
+    });
     return res.data;
   },
 

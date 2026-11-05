@@ -5,8 +5,8 @@
 CREATE TABLE IF NOT EXISTS public.review_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   shop_id UUID REFERENCES public.shops(id) ON DELETE CASCADE,
-  google_review_url TEXT DEFAULT 'https://g.page/r/CX_tsygbzKLqEBM/review',
-  review_dialog_url TEXT DEFAULT 'https://g.page/r/CX_tsygbzKLqEBM/review',
+  google_review_url TEXT DEFAULT 'https://g.page/r/CROHWMY3TX9dEBM/review',
+  review_dialog_url TEXT DEFAULT 'https://g.page/r/CROHWMY3TX9dEBM/review',
   is_enabled BOOLEAN DEFAULT true,
   invitation_channel VARCHAR(20) DEFAULT 'WHATSAPP',
   invitation_message TEXT DEFAULT 'Thank you for choosing {shop_name}! We hope your repair experience was good. We would appreciate your honest feedback. Please share your experience here: {review_link}',

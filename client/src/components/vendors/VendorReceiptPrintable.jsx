@@ -13,6 +13,7 @@ import {
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
 
 // Simple Barcode SVG
@@ -66,7 +67,7 @@ export const VendorReceiptPrintable = ({
     window.print();
   };
 
-  const handleCopyText = () => {
+  const handleCopyText = async () => {
     const itemsText = mobiles
       .map(
         (m, idx) =>
@@ -87,7 +88,7 @@ export const VendorReceiptPrintable = ({
       `*Paid Amount:* ₹${parseFloat(transaction.paid_amount || 0).toFixed(2)}\n` +
       `*Notes:* ${transaction.notes || 'None'}`;
 
-    navigator.clipboard.writeText(summary);
+    await copyTextToClipboard(summary);
     setCopied(true);
     toast.success('Receipt summary copied to clipboard!');
     setTimeout(() => setCopied(false), 2500);

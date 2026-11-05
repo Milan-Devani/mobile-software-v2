@@ -37,6 +37,7 @@ import { partsService } from '../../services/partsService';
 import { paymentService } from '../../services/paymentService';
 import { invoiceService } from '../../services/invoiceService';
 import { settingsService } from '../../services/settingsService';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 import { MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps } from '../../utils/numberInput';
 
@@ -978,14 +979,14 @@ export const JobDetail = () => {
     }
   };
 
-  const handleCopyApprovalLink = () => {
+  const handleCopyApprovalLink = async () => {
     const isSettled = (Number(job?.balance_due || 0) <= 0 && (Number(job?.paid_amount || 0) > 0 || Number(job?.total_amount || 0) > 0)) || ['DELIVERED', 'CANCELLED'].includes(job?.status);
     if (isSettled) {
       toast.info('Customer payment is completed. Approval link is deactivated.');
       return;
     }
     const link = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token}`;
-    navigator.clipboard.writeText(link);
+    await copyTextToClipboard(link);
     setCopiedLink(true);
     toast.success('Customer approval link copied to clipboard!');
     setTimeout(() => setCopiedLink(false), 2500);

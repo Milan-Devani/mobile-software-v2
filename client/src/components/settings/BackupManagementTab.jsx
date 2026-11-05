@@ -17,6 +17,7 @@ import {
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { backupService } from '../../services/backupService';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { Card, LoadingSpinner, EmptyState, CardSkeleton } from '../common/Card';
 import { Button } from '../common/Button';
 
@@ -122,8 +123,8 @@ export const BackupManagementTab = () => {
     });
   };
 
-  const copyRestoreCommand = () => {
-    navigator.clipboard.writeText('node server/src/scripts/restoreBackup.js');
+  const copyRestoreCommand = async () => {
+    await copyTextToClipboard('node server/src/scripts/restoreBackup.js');
     setCopiedCommand(true);
     toast.success('Recovery command copied to clipboard');
     setTimeout(() => setCopiedCommand(false), 2500);

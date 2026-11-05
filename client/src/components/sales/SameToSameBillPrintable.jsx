@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
 import { Printer, Share2, Download, Copy, Check, X } from "lucide-react";
 import toast from "react-hot-toast";
+import { copyTextToClipboard } from '../../utils/clipboard';
 import {
   formatIndianCurrency,
   numberToIndianWords,
@@ -150,9 +151,9 @@ export const SameToSameBillPrintable = ({
     }
   };
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     const text = `Invoice #${invoiceNumber} from ${shopData.name}\nAmount: ${formatIndianCurrency(grandTotal, true)}\nDate: ${invoiceDate}`;
-    navigator.clipboard.writeText(text);
+    await copyTextToClipboard(text);
     setCopied(true);
     toast.success("Invoice details copied to clipboard!");
     setTimeout(() => setCopied(false), 2000);

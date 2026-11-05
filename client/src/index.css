@@ -849,6 +849,84 @@ select option {
 }
 
 /* ==========================================================================
+   PUBLIC CUSTOMER REVIEW PAGE: CLEAN WHITE APPLE GLASS THEME
+   Ensures public review cards, inputs, and text never get overridden by dark mode
+   ========================================================================== */
+.public-review-page,
+.dark .public-review-page {
+  color-scheme: light !important;
+}
+
+.public-review-page .bg-white,
+.dark .public-review-page .bg-white {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+}
+
+.public-review-page .public-review-card,
+.dark .public-review-page .public-review-card {
+  position: relative;
+  background: rgba(255, 255, 255, 0.78) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  box-shadow:
+    0 20px 45px -10px rgba(0, 102, 255, 0.07),
+    0 4px 16px -2px rgba(0, 0, 0, 0.03),
+    inset 0 1.5px 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -1px 1px 0 rgba(255, 255, 255, 0.4) !important;
+  color: #0f172a !important;
+  overflow: hidden;
+}
+
+/* Diagonal specular curve sheen on glass cards */
+.public-review-card::before {
+  content: "";
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 70%;
+  height: 140%;
+  background: radial-gradient(
+    ellipse at top right,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.15) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+  transform: rotate(-15deg);
+}
+
+.dark .public-review-page textarea,
+.public-review-page textarea,
+.dark .public-review-textarea,
+.public-review-textarea {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.dark .public-review-page textarea:focus,
+.public-review-page textarea:focus,
+.dark .public-review-textarea:focus,
+.public-review-textarea:focus {
+  background-color: #ffffff !important;
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.dark .public-review-page textarea::placeholder,
+.public-review-page textarea::placeholder,
+.dark .public-review-textarea::placeholder,
+.public-review-textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* ==========================================================================
    UNIVERSAL FORM CONTROLS: CRISP OUTLINES & NEVER-CLIPPED FOCUS RINGS
    ========================================================================== */
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):not([type="range"]),

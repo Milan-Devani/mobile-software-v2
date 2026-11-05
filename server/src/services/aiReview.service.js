@@ -68,12 +68,20 @@ const cleanReviewOutput = (rawText, maxWords = 55) => {
 /**
  * Build a structured, honest prompt adhering strictly to Google Review policies
  */
-const buildReviewPrompt = ({ rating, customerFeedback, deviceBrand, deviceModel, problem, servicePerformed }) => {
+const buildReviewPrompt = ({ rating, customerFeedback, previousDraft, regenerate, deviceBrand, deviceModel, problem, servicePerformed }) => {
   const stars = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
   const device = `${deviceBrand || ''} ${deviceModel || ''}`.trim() || 'phone';
   const issue = problem || 'device issue';
   const service = servicePerformed || 'repair service';
   const feedback = (customerFeedback || '').trim();
+  const prev = (previousDraft || '').trim();
+
+  const variationPrompt = (regenerate && prev)
+    ? `\nVARIATION INSTRUCTION:
+This is a RE-GENERATION request. You must write a completely NEW and DIFFERENT variation.
+Do not repeat the structure, phrasing, or opening of the previous draft below:
+PREVIOUS DRAFT TO AVOID: "${prev}"\n`
+    : '';
 
   return `You are a real customer writing a short, authentic Google review for a mobile repair shop named "Mobotech Mobile Care".
 
@@ -82,7 +90,7 @@ DEVICE: ${device}
 REPORTED PROBLEM: ${issue}
 SERVICE DONE: ${service}
 CUSTOMER'S OWN WORDS/FEEDBACK: ${feedback ? `"${feedback}"` : "None provided"}
-
+${variationPrompt}
 STRICT GUIDELINES:
 1. Write in FIRST PERSON ("I", "my") as the customer who got their device serviced.
 2. LENGTH: Exactly 25 to 50 words. Be short, natural, and conversational.
@@ -115,7 +123,7 @@ const callGemini = async ({ prompt, timeout }) => {
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: {
         thinkingConfig: { thinkingBudget: 0 },
-        temperature: 0.7,
+        temperature: 0.85,
         maxOutputTokens: 300,
       },
     };
@@ -277,6 +285,8 @@ const providerCallers = {
 export const generateReviewText = async ({
   rating = 5,
   customerFeedback = '',
+  previousDraft = '',
+  regenerate = false,
   deviceBrand = '',
   deviceModel = '',
   problem = '',
@@ -285,6 +295,8 @@ export const generateReviewText = async ({
   const prompt = buildReviewPrompt({
     rating,
     customerFeedback,
+    previousDraft,
+    regenerate,
     deviceBrand,
     deviceModel,
     problem,

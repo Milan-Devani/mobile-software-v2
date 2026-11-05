@@ -3115,8 +3115,9 @@ export const db = {
       await ensureFreshSync(5000);
       const defaultSettings = {
         id: 'e0000000-0000-0000-0000-000000000001',
-        google_review_url: 'https://g.page/r/CX_tsygbzKLqEBM/review',
-        review_dialog_url: 'https://g.page/r/CX_tsygbzKLqEBM/review',
+                google_review_url: 'https://g.page/r/CROHWMY3TX9dEBM/review',
+        review_dialog_url: 'https://g.page/r/CROHWMY3TX9dEBM/review',
+        review_dialog_url: 'https://g.page/r/CROHWMY3TX9dEBM/review',
         is_enabled: true,
         invitation_channel: 'WHATSAPP',
         invitation_message: 'Thank you for choosing {shop_name}! We hope your repair experience was good. We would appreciate your honest feedback. Please share your experience here:\n{review_link}',

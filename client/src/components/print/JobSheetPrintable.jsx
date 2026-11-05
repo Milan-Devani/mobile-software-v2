@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { WhatsAppQrModal } from '../common/WhatsAppQrModal';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 
@@ -260,7 +261,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
     window.open(`mailto:${cust.email}?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const handleCopyDetails = () => {
+  const handleCopyDetails = async () => {
     const summary =
       `SERVICE ORDER #${job.job_number}\n` +
       `Customer: ${cust.full_name} (${cust.phone})\n` +
@@ -268,7 +269,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
       `Device: ${dev.brand} ${dev.model} (IMEI: ${dev.imei || 'N/A'})\n` +
       `Issue: ${job.customer_complaint}\n` +
       `Date: ${new Date(job.created_at).toLocaleString()}`;
-    navigator.clipboard.writeText(summary);
+    await copyTextToClipboard(summary);
     setCopied(true);
     toast.success('Service Order summary copied!');
     setTimeout(() => setCopied(false), 2000);

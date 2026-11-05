@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { reviewService } from '../../services/reviewService';
+import { copyTextToClipboard } from '../../utils/clipboard';
 import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -168,10 +169,10 @@ export const GoogleReviewsManagement = () => {
     }
   };
 
-  const handleCopyLink = (token, id) => {
+  const handleCopyLink = async (token, id) => {
     const origin = window.location.origin;
     const link = `${origin}/review/${token}`;
-    navigator.clipboard.writeText(link);
+    await copyTextToClipboard(link);
     setCopiedId(id);
     toast.success('Public review link copied to clipboard!');
     setTimeout(() => setCopiedId(null), 2500);
@@ -770,8 +771,8 @@ export const GoogleReviewsManagement = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(
+                    onClick={async () => {
+                      await copyTextToClipboard(
                         selectedRequest.edited_review || selectedRequest.generated_review
                       );
                       toast.success('Review text copied!');
