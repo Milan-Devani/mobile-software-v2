@@ -31,12 +31,29 @@ export const uploadToSupabaseStorage = async (fileBuffer, fileName, mimeType, bu
     throw new Error('Supabase client is not configured.');
   }
 
-  const { data, error } = await client.storage
+  let { data, error } = await client.storage
     .from(bucket)
     .upload(fileName, fileBuffer, {
       contentType: mimeType,
       upsert: true,
     });
+
+  // If bucket does not exist, automatically create it as public and retry
+  if (error && (error.message?.includes('Bucket not found') || error.statusCode === '404' || error.status === 404)) {
+    try {
+      await client.storage.createBucket(bucket, { public: true });
+      const retryResult = await client.storage
+        .from(bucket)
+        .upload(fileName, fileBuffer, {
+          contentType: mimeType,
+          upsert: true,
+        });
+      data = retryResult.data;
+      error = retryResult.error;
+    } catch (bucketErr) {
+      console.warn('⚠️ Bucket auto-creation attempt error:', bucketErr.message);
+    }
+  }
 
   if (error) {
     throw error;
@@ -47,7 +64,7 @@ export const uploadToSupabaseStorage = async (fileBuffer, fileName, mimeType, bu
     .getPublicUrl(fileName);
 
   return {
-    path: data.path,
-    url: publicUrlData.publicUrl,
+    path: data?.path || fileName,
+    url: publicUrlData?.publicUrl,
   };
 };

@@ -35,12 +35,12 @@ export const env = {
   SUPABASE_STORAGE_BUCKET: process.env.SUPABASE_STORAGE_BUCKET || 'repair-assets',
   
   // Brevo Email
-  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
-  EMAIL_HOST: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+  BREVO_API_KEY: (process.env.BREVO_API_KEY || '').trim(),
+  EMAIL_HOST: (process.env.EMAIL_HOST || 'smtp-relay.brevo.com').trim(),
   EMAIL_PORT: parseInt(process.env.EMAIL_PORT || '587', 10),
-  EMAIL_USER: process.env.EMAIL_USER || '',
-  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || '',
-  EMAIL_FROM: process.env.EMAIL_FROM || 'Mobotech mobile care <notifications@mobotech.com>',
+  EMAIL_USER: (process.env.EMAIL_USER || '').trim(),
+  EMAIL_PASSWORD: (process.env.EMAIL_PASSWORD || '').trim(),
+  EMAIL_FROM: (process.env.EMAIL_FROM || '').trim() || 'MoboTech Mobile Care <mobotechmobilecare.support@gmail.com>',
   
   // OpenWA WhatsApp (https://github.com/rmyndharis/OpenWA)
   OPENWA_API_URL: process.env.OPENWA_API_URL || 'http://localhost:8000',

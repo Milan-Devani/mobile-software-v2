@@ -6,9 +6,11 @@
   "type": "module",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "postinstall": "npx @puppeteer/browsers install chrome-headless-shell@stable --path ./chrome || npx @puppeteer/browsers install chrome@stable --path ./chrome || true"
   },
   "dependencies": {
+    "@puppeteer/browsers": "^2.6.0",
     "@supabase/supabase-js": "^2.49.1",
     "@whiskeysockets/baileys": "^7.0.0-rc14",
     "axios": "^1.8.1",

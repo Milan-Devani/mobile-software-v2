@@ -127,19 +127,46 @@ function findBrowserBinary() {
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
     '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
   ].filter(Boolean);
 
   for (const p of candidatePaths) {
     if (fs.existsSync(p)) return p;
   }
 
-  // Look for Chrome installed via @puppeteer/browsers in standard cache directories
+  // Check 'which' command on Linux / Unix systems
+  if (process.platform !== 'win32') {
+    try {
+      const whichOutput = execSync('which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || which chrome || which chrome-headless-shell || true', { encoding: 'utf8' }).trim();
+      if (whichOutput && fs.existsSync(whichOutput)) {
+        return whichOutput;
+      }
+    } catch (_) {}
+  }
+
+  // Look for Chrome installed via @puppeteer/browsers in standard project and cache directories
   const homeDir = os.homedir();
   const searchRoots = [
+    path.join(process.cwd(), 'chrome'),
+    path.join(process.cwd(), 'server', 'chrome'),
     path.join(process.cwd(), '.cache'),
     path.join(homeDir, '.cache'),
+    path.join(homeDir, '.cache', 'puppeteer'),
     '/opt/render/.cache',
+    '/opt/render/project/src/server/chrome',
+    '/opt/render/project/src/chrome',
+    '/tmp',
   ];
+
+  const binaryNames = new Set([
+    'chrome',
+    'chrome.exe',
+    'chrome-headless-shell',
+    'chrome-headless-shell.exe',
+    'chromium',
+    'chromium-browser',
+    'msedge.exe',
+  ]);
 
   for (const root of searchRoots) {
     if (fs.existsSync(root)) {
@@ -151,9 +178,16 @@ function findBrowserBinary() {
           for (const ent of entries) {
             const fullP = path.join(cur, ent.name);
             if (ent.isDirectory()) {
-              stack.push(fullP);
-            } else if (ent.isFile() && (ent.name === 'chrome' || ent.name === 'chrome.exe' || ent.name === 'msedge.exe')) {
-              if (fs.existsSync(fullP)) return fullP;
+              if (!['node_modules', '.git'].includes(ent.name)) {
+                stack.push(fullP);
+              }
+            } else if (ent.isFile() && binaryNames.has(ent.name)) {
+              if (fs.existsSync(fullP)) {
+                if (process.platform !== 'win32') {
+                  try { fs.chmodSync(fullP, 0o755); } catch (_) {}
+                }
+                return fullP;
+              }
             }
           }
         }
@@ -164,11 +198,135 @@ function findBrowserBinary() {
   return null;
 }
 
+/**
+ * Universal headless HTML to PDF converter with Linux container compatibility
+ */
+function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 25000) {
+  const tempId = `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+  const tmpDir = os.tmpdir();
+  const htmlPath = path.join(tmpDir, `${tempId}.html`);
+  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
+
+  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+
+  try {
+    const flags = [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--no-zygote',
+      '--single-process',
+      '--disable-software-rasterizer',
+      '--no-pdf-header-footer',
+      `--print-to-pdf="${pdfPath}"`,
+      `"${htmlPath}"`,
+    ].join(' ');
+
+    execSync(`"${browserBinary}" ${flags}`, { timeout });
+
+    if (!fs.existsSync(pdfPath)) {
+      throw new Error('Chromium headless failed to produce PDF output file');
+    }
+
+    return fs.readFileSync(pdfPath);
+  } finally {
+    try { fs.unlinkSync(htmlPath); } catch (e) { }
+    try { fs.unlinkSync(pdfPath); } catch (e) { }
+  }
+}
+
+/**
+ * Clean vector PDF fallback generator
+ * Generates valid standard PDF 1.4 document when Chromium is unavailable or fails on host
+ */
+export function generateFallbackVectorPdfBuffer({ type = 'JOB_SHEET', docNumber, dateStr, shop, customer, device, items = [], totals, complaint, warrantyText }) {
+  const sanitize = (s) => String(s || '').replace(/[()\\\r\n]/g, ' ').slice(0, 85);
+  const streams = [];
+  const add = (cmd) => streams.push(cmd);
+
+  // Shop Header
+  add('BT /F2 16 Tf 40 800 Td (' + sanitize(shop?.name || 'MoboTech Mobile Care') + ') Tj ET');
+  add('BT /F1 9 Tf 40 786 Td (' + sanitize(shop?.address || 'Surat, Gujarat') + ' | Tel: ' + sanitize(shop?.phone || '080000 24439') + ') Tj ET');
+  add('0.75 w 40 774 m 555 774 l S');
+
+  // Title Box
+  const title = type === 'JOB_SHEET' ? 'SERVICE ORDER SHEET (JOB INTAKE RECEIPT)' : 'TAX INVOICE & DELIVERY RECEIPT';
+  add('BT /F2 12 Tf 40 755 Td (' + title + ') Tj ET');
+  add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
+  add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
+
+  // Customer Box
+  add('0.5 w 40 680 250 50 re S');
+  add('BT /F2 10 Tf 48 718 Td (CUSTOMER DETAILS) Tj ET');
+  add('BT /F1 9 Tf 48 704 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
+  add('BT /F1 9 Tf 48 690 Td (Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
+
+  // Device Box
+  add('0.5 w 300 680 255 50 re S');
+  add('BT /F2 10 Tf 308 718 Td (DEVICE SPECIFICATIONS) Tj ET');
+  add('BT /F1 9 Tf 308 704 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Handset')) + ') Tj ET');
+  add('BT /F1 9 Tf 308 690 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
+
+  // Line Items Header
+  add('0.5 w 40 660 m 555 660 l S');
+  add('BT /F2 10 Tf 40 648 Td (#   Description                                         Warranty        Qty       Amount) Tj ET');
+  add('0.5 w 40 642 m 555 642 l S');
+
+  let curY = 628;
+  const list = (items && items.length > 0)
+    ? items
+    : [{ item_name: complaint || 'Service / Diagnosis', quantity: 1, warranty: warrantyText || '30 Days', total_price: totals?.total || 0 }];
+
+  list.slice(0, 10).forEach((it, idx) => {
+    const desc = sanitize(it.item_name || 'Repair Service').padEnd(42).slice(0, 42);
+    const war = sanitize(it.warranty || warrantyText || '30 Days').padEnd(14).slice(0, 14);
+    const qty = String(it.quantity || 1).padEnd(8);
+    const amt = ('Rs. ' + Number(it.total_price || 0).toFixed(2));
+    add('BT /F1 9 Tf 40 ' + curY + ' Td (' + (idx + 1) + '   ' + desc + '  ' + war + '  ' + qty + '  ' + amt + ') Tj ET');
+    curY -= 16;
+  });
+
+  add('0.5 w 40 ' + (curY + 6) + ' m 555 ' + (curY + 6) + ' l S');
+  curY -= 10;
+
+  // Totals
+  if (totals) {
+    add('BT /F2 11 Tf 360 ' + curY + ' Td (Total Amount: Rs. ' + Number(totals.total || 0).toFixed(2) + ') Tj ET');
+    curY -= 16;
+    add('BT /F1 10 Tf 360 ' + curY + ' Td (Amount Paid: Rs. ' + Number(totals.paid || 0).toFixed(2) + ') Tj ET');
+    curY -= 16;
+    add('BT /F2 11 Tf 360 ' + curY + ' Td (Balance Due: Rs. ' + Number(totals.balance || 0).toFixed(2) + ') Tj ET');
+    curY -= 25;
+  }
+
+  // Terms & Signatures
+  add('BT /F1 8 Tf 40 100 Td (* All hardware repairs subject to technical verification. Backup customer data prior to service.) Tj ET');
+  add('0.5 w 40 60 m 200 60 l S');
+  add('BT /F2 9 Tf 40 48 Td (Authorized Signatory) Tj ET');
+  add('0.5 w 395 60 m 555 60 l S');
+  add('BT /F2 9 Tf 395 48 Td (Customer Signature) Tj ET');
+
+  const streamContent = 'q\n' + streams.join('\n') + '\nQ';
+  const streamLen = Buffer.byteLength(streamContent);
+
+  const pdf = '%PDF-1.4\n' +
+    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n' +
+    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n' +
+    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >> endobj\n' +
+    '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n' +
+    '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n' +
+    '6 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >> endobj\n' +
+    '7 0 obj << /Length ' + streamLen + ' >>\nstream\n' + streamContent + '\nendstream\nendobj\n' +
+    'xref\n0 8\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000262 00000 n \n0000000336 00000 n \n0000000415 00000 n \n0000000492 00000 n \n' +
+    'trailer << /Size 8 /Root 1 0 R >>\nstartxref\n' + (580 + streamLen) + '\n%%EOF';
+
+  return Buffer.from(pdf, 'utf8');
+}
+
 export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl = '' }) {
   const browserBinary = findBrowserBinary();
-  if (!browserBinary) {
-    throw new Error('Chromium/Edge browser binary not found on host for vector PDF generation');
-  }
 
   // Generate QR code data URL
   let qrDataUrl = '';
@@ -781,29 +939,31 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
 </body>
 </html>`;
 
-  // Write temporary HTML file
-  const tempId = `inv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const tmpDir = os.tmpdir();
-  const htmlPath = path.join(tmpDir, `${tempId}.html`);
-  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
-
-  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
-
-  try {
-    execSync(`"${browserBinary}" --headless --disable-gpu --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
-      timeout: 25000,
-    });
-
-    if (!fs.existsSync(pdfPath)) {
-      throw new Error('Chromium headless failed to produce PDF output file');
+  // 1. Try rendering high-fidelity vector PDF via headless Chromium/Edge
+  if (browserBinary) {
+    try {
+      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+    } catch (browserErr) {
+      console.warn('⚠️ Headless Chromium Invoice PDF print warning:', browserErr.message);
     }
-
-    const pdfBuffer = fs.readFileSync(pdfPath);
-    return pdfBuffer;
-  } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) { }
-    try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
+
+  // 2. Resilient vector PDF fallback (ensures PDF buffer is always generated)
+  return generateFallbackVectorPdfBuffer({
+    type: 'INVOICE',
+    docNumber: invoice?.invoice_number || job.job_number,
+    dateStr: inwardDateStr,
+    shop: shopObj,
+    customer: cust,
+    device: dev,
+    items,
+    totals: {
+      total: Number(invoice?.total_amount || job.total_amount || 0),
+      paid: Number(invoice?.paid_amount || job.paid_amount || 0),
+      balance: Number(invoice?.balance_due || job.balance_due || 0),
+    },
+    warrantyText: warrantyDaysText,
+  });
 }
 
 // Indian Currency and Number to Words formatters for Sales Bills
@@ -846,9 +1006,6 @@ function saleNumberToWords(amount) {
 
 export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   const browserBinary = findBrowserBinary();
-  if (!browserBinary) {
-    throw new Error('Chromium/Edge browser binary not found on host for vector PDF generation');
-  }
 
   const shopName = shop?.name || shop?.shop_name || 'Shree Mobile Shop';
   const shopAddress = shop?.address || 'G/456, Basant Lok Comm., Vasant Vihar, Tardeo Road, Maharashtra - 400001';
@@ -1263,27 +1420,34 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 </body>
 </html>`;
 
-  const tempId = `sale_inv_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const tmpDir = os.tmpdir();
-  const htmlPath = path.join(tmpDir, `${tempId}.html`);
-  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
-
-  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
-
-  try {
-    execSync(`"${browserBinary}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
-      timeout: 25000,
-    });
-
-    if (!fs.existsSync(pdfPath)) {
-      throw new Error('Chromium headless failed to produce PDF output file');
+  if (browserBinary) {
+    try {
+      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+    } catch (browserErr) {
+      console.warn('⚠️ Headless Chromium Sale Invoice PDF print warning:', browserErr.message);
     }
-
-    return fs.readFileSync(pdfPath);
-  } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) { }
-    try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
+
+  return generateFallbackVectorPdfBuffer({
+    type: 'INVOICE',
+    docNumber: invoiceNumber,
+    dateStr: invoiceDate,
+    shop: { name: shopName, address: shopAddress, phone: shopPhone },
+    customer: { full_name: sale?.customer_name || 'Retail Customer', phone: sale?.customer_phone || '' },
+    device: { brand: 'Mobile Accessories / Handset', model: '' },
+    items: (sale?.items || []).map((it) => ({
+      item_name: it.item_name || 'Item',
+      quantity: it.quantity || 1,
+      warranty: it.warranty || 'N/A',
+      total_price: it.total || it.unit_price || 0,
+    })),
+    totals: {
+      total: grandTotal,
+      paid: grandTotal,
+      balance: 0,
+    },
+    warrantyText: 'Sale Item Warranty',
+  });
 }
 
 /**
@@ -1292,9 +1456,6 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
  */
 export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' }) {
   const browserBinary = findBrowserBinary();
-  if (!browserBinary) {
-    throw new Error('Chromium/Edge browser binary not found on host for vector PDF generation');
-  }
 
   const shopObj = shop || {
     name: 'Mobotech mobile care',
@@ -1707,27 +1868,37 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
 </body>
 </html>`;
 
-  const tempId = `jobsheet_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-  const tmpDir = os.tmpdir();
-  const htmlPath = path.join(tmpDir, `${tempId}.html`);
-  const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
-
-  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
-
-  try {
-    execSync(`"${browserBinary}" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf="${pdfPath}" "${htmlPath}"`, {
-      timeout: 25000,
-    });
-
-    if (!fs.existsSync(pdfPath)) {
-      throw new Error('Chromium headless failed to produce Job Sheet PDF output file');
+  // 1. Try rendering high-fidelity vector PDF via headless Chromium/Edge
+  if (browserBinary) {
+    try {
+      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+    } catch (browserErr) {
+      console.warn('⚠️ Headless Chromium Job Sheet PDF print warning:', browserErr.message);
     }
-
-    return fs.readFileSync(pdfPath);
-  } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) { }
-    try { fs.unlinkSync(pdfPath); } catch (e) { }
   }
+
+  // 2. Resilient vector PDF fallback (ensures PDF buffer is always generated)
+  return generateFallbackVectorPdfBuffer({
+    type: 'JOB_SHEET',
+    docNumber: job.job_number,
+    dateStr: createDateStr,
+    shop: shopObj,
+    customer: cust,
+    device: dev,
+    complaint: job.customer_complaint,
+    items: (job.estimate?.items || job.estimate_items || []).map((it) => ({
+      item_name: it.item_name || 'Estimated Repair Part/Service',
+      quantity: it.quantity || 1,
+      warranty: it.warranty || '30 Days',
+      total_price: it.total_price || 0,
+    })),
+    totals: {
+      total: Number(job.total_amount || 0),
+      paid: Number(job.paid_amount || 0),
+      balance: Number(job.balance_due || job.total_amount || 0),
+    },
+    warrantyText: job.warranty_days ? `${job.warranty_days} Days` : '30 Days',
+  });
 }
 
 

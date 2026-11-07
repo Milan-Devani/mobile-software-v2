@@ -1,9 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import { db } from '../db/db.js';
+import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchNotification } from '../services/notificationService.js';
 import { triggerAutoReviewInvitation } from '../services/reviewInvitationService.js';
+import { generateJobSheetPdfBuffer } from '../services/pdfService.js';
 
 const extractClientUrl = (req) => {
   const origin = req.get('origin');
@@ -1815,6 +1817,33 @@ export const updateFinalCost = async (req, res, next) => {
     next(err);
   }
 };
+
+export const downloadJobSheetPdf = async (req, res, next) => {
+  try {
+    const { jobId } = req.params;
+    let job = await db.jobs.findById(jobId);
+    if (!job) {
+      const allJobs = await db.jobs.list({ limit: 1000 });
+      job = allJobs.jobs.find(j => j.job_number === jobId);
+    }
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const shop = await db.shops.getProfile();
+    const clientBase = req.get('origin') || (env.CLIENT_URL && env.CLIENT_URL !== '*' && env.CLIENT_URL.startsWith('http') ? env.CLIENT_URL : env.APP_URL && env.APP_URL !== '*' && env.APP_URL.startsWith('http') ? env.APP_URL : (env.NODE_ENV === 'production' ? 'https://mobile-software-v2.vercel.app' : 'http://localhost:5173'));
+    const trackingUrl = `${clientBase.replace(/\/+$/, '')}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
+
+    const pdfBuffer = await generateJobSheetPdfBuffer({ job, shop, trackingUrl });
+
+    const cleanNum = (job.job_number || 'SO').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Service_Order_${cleanNum}.pdf"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+};
+
 
 
 

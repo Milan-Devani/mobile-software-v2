@@ -5,6 +5,7 @@ import { sendOpenWaMessage } from './openWaService.js';
 import { sendFast2SmsWhatsApp } from './fast2smsService.js';
 import { getBaileysStatus, sendBaileysMessage } from './baileysService.js';
 import { generateInvoicePdfBuffer, generateSaleInvoicePdfBuffer, generateJobSheetPdfBuffer } from './pdfService.js';
+import { isSupabaseConfigured, uploadToSupabaseStorage } from '../config/supabase.js';
 
 /**
  * Returns dynamic customer greeting based on current hour in IST (Asia/Kolkata):
@@ -89,6 +90,7 @@ export const dispatchNotification = async ({
 
   let pdfBuffer = null;
   let documentFilename = `Mobotech_Invoice_${(job.job_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_')}.pdf`;
+  let pdfPublicUrl = null;
 
   if (type === 'JOB_CREATED') {
     try {
@@ -114,6 +116,29 @@ export const dispatchNotification = async ({
     }
   }
 
+  // Upload to Supabase Storage if configured to provide direct public link for mobile download
+  if (pdfBuffer && isSupabaseConfigured()) {
+    try {
+      const storagePath = `documents/${documentFilename.replace('.pdf', '')}_${Date.now()}.pdf`;
+      const uploadRes = await uploadToSupabaseStorage(pdfBuffer, storagePath, 'application/pdf');
+      if (uploadRes?.url) {
+        pdfPublicUrl = uploadRes.url;
+      }
+    } catch (storageErr) {
+      console.warn('⚠️ Supabase Storage upload note (continuing with direct attachment):', storageErr.message);
+    }
+  }
+
+  // Fallback public download link if storage upload failed or not configured
+  if (!pdfPublicUrl && pdfBuffer) {
+    const apiBase = (env.API_URL && env.API_URL.startsWith('http')) ? env.API_URL.replace(/\/+$/, '') : 'http://localhost:5000';
+    if (type === 'JOB_CREATED') {
+      pdfPublicUrl = `${apiBase}/api/jobs/public/${job.id}/download-jobsheet-pdf`;
+    } else if (type === 'INVOICE_GENERATED') {
+      pdfPublicUrl = `${apiBase}/api/invoices/public/${job.id}/download-pdf`;
+    }
+  }
+
   switch (type) {
     case 'JOB_CREATED':
       subject = `[${shopName}] Service Order Sheet Created - #${job.job_number}`;
@@ -124,11 +149,13 @@ export const dispatchNotification = async ({
         `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Inspection'}\n` +
         `🆔 *Job ID:* #${job.job_number}\n\n` +
         `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n` +
-        `📄 *Your official Service Order Sheet PDF is attached below.*\n\n` +
+        (pdfPublicUrl
+          ? `📄 *View / Download Service Order Sheet:*\n${pdfPublicUrl}\n\n`
+          : `📄 *Your official Service Order Sheet PDF is attached below.*\n\n`) +
         `📞 *Shop Contact:* ${shopPhone}\n\n` +
         `Thank you for trusting us! ❤️\n` +
         `*${shopName}*`;
-      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". Your Service Order Sheet PDF is attached. Contact: ${shopPhone}`;
+      plainMessage = `${greeting} ${customerName}, your ${deviceFullName} has been checked in under Job #${job.job_number}. Issue: "${job.customer_complaint}". ${pdfPublicUrl ? `Download Service Order Sheet: ${pdfPublicUrl}. ` : 'Your Service Order Sheet PDF is attached. '}Contact: ${shopPhone}`;
       emailHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
           <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -143,9 +170,14 @@ export const dispatchNotification = async ({
             <tr><td style="padding: 6px; color: #64748b;">Current Status:</td><td style="padding: 6px; color: #0284c7; font-weight: bold;">${job.status}</td></tr>
           </table>
           <p style="font-size: 14px; color: #475569;">Our technicians are assessing the device. You will receive an inspection diagnosis and quotation before any repair work commences.</p>
-          <p style="font-size: 13px; color: #475569; margin: 15px 0; background: #f8fafc; padding: 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+          <p style="font-size: 13px; color: #475569; margin: 15px 0; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0;">
             📎 <strong>Official Service Order Sheet PDF is attached to this email.</strong> Please retain this document for pickup reference.
           </p>
+          ${pdfPublicUrl ? `
+          <div style="text-align: center; margin: 20px 0;">
+            <a href="${pdfPublicUrl}" target="_blank" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">📥 Download Service Order Sheet PDF</a>
+          </div>
+          ` : ''}
           <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
           <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
         </div>
@@ -274,9 +306,11 @@ export const dispatchNotification = async ({
           `🆔 *Job ID:* #${job.job_number}\n` +
           `🛡️ *Warranty Claim:* Claim #${job.reopen_count || 1} (100% Free Rework)\n` +
           `💰 *Balance Due:* ${currSym}0.00\n\n` +
-          `📄 *Your official warranty service receipt PDF is attached below.*\n\n` +
+          (pdfPublicUrl
+            ? `📄 *View / Download Warranty Receipt PDF:*\n${pdfPublicUrl}\n\n`
+            : `📄 *Your official warranty service receipt PDF is attached below.*\n\n`) +
           `Thank you for trusting *${shopName}*! ❤️`;
-        plainMessage = `${greeting} ${customerName}, your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). Your official warranty service invoice PDF is attached. ${shopName}`;
+        plainMessage = `${greeting} ${customerName}, your warranty rework for ${deviceFullName} (Job #${job.job_number}) is successfully completed and handed over (100% Free Rework - ${currSym}0.00 Balance Due). ${pdfPublicUrl ? `Download Receipt: ${pdfPublicUrl}. ` : 'Your official warranty service invoice PDF is attached. '}${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #059669; margin-bottom: 4px;">${shopName}</h2>
@@ -291,9 +325,14 @@ export const dispatchNotification = async ({
               <tr><td style="padding: 6px; color: #64748b;">Rework Cost:</td><td style="padding: 6px; font-weight: bold; color: #059669;">${currSym}0.00 (100% Free Rework)</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Balance Due:</td><td style="padding: 6px; font-weight: bold;">${currSym}0.00</td></tr>
             </table>
-            <p style="font-size: 13px; color: #475569; margin: 15px 0;">
+            <p style="font-size: 13px; color: #475569; margin: 15px 0; background: #f0fdf4; padding: 12px; border-radius: 6px; border: 1px solid #bbf7d0;">
               📎 <strong>Official Warranty Service Invoice PDF is attached to this email.</strong> Please keep this receipt for your records.
             </p>
+            ${pdfPublicUrl ? `
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${pdfPublicUrl}" target="_blank" style="background-color: #059669; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">📥 Download Warranty Service Invoice PDF</a>
+            </div>
+            ` : ''}
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
             <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
           </div>
@@ -309,10 +348,12 @@ export const dispatchNotification = async ({
           `✅ Device Delivered\n` +
           `✅ Payment Settled\n` +
           `💰 *Total Paid:* ${currSym}${Number(job.paid_amount || job.total_amount || 0).toFixed(2)}\n\n` +
-          `📄 *Your official tax invoice PDF is attached below.*\n\n` +
+          (pdfPublicUrl
+            ? `📄 *View / Download Tax Invoice PDF:*\n${pdfPublicUrl}\n\n`
+            : `📄 *Your official tax invoice PDF is attached below.*\n\n`) +
           `Thank you for trusting *${shopName}*.\n\n` +
           `We appreciate your business and look forward to serving you again! ❤️`;
-        plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. Your official tax invoice PDF is attached. ${shopName}`;
+        plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. ${pdfPublicUrl ? `Download Tax Invoice: ${pdfPublicUrl}. ` : 'Your official tax invoice PDF is attached. '}${shopName}`;
         emailHtml = `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
             <h2 style="color: #0284c7; margin-bottom: 4px;">${shopName}</h2>
@@ -327,9 +368,14 @@ export const dispatchNotification = async ({
               <tr><td style="padding: 6px; color: #64748b;">Amount Paid:</td><td style="padding: 6px; font-weight: bold; color: #16a34a;">${currSym}${Number(job.paid_amount || job.total_amount).toFixed(2)}</td></tr>
               <tr><td style="padding: 6px; color: #64748b;">Remaining Balance:</td><td style="padding: 6px; font-weight: bold;">${currSym}${Number(job.balance_due || 0).toFixed(2)}</td></tr>
             </table>
-            <p style="font-size: 13px; color: #475569; margin: 15px 0;">
+            <p style="font-size: 13px; color: #475569; margin: 15px 0; background: #f0fdf4; padding: 12px; border-radius: 6px; border: 1px solid #bbf7d0;">
               📎 <strong>Official Tax Invoice PDF is attached to this email.</strong> Please retain this invoice for your records and warranty validation.
             </p>
+            ${pdfPublicUrl ? `
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${pdfPublicUrl}" target="_blank" style="background-color: #16a34a; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">📥 Download Official Tax Invoice PDF</a>
+            </div>
+            ` : ''}
             <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
             <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopAddress} • ${shopPhone}</p>
           </div>
@@ -595,6 +641,10 @@ export const dispatchNotification = async ({
           waResult = await sendFast2SmsWhatsApp({
             phone: waNumber,
             message: msgToSend,
+            ...(pdfPublicUrl ? {
+              mediaUrl: pdfPublicUrl,
+              documentFilename: documentFilename,
+            } : {}),
           });
           providerName = waResult.provider || 'FAST2SMS';
         } else if (env.OPENWA_API_KEY) {
@@ -608,6 +658,10 @@ export const dispatchNotification = async ({
           waResult = await sendFast2SmsWhatsApp({
             phone: waNumber,
             message: msgToSend,
+            ...(pdfPublicUrl ? {
+              mediaUrl: pdfPublicUrl,
+              documentFilename: documentFilename,
+            } : {}),
           });
           providerName = 'FAST2SMS_SIMULATOR';
         }
@@ -657,6 +711,39 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
   const customerEmail = (sale.customer_email || '').trim();
   const customerName = (sale.customer_name || '').trim() || 'Valued Customer';
 
+  // 1. Generate official vector PDF
+  let pdfBuffer = null;
+  try {
+    pdfBuffer = await generateSaleInvoicePdfBuffer({ sale, shop });
+  } catch (err) {
+    console.warn('⚠️ [Notification] PDF generation warning:', err.message);
+  }
+
+  // 2. Upload to Supabase Storage if configured
+  let salePdfPublicUrl = null;
+  if (pdfBuffer && isSupabaseConfigured()) {
+    try {
+      const cleanInvNum = (sale.invoice_number || 'INV').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const storagePath = `sales/Invoice_${cleanInvNum}_${Date.now()}.pdf`;
+      const uploadRes = await uploadToSupabaseStorage(pdfBuffer, storagePath, 'application/pdf');
+      if (uploadRes?.url) {
+        salePdfPublicUrl = uploadRes.url;
+      }
+    } catch (storageErr) {
+      console.warn('⚠️ Supabase Storage sales PDF upload note:', storageErr.message);
+    }
+  }
+
+  // Fallback public download link if storage upload failed or not configured
+  if (!salePdfPublicUrl && pdfBuffer) {
+    const apiBase = (env.API_URL && env.API_URL.startsWith('http'))
+      ? env.API_URL.replace(/\/+$/, '')
+      : (env.APP_URL && env.APP_URL.startsWith('http') && env.APP_URL !== '*')
+        ? env.APP_URL.replace(/\/+$/, '')
+        : 'http://localhost:5000';
+    salePdfPublicUrl = `${apiBase}/api/sales/public/${sale.id}/download-pdf`;
+  }
+
   const itemsListText = (sale.items || [])
     .map(
       (it) =>
@@ -678,7 +765,9 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
     (sale.gst_enabled ? `• GST (${sale.gst_rate}%): +₹${Number(sale.total_tax).toFixed(2)}\n` : '') +
     `• Total Paid: ₹${Number(sale.total_amount).toFixed(2)}\n` +
     `• Payment Mode: ${sale.payment_mode || 'CASH'}\n\n` +
-    `📄 *Download Official PDF Bill:*\nhttp://localhost:5000/api/sales/public/${sale.id}/download-pdf\n\n` +
+    (salePdfPublicUrl
+      ? `📄 *Download Official PDF Bill:*\n${salePdfPublicUrl}\n\n`
+      : `📄 *Your official PDF bill is attached below.*\n\n`) +
     `We appreciate your business and look forward to serving you again! ❤️\n\n` +
     `*${shopName}*`;
 
@@ -772,6 +861,12 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
         </table>
       </div>
 
+      ${salePdfPublicUrl ? `
+      <div style="text-align: center; margin: 20px 0;">
+        <a href="${salePdfPublicUrl}" target="_blank" style="background-color: #0284c7; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 14px; display: inline-block;">📥 Download Tax Invoice / Bill (PDF)</a>
+      </div>
+      ` : ''}
+
       <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 12px; margin-top: 10px; font-size: 12px; color: #64748b; text-align: center;">
         Thank you for choosing <strong>${shopName}</strong>! Please retain this invoice for your records and warranty validation.
       </div>
@@ -780,19 +875,12 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
 
   const results = { email: false, whatsapp: false };
 
-  // Generate official vector PDF
-  let pdfBuffer = null;
-  try {
-    pdfBuffer = await generateSaleInvoicePdfBuffer({ sale, shop });
-  } catch (err) {
-    console.warn('⚠️ [Notification] PDF generation warning:', err.message);
-  }
-
   const emailAttachments = pdfBuffer ? [
     {
       name: `Invoice_${sale.invoice_number}.pdf`,
       filename: `Invoice_${sale.invoice_number}.pdf`,
       content: pdfBuffer,
+      contentType: 'application/pdf',
     }
   ] : [];
 
@@ -839,7 +927,7 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
         await sendFast2SmsWhatsApp({
           phone: customerPhone,
           message: plainMessage,
-          mediaUrl: `http://localhost:5000/api/sales/public/${sale.id}/download-pdf`,
+          mediaUrl: salePdfPublicUrl,
           documentFilename: `Invoice_${sale.invoice_no_seq || sale.invoice_number}.pdf`,
         });
         results.whatsapp = true;
@@ -855,7 +943,7 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
         await sendFast2SmsWhatsApp({
           phone: customerPhone,
           message: plainMessage,
-          mediaUrl: `http://localhost:5000/api/sales/public/${sale.id}/download-pdf`,
+          mediaUrl: salePdfPublicUrl,
           documentFilename: `Invoice_${sale.invoice_no_seq || sale.invoice_number}.pdf`,
         });
         results.whatsapp = true;

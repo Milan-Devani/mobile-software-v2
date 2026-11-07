@@ -118,7 +118,11 @@ export const resendInvoice = async (req, res, next) => {
 export const downloadInvoicePdf = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    const job = await db.jobs.findById(jobId);
+    let job = await db.jobs.findById(jobId);
+    if (!job) {
+      const allJobs = await db.jobs.list({ limit: 1000 });
+      job = allJobs.jobs.find(j => j.job_number === jobId);
+    }
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
     let invoice = await db.invoices.getByJobId(job.id);

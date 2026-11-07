@@ -26,7 +26,8 @@ import {
   bulkDeleteJobs,
   bulkUpdateJobStatus,
   applyDiscount,
-  updateFinalCost
+  updateFinalCost,
+  downloadJobSheetPdf,
 } from '../controllers/jobController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -37,14 +38,16 @@ import {
 
 const router = express.Router();
 
-// 1. PUBLIC ROUTES (For Customer Approval Link)
+// 1. PUBLIC ROUTES (For Customer Approval Link & Document Downloads)
 router.get('/public/approval/:tokenOrJobNumber', publicGetApprovalDetails);
 router.post('/public/approval/:tokenOrJobNumber', publicSubmitApproval);
+router.get('/public/:jobId/download-jobsheet-pdf', downloadJobSheetPdf);
 
 // 2. PROTECTED EMPLOYEE ROUTES
 router.use(authenticateToken);
 
 router.get('/', requireAnyRole, getJobs);
+router.get('/:jobId/download-jobsheet-pdf', requireAnyRole, downloadJobSheetPdf);
 router.post('/bulk-delete', requireAnyRole, bulkDeleteJobs);
 router.post('/bulk-status', requireAnyRole, bulkUpdateJobStatus);
 router.get('/:id', requireAnyRole, getJobById);

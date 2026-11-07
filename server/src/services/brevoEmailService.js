@@ -5,26 +5,51 @@ import { db } from '../db/db.js';
 
 let transporter = null;
 
-const getTransporter = () => {
-  if (transporter) return transporter;
-  if (env.EMAIL_USER && env.EMAIL_PASSWORD) {
-    transporter = nodemailer.createTransport({
-      host: env.EMAIL_HOST || 'smtp-relay.brevo.com',
-      port: env.EMAIL_PORT || 587,
-      secure: false, // TLS
-      auth: {
-        user: env.EMAIL_USER,
-        pass: env.EMAIL_PASSWORD,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
-    });
+/**
+ * Sanitizes and normalizes Brevo SMTP credentials:
+ * - Automatically prepends 'xsmtpsib-' to SMTP passwords if omitted by user
+ * - Interchanges EMAIL_PASSWORD and BREVO_API_KEY when applicable
+ */
+const getNormalizedSmtpCredentials = () => {
+  let user = (env.EMAIL_USER || '').trim();
+  let pass = (env.EMAIL_PASSWORD || '').trim();
+  const host = (env.EMAIL_HOST || 'smtp-relay.brevo.com').trim();
+  const apiKey = (env.BREVO_API_KEY || '').trim();
+
+  // If EMAIL_PASSWORD is missing but BREVO_API_KEY is provided
+  if (!pass && apiKey) {
+    pass = apiKey;
   }
-  return transporter;
+
+  // If EMAIL_USER is missing but we have Brevo host
+  if (!user && (host.includes('brevo.com') || host.includes('sendinblue.com'))) {
+    user = 'c17778001@smtp-brevo.com';
+  }
+
+  // If password belongs to Brevo and is missing the required 'xsmtpsib-' prefix, auto-prepend it
+  if (pass && (host.includes('brevo.com') || host.includes('sendinblue.com') || user.includes('smtp-brevo.com'))) {
+    if (!pass.startsWith('xsmtpsib-') && !pass.startsWith('xkeysib-')) {
+      pass = `xsmtpsib-${pass}`;
+    }
+  }
+
+  return { user, pass, host };
+};
+
+const createSmtpTransportForPort = (port, secure = false) => {
+  const { user, pass, host } = getNormalizedSmtpCredentials();
+  if (!user || !pass) return null;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 12000,
+    greetingTimeout: 8000,
+    socketTimeout: 15000,
+  });
 };
 
 export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, textContent, attachments = [] }) => {
@@ -54,10 +79,15 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
     }
   }
 
+  // Ensure sender email is verified in Brevo
+  if (senderEmail === 'notifications@mobotech.com') {
+    senderEmail = 'mobotechmobilecare.support@gmail.com';
+  }
+
   const formattedFrom = `"${senderName}" <${senderEmail}>`;
 
-  // 1. Try Brevo REST API v3 if a valid REST API key (starts with xkeysib-) is provided
-  const isBrevoApiKey = env.BREVO_API_KEY && !env.BREVO_API_KEY.startsWith('xsmtpsib-');
+  // 1. Try Brevo REST API v3 ONLY if a real REST API key (starts with xkeysib-) is provided
+  const isBrevoApiKey = env.BREVO_API_KEY && env.BREVO_API_KEY.startsWith('xkeysib-');
   if (isBrevoApiKey) {
     try {
       const brevoAttachments = attachments && attachments.length > 0
@@ -105,21 +135,35 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
     }
   }
 
-  // 2. Try SMTP via Nodemailer if SMTP credentials are provided
-  const smtpTransport = getTransporter();
-  if (smtpTransport) {
-    try {
-      const smtpAttachments = attachments && attachments.length > 0
-        ? attachments.map((att) => ({
-            filename: att.name || att.filename || 'attachment.pdf',
-            content: att.content,
-            contentType: att.contentType || 'application/pdf',
-          }))
-        : undefined;
+  // 2. Try SMTP via Nodemailer with multi-port fallback (587 -> 2525 -> 465)
+  const { user, pass } = getNormalizedSmtpCredentials();
+  if (user && pass) {
+    const smtpAttachments = attachments && attachments.length > 0
+      ? attachments.map((att) => ({
+          filename: att.name || att.filename || 'attachment.pdf',
+          content: att.content,
+          contentType: att.contentType || 'application/pdf',
+        }))
+      : undefined;
 
-      let info;
+    const portsToTry = [
+      env.EMAIL_PORT || 587,
+      2525,
+      465,
+    ].filter((p, idx, arr) => arr.indexOf(p) === idx);
+
+    let smtpError = null;
+
+    for (const port of portsToTry) {
       try {
-        info = await smtpTransport.sendMail({
+        const isSecure = port === 465;
+        const currentTransporter = (port === (env.EMAIL_PORT || 587) && transporter)
+          ? transporter
+          : createSmtpTransportForPort(port, isSecure);
+
+        if (!currentTransporter) continue;
+
+        const info = await currentTransporter.sendMail({
           from: formattedFrom,
           replyTo: formattedFrom,
           to: `"${toName || toEmail}" <${toEmail}>`,
@@ -128,29 +172,29 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
           html: htmlContent,
           ...(smtpAttachments ? { attachments: smtpAttachments } : {}),
         });
-      } catch (firstErr) {
-        if (['ESOCKET', 'ECONNRESET', 'ETIMEDOUT', 'ECONNREFUSED'].includes(firstErr.code)) {
-          console.warn('⚠️ SMTP socket closed/timeout, reconnecting fresh transport...', firstErr.message);
-          transporter = null;
-          smtpTransport = getTransporter();
-          info = await smtpTransport.sendMail({
-            from: formattedFrom,
-            replyTo: formattedFrom,
-            to: `"${toName || toEmail}" <${toEmail}>`,
-            subject,
-            text: textContent || subject,
-            html: htmlContent,
-            ...(smtpAttachments ? { attachments: smtpAttachments } : {}),
-          });
-        } else {
-          throw firstErr;
-        }
+
+        // Cache working transporter
+        transporter = currentTransporter;
+        return { success: true, messageId: info.messageId, provider: `BREVO_SMTP_PORT_${port}` };
+      } catch (err) {
+        smtpError = err;
+        console.warn(`⚠️ Brevo SMTP on port ${port} failed: ${err.message}. Trying next fallback port...`);
+        transporter = null;
       }
-      return { success: true, messageId: info.messageId, provider: 'BREVO_SMTP' };
-    } catch (err) {
-      console.warn('⚠️ Brevo SMTP failed:', err.message);
-      throw err;
     }
+
+    if (smtpError) {
+      console.error('❌ All Brevo SMTP ports failed:', smtpError.message);
+      lastError = smtpError.message;
+      if (env.NODE_ENV === 'production') {
+        throw new Error(`Failed to send email via Brevo SMTP: ${smtpError.message}`);
+      }
+    }
+  }
+
+  // In production, if neither API nor SMTP credentials were configured or succeeded, throw
+  if (env.NODE_ENV === 'production' && !lastError) {
+    throw new Error('Email credentials not configured or all email delivery channels failed.');
   }
 
   // 3. Development / Test Mode Mock Output
