@@ -61,21 +61,21 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
 
   // Retrieve custom sender email from notification config if configured
   const notificationConfig = await db.settings.get('notification_config').catch(() => null);
-  const activeEmailFrom = notificationConfig?.sender_email || env.EMAIL_FROM;
+  const activeEmailFrom = (notificationConfig?.sender_email || env.EMAIL_FROM || '').trim().replace(/^["']|["']$/g, '');
 
   // Parse sender name and email from active config / env
-  let senderName = env.BREVO_SENDER_NAME || 'MoboTech Mobile Care';
+  let senderName = (env.BREVO_SENDER_NAME || 'MoboTech Mobile Care').trim().replace(/^["']|["']$/g, '');
   let senderEmail = 'mobotechmobilecare.support@gmail.com';
 
   if (activeEmailFrom) {
     if (activeEmailFrom.includes('<')) {
       const match = activeEmailFrom.match(/^(.*?)\s*<([^>]+)>/);
       if (match) {
-        senderName = match[1]?.trim() || senderName;
-        senderEmail = match[2]?.trim() || senderEmail;
+        senderName = match[1]?.trim().replace(/^["']|["']$/g, '') || senderName;
+        senderEmail = match[2]?.trim().replace(/^["']|["']$/g, '') || senderEmail;
       }
     } else {
-      senderEmail = activeEmailFrom.trim();
+      senderEmail = activeEmailFrom.trim().replace(/^["']|["']$/g, '');
     }
   }
 
@@ -187,7 +187,9 @@ export const sendBrevoEmail = async ({ toEmail, toName, subject, htmlContent, te
       console.error('❌ All Brevo SMTP ports failed:', smtpError.message);
       lastError = smtpError.message;
       if (env.NODE_ENV === 'production') {
-        throw new Error(`Failed to send email via Brevo SMTP: ${smtpError.message}`);
+        throw new Error(
+          `Failed to send email via Brevo SMTP: ${smtpError.message}. Note: Cloud platforms like Render block SMTP ports (587/465). To fix, add a Brevo REST API Key (starts with 'xkeysib-') in BREVO_API_KEY environment variable.`
+        );
       }
     }
   }
