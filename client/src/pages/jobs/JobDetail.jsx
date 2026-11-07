@@ -36,6 +36,7 @@ import { jobService } from '../../services/jobService';
 import { partsService } from '../../services/partsService';
 import { paymentService } from '../../services/paymentService';
 import { invoiceService } from '../../services/invoiceService';
+import { notificationService } from '../../services/notificationService';
 import { settingsService } from '../../services/settingsService';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
@@ -188,6 +189,7 @@ export const JobDetail = () => {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
+  const [isSendingJobSheet, setIsSendingJobSheet] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const isFreeWarranty = Boolean(
@@ -725,6 +727,30 @@ export const JobDetail = () => {
     }
   };
 
+  const handleSendJobSheet = async () => {
+    try {
+      setIsSendingJobSheet(true);
+      await notificationService.resend({
+        jobId: job.id,
+        type: 'JOB_CREATED',
+        channel: 'WHATSAPP',
+      });
+      if (job.customer?.email) {
+        await notificationService.resend({
+          jobId: job.id,
+          type: 'JOB_CREATED',
+          channel: 'EMAIL',
+        }).catch(() => null);
+      }
+      toast.success('Official Service Order Sheet PDF dispatched to customer via WhatsApp and Email!');
+      fetchJobData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to dispatch Service Order Sheet');
+    } finally {
+      setIsSendingJobSheet(false);
+    }
+  };
+
   const handleResendInvoice = async () => {
     try {
       setIsSendingInvoice(true);
@@ -1087,6 +1113,18 @@ export const JobDetail = () => {
             onClick={() => setIsPrintJobSheetOpen(true)}
           >
             Service Order Sheet
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Send}
+            onClick={handleSendJobSheet}
+            loading={isSendingJobSheet}
+            className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-medium"
+            title="Dispatch official Service Order Sheet PDF to Customer via WhatsApp & Email"
+          >
+            Send Job Sheet
           </Button>
 
           <Button

@@ -2,7 +2,7 @@ import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { execSync } from 'child_process';
+import { spawnSync, execSync } from 'child_process';
 import QRCode from 'qrcode';
 import axios from 'axios';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
@@ -119,10 +119,10 @@ function findBrowserBinary() {
   const candidatePaths = [
     process.env.CHROME_BIN,
     process.env.PUPPETEER_EXECUTABLE_PATH,
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
     '/usr/bin/google-chrome',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/chromium',
@@ -201,32 +201,37 @@ function findBrowserBinary() {
 /**
  * Universal headless HTML to PDF converter with Linux container compatibility
  */
-function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 25000) {
+function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 30000) {
   const tempId = `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tmpDir = os.tmpdir();
+  const profileDir = path.join(tmpDir, `chrome_profile_${tempId}`);
   const htmlPath = path.join(tmpDir, `${tempId}.html`);
   const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
 
   fs.writeFileSync(htmlPath, htmlContent, 'utf8');
 
   try {
-    const flags = [
-      '--headless=new',
+    const baseArgs = [
       '--disable-gpu',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--no-zygote',
-      '--single-process',
       '--disable-software-rasterizer',
       '--no-pdf-header-footer',
-      `--print-to-pdf="${pdfPath}"`,
-      `"${htmlPath}"`,
-    ].join(' ');
+      `--user-data-dir=${profileDir}`,
+      `--print-to-pdf=${pdfPath}`,
+      htmlPath,
+    ];
 
-    execSync(`"${browserBinary}" ${flags}`, { timeout });
+    // Try modern headless first
+    spawnSync(browserBinary, ['--headless=new', ...baseArgs], { stdio: 'pipe', timeout });
 
-    if (!fs.existsSync(pdfPath)) {
+    if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
+      // Fallback to legacy headless mode if needed
+      spawnSync(browserBinary, ['--headless', ...baseArgs], { stdio: 'pipe', timeout });
+    }
+
+    if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
       throw new Error('Chromium headless failed to produce PDF output file');
     }
 
@@ -234,6 +239,7 @@ function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 25000
   } finally {
     try { fs.unlinkSync(htmlPath); } catch (e) { }
     try { fs.unlinkSync(pdfPath); } catch (e) { }
+    try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) { }
   }
 }
 
@@ -251,62 +257,133 @@ export function generateFallbackVectorPdfBuffer({ type = 'JOB_SHEET', docNumber,
   add('BT /F1 9 Tf 40 786 Td (' + sanitize(shop?.address || 'Surat, Gujarat') + ' | Tel: ' + sanitize(shop?.phone || '080000 24439') + ') Tj ET');
   add('0.75 w 40 774 m 555 774 l S');
 
-  // Title Box
-  const title = type === 'JOB_SHEET' ? 'SERVICE ORDER SHEET (JOB INTAKE RECEIPT)' : 'TAX INVOICE & DELIVERY RECEIPT';
-  add('BT /F2 12 Tf 40 755 Td (' + title + ') Tj ET');
-  add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
-  add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
+  if (type === 'JOB_SHEET') {
+    // Title Box
+    add('BT /F2 12 Tf 40 755 Td (SERVICE ORDER / JOB SHEET) Tj ET');
+    add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
+    add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
 
-  // Customer Box
-  add('0.5 w 40 680 250 50 re S');
-  add('BT /F2 10 Tf 48 718 Td (CUSTOMER DETAILS) Tj ET');
-  add('BT /F1 9 Tf 48 704 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
-  add('BT /F1 9 Tf 48 690 Td (Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
+    // 1. Customer Information Box
+    add('0.5 w 40 670 515 62 re S');
+    add('BT /F2 9.5 Tf 48 718 Td (1. CUSTOMER INFORMATION) Tj ET');
+    add('0.25 w 40 712 m 555 712 l S');
+    add('BT /F1 8.5 Tf 48 698 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
+    add('BT /F1 8.5 Tf 220 698 Td (Primary Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
+    add('BT /F1 8.5 Tf 380 698 Td (WhatsApp: ' + sanitize(customer?.whatsapp_number || customer?.phone || 'N/A') + ') Tj ET');
+    add('BT /F1 8.5 Tf 48 682 Td (Email: ' + sanitize(customer?.email || 'N/A') + ') Tj ET');
+    add('BT /F1 8.5 Tf 220 682 Td (Alt Contact: ' + sanitize(customer?.alternate_phone || customer?.alternate_whatsapp || 'N/A') + ') Tj ET');
+    add('BT /F1 8.5 Tf 380 682 Td (City: ' + sanitize(customer?.city || 'Surat') + ') Tj ET');
 
-  // Device Box
-  add('0.5 w 300 680 255 50 re S');
-  add('BT /F2 10 Tf 308 718 Td (DEVICE SPECIFICATIONS) Tj ET');
-  add('BT /F1 9 Tf 308 704 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Handset')) + ') Tj ET');
-  add('BT /F1 9 Tf 308 690 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
+    // 2. Device Specifications & Intake Condition Box
+    add('0.5 w 40 588 515 74 re S');
+    add('BT /F2 9.5 Tf 48 648 Td (2. DEVICE SPECIFICATIONS & INTAKE CONDITION) Tj ET');
+    add('0.25 w 40 642 m 555 642 l S');
+    add('BT /F1 8.5 Tf 48 628 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Smartphone')) + ') Tj ET');
+    add('BT /F1 8.5 Tf 220 628 Td (Color/Storage: ' + sanitize((device?.color || 'Standard') + ' ' + (device?.storage_capacity || '')) + ') Tj ET');
+    add('BT /F1 8.5 Tf 380 628 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
+    add('BT /F1 8.5 Tf 48 612 Td (Passcode: ' + sanitize(device?.passcode || 'None') + ') Tj ET');
+    add('BT /F1 8.5 Tf 220 612 Td (Screen State: ' + sanitize(device?.screen_condition || 'Intact') + ') Tj ET');
+    add('BT /F1 8.5 Tf 380 612 Td (Liquid Damage: ' + sanitize(device?.water_damage ? 'YES' : 'NO') + ') Tj ET');
+    add('BT /F1 8.5 Tf 48 596 Td (Cosmetic / Body: ' + sanitize(device?.cosmetic_condition || 'Wear And Tear') + ') Tj ET');
 
-  // Line Items Header
-  add('0.5 w 40 660 m 555 660 l S');
-  add('BT /F2 10 Tf 40 648 Td (#   Description                                         Warranty        Qty       Amount) Tj ET');
-  add('0.5 w 40 642 m 555 642 l S');
+    // 3. Fault Diagnosis & Repair Estimate (3 Columns, NO Shop Warranty Coverage)
+    add('0.5 w 40 496 515 84 re S');
+    add('BT /F2 9.5 Tf 48 566 Td (3. FAULT DIAGNOSIS & REPAIR ESTIMATE) Tj ET');
+    add('0.25 w 40 560 m 555 560 l S');
+    add('BT /F1 8.5 Tf 48 546 Td (Customer Reported Fault: "' + sanitize(complaint || 'Diagnostic Assessment') + '") Tj ET');
+    add('0.25 w 40 538 m 555 538 l S');
 
-  let curY = 628;
-  const list = (items && items.length > 0)
-    ? items
-    : [{ item_name: complaint || 'Service / Diagnosis', quantity: 1, warranty: warrantyText || '30 Days', total_price: totals?.total || 0 }];
+    // 3 Financial Columns
+    add('0.25 w 211 496 m 211 538 l S');
+    add('0.25 w 383 496 m 383 538 l S');
+    add('BT /F1 8 Tf 48 524 Td (ESTIMATED TOTAL) Tj ET');
+    add('BT /F2 11 Tf 48 506 Td (Rs. ' + Number(totals?.total || 0).toFixed(2) + ') Tj ET');
+    add('BT /F1 8 Tf 218 524 Td (ADVANCE DEPOSIT) Tj ET');
+    add('BT /F2 11 Tf 218 506 Td (Rs. ' + Number(totals?.paid || 0).toFixed(2) + ') Tj ET');
+    add('BT /F1 8 Tf 390 524 Td (REMAINING DUE) Tj ET');
+    add('BT /F2 11 Tf 390 506 Td (Rs. ' + Number(totals?.balance || 0).toFixed(2) + ') Tj ET');
 
-  list.slice(0, 10).forEach((it, idx) => {
-    const desc = sanitize(it.item_name || 'Repair Service').padEnd(42).slice(0, 42);
-    const war = sanitize(it.warranty || warrantyText || '30 Days').padEnd(14).slice(0, 14);
-    const qty = String(it.quantity || 1).padEnd(8);
-    const amt = ('Rs. ' + Number(it.total_price || 0).toFixed(2));
-    add('BT /F1 9 Tf 40 ' + curY + ' Td (' + (idx + 1) + '   ' + desc + '  ' + war + '  ' + qty + '  ' + amt + ') Tj ET');
-    curY -= 16;
-  });
+    // 4. Terms & Conditions Box
+    add('0.5 w 40 240 515 248 re S');
+    add('BT /F2 9.5 Tf 48 474 Td (4. AFTERMARKET REPAIR SHOP TERMS & CONDITIONS) Tj ET');
+    add('0.25 w 40 468 m 555 468 l S');
+    add('BT /F1 7.5 Tf 48 454 Td (1. Estimate & Concealed Faults: Charges are estimates based on preliminary visual inspection.) Tj ET');
+    add('BT /F1 7.5 Tf 48 438 Td (2. Data Backup Disclaimer: Customer is solely responsible for data backup. Shop not liable for data loss.) Tj ET');
+    add('BT /F1 7.5 Tf 48 422 Td (3. Quality Replacement Components: Premium OEM-grade / aftermarket replacement parts are fitted.) Tj ET');
+    add('BT /F1 7.5 Tf 48 406 Td (4. Liquid & Impact Vulnerability: Devices with prior immersion or severe impact have stressed circuits.) Tj ET');
+    add('BT /F1 7.5 Tf 48 390 Td (5. Passcode & Testing: Passcode/PIN is requested strictly to verify post-repair hardware functions.) Tj ET');
+    add('BT /F1 7.5 Tf 48 374 Td (6. Delivery on Claim Slip: This Service Order sheet must be produced at pickup with dues settled.) Tj ET');
+    add('BT /F1 7.5 Tf 48 358 Td (7. Limited Shop Warranty: Standard limited shop warranty covers replaced hardware components only.) Tj ET');
+    add('BT /F1 7.5 Tf 48 342 Td (8. Uncollected Devices: Devices unclaimed for > 30 days after notice may be recycled to recover costs.) Tj ET');
 
-  add('0.5 w 40 ' + (curY + 6) + ' m 555 ' + (curY + 6) + ' l S');
-  curY -= 10;
+    // 5. Signatures Box
+    add('0.5 w 40 120 250 100 re S');
+    add('BT /F1 7.5 Tf 48 206 Td (I verify device intake specifications and authorize repair:) Tj ET');
+    add('0.25 w 40 160 m 290 160 l S');
+    add('BT /F2 9 Tf 48 138 Td (Customer Signature) Tj ET');
 
-  // Totals
-  if (totals) {
-    add('BT /F2 11 Tf 360 ' + curY + ' Td (Total Amount: Rs. ' + Number(totals.total || 0).toFixed(2) + ') Tj ET');
-    curY -= 16;
-    add('BT /F1 10 Tf 360 ' + curY + ' Td (Amount Paid: Rs. ' + Number(totals.paid || 0).toFixed(2) + ') Tj ET');
-    curY -= 16;
-    add('BT /F2 11 Tf 360 ' + curY + ' Td (Balance Due: Rs. ' + Number(totals.balance || 0).toFixed(2) + ') Tj ET');
-    curY -= 25;
+    add('0.5 w 305 120 250 100 re S');
+    add('BT /F1 7.5 Tf 313 206 Td (Device checked into workbench by authorized technician:) Tj ET');
+    add('0.25 w 305 160 m 555 160 l S');
+    add('BT /F2 9 Tf 313 138 Td (Authorized Technician / Workshop Seal) Tj ET');
+  } else {
+    // Title Box for Invoices
+    const title = 'TAX INVOICE & DELIVERY RECEIPT';
+    add('BT /F2 12 Tf 40 755 Td (' + title + ') Tj ET');
+    add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
+    add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
+
+    // Customer Box
+    add('0.5 w 40 680 250 50 re S');
+    add('BT /F2 10 Tf 48 718 Td (CUSTOMER DETAILS) Tj ET');
+    add('BT /F1 9 Tf 48 704 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
+    add('BT /F1 9 Tf 48 690 Td (Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
+
+    // Device Box
+    add('0.5 w 300 680 255 50 re S');
+    add('BT /F2 10 Tf 308 718 Td (DEVICE SPECIFICATIONS) Tj ET');
+    add('BT /F1 9 Tf 308 704 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Handset')) + ') Tj ET');
+    add('BT /F1 9 Tf 308 690 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
+
+    // Line Items Header
+    add('0.5 w 40 660 m 555 660 l S');
+    add('BT /F2 10 Tf 40 648 Td (#   Description                                         Warranty        Qty       Amount) Tj ET');
+    add('0.5 w 40 642 m 555 642 l S');
+
+    let curY = 628;
+    const list = (items && items.length > 0)
+      ? items
+      : [{ item_name: complaint || 'Service / Diagnosis', quantity: 1, warranty: warrantyText || '30 Days', total_price: totals?.total || 0 }];
+
+    list.slice(0, 10).forEach((it, idx) => {
+      const desc = sanitize(it.item_name || 'Repair Service').padEnd(42).slice(0, 42);
+      const war = sanitize(it.warranty || warrantyText || '30 Days').padEnd(14).slice(0, 14);
+      const qty = String(it.quantity || 1).padEnd(8);
+      const amt = ('Rs. ' + Number(it.total_price || 0).toFixed(2));
+      add('BT /F1 9 Tf 40 ' + curY + ' Td (' + (idx + 1) + '   ' + desc + '  ' + war + '  ' + qty + '  ' + amt + ') Tj ET');
+      curY -= 16;
+    });
+
+    add('0.5 w 40 ' + (curY + 6) + ' m 555 ' + (curY + 6) + ' l S');
+    curY -= 10;
+
+    // Totals
+    if (totals) {
+      add('BT /F2 11 Tf 360 ' + curY + ' Td (Total Amount: Rs. ' + Number(totals.total || 0).toFixed(2) + ') Tj ET');
+      curY -= 16;
+      add('BT /F1 10 Tf 360 ' + curY + ' Td (Amount Paid: Rs. ' + Number(totals.paid || 0).toFixed(2) + ') Tj ET');
+      curY -= 16;
+      add('BT /F2 11 Tf 360 ' + curY + ' Td (Balance Due: Rs. ' + Number(totals.balance || 0).toFixed(2) + ') Tj ET');
+      curY -= 25;
+    }
+
+    // Terms & Signatures
+    add('BT /F1 8 Tf 40 100 Td (* All hardware repairs subject to technical verification. Backup customer data prior to service.) Tj ET');
+    add('0.5 w 40 60 m 200 60 l S');
+    add('BT /F2 9 Tf 40 48 Td (Authorized Signatory) Tj ET');
+    add('0.5 w 395 60 m 555 60 l S');
+    add('BT /F2 9 Tf 395 48 Td (Customer Signature) Tj ET');
   }
-
-  // Terms & Signatures
-  add('BT /F1 8 Tf 40 100 Td (* All hardware repairs subject to technical verification. Backup customer data prior to service.) Tj ET');
-  add('0.5 w 40 60 m 200 60 l S');
-  add('BT /F2 9 Tf 40 48 Td (Authorized Signatory) Tj ET');
-  add('0.5 w 395 60 m 555 60 l S');
-  add('BT /F2 9 Tf 395 48 Td (Customer Signature) Tj ET');
 
   const streamContent = 'q\n' + streams.join('\n') + '\nQ';
   const streamLen = Buffer.byteLength(streamContent);
@@ -1536,6 +1613,10 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
       justify-content: space-between;
       align-items: center;
     }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+    }
     .grid-4 {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr 1fr;
@@ -1791,7 +1872,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
           <span class="val-bold" style="font-size:9.5px;">"${job.customer_complaint || 'Diagnostic Assessment'}"</span>
         </div>
       </div>
-      <div class="grid-4 border-top" style="background:#f8fafc;">
+      <div class="grid-3 border-top" style="background:#f8fafc;">
         <div class="cell">
           <span class="label">Estimated Total</span>
           <span class="val-bold" style="font-size:10.5px; font-family:monospace;">
@@ -1808,12 +1889,6 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
           <span class="label">Remaining Due</span>
           <span class="val-bold" style="font-size:10.5px; font-family:monospace;">
             ${currencySymbol}${Number(job.balance_due || 0).toFixed(2)}
-          </span>
-        </div>
-        <div class="cell">
-          <span class="label">Shop Warranty Coverage</span>
-          <span class="val-bold" style="font-size:8.5px;">
-            ${job.warranty_days || 30} Days Limited Shop Warranty
           </span>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
+import { notificationService } from '../../services/notificationService';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { WhatsAppQrModal } from '../common/WhatsAppQrModal';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
@@ -168,38 +169,25 @@ export const JobSheetPrintable = ({ job, shop }) => {
       return;
     }
 
-    if (waStatus?.isConnected) {
-      setIsSendingWa(true);
-      const toastId = toast.loading('Sending service order automatically in background...');
-      try {
-        const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiBase}/whatsapp/send-test`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({
-            phone: phone,
-            message: decodeURIComponent(getWhatsAppMessage(false)),
-          }),
-        });
-        const data = await res.json();
-        if (data?.success) {
-          toast.success(`Service order sent automatically to ${cust.full_name || 'customer'}!`, { id: toastId });
-          return;
-        }
-      } catch (err) {
-        console.warn('Background WhatsApp send failed:', err);
-      } finally {
-        setIsSendingWa(false);
+    setIsSendingWa(true);
+    const toastId = toast.loading('Sending Service Order Sheet via WhatsApp in background...');
+    try {
+      const res = await notificationService.resend({
+        jobId: job.id,
+        channel: 'WHATSAPP',
+        type: 'JOB_CREATED',
+      });
+      if (res?.success) {
+        toast.success(`Service Order Sheet sent automatically to ${cust.full_name || 'customer'}!`, { id: toastId });
+        return;
       }
-    } else {
-      setShowWaModal(true);
-      return;
+    } catch (err) {
+      console.warn('Backend Service Order Sheet WhatsApp dispatch note:', err);
+    } finally {
+      setIsSendingWa(false);
     }
 
+    toast.dismiss(toastId);
     window.open(`https://wa.me/${phone}?text=${getWhatsAppMessage(false)}`, '_blank');
   };
 
@@ -242,11 +230,28 @@ export const JobSheetPrintable = ({ job, shop }) => {
     window.open(`https://wa.me/${phone}?text=${getWhatsAppMessage(true)}`, '_blank');
   };
 
-  const handleShareEmail = () => {
+  const handleShareEmail = async () => {
     if (!cust.email) {
       toast.error('No email address recorded for this customer');
       return;
     }
+
+    const toastId = toast.loading(`Sending official Service Order Sheet PDF to ${cust.email}...`);
+    try {
+      const res = await notificationService.resend({
+        jobId: job.id,
+        channel: 'EMAIL',
+        type: 'JOB_CREATED',
+      });
+      if (res?.success) {
+        toast.success(`Service Order Sheet PDF successfully sent to ${cust.email}!`, { id: toastId });
+        return;
+      }
+    } catch (err) {
+      console.warn('Backend Service Order Sheet email dispatch failed, falling back to mail client:', err);
+      toast.dismiss(toastId);
+    }
+
     const subject = encodeURIComponent(`Service Order #${job.job_number} - ${shop?.name || 'Repair Shop'}`);
     const body = encodeURIComponent(
       `Dear ${cust.full_name},\n\n` +
@@ -650,7 +655,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-4 divide-x divide-black border-t border-black bg-slate-50/60">
+          <div className="grid grid-cols-3 divide-x divide-black border-t border-black bg-slate-50/60">
             <div className="p-1.5">
               <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Estimated Total</span>
               <span className="font-mono font-bold text-black text-[12px]">
@@ -667,12 +672,6 @@ export const JobSheetPrintable = ({ job, shop }) => {
               <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Remaining Due</span>
               <span className="font-mono font-bold text-black text-[12px]">
                 {shop?.currency_symbol || '₹'}{Number(job.balance_due || 0).toFixed(2)}
-              </span>
-            </div>
-            <div className="p-1.5">
-              <span className="text-slate-500 block text-[8.5px] uppercase font-bold">Shop Warranty Coverage</span>
-              <span className="font-bold text-black">
-                {job.warranty_days || 90} Days Limited Shop Warranty
               </span>
             </div>
           </div>
