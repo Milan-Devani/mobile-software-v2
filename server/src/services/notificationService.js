@@ -149,7 +149,7 @@ export const dispatchNotification = async ({
         `🔧 *Issue:* ${job.customer_complaint || 'Diagnostic Inspection'}\n` +
         `🆔 *Job ID:* #${job.job_number}\n\n` +
         `Your device has been successfully checked in. Our technician will diagnose it shortly and share the repair estimate with you.\n\n` +
-        (pdfPublicUrl
+        (false
           ? `📄 *View / Download Service Order Sheet:*\n${pdfPublicUrl}\n\n`
           : `📄 *Your official Service Order Sheet PDF is attached below.*\n\n`) +
         `📞 *Shop Contact:* ${shopPhone}\n\n` +
