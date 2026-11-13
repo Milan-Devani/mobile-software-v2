@@ -31,6 +31,9 @@ import { VendorTransactionsList } from '../pages/vendors/VendorTransactionsList'
 import { VendorPendingRepairs } from '../pages/vendors/VendorPendingRepairs';
 import { VendorLedger } from '../pages/vendors/VendorLedger';
 import { VendorReports } from '../pages/vendors/VendorReports';
+// import { NearByVendors } from '../pages/vendors/NearByVendors';
+// import { NearBySendMobiles } from '../pages/vendors/NearBySendMobiles';
+// import { NearByReceiveMobiles } from '../pages/vendors/NearByReceiveMobiles';
 import { RecycleBin } from '../pages/recycle/RecycleBin';
 
 export const AppRouter = () => {
