@@ -1,4 +1,4 @@
-import { db, generateNextSaleInvoiceNumber } from '../db/db.js';
+import { db, generateNextSaleInvoiceNumber, extractInvoiceSeq } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 import { dispatchSaleInvoiceNotification } from '../services/notificationService.js';
 import { generateSaleInvoicePdfBuffer } from '../services/pdfService.js';
@@ -162,20 +162,6 @@ export const createSale = async (req, res, next) => {
         total: lineTotal,
         part_id: it.part_id || null,
       });
-
-      // If tied to inventory part, auto-decrement stock
-      if (it.part_id) {
-        try {
-          await db.parts.adjustStock(it.part_id, {
-            type: 'OUT',
-            quantity: qty,
-            reason: `Direct Sale Invoice Bill`,
-            created_by_user_id: req.user?.id || null,
-          });
-        } catch (_) {
-          // Non-blocking
-        }
-      }
     }
 
     // 3. Discount calculation
@@ -215,8 +201,8 @@ export const createSale = async (req, res, next) => {
     const totalAmount = Math.round((discountedTaxableSubtotal + totalTax) * 100) / 100;
 
     // 5. Invoice numbering
-    let finalInvoiceNumber = customInvoiceNumber;
-    let seqNumber = null;
+    let finalInvoiceNumber = customInvoiceNumber ? String(customInvoiceNumber).trim() : '';
+    let seqNumber = extractInvoiceSeq(finalInvoiceNumber) || null;
     if (!finalInvoiceNumber) {
       const nextSeq = await generateNextSaleInvoiceNumber();
       finalInvoiceNumber = nextSeq.fullNumber;
@@ -276,10 +262,34 @@ export const createSale = async (req, res, next) => {
 
     const createdSale = await db.sales.create(saleRecord);
 
-    // Automatically send invoice to customer WhatsApp & Email
-    dispatchSaleInvoiceNotification({ sale: createdSale, shop }).catch((err) =>
-      console.warn('⚠️ [Sales Notification] Background dispatch error:', err.message)
-    );
+    // Auto-decrement inventory stock for sold parts
+    for (const it of formattedItems) {
+      let targetPartId = it.part_id;
+      if (!targetPartId && it.name) {
+        try {
+          const partsRes = await db.parts.list({ search: it.name, limit: 10 });
+          const matched = (partsRes.parts || []).find(
+            (p) => p.name.trim().toLowerCase() === it.name.trim().toLowerCase()
+          );
+          if (matched) targetPartId = matched.id;
+        } catch (_) {}
+      }
+
+      if (targetPartId) {
+        try {
+          await db.parts.adjustStock({
+            partId: targetPartId,
+            quantityChange: -Math.abs(Number(it.quantity) || 1),
+            movementType: 'SALE',
+            referenceNumber: finalInvoiceNumber,
+            notes: `Direct Sale Invoice Bill #${finalInvoiceNumber}`,
+            userId: req.user?.id || null,
+          });
+        } catch (stockErr) {
+          console.warn(`⚠️ [Sales Stock] Deduction notice for part ${targetPartId}:`, stockErr.message);
+        }
+      }
+    }
 
     res.status(201).json({
       success: true,
@@ -289,6 +299,13 @@ export const createSale = async (req, res, next) => {
         shop,
         notification_dispatched: true,
       },
+    });
+
+    // Automatically send invoice to customer WhatsApp & Email in background after HTTP response is sent
+    setImmediate(() => {
+      dispatchSaleInvoiceNotification({ sale: createdSale, shop }).catch((err) =>
+        console.warn('⚠️ [Sales Notification] Background dispatch error:', err.message)
+      );
     });
   } catch (err) {
     next(err);

@@ -81,8 +81,24 @@ if (env.NODE_ENV !== 'test') {
 // Serve uploaded static files
 app.use('/uploads', express.static(UPLOADS_DIR));
 
+// Track DB initialization promise so the HTTP port can bind immediately on startup/restart
+// without refusing connections while initial Supabase sync completes
+let dbInitPromise = null;
+
 // Rate limiting on API routes
 app.use('/api', apiRateLimiter);
+
+// Ensure database initialization has completed before handling API requests
+app.use('/api', async (req, res, next) => {
+  try {
+    if (dbInitPromise) {
+      await dbInitPromise;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
 
 // Root endpoint (prevents 404 if external cron service or uptime monitor pings base URL)
 app.get('/', (req, res) => {
@@ -147,7 +163,9 @@ app.use(errorHandler);
 // Initialize DB and start server
 const startServer = async () => {
   try {
-    await initDb();
+    // Start DB initialization immediately and bind HTTP port right away so clients never get ERR_CONNECTION_REFUSED during startup sync
+    dbInitPromise = initDb();
+
     const server = app.listen(env.PORT, () => {
       console.log(`====================================================`);
       console.log(`🚀 REPAIR SYSTEM SERVER RUNNING ON PORT ${env.PORT}`);
@@ -155,6 +173,9 @@ const startServer = async () => {
       console.log(`   Client URL:   ${env.CLIENT_URL}`);
       console.log(`====================================================`);
     });
+
+    await dbInitPromise;
+    dbInitPromise = null;
 
     // Auto-connect Baileys WhatsApp session if saved auth credentials exist
     try {

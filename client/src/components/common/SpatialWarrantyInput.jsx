@@ -24,6 +24,7 @@ export const SpatialWarrantyInput = ({
   disabled = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [placement, setPlacement] = useState('bottom');
   const containerRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -41,9 +42,18 @@ export const SpatialWarrantyInput = ({
     };
   }, [isOpen]);
 
-  // Elevate parent card stacking context when open
+  // Smart placement & elevate parent card stacking context when open
   useEffect(() => {
     if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 220 && spaceAbove > spaceBelow) {
+        setPlacement('top');
+      } else {
+        setPlacement('bottom');
+      }
+
       const parentCard = containerRef.current.closest('.spatial-card');
       let prevZ = '';
       let prevPos = '';
@@ -103,7 +113,9 @@ export const SpatialWarrantyInput = ({
       {isOpen && (
         <div
           ref={menuRef}
-          className="absolute left-0 right-0 top-full mt-1.5 z-50 py-1.5 spatial-dropdown-panel rounded-xl shadow-xl max-h-60 overflow-y-auto modal-scrollbar animate-in fade-in slide-in-from-top-1"
+          className={`absolute left-0 right-0 ${
+            placement === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } z-50 py-1.5 spatial-dropdown-panel rounded-xl shadow-xl max-h-56 overflow-y-auto modal-scrollbar animate-in fade-in`}
         >
           <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--spatial-text-muted)] border-b border-[var(--spatial-border)] mb-1 flex items-center justify-between">
             <span>Select Warranty Preset</span>

@@ -43,7 +43,7 @@ export const getPartById = async (req, res, next) => {
 
 export const createPart = async (req, res, next) => {
   try {
-    const { name, brand, category, purchase_cost, selling_price, stock_quantity, minimum_stock, compatible_models, supplier } = req.body;
+    const { name, brand, category, purchase_cost, selling_price, stock_quantity, minimum_stock, compatible_models, supplier, warranty } = req.body;
 
     if (!name || selling_price === undefined) {
       throw new AppError('Part name and selling price are required.', 400, 'VALIDATION_ERROR');
@@ -59,6 +59,7 @@ export const createPart = async (req, res, next) => {
       minimum_stock: minimum_stock || 2,
       compatible_models: compatible_models || '',
       supplier: supplier || '',
+      warranty: warranty || '90 Days',
     });
 
     res.status(201).json({
@@ -152,6 +153,7 @@ export const bulkDeleteParts = async (req, res, next) => {
 
 export const getCategories = async (req, res, next) => {
   try {
+    const { limit, offset = 0, search = '' } = req.query;
     const categories = await db.parts.getCategories();
     const partsRes = await db.parts.list({ limit: 0 });
     const allParts = partsRes.parts || [];
@@ -172,20 +174,39 @@ export const getCategories = async (req, res, next) => {
       'Tools & Consumables'
     ]);
 
-    const details = categories.map((cat) => {
-      const count = allParts.filter((p) => (p.category || '').toLowerCase() === cat.toLowerCase()).length;
+    let details = categories.map((cat) => {
+      const matchingParts = allParts.filter((p) => (p.category || '').toLowerCase() === cat.toLowerCase());
+      const count = matchingParts.length;
+      const totalStock = matchingParts.reduce((acc, p) => acc + (Number(p.stock_quantity ?? p.quantity) || 0), 0);
       return {
         name: cat,
         count,
+        total_stock: totalStock,
         is_custom: !standardSet.has(cat),
       };
     });
+
+    if (search && search.trim()) {
+      const q = search.trim().toLowerCase();
+      details = details.filter((d) => (d.name || '').toLowerCase().includes(q));
+    }
+
+    const total = details.length;
+    let paginatedDetails = details;
+    if (limit !== undefined && limit !== null && limit !== '' && parseInt(limit, 10) > 0) {
+      const l = parseInt(limit, 10);
+      const o = parseInt(offset, 10) || 0;
+      paginatedDetails = details.slice(o, o + l);
+    }
 
     res.json({
       success: true,
       data: {
         categories,
-        details,
+        details: paginatedDetails,
+        total,
+        page: limit ? Math.floor((parseInt(offset, 10) || 0) / parseInt(limit, 10)) + 1 : 1,
+        limit: limit ? parseInt(limit, 10) : total,
       },
     });
   } catch (err) {

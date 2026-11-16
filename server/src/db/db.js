@@ -156,81 +156,122 @@ export const safeSupabaseUpsert = async (table, data, onConflict = 'id') => {
 
 let lastSyncTimestamp = 0;
 let isSyncInProgress = false;
+let syncPromise = null;
+
+export const extractInvoiceSeq = (rawNumber, explicitSeq = null) => {
+  const numSeq = parseInt(explicitSeq, 10);
+  if (!isNaN(numSeq) && numSeq > 0) return numSeq;
+  if (rawNumber === undefined || rawNumber === null) return 0;
+  const str = String(rawNumber).trim();
+  if (!str) return 0;
+  const invMatch = str.match(/^INV-\d{4}-(\d+)$/i);
+  if (invMatch) return parseInt(invMatch[1], 10) || 0;
+  const plainMatch = str.match(/^#?(\d+)$/);
+  if (plainMatch) return parseInt(plainMatch[1], 10) || 0;
+  const tailMatch = str.match(/(?:^|[-_#/])(\d+)$/);
+  if (tailMatch) return parseInt(tailMatch[1], 10) || 0;
+  return 0;
+};
 
 export const syncFromSupabase = async () => {
-  if (!isSupabaseConfigured() || isSyncInProgress) return;
+  if (!isSupabaseConfigured()) return;
+  if (isSyncInProgress && syncPromise) {
+    return syncPromise;
+  }
   const supabase = getSupabase();
   if (!supabase) return;
 
   isSyncInProgress = true;
-  try {
-    const coreTables = [
-      'shops',
-      'roles',
-      'users',
-      'customers',
-      'devices',
-      'parts',
-      'repair_jobs',
-      'job_status_history',
-      'diagnoses',
-      'repair_estimates',
-      'repair_estimate_items',
-      'part_stock_movements',
-      'repair_tests',
-      'payments',
-      'invoices',
-      'invoice_items',
-      'notification_logs',
-      'attachments',
-      'backup_logs',
-      'settings',
-      'sales',
-      'vendors',
-      'vendor_transactions',
-      'vendor_mobiles',
-      'vendor_status_history',
-      'vendor_ledger',
-      'vendor_payments',
-      'recycle_bin',
-      'review_settings',
-      'review_requests',
-    ];
+  const syncStartTime = Date.now();
+  syncPromise = (async () => {
+    try {
+      const coreTables = [
+        'shops',
+        'roles',
+        'users',
+        'customers',
+        'devices',
+        'parts',
+        'repair_jobs',
+        'job_status_history',
+        'diagnoses',
+        'repair_estimates',
+        'repair_estimate_items',
+        'part_stock_movements',
+        'repair_tests',
+        'payments',
+        'invoices',
+        'invoice_items',
+        'notification_logs',
+        'attachments',
+        'backup_logs',
+        'settings',
+        'sales',
+        'vendors',
+        'vendor_transactions',
+        'vendor_mobiles',
+        'vendor_status_history',
+        'vendor_ledger',
+        'vendor_payments',
+        'recycle_bin',
+        'review_settings',
+        'review_requests',
+      ];
 
-    const seedFallbackTables = new Set(['shops', 'roles', 'users']);
+      const seedFallbackTables = new Set(['shops', 'roles', 'users']);
 
-    await Promise.all(
-      coreTables.map(async (tbl) => {
-        try {
-          const { data, error } = await supabase.from(tbl).select('*').limit(3000);
-          if (!error && Array.isArray(data)) {
-            if (!seedFallbackTables.has(tbl) || data.length > 0) {
-              if (tbl === 'repair_jobs') {
-                data.forEach((j) => {
-                  if ((!j.warranty_parts || j.warranty_parts.length === 0) && Array.isArray(j.device_condition?.warranty_parts)) {
-                    j.warranty_parts = j.device_condition.warranty_parts;
-                  }
-                  if ((!j.warranty_history || j.warranty_history.length === 0) && Array.isArray(j.device_condition?.warranty_history)) {
-                    j.warranty_history = j.device_condition.warranty_history;
-                  }
+      await Promise.all(
+        coreTables.map(async (tbl) => {
+          try {
+            const { data, error } = await supabase.from(tbl).select('*').limit(3000);
+            if (!error && Array.isArray(data)) {
+              if (!seedFallbackTables.has(tbl) || data.length > 0) {
+                if (tbl === 'repair_jobs') {
+                  data.forEach((j) => {
+                    if ((!j.warranty_parts || j.warranty_parts.length === 0) && Array.isArray(j.device_condition?.warranty_parts)) {
+                      j.warranty_parts = j.device_condition.warranty_parts;
+                    }
+                    if ((!j.warranty_history || j.warranty_history.length === 0) && Array.isArray(j.device_condition?.warranty_history)) {
+                      j.warranty_history = j.device_condition.warranty_history;
+                    }
+                  });
+                }
+                if (tbl === 'sales') {
+                  data.forEach((s) => {
+                    if (!s.invoice_no_seq) {
+                      const seq = extractInvoiceSeq(s.invoice_number, s.invoice_no_seq);
+                      if (seq > 0) s.invoice_no_seq = seq;
+                    }
+                  });
+                }
+                // Preserve any local records created while this sync request was in flight
+                const existingLocal = Array.isArray(localDb?.[tbl]) ? localDb[tbl] : [];
+                const remoteIds = new Set(data.map((r) => r.id));
+                const recentInFlight = existingLocal.filter((r) => {
+                  if (!r || !r.id || remoteIds.has(r.id)) return false;
+                  const createdMs = r.created_at ? new Date(r.created_at).getTime() : 0;
+                  return createdMs >= syncStartTime - 5000;
                 });
+                localDb[tbl] = recentInFlight.length > 0 ? [...data, ...recentInFlight] : data;
               }
-              localDb[tbl] = data;
             }
+          } catch (_) {
+            // Table may not exist yet or empty
           }
-        } catch (_) {
-          // Table may not exist yet or empty
-        }
-      })
-    );
+        })
+      );
 
-    lastSyncTimestamp = Date.now();
-    console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
-  } catch (err) {
-    console.warn('⚠️ Supabase live sync warning:', err.message);
-  } finally {
-    isSyncInProgress = false;
-  }
+      lastSyncTimestamp = Date.now();
+      console.log('🔄 Live database synchronized from Supabase PostgreSQL.');
+    } catch (err) {
+      console.warn('⚠️ Supabase live sync warning:', err.message);
+    } finally {
+      isSyncInProgress = false;
+      syncPromise = null;
+    }
+  })();
+
+  return syncPromise;
 };
 
 export const ensureFreshSync = async (maxAgeMs = 5000) => {
@@ -365,27 +406,64 @@ export const generateNextInvoiceNumber = async () => {
 
 // Next Sales Invoice Number generator
 export const generateNextSaleInvoiceNumber = async () => {
+  await ensureFreshSync(2000);
   const currentYear = new Date().getFullYear();
   const prefix = `INV-${currentYear}-`;
   let highestSeq = 0;
+  const usedNumbers = new Set();
 
-  const allRecords = [
-    ...(localDb?.sales || []).map(s => s.invoice_number),
-    ...(localDb?.invoices || []).map(i => i.invoice_number)
-  ].filter(num => num && typeof num === 'string' && num.startsWith(prefix));
-
-  for (const num of allRecords) {
-    const seq = parseInt(num.replace(prefix, ''), 10) || 0;
-    if (seq > highestSeq) highestSeq = seq;
-  }
+  const recordSeq = (rawNumber, explicitSeq = null) => {
+    if (rawNumber) {
+      usedNumbers.add(String(rawNumber).trim().toLowerCase());
+    }
+    const seq = extractInvoiceSeq(rawNumber, explicitSeq);
+    if (seq > highestSeq) {
+      highestSeq = seq;
+    }
+  };
 
   for (const s of (localDb?.sales || [])) {
-    if (s.invoice_no_seq && s.invoice_no_seq > highestSeq) {
-      highestSeq = s.invoice_no_seq;
+    recordSeq(s.invoice_number, s.invoice_no_seq);
+  }
+
+  for (const i of (localDb?.invoices || [])) {
+    recordSeq(i.invoice_number, null);
+  }
+
+  for (const rb of (localDb?.recycle_bin || [])) {
+    if (rb.entity_type === 'sale' && rb.data?.sale) {
+      recordSeq(rb.data.sale.invoice_number, rb.data.sale.invoice_no_seq);
     }
   }
 
-  const nextSeq = highestSeq + 1;
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = getSupabase();
+      if (supabase) {
+        const [{ data: remoteSales }, { data: remoteInvoices }] = await Promise.all([
+          supabase.from('sales').select('invoice_number, invoice_no_seq').limit(3000),
+          supabase.from('invoices').select('invoice_number').limit(3000),
+        ]);
+        for (const s of (remoteSales || [])) {
+          recordSeq(s.invoice_number, s.invoice_no_seq);
+        }
+        for (const i of (remoteInvoices || [])) {
+          recordSeq(i.invoice_number, null);
+        }
+      }
+    } catch (_) {
+      // Non-blocking fallback to localDb
+    }
+  }
+
+  let nextSeq = highestSeq + 1;
+  while (
+    usedNumbers.has(String(nextSeq).toLowerCase()) ||
+    usedNumbers.has(`${prefix}${String(nextSeq).padStart(6, '0')}`.toLowerCase())
+  ) {
+    nextSeq++;
+  }
+
   return {
     fullNumber: `${prefix}${String(nextSeq).padStart(6, '0')}`,
     seqNumber: nextSeq,
@@ -1599,7 +1677,8 @@ export const db = {
       }
 
       if (category) {
-        parts = parts.filter(p => p.category === category);
+        const catClean = category.trim().toLowerCase();
+        parts = parts.filter(p => (p.category || '').trim().toLowerCase() === catClean);
       }
       if (search) {
         const q = search.toLowerCase();
@@ -1632,6 +1711,7 @@ export const db = {
         selling_price: parseFloat(partData.selling_price) || 0,
         stock_quantity: parseInt(partData.stock_quantity, 10) || 0,
         minimum_stock: parseInt(partData.minimum_stock, 10) || 2,
+        warranty: partData.warranty !== undefined && partData.warranty !== null && String(partData.warranty).trim() !== '' ? String(partData.warranty).trim() : '90 Days',
         status: (parseInt(partData.stock_quantity, 10) || 0) > 0 ? 'ACTIVE' : 'OUT_OF_STOCK',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -1652,6 +1732,7 @@ export const db = {
         purchase_cost: updates.purchase_cost !== undefined ? parseFloat(updates.purchase_cost) : current.purchase_cost,
         selling_price: updates.selling_price !== undefined ? parseFloat(updates.selling_price) : current.selling_price,
         stock_quantity: stock,
+        warranty: updates.warranty !== undefined ? updates.warranty : (current.warranty || '90 Days'),
         status: stock > 0 ? 'ACTIVE' : 'OUT_OF_STOCK',
         updated_at: new Date().toISOString()
       };
@@ -1659,18 +1740,36 @@ export const db = {
       await safeSupabaseUpdate('parts', id, updates);
       return localDb.parts[idx];
     },
-    adjustStock: async ({ partId, quantityChange, movementType, referenceNumber, notes, jobId, userId }) => {
+    adjustStock: async (arg1, arg2, arg3) => {
+      let partId, quantityChange, movementType, referenceNumber, notes, jobId, userId;
+      if (typeof arg1 === 'object' && arg1 !== null) {
+        ({ partId, quantityChange, movementType, referenceNumber, notes, jobId, userId } = arg1);
+      } else {
+        partId = arg1;
+        if (typeof arg2 === 'object' && arg2 !== null) {
+          const { type, quantity, reason, created_by_user_id } = arg2;
+          quantityChange = type === 'OUT' ? -(Math.abs(Number(quantity)) || 1) : (Math.abs(Number(quantity)) || 1);
+          notes = reason || '';
+          userId = created_by_user_id;
+          movementType = type === 'OUT' ? 'JOB_USAGE' : 'ADJUSTMENT';
+        } else {
+          quantityChange = Number(arg2) || 0;
+          notes = typeof arg3 === 'string' ? arg3 : (arg3?.notes || '');
+          referenceNumber = arg3?.referenceNumber || null;
+          jobId = arg3?.jobId || null;
+          userId = arg3?.userId || null;
+          movementType = quantityChange < 0 ? 'JOB_USAGE' : 'ADJUSTMENT';
+        }
+      }
+
       const part = (localDb.parts || []).find(p => p.id === partId);
       if (!part) throw new Error('Part not found');
 
-      const prevStock = part.stock_quantity;
-      const newStock = prevStock + quantityChange;
-
-      if (newStock < 0) {
-        throw new Error(`Insufficient stock for part "${part.name}". Available: ${prevStock}, Requested deduction: ${Math.abs(quantityChange)}`);
-      }
+      const prevStock = Number(part.stock_quantity ?? part.quantity ?? 0);
+      const newStock = Math.max(0, prevStock + Number(quantityChange || 0));
 
       part.stock_quantity = newStock;
+      part.quantity = newStock;
       part.status = newStock > 0 ? 'ACTIVE' : 'OUT_OF_STOCK';
       part.updated_at = new Date().toISOString();
 
@@ -1678,7 +1777,7 @@ export const db = {
         id: uuidv4(),
         part_id: partId,
         job_id: jobId || null,
-        movement_type: movementType, // PURCHASE, JOB_USAGE, RETURN, ADJUSTMENT
+        movement_type: movementType || (quantityChange < 0 ? 'JOB_USAGE' : 'ADJUSTMENT'),
         quantity: quantityChange,
         previous_stock: prevStock,
         new_stock: newStock,
@@ -1688,10 +1787,11 @@ export const db = {
         created_at: new Date().toISOString()
       };
 
+      localDb.part_stock_movements = localDb.part_stock_movements || [];
       localDb.part_stock_movements.push(movementRecord);
 
       saveLocalDb();
-      await safeSupabaseUpdate('parts', partId, { stock_quantity: newStock, status: part.status, updated_at: part.updated_at });
+      await safeSupabaseUpdate('parts', partId, { stock_quantity: newStock, quantity: newStock, status: part.status, updated_at: part.updated_at });
       await safeSupabaseInsert('part_stock_movements', movementRecord);
       return part;
     },
@@ -2361,15 +2461,91 @@ export const db = {
     },
     create: async (saleData) => {
       localDb.sales = localDb.sales || [];
+      const rawInvNum = saleData.invoice_number ? String(saleData.invoice_number).trim() : '';
+      const callerUsedShortFormat = rawInvNum && /^#?\d+$/.test(rawInvNum);
+      let resolvedSeq = extractInvoiceSeq(rawInvNum, saleData.invoice_no_seq) || null;
+      let resolvedInvNum = rawInvNum;
+
+      const isCollision = (invStr, seqVal) =>
+        localDb.sales.some(
+          (s) =>
+            String(s.invoice_number || '').trim().toLowerCase() === String(invStr || '').trim().toLowerCase() ||
+            (seqVal && extractInvoiceSeq(s.invoice_number, s.invoice_no_seq) === seqVal)
+        );
+
+      if (!resolvedInvNum || isCollision(resolvedInvNum, resolvedSeq)) {
+        const nextNo = await generateNextSaleInvoiceNumber();
+        resolvedSeq = nextNo.seqNumber;
+        resolvedInvNum = callerUsedShortFormat ? nextNo.shortNumber : nextNo.fullNumber;
+      }
+
       const newSale = {
         id: uuidv4(),
         ...saleData,
+        invoice_number: resolvedInvNum,
+        invoice_no_seq: resolvedSeq,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
+
+      if (isSupabaseConfigured()) {
+        const supabase = getSupabase();
+        if (supabase) {
+          let insertedRow = null;
+          let lastError = null;
+
+          for (let attempt = 0; attempt < 6; attempt++) {
+            let payload = { ...sanitizeRecord(newSale) };
+            // Strip any unknown columns if needed
+            let colAttempt = 0;
+            while (colAttempt < 8) {
+              const { data: res, error } = await supabase.from('sales').insert(payload).select();
+              if (!error && Array.isArray(res) && res.length > 0) {
+                insertedRow = res[0];
+                lastError = null;
+                break;
+              }
+              lastError = error;
+              const missingColMatch = error?.message?.match(/Could not find the '([^']+)' column/i);
+              if (missingColMatch && missingColMatch[1]) {
+                delete payload[missingColMatch[1]];
+                colAttempt++;
+                continue;
+              }
+              break;
+            }
+
+            if (insertedRow) break;
+
+            // If duplicate invoice_number constraint error, bump invoice number and retry
+            const isDuplicateErr =
+              lastError &&
+              (lastError.code === '23505' ||
+                /duplicate key|sales_invoice_number_key|unique constraint/i.test(lastError.message || ''));
+
+            if (isDuplicateErr) {
+              const nextNo = await generateNextSaleInvoiceNumber();
+              const bumpSeq = Math.max(nextNo.seqNumber, (newSale.invoice_no_seq || 0) + 1);
+              const currentYear = new Date().getFullYear();
+              newSale.invoice_no_seq = bumpSeq;
+              newSale.invoice_number = callerUsedShortFormat
+                ? String(bumpSeq)
+                : `INV-${currentYear}-${String(bumpSeq).padStart(6, '0')}`;
+              continue;
+            }
+            break;
+          }
+
+          if (!insertedRow && lastError && lastError.code !== 'PGRST205') {
+            console.error('❌ Supabase [sales] insert failed:', lastError.message);
+            throw new Error(`Failed to save sale bill to database: ${lastError.message}`);
+          }
+        }
+      }
+
       localDb.sales.push(newSale);
+      lastSyncTimestamp = Date.now();
       saveLocalDb();
-      await safeSupabaseInsert('sales', newSale);
       return newSale;
     },
     delete: async (id, deletedBy = 'Staff') => {

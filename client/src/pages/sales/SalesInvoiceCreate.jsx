@@ -338,6 +338,26 @@ export const SalesInvoiceCreate = () => {
   const handleSelectFromInventoryPart = (part) => {
     if (!part) return;
 
+    const availableStock = Number(part.stock_quantity ?? part.quantity ?? 0);
+    if (availableStock <= 0) {
+      toast.error(`"${part.name}" is out of stock. Available: ${availableStock}`);
+      return;
+    }
+
+    // Check if this part is already in the bill and calculate total needed quantity
+    const existingIdx = items.findIndex(
+      (it) => it.part_id === part.id || it.item_name === part.name
+    );
+    const existingQty = existingIdx >= 0 ? Math.max(1, parseInt(items[existingIdx].quantity, 10) || 1) : 0;
+    const newQty = existingQty + 1;
+
+    if (newQty > availableStock) {
+      toast.error(
+        `Not enough stock for "${part.name}". Available: ${availableStock}, Already in bill: ${existingQty}, Requested: ${newQty}`
+      );
+      return;
+    }
+
     setItems((prev) => {
       // Check if last row is empty, fill it
       const lastIdx = prev.length - 1;
@@ -345,7 +365,7 @@ export const SalesInvoiceCreate = () => {
         id: `part-${Date.now()}`,
         item_name: part.name,
         description: part.brand ? `Brand: ${part.brand}` : "",
-        warranty: "90 Days",
+        warranty: part.warranty || "90 Days",
         hsn: "8517",
         quantity: 1,
         unit: "NOS",
@@ -406,6 +426,29 @@ export const SalesInvoiceCreate = () => {
     );
     if (validItems.length === 0) {
       toast.error("Please enter at least one item name and price");
+      return;
+    }
+
+    // Stock validation: ensure no item exceeds available inventory
+    const stockMap = new Map();
+    availableParts.forEach((p) => {
+      stockMap.set(p.id, Number(p.stock_quantity ?? p.quantity ?? 0));
+    });
+    const stockErrors = [];
+    validItems.forEach((it) => {
+      if (it.part_id && stockMap.has(it.part_id)) {
+        const avail = stockMap.get(it.part_id);
+        const qty = parseInt(it.quantity, 10) || 1;
+        if (qty > avail) {
+          const part = availableParts.find((p) => p.id === it.part_id);
+          stockErrors.push(
+            `"${part?.name || it.item_name}" exceeds stock (Available: ${avail}, Requested: ${qty})`
+          );
+        }
+      }
+    });
+    if (stockErrors.length > 0) {
+      toast.error(`Insufficient stock: ${stockErrors.join(", ")}`);
       return;
     }
 

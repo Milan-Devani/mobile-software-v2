@@ -42,8 +42,8 @@ export const partsService = {
     return res.data;
   },
 
-  getCategories: async () => {
-    const res = await api.get('/parts/categories');
+  getCategories: async (params = {}) => {
+    const res = await api.get('/parts/categories', { params });
     return res.data?.data || res.data || {};
   },
 

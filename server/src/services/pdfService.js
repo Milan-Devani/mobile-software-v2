@@ -2,7 +2,7 @@ import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawnSync, execSync } from 'child_process';
+import { spawn, spawnSync, execSync } from 'child_process';
 import QRCode from 'qrcode';
 import axios from 'axios';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
@@ -198,17 +198,59 @@ function findBrowserBinary() {
   return null;
 }
 
+function runBrowserProcessAsync(browserBinary, args, timeout = 30000) {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timer = null;
+    try {
+      const child = spawn(browserBinary, args, {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+
+      timer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          try {
+            child.kill('SIGKILL');
+          } catch (_) {}
+          resolve(false);
+        }
+      }, timeout);
+
+      child.on('error', () => {
+        if (!settled) {
+          settled = true;
+          if (timer) clearTimeout(timer);
+          resolve(false);
+        }
+      });
+
+      child.on('close', (code) => {
+        if (!settled) {
+          settled = true;
+          if (timer) clearTimeout(timer);
+          resolve(code === 0);
+        }
+      });
+    } catch (_) {
+      if (timer) clearTimeout(timer);
+      resolve(false);
+    }
+  });
+}
+
 /**
- * Universal headless HTML to PDF converter with Linux container compatibility
+ * Universal headless HTML to PDF converter with Linux container compatibility (non-blocking)
  */
-function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 30000) {
+async function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 30000) {
   const tempId = `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tmpDir = os.tmpdir();
   const profileDir = path.join(tmpDir, `chrome_profile_${tempId}`);
   const htmlPath = path.join(tmpDir, `${tempId}.html`);
   const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
 
-  fs.writeFileSync(htmlPath, htmlContent, 'utf8');
+  await fs.promises.writeFile(htmlPath, htmlContent, 'utf8');
 
   try {
     const baseArgs = [
@@ -223,23 +265,23 @@ function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 30000
       htmlPath,
     ];
 
-    // Try modern headless first
-    spawnSync(browserBinary, ['--headless=new', ...baseArgs], { stdio: 'pipe', timeout });
+    // Try modern headless first (non-blocking child process)
+    await runBrowserProcessAsync(browserBinary, ['--headless=new', ...baseArgs], timeout);
 
     if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
       // Fallback to legacy headless mode if needed
-      spawnSync(browserBinary, ['--headless', ...baseArgs], { stdio: 'pipe', timeout });
+      await runBrowserProcessAsync(browserBinary, ['--headless', ...baseArgs], timeout);
     }
 
     if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
       throw new Error('Chromium headless failed to produce PDF output file');
     }
 
-    return fs.readFileSync(pdfPath);
+    return await fs.promises.readFile(pdfPath);
   } finally {
-    try { fs.unlinkSync(htmlPath); } catch (e) { }
-    try { fs.unlinkSync(pdfPath); } catch (e) { }
-    try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch (e) { }
+    try { await fs.promises.unlink(htmlPath); } catch (e) { }
+    try { await fs.promises.unlink(pdfPath); } catch (e) { }
+    try { await fs.promises.rm(profileDir, { recursive: true, force: true }); } catch (e) { }
   }
 }
 
@@ -1019,7 +1061,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   // 1. Try rendering high-fidelity vector PDF via headless Chromium/Edge
   if (browserBinary) {
     try {
-      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+      return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
       console.warn('⚠️ Headless Chromium Invoice PDF print warning:', browserErr.message);
     }
@@ -1499,7 +1541,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 
   if (browserBinary) {
     try {
-      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+      return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
       console.warn('⚠️ Headless Chromium Sale Invoice PDF print warning:', browserErr.message);
     }
@@ -1946,7 +1988,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
   // 1. Try rendering high-fidelity vector PDF via headless Chromium/Edge
   if (browserBinary) {
     try {
-      return convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
+      return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
       console.warn('⚠️ Headless Chromium Job Sheet PDF print warning:', browserErr.message);
     }
