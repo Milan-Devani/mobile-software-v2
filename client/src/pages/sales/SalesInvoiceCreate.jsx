@@ -364,7 +364,11 @@ export const SalesInvoiceCreate = () => {
       const newItem = {
         id: `part-${Date.now()}`,
         item_name: part.name,
-        description: part.brand ? `Brand: ${part.brand}` : "",
+        description: [
+          part.imei ? `IMEI: ${part.imei}` : "",
+          part.serial_number ? `SN: ${part.serial_number}` : "",
+          part.brand ? `Brand: ${part.brand}` : "",
+        ].filter(Boolean).join(" | "),
         warranty: part.warranty || "90 Days",
         hsn: "8517",
         quantity: 1,
@@ -1237,35 +1241,18 @@ export const SalesInvoiceCreate = () => {
             status alerts while their phone is in the shop.
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Milan Devani"
-                value={newCustName}
-                onChange={(e) => setNewCustName(e.target.value)}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                User Type
-              </label>
-              <SpatialSelect
-                value={newCustUserType}
-                onChange={setNewCustUserType}
-                options={[
-                  { value: "End User", label: "End User" },
-                  { value: "Dealer", label: "Dealer" },
-                  { value: "Corporate", label: "Corporate" },
-                ]}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+              Full Name *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Milan Devani"
+              value={newCustName}
+              onChange={(e) => setNewCustName(e.target.value)}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

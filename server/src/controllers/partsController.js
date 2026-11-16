@@ -43,7 +43,20 @@ export const getPartById = async (req, res, next) => {
 
 export const createPart = async (req, res, next) => {
   try {
-    const { name, brand, category, purchase_cost, selling_price, stock_quantity, minimum_stock, compatible_models, supplier, warranty } = req.body;
+    const {
+      name,
+      brand,
+      category,
+      purchase_cost,
+      selling_price,
+      stock_quantity,
+      minimum_stock,
+      compatible_models,
+      supplier,
+      warranty,
+      serial_number,
+      imei,
+    } = req.body;
 
     if (!name || selling_price === undefined) {
       throw new AppError('Part name and selling price are required.', 400, 'VALIDATION_ERROR');
@@ -59,7 +72,9 @@ export const createPart = async (req, res, next) => {
       minimum_stock: minimum_stock || 2,
       compatible_models: compatible_models || '',
       supplier: supplier || '',
-      warranty: warranty || '90 Days',
+      warranty: warranty || '15 Days',
+      serial_number: serial_number || '',
+      imei: imei || '',
     });
 
     res.status(201).json({

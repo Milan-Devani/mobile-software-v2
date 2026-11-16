@@ -426,39 +426,22 @@ export const CustomerList = () => {
             <strong>⚠️ Note:</strong> Since customer leaves their phone for repair, make sure to collect an <strong>Alternate WhatsApp Number</strong> so they can receive status alerts while their phone is in the shop.
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. Milan Devani"
-                {...register('full_name')}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-              />
-              {errors.full_name && (
-                <p className="text-[11px] text-rose-400 mt-1">{errors.full_name.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                User Type
-              </label>
-              <SpatialSelect
-                value={watch('user_type') || 'End User'}
-                onChange={(val) => setValue('user_type', val, { shouldValidate: true })}
-                options={[
-                  { value: 'End User', label: 'End User' },
-                  { value: 'Dealer', label: 'Dealer' },
-                  { value: 'Corporate', label: 'Corporate' },
-                ]}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+              Full Name *
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. Milan Devani"
+              {...register('full_name')}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
+            {errors.full_name && (
+              <p className="text-[11px] text-rose-400 mt-1">{errors.full_name.message}</p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="">
             <div>
               <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                 Phone Number *

@@ -54,6 +54,8 @@ const partSchema = z.object({
   compatible_models: z.string().optional(),
   supplier: z.string().optional(),
   warranty: z.string().optional(),
+  serial_number: z.string().optional(),
+  imei: z.string().optional(),
 });
 
 export const PartsList = () => {
@@ -117,6 +119,7 @@ export const PartsList = () => {
     new Set(),
   );
   const [editingPart, setEditingPart] = useState(null);
+  const [hasImei, setHasImei] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [isSavingCategory, setIsSavingCategory] = useState(false);
@@ -144,6 +147,8 @@ export const PartsList = () => {
       compatible_models: "",
       supplier: "",
       warranty: "15 Days",
+      serial_number: "",
+      imei: "",
     },
   });
 
@@ -318,14 +323,17 @@ export const PartsList = () => {
         targetCategory = clean;
         setCategories((prev) => Array.from(new Set([...prev, clean])).sort());
       }
+      const partPayload = {
+        ...data,
+        category: targetCategory,
+        serial_number: data.serial_number ? data.serial_number.trim() : "",
+        imei: hasImei && data.imei ? data.imei.trim() : "",
+      };
       if (editingPart) {
-        await partsService.updatePart(editingPart.id, {
-          ...data,
-          category: targetCategory,
-        });
+        await partsService.updatePart(editingPart.id, partPayload);
         toast.success(`"${data.name}" updated successfully!`);
       } else {
-        await partsService.createPart({ ...data, category: targetCategory });
+        await partsService.createPart(partPayload);
         toast.success("Part added to inventory!");
       }
       setIsAddModalOpen(false);
@@ -350,12 +358,13 @@ export const PartsList = () => {
 
   const handleOpenEdit = (part) => {
     setEditingPart(part);
+    setHasImei(Boolean(part.imei && String(part.imei).trim()));
     setIsCreatingCategoryInline(false);
     setInlineCategoryInput("");
     reset({
       name: part.name || "",
-      brand: part.brand || "Apple",
-      category: part.category || "Screen / Display",
+      brand: part.brand || "",
+      category: part.category || "Phone",
       purchase_cost: Number(part.purchase_cost || 0),
       selling_price: Number(part.selling_price || 0),
       stock_quantity: Number(part.stock_quantity ?? part.quantity ?? 0),
@@ -363,6 +372,8 @@ export const PartsList = () => {
       compatible_models: part.compatible_models || "",
       supplier: part.supplier || "",
       warranty: part.warranty || "15 Days",
+      serial_number: part.serial_number || "",
+      imei: part.imei || "",
     });
     setIsAddModalOpen(true);
   };
@@ -623,8 +634,24 @@ export const PartsList = () => {
           <Button
             icon={Plus}
             onClick={() => {
+              setEditingPart(null);
+              setHasImei(false);
               setIsCreatingCategoryInline(false);
               setInlineCategoryInput("");
+              reset({
+                name: "",
+                brand: "",
+                category: "Phone",
+                purchase_cost: 0,
+                selling_price: 0,
+                stock_quantity: 0,
+                minimum_stock: 2,
+                compatible_models: "",
+                supplier: "",
+                warranty: "15 Days",
+                serial_number: "",
+                imei: "",
+              });
               setIsAddModalOpen(true);
             }}
           >
@@ -851,6 +878,16 @@ export const PartsList = () => {
                                 {p.part_number && (
                                   <span className="text-[11px] font-mono text-[var(--spatial-text-muted)] font-normal">
                                     ({p.part_number})
+                                  </span>
+                                )}
+                                {p.serial_number && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                    SN: {p.serial_number}
+                                  </span>
+                                )}
+                                {p.imei && (
+                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                    IMEI: {p.imei}
                                   </span>
                                 )}
                                 <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 font-medium border border-blue-500/20">
@@ -1087,7 +1124,11 @@ export const PartsList = () => {
                             setSelectedCategoryName(cat.name);
                             setCategoryViewMode("items");
                             setCategoryItemsPage(1);
-                            fetchCategoryItems(cat.name, 1, categoryItemsPageSize);
+                            fetchCategoryItems(
+                              cat.name,
+                              1,
+                              categoryItemsPageSize,
+                            );
                           }}
                           className="group cursor-pointer bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] rounded-2xl p-4 hover:border-apple-blue hover:shadow-md transition-all active:scale-[0.98] flex flex-col justify-between"
                         >
@@ -1162,7 +1203,9 @@ export const PartsList = () => {
                         </button>
                         <div className="h-4 w-px bg-[var(--spatial-border)]" />
                         <span className="text-xs font-mono font-bold px-2.5 py-1 rounded-full bg-apple-blue/10 text-apple-blue border border-apple-blue/20">
-                          {categoryDetails.find((d) => d.name === selectedCategoryName)?.total_stock ??
+                          {categoryDetails.find(
+                            (d) => d.name === selectedCategoryName,
+                          )?.total_stock ??
                             categoryItems.reduce(
                               (acc, p) =>
                                 acc +
@@ -1181,6 +1224,7 @@ export const PartsList = () => {
                             setEditingPart(null);
                             setIsCreatingCategoryInline(false);
                             setInlineCategoryInput("");
+                            setHasImei(false);
                             reset({
                               name: "",
                               brand: "",
@@ -1192,6 +1236,8 @@ export const PartsList = () => {
                               compatible_models: "",
                               supplier: "",
                               warranty: "15 Days",
+                              serial_number: "",
+                              imei: "",
                             });
                             setIsAddModalOpen(true);
                           }}
@@ -1228,6 +1274,7 @@ export const PartsList = () => {
                           setEditingPart(null);
                           setIsCreatingCategoryInline(false);
                           setInlineCategoryInput("");
+                          setHasImei(false);
                           reset({
                             name: "",
                             brand: "",
@@ -1239,6 +1286,8 @@ export const PartsList = () => {
                             compatible_models: "",
                             supplier: "",
                             warranty: "15 Days",
+                            serial_number: "",
+                            imei: "",
                           });
                           setIsAddModalOpen(true);
                         }}
@@ -1323,7 +1372,17 @@ export const PartsList = () => {
                                         SKU: {p.sku}
                                       </div>
                                     )}
-                                    <div className="mt-0.5">
+                                    <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                                      {p.serial_number && (
+                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                          SN: {p.serial_number}
+                                        </span>
+                                      )}
+                                      {p.imei && (
+                                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                          IMEI: {p.imei}
+                                        </span>
+                                      )}
                                       <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-500/10 text-blue-500 font-medium border border-blue-500/20">
                                         {p.warranty || "15 Days"}
                                       </span>
@@ -1539,19 +1598,20 @@ export const PartsList = () => {
                 )}
 
                 {/* Pagination Controls for Categories (Cards & Table) */}
-                {categoryViewMode !== "items" && filteredCategories.length > 0 && (
-                  <SpatialPagination
-                    currentPage={categoryPage}
-                    pageSize={categoryPageSize}
-                    totalItems={filteredCategories.length}
-                    onPageChange={setCategoryPage}
-                    onPageSizeChange={(newSize) => {
-                      setCategoryPageSize(newSize);
-                      setCategoryPage(1);
-                    }}
-                    pageSizeOptions={[10, 15, 20]}
-                  />
-                )}
+                {categoryViewMode !== "items" &&
+                  filteredCategories.length > 0 && (
+                    <SpatialPagination
+                      currentPage={categoryPage}
+                      pageSize={categoryPageSize}
+                      totalItems={filteredCategories.length}
+                      onPageChange={setCategoryPage}
+                      onPageSizeChange={(newSize) => {
+                        setCategoryPageSize(newSize);
+                        setCategoryPage(1);
+                      }}
+                      pageSizeOptions={[10, 15, 20]}
+                    />
+                  )}
               </div>
             )}
           </Card>
@@ -1564,6 +1624,7 @@ export const PartsList = () => {
         onClose={() => {
           setIsAddModalOpen(false);
           setEditingPart(null);
+          setHasImei(false);
         }}
         title={editingPart ? "Edit Stock Item" : "Add Stock Item"}
         subtitle={
@@ -1588,6 +1649,54 @@ export const PartsList = () => {
                 {errors.name.message}
               </p>
             )}
+          </div>
+
+          {/* Serial Number & Conditional IMEI Section */}
+          <div className="space-y-3 pt-2.5">
+            <div>
+              <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                Serial Number
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. SN1234567890 or Batch/Serial No."
+                {...register("serial_number")}
+                className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-[var(--spatial-text-title)] cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasImei}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setHasImei(checked);
+                    if (!checked) {
+                      setValue("imei", "");
+                    }
+                  }}
+                  className="w-4 h-4 text-apple-blue rounded accent-apple-blue cursor-pointer"
+                />
+                <span>Add IMEI Number (Phone / Cellular Device)</span>
+              </label>
+
+              {hasImei && (
+                <div className="pt-1">
+                  <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                    IMEI Number
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={18}
+                    placeholder="e.g. 358901234567890 (15-digit IMEI)"
+                    {...register("imei")}
+                    className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono tracking-wider"
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

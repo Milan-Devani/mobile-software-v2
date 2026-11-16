@@ -111,11 +111,12 @@ export const RecycleBin = () => {
         type: activeTab,
         search: debouncedSearch.trim(),
       });
-      const data = res?.data || {};
-      setItems(data.items || []);
-      setTotalCount(data.total || 0);
-      if (data.counts) {
-        setCounts(data.counts);
+      const data = res?.data || res || {};
+      const list = Array.isArray(data) ? data : (data.items || res?.items || []);
+      setItems(list);
+      setTotalCount(data.total ?? res?.total ?? list.length);
+      if (data.counts || res?.counts) {
+        setCounts(data.counts || res?.counts);
       }
     } catch (err) {
       console.error('Failed to load recycle bin items:', err);

@@ -865,35 +865,18 @@ export const JobCreate = () => {
             <strong>⚠️ Important Note:</strong> When the customer submits their phone for repair, their WhatsApp on that device is no longer accessible. Be sure to collect an <strong>Alternate WhatsApp Number</strong> (secondary phone or family member) so they receive status notifications!
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Milan Devani"
-                value={newCustName}
-                onChange={(e) => setNewCustName(e.target.value)}
-                className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
-                User Type
-              </label>
-              <SpatialSelect
-                value={newCustUserType}
-                onChange={setNewCustUserType}
-                options={[
-                  { value: 'End User', label: 'End User' },
-                  { value: 'Dealer', label: 'Dealer' },
-                  { value: 'Corporate', label: 'Corporate' },
-                ]}
-              />
-            </div>
+          <div>
+            <label className="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1">
+              Full Name *
+            </label>
+            <input
+              type="text"
+              required
+              placeholder="e.g. Milan Devani"
+              value={newCustName}
+              onChange={(e) => setNewCustName(e.target.value)}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
           </div>
 
           {/* Email / Mail ID */}

@@ -113,35 +113,18 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
       maxWidth="max-w-2xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-          <div>
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              Full Name *
-            </label>
-            <input
-              type="text"
-              name="full_name"
-              required
-              value={formData.full_name}
-              onChange={handleChange}
-              className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-              User Type
-            </label>
-            <SpatialSelect
-              value={formData.user_type || 'End User'}
-              onChange={(val) => setFormData((prev) => ({ ...prev, user_type: val }))}
-              options={[
-                { value: 'End User', label: 'End User' },
-                { value: 'Dealer', label: 'Dealer' },
-                { value: 'Corporate', label: 'Corporate' },
-              ]}
-            />
-          </div>
+        <div>
+          <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+            Full Name *
+          </label>
+          <input
+            type="text"
+            name="full_name"
+            required
+            value={formData.full_name}
+            onChange={handleChange}
+            className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+          />
         </div>
 
         {/* Contact Numbers */}

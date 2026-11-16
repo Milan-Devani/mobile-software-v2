@@ -1686,7 +1686,9 @@ export const db = {
           p.name.toLowerCase().includes(q) ||
           (p.part_code && p.part_code.toLowerCase().includes(q)) ||
           (p.compatible_models && p.compatible_models.toLowerCase().includes(q)) ||
-          (p.brand && p.brand.toLowerCase().includes(q))
+          (p.brand && p.brand.toLowerCase().includes(q)) ||
+          (p.serial_number && p.serial_number.toLowerCase().includes(q)) ||
+          (p.imei && p.imei.toLowerCase().includes(q))
         );
       }
       if (lowStockOnly) {
@@ -1711,7 +1713,9 @@ export const db = {
         selling_price: parseFloat(partData.selling_price) || 0,
         stock_quantity: parseInt(partData.stock_quantity, 10) || 0,
         minimum_stock: parseInt(partData.minimum_stock, 10) || 2,
-        warranty: partData.warranty !== undefined && partData.warranty !== null && String(partData.warranty).trim() !== '' ? String(partData.warranty).trim() : '90 Days',
+        warranty: partData.warranty !== undefined && partData.warranty !== null && String(partData.warranty).trim() !== '' ? String(partData.warranty).trim() : '15 Days',
+        serial_number: partData.serial_number ? String(partData.serial_number).trim() : '',
+        imei: partData.imei ? String(partData.imei).trim() : '',
         status: (parseInt(partData.stock_quantity, 10) || 0) > 0 ? 'ACTIVE' : 'OUT_OF_STOCK',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
@@ -1732,7 +1736,9 @@ export const db = {
         purchase_cost: updates.purchase_cost !== undefined ? parseFloat(updates.purchase_cost) : current.purchase_cost,
         selling_price: updates.selling_price !== undefined ? parseFloat(updates.selling_price) : current.selling_price,
         stock_quantity: stock,
-        warranty: updates.warranty !== undefined ? updates.warranty : (current.warranty || '90 Days'),
+        warranty: updates.warranty !== undefined ? updates.warranty : (current.warranty || '15 Days'),
+        serial_number: updates.serial_number !== undefined ? String(updates.serial_number).trim() : (current.serial_number || ''),
+        imei: updates.imei !== undefined ? String(updates.imei).trim() : (current.imei || ''),
         status: stock > 0 ? 'ACTIVE' : 'OUT_OF_STOCK',
         updated_at: new Date().toISOString()
       };
