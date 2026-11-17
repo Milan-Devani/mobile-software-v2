@@ -143,4 +143,36 @@ export const jobService = {
     });
     return res.data;
   },
+
+  // ── Send to specialist partner (migration 005) ────────────────────────────
+  sendToVendor: async (jobId, data) => {
+    const res = await api.post(`/jobs/${jobId}/send-to-vendor`, data);
+    return res.data;
+  },
+
+  getVendorStatus: async (jobId) => {
+    const res = await api.get(`/jobs/${jobId}/vendor-status`);
+    return res.data;
+  },
+
+  bulkSendToVendor: async (ids, data) => {
+    const res = await api.post('/jobs/bulk-send-to-vendor', { ids, ...data });
+    return res.data;
+  },
+
+  receiveFromVendor: async (jobId, data = {}) => {
+    const res = await api.post(`/jobs/${jobId}/receive-from-vendor`, data);
+    return res.data;
+  },
+
+  bulkReceiveFromVendor: async (ids, data = {}) => {
+    const res = await api.post('/jobs/bulk-receive-from-vendor', { ids, ...data });
+    return res.data;
+  },
+
+  getVendorMap: async (ids = []) => {
+    if (!ids.length) return {};
+    const res = await api.get('/jobs/vendor-map', { params: { ids: ids.join(',') } });
+    return res.data;
+  },
 };

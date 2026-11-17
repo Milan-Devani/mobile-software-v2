@@ -600,6 +600,16 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     page-break-after: avoid;
     break-after: avoid;
   }
+  /* Page 2 disabled: never render or paginate this block */
+  .page.page-disabled,
+  .page[style*="display:none"] {
+    display: none !important;
+    height: 0 !important;
+    max-height: 0 !important;
+    overflow: hidden !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
   .border-box { border: 1px solid #000; }
   .border-b { border-bottom: 1px solid #000; }
   .border-t { border-top: 1px solid #000; }
@@ -654,8 +664,8 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:4px;">
       <div style="display:flex; align-items:center; gap:8px;">
         ${shopLogoDataUrl ? `
-          <div style="width:36px; height:36px; border-radius:6px; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; padding:2px;">
-            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          <div style="width:150px; max-width:150px; height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
+            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
           </div>
         ` : `
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
@@ -663,11 +673,11 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
             <circle cx="16" cy="7" r="1.5" fill="#000" />
           </svg>
+          <div>
+            <div style="font-size:22px; font-weight:900; line-height:1; letter-spacing:-0.5px;">${shopObj.name.toLowerCase()}</div>
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">${shop?.tagline || 'mobile care'}</div>
+          </div>
         `}
-        <div>
-          <div style="font-size:22px; font-weight:900; line-height:1; letter-spacing:-0.5px;">${shopObj.name.toLowerCase()}</div>
-          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">${shop?.tagline || 'mobile care'}</div>
-        </div>
       </div>
       <div style="text-align:right;">
         <div style="font-size:22px; font-weight:900; line-height:1.1;">Service Record</div>
@@ -853,7 +863,10 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           <!-- Accessories & Passcode -->
           <div style="flex:1; display:flex; flex-direction:column; justify-content:space-between;">
             <div>
-              <div class="table-header">Accessories Received</div>
+              <div class="table-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Accessories Received</span>
+                <span>Status</span>
+              </div>
               ${actualReceivedAccessories.length > 0 ? actualReceivedAccessories.map(acc => `
                 <div class="checklist-row"><span>${acc}</span><b>Received</b></div>
               `).join('') : `
@@ -941,7 +954,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <li>Unclaimed devices after 30 days of notification are subject to disposal/auction to recover costs.</li>
           </ul>
           <div style="font-size:9.5px; font-weight:700; font-style:italic; margin-top:2px; padding-left:14px;">
-            * Note: For complete detailed terms & conditions, please refer to Page 2 overleaf.
+            * Note: The above terms &amp; conditions apply to this repair and are binding upon acceptance of the device.
           </div>
         </div>
         ${qrDataUrl ? `
@@ -977,15 +990,17 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   </div>
 </div>
 
+${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
+   To restore, remove the surrounding comment markers below. */ ''}
 <!-- PAGE 2: COMPLETE TERMS AND CONDITIONS CONTINUATION -->
-<div class="page">
+<div class="page" style="display:none;">
   <div>
     <!-- Page 2 Header -->
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:3px; border-bottom:1px solid #000;">
       <div style="display:flex; align-items:center; gap:8px;">
         ${shopLogoDataUrl ? `
-          <div style="width:28px; height:28px; border-radius:4px; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; padding:1px;">
-            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          <div style="width:150px; max-width:150px; height:48px; border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
+            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
           </div>
         ` : `
           <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
@@ -993,8 +1008,8 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
             <circle cx="16" cy="7" r="1.5" fill="#000" />
           </svg>
+          <span style="font-size:20px; font-weight:900;">${shopObj.name.toLowerCase()}</span>
         `}
-        <span style="font-size:20px; font-weight:900;">${shopObj.name.toLowerCase()}</span>
       </div>
       <div style="text-align:right;">
         <div style="font-size:19px; font-weight:900;">Service Record</div>
@@ -1268,8 +1283,8 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
     <!-- Left: Logo & Shop Details -->
     <div style="display:flex; align-items:flex-start; gap:10px; max-width:60%;">
       ${shopLogoDataUrl ? `
-        <div style="width:58px; height:58px; border-radius:6px; border:1px solid #000000; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; background:#fff; padding:2px;">
-          <img src="${shopLogoDataUrl}" alt="${shopName}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+        <div style="width:150px; max-width:150px; height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; background:#fff;">
+          <img src="${shopLogoDataUrl}" alt="${shopName}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
         </div>
       ` : `
         <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
@@ -1284,7 +1299,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
         </div>
       `}
       <div>
-        <h1 style="font-size:20px; font-weight:900; color:#000000; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>
+        ${shopLogoDataUrl ? '' : `<h1 style="font-size:20px; font-weight:900; color:#000000; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>`}
         <p style="font-size:10.5px; color:#000000; margin:0 0 2px 0; line-height:1.2;">${shopAddress}</p>
         <p style="font-size:10.5px; font-weight:700; color:#000000; margin:0;">${shopPhone}</p>
       </div>
@@ -1740,20 +1755,22 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
       <div style="width:62%; padding-right:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
           ${shopLogoDataUrl ? `
-            <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:34px; height:34px; object-fit:contain; border:1px solid #cbd5e1; border-radius:3px; padding:1px;" />
+            <div style="width:150px; max-width:150px; height:48px; border-radius:3px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
+              <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
+            </div>
           ` : `
             <div style="width:32px; height:32px; background:#000; color:#fff; border-radius:3px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px;">
               M
             </div>
+            <div>
+              <div style="font-size:14px; font-weight:900; text-transform:uppercase; line-height:1; color:#000;">
+                ${shopObj.name || 'Mobotech mobile care'}
+              </div>
+              <div style="font-size:8px; color:#475569; font-weight:500; margin-top:2px;">
+                ${shopObj.tagline || 'Professional Smartphone & Tablet Repair Services'}
+              </div>
+            </div>
           `}
-          <div>
-            <div style="font-size:14px; font-weight:900; text-transform:uppercase; line-height:1; color:#000;">
-              ${shopObj.name || 'Mobotech mobile care'}
-            </div>
-            <div style="font-size:8px; color:#475569; font-weight:500; margin-top:2px;">
-              ${shopObj.tagline || 'Professional Smartphone & Tablet Repair Services'}
-            </div>
-          </div>
         </div>
         <div style="font-size:8px; color:#334155; margin-top:4px; line-height:1.2;">
           <div><b>Address:</b> ${shopObj.address || 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006'}</div>

@@ -1847,3 +1847,413 @@ export const downloadJobSheetPdf = async (req, res, next) => {
 
 
 
+/* ============================================================================
+   SEND TO SPECIALIST PARTNER (VENDOR) — migration 005
+   ----------------------------------------------------------------------------
+   ADDITIVE FEATURE. These functions do not touch, call or modify:
+     - POST /api/vendors/transactions/send  (existing batch chalan flow)
+     - any existing job lifecycle transition
+     - the dashboard APIs (/stats, /analytics)
+   They only create/read the `vendor_mobiles.repair_job_id` link (migration 005).
+   ========================================================================== */
+
+const ACTIVE_VENDOR_STATUSES = ['PENDING', 'IN_REPAIR', 'WAITING_PARTS', 'READY_FOR_RETURN'];
+const CLOSED_JOB_STATUSES = ['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'];
+
+const isJobClosed = (job) => CLOSED_JOB_STATUSES.includes(String(job?.status || '').toUpperCase());
+const isActiveVendorLink = (row) =>
+  ACTIVE_VENDOR_STATUSES.includes(String(row?.current_status || '').toUpperCase());
+
+/**
+ * POST /api/jobs/:id/send-to-vendor
+ * Body: { vendor_id, estimated_cost, expected_back_date, notes }
+ */
+export const sendJobToVendor = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { vendor_id, estimated_cost, expected_back_date, notes } = req.body || {};
+
+    if (!vendor_id) {
+      throw new AppError('Please select a specialist partner.', 400, 'VENDOR_REQUIRED');
+    }
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+    if (isJobClosed(job)) {
+      throw new AppError('This job is closed and cannot be sent to a partner.', 400, 'JOB_CLOSED');
+    }
+
+    const existingLinks = await db.job_vendor_links.listForJob(job.id);
+    if (existingLinks.some(isActiveVendorLink)) {
+      throw new AppError(
+        'This job is already with a specialist partner. Receive it back before sending again.',
+        409,
+        'ALREADY_AT_VENDOR',
+      );
+    }
+
+    const vendor = await db.vendors.findById(vendor_id);
+    if (!vendor) throw new AppError('Selected specialist partner was not found.', 404, 'VENDOR_NOT_FOUND');
+
+    const device = job.device || {};
+    const customer = job.customer || {};
+
+    const linkRecord = await db.job_vendor_links.createForJob({
+      repair_job_id: job.id,
+      vendor_id: vendor.id,
+      brand: device.brand || '',
+      model: device.model || '',
+      imei: device.imei || device.serial_number || '',
+      customer_name: customer.full_name || '',
+      repair_problem: job.customer_complaint || '',
+      condition: device.cosmetic_condition || '',
+      estimated_cost: estimated_cost || 0,
+      expected_return_date: expected_back_date || null,
+      notes: notes || '',
+      created_by: req.user?.full_name || req.user?.email || 'Staff',
+    });
+
+    const sentAt = new Date().toISOString();
+
+    // Job-level snapshot (nullable columns added by migration 005)
+    try {
+      await db.jobs.update(job.id, {
+        vendor_sent_at: sentAt,
+        ...(expected_back_date ? { vendor_expected_back_date: expected_back_date } : {}),
+      });
+    } catch (updateErr) {
+      // The vendor link is the source of truth - never fail the send for this
+      console.warn('Could not stamp vendor_sent_at on job:', updateErr.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Device sent to ${vendor.name || 'specialist partner'}.`,
+      data: {
+        link: linkRecord,
+        vendor: {
+          id: vendor.id,
+          name: vendor.name,
+          phone: vendor.mobile || vendor.phone || '',
+          specialty: vendor.specialty || '',
+        },
+        sent_at: sentAt,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/jobs/:id/vendor-status
+ * Returns where the device currently is. Internal endpoint — it is safe to
+ * include partner details here because it requires authentication.
+ */
+export const getVendorStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const links = await db.job_vendor_links.listForJob(job.id);
+    if (!links || links.length === 0) {
+      return res.json({ success: true, data: { at_vendor: false } });
+    }
+
+    const activeLink = links.find(isActiveVendorLink);
+
+    // Device is back: no active link → report the history but not "at vendor"
+    if (!activeLink) {
+      const lastLink = links[0];
+      let lastVendor = null;
+      try {
+        lastVendor = await db.vendors.findById(lastLink.vendor_id);
+      } catch (_) {
+        lastVendor = null;
+      }
+      return res.json({
+        success: true,
+        data: {
+          at_vendor: false,
+          vendor_name: lastVendor?.name || 'Specialist Partner',
+          status: lastLink.current_status || 'RETURNED',
+          sent_date: lastLink.sent_date || lastLink.created_at || null,
+          returned_date: lastLink.returned_date || null,
+          actual_cost: parseFloat(lastLink.actual_cost) || 0,
+          link_id: lastLink.id,
+        },
+      });
+    }
+
+    let vendor = null;
+    try {
+      vendor = await db.vendors.findById(activeLink.vendor_id);
+    } catch (_) {
+      vendor = null;
+    }
+
+    let chalanNumber = null;
+    if (activeLink.send_txn_id) {
+      try {
+        const txn = await db.vendor_transactions.findById(activeLink.send_txn_id);
+        chalanNumber = txn?.txn_number || null;
+      } catch (_) {
+        chalanNumber = null;
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        at_vendor: true,
+        vendor_name: vendor?.name || 'Specialist Partner',
+        vendor_phone: vendor?.mobile || vendor?.phone || '',
+        vendor_specialty: vendor?.specialty || '',
+        status: activeLink.current_status || 'PENDING',
+        sent_date: activeLink.sent_date || activeLink.created_at || null,
+        expected_back_date: activeLink.expected_return_date || job.vendor_expected_back_date || null,
+        chalan_number: chalanNumber,
+        estimated_cost: parseFloat(activeLink.estimated_cost) || 0,
+        notes: activeLink.notes || '',
+        link_id: activeLink.id,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/jobs/bulk-send-to-vendor
+ * Body: { ids: [], vendor_id, estimated_cost?, expected_back_date?, notes? }
+ * Returns per-job results so the UI can report partial success.
+ */
+export const bulkSendJobsToVendor = async (req, res, next) => {
+  try {
+    const { ids, vendor_id, estimated_cost, expected_back_date, notes } = req.body || {};
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No job IDs provided.', 400, 'IDS_REQUIRED');
+    }
+    if (!vendor_id) {
+      throw new AppError('Please select a specialist partner.', 400, 'VENDOR_REQUIRED');
+    }
+
+    const vendor = await db.vendors.findById(vendor_id);
+    if (!vendor) throw new AppError('Selected specialist partner was not found.', 404, 'VENDOR_NOT_FOUND');
+
+    const results = [];
+
+    for (const jobId of ids) {
+      try {
+        const job = await db.jobs.findById(jobId);
+        if (!job) {
+          results.push({ job_id: jobId, success: false, reason: 'Job not found' });
+          continue;
+        }
+        if (isJobClosed(job)) {
+          results.push({ job_id: jobId, job_number: job.job_number, success: false, reason: 'Job is closed' });
+          continue;
+        }
+
+        const existingLinks = await db.job_vendor_links.listForJob(job.id);
+        if (existingLinks.some(isActiveVendorLink)) {
+          results.push({
+            job_id: jobId,
+            job_number: job.job_number,
+            success: false,
+            reason: 'Already with a partner',
+          });
+          continue;
+        }
+
+        const device = job.device || {};
+        const customer = job.customer || {};
+
+        const linkRecord = await db.job_vendor_links.createForJob({
+          repair_job_id: job.id,
+          vendor_id: vendor.id,
+          brand: device.brand || '',
+          model: device.model || '',
+          imei: device.imei || device.serial_number || '',
+          customer_name: customer.full_name || '',
+          repair_problem: job.customer_complaint || '',
+          condition: device.cosmetic_condition || '',
+          estimated_cost: estimated_cost || 0,
+          expected_return_date: expected_back_date || null,
+          notes: notes || '',
+          created_by: req.user?.full_name || req.user?.email || 'Staff',
+        });
+
+        try {
+          await db.jobs.update(job.id, {
+            vendor_sent_at: new Date().toISOString(),
+            ...(expected_back_date ? { vendor_expected_back_date: expected_back_date } : {}),
+          });
+        } catch (_) {
+          /* non-blocking */
+        }
+
+        results.push({ job_id: jobId, job_number: job.job_number, success: true, link_id: linkRecord.id });
+      } catch (itemErr) {
+        results.push({ job_id: jobId, success: false, reason: itemErr.message });
+      }
+    }
+
+    const sentCount = results.filter((r) => r.success).length;
+    const failedCount = results.filter((r) => !r.success).length;
+
+    res.status(failedCount === 0 ? 201 : 207).json({
+      success: sentCount > 0,
+      message:
+        failedCount === 0
+          ? `${sentCount} device(s) sent to ${vendor.name || 'specialist partner'}.`
+          : `${sentCount} sent, ${failedCount} skipped.`,
+      data: { sent_count: sentCount, failed_count: failedCount, results },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/jobs/:id/receive-from-vendor
+ * Body: { actual_cost?, payment_status?, notes? }
+ * Closes the round-trip: the device comes back from the partner.
+ */
+export const receiveJobFromVendor = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { actual_cost, payment_status, notes } = req.body || {};
+
+    const job = await db.jobs.findById(id);
+    if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
+
+    const links = await db.job_vendor_links.listForJob(job.id);
+    const activeLink = links.find(isActiveVendorLink);
+
+    if (!activeLink) {
+      throw new AppError('This job is not currently with a specialist partner.', 400, 'NOT_AT_VENDOR');
+    }
+
+    const updated = await db.job_vendor_links.receiveBack({
+      link_id: activeLink.id,
+      actual_cost: actual_cost !== undefined && actual_cost !== null && actual_cost !== '' ? actual_cost : null,
+      payment_status: String(payment_status || '').toUpperCase() === 'PAID' ? 'PAID' : 'PENDING',
+      notes: notes || '',
+      received_by: req.user?.full_name || req.user?.email || 'Staff',
+    });
+
+    // Clear the job-level "at vendor" snapshot
+    try {
+      await db.jobs.update(job.id, { vendor_sent_at: null });
+    } catch (_) {
+      /* non-blocking */
+    }
+
+    res.json({
+      success: true,
+      message: 'Device received back from specialist partner.',
+      data: {
+        status: updated.current_status,
+        actual_cost: Number(updated.actual_cost) || 0,
+        payment_status: updated.payment_status,
+        returned_date: updated.returned_date,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * POST /api/jobs/bulk-receive-from-vendor
+ * Body: { ids: [], payment_status?, notes? }
+ */
+export const bulkReceiveJobsFromVendor = async (req, res, next) => {
+  try {
+    const { ids, payment_status, notes } = req.body || {};
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      throw new AppError('No job IDs provided.', 400, 'IDS_REQUIRED');
+    }
+
+    const results = [];
+
+    for (const jobId of ids) {
+      try {
+        const job = await db.jobs.findById(jobId);
+        if (!job) {
+          results.push({ job_id: jobId, success: false, reason: 'Job not found' });
+          continue;
+        }
+
+        const links = await db.job_vendor_links.listForJob(job.id);
+        const activeLink = links.find(isActiveVendorLink);
+        if (!activeLink) {
+          results.push({ job_id: jobId, job_number: job.job_number, success: false, reason: 'Not at a partner' });
+          continue;
+        }
+
+        await db.job_vendor_links.receiveBack({
+          link_id: activeLink.id,
+          actual_cost: null,
+          payment_status: String(payment_status || '').toUpperCase() === 'PAID' ? 'PAID' : 'PENDING',
+          notes: notes || '',
+          received_by: req.user?.full_name || req.user?.email || 'Staff',
+        });
+
+        try {
+          await db.jobs.update(job.id, { vendor_sent_at: null });
+        } catch (_) {
+          /* non-blocking */
+        }
+
+        results.push({ job_id: jobId, job_number: job.job_number, success: true });
+      } catch (itemErr) {
+        results.push({ job_id: jobId, success: false, reason: itemErr.message });
+      }
+    }
+
+    const doneCount = results.filter((r) => r.success).length;
+    const failedCount = results.filter((r) => !r.success).length;
+
+    res.status(failedCount === 0 ? 200 : 207).json({
+      success: doneCount > 0,
+      message:
+        failedCount === 0 ? `${doneCount} device(s) received back.` : `${doneCount} received, ${failedCount} skipped.`,
+      data: { received_count: doneCount, failed_count: failedCount, results },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+/**
+ * GET /api/jobs/vendor-map?ids=id1,id2,...
+ * Lightweight batched feed for the Job List table's "Partner" column.
+ * Returns {} when nothing is linked. Never throws for a missing migration.
+ */
+export const getJobsVendorMap = async (req, res, next) => {
+  try {
+    const raw = String(req.query.ids || '').trim();
+    if (!raw) return res.json({ success: true, data: {} });
+
+    const ids = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 200);
+    if (ids.length === 0) return res.json({ success: true, data: {} });
+
+    let map = {};
+    try {
+      map = await db.job_vendor_links.mapForJobs(ids);
+    } catch (_) {
+      map = {};
+    }
+
+    res.json({ success: true, data: map });
+  } catch (err) {
+    next(err);
+  }
+};
+

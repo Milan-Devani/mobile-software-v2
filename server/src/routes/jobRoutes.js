@@ -28,6 +28,12 @@ import {
   applyDiscount,
   updateFinalCost,
   downloadJobSheetPdf,
+  sendJobToVendor,
+  getVendorStatus,
+  bulkSendJobsToVendor,
+  receiveJobFromVendor,
+  bulkReceiveJobsFromVendor,
+  getJobsVendorMap,
 } from '../controllers/jobController.js';
 import { authenticateToken } from '../middleware/auth.js';
 import {
@@ -50,6 +56,11 @@ router.get('/', requireAnyRole, getJobs);
 router.get('/:jobId/download-jobsheet-pdf', requireAnyRole, downloadJobSheetPdf);
 router.post('/bulk-delete', requireAnyRole, bulkDeleteJobs);
 router.post('/bulk-status', requireAnyRole, bulkUpdateJobStatus);
+// Send selected jobs to a specialist partner (migration 005 — additive)
+router.post('/bulk-send-to-vendor', requireStaffOrAdmin, bulkSendJobsToVendor);
+router.post('/bulk-receive-from-vendor', requireStaffOrAdmin, bulkReceiveJobsFromVendor);
+// Batched partner feed for the Job List table column (must precede '/:id')
+router.get('/vendor-map', requireAnyRole, getJobsVendorMap);
 router.get('/:id', requireAnyRole, getJobById);
 router.post('/', requireStaffOrAdmin, createJob);
 router.put('/:id', requireAnyRole, updateJob);
@@ -77,5 +88,10 @@ router.put('/:id/status', requireStaffOrAdmin, updateJobStatus);
 router.post('/:id/discount', requireStaffOrAdmin, applyDiscount);
 router.post('/:id/final-cost', requireStaffOrAdmin, updateFinalCost);
 router.patch('/:id/final-cost', requireStaffOrAdmin, updateFinalCost);
+
+// ── Send to specialist partner (migration 005 — additive) ──────────────────
+router.post('/:id/send-to-vendor', requireStaffOrAdmin, sendJobToVendor);
+router.post('/:id/receive-from-vendor', requireStaffOrAdmin, receiveJobFromVendor);
+router.get('/:id/vendor-status', requireAnyRole, getVendorStatus);
 
 export default router;

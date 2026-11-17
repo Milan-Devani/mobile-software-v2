@@ -28,7 +28,9 @@ import {
   SlidersHorizontal,
   Tag,
   Percent,
-  Sparkles
+  Sparkles,
+  Truck,
+  PackageCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -57,6 +59,8 @@ import { QualityChecklist } from '../../components/jobs/QualityChecklist';
 import { JobSheetPrintable } from '../../components/print/JobSheetPrintable';
 import { InvoicePrintable } from '../../components/print/InvoicePrintable';
 import { JobEditModal } from '../../components/jobs/JobEditModal';
+import { SendToVendorModal } from '../../components/jobs/SendToVendorModal';
+import { ReceiveFromVendorModal } from '../../components/jobs/ReceiveFromVendorModal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 
 export const getDefaultTabForStatus = (status) => {
@@ -120,6 +124,28 @@ export const JobDetail = () => {
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+
+  // Send to Specialist Partner (migration 005) — additive, isolated state
+  const [isSendToVendorOpen, setIsSendToVendorOpen] = useState(false);
+  const [isReceiveFromVendorOpen, setIsReceiveFromVendorOpen] = useState(false);
+  const [vendorStatus, setVendorStatus] = useState(null);
+
+  // Load partner status independently so a failure can never affect the job page
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    jobService
+      .getVendorStatus(id)
+      .then((res) => {
+        if (!cancelled) setVendorStatus(res?.data || null);
+      })
+      .catch(() => {
+        if (!cancelled) setVendorStatus(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
   const [selectedStatus, setSelectedStatus] = useState('');
   const [statusNotes, setStatusNotes] = useState('');
   const [sendStatusNotification, setSendStatusNotification] = useState(true);
@@ -1178,6 +1204,33 @@ export const JobDetail = () => {
             </Button>
           )}
 
+          {/* Send to / Receive from Specialist Partner (migration 005) */}
+          {!['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status) && (
+            vendorStatus?.at_vendor ? (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={PackageCheck}
+                onClick={() => setIsReceiveFromVendorOpen(true)}
+                title="Mark this device as received back from the partner"
+                className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 font-semibold"
+              >
+                Receive Back
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Truck}
+                onClick={() => setIsSendToVendorOpen(true)}
+                title="Send this device to a specialist partner"
+                className="border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 font-medium"
+              >
+                Send to Partner
+              </Button>
+            )
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -1266,6 +1319,36 @@ export const JobDetail = () => {
           setIsChangeStatusModalOpen(true);
         }}
       />
+
+      {/* Specialist Partner status (migration 005) — hidden unless linked */}
+      {vendorStatus?.at_vendor && (
+        <div className="p-3.5 rounded-2xl border bg-violet-500/10 border-violet-500/25 flex items-center justify-between flex-wrap gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <Truck className="w-4 h-4 text-violet-500 shrink-0" />
+            <div>
+              <p className="font-semibold text-[var(--spatial-text-title)] flex items-center gap-2 flex-wrap">
+                <span>Currently with {vendorStatus.vendor_name}</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                  {vendorStatus.status}
+                </span>
+              </p>
+              <p className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
+                Sent {vendorStatus.sent_date ? new Date(vendorStatus.sent_date).toLocaleDateString() : '—'}
+                {vendorStatus.expected_back_date
+                  ? ` · Expected back ${new Date(vendorStatus.expected_back_date).toLocaleDateString()}`
+                  : ''}
+                {vendorStatus.chalan_number ? ` · Chalan ${vendorStatus.chalan_number}` : ''}
+                {Number(vendorStatus.estimated_cost) > 0
+                  ? ` · Est. ${Number(vendorStatus.estimated_cost).toLocaleString()}`
+                  : ''}
+              </p>
+            </div>
+          </div>
+          {vendorStatus.vendor_phone && (
+            <span className="text-[11px] text-[var(--spatial-text-muted)] font-mono">{vendorStatus.vendor_phone}</span>
+          )}
+        </div>
+      )}
 
       {/* Navigation Tabs */}
       <div className="flex items-center gap-1.5 p-1 bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] rounded-2xl overflow-x-auto no-scrollbar">
@@ -3043,6 +3126,40 @@ export const JobDetail = () => {
               ...prev,
               customer: { ...prev.customer, ...updatedCustomer },
             }));
+          }}
+        />
+      )}
+
+      {/* Send to Specialist Partner Modal (migration 005) */}
+      {isSendToVendorOpen && (
+        <SendToVendorModal
+          open={isSendToVendorOpen}
+          onClose={() => setIsSendToVendorOpen(false)}
+          jobId={job.id}
+          jobLabel={job.job_number}
+          onSuccess={() => {
+            // Re-read only the vendor status — the rest of the page is untouched
+            jobService
+              .getVendorStatus(job.id)
+              .then((res) => setVendorStatus(res?.data || null))
+              .catch(() => {});
+          }}
+        />
+      )}
+
+      {/* Receive Back from Specialist Partner Modal (migration 005) */}
+      {isReceiveFromVendorOpen && (
+        <ReceiveFromVendorModal
+          open={isReceiveFromVendorOpen}
+          onClose={() => setIsReceiveFromVendorOpen(false)}
+          jobId={job.id}
+          jobLabel={job.job_number}
+          vendorName={vendorStatus?.vendor_name || ''}
+          onSuccess={() => {
+            jobService
+              .getVendorStatus(job.id)
+              .then((res) => setVendorStatus(res?.data || null))
+              .catch(() => {});
           }}
         />
       )}

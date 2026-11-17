@@ -17,10 +17,16 @@ export const Button = ({
   const [internalLoading, setInternalLoading] = useState(false);
   const isLockedRef = useRef(false);
   const isMountedRef = useRef(true);
+  const cooldownRef = useRef(null);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
+      if (cooldownRef.current) {
+        clearTimeout(cooldownRef.current);
+        cooldownRef.current = null;
+      }
     };
   }, []);
 
@@ -40,22 +46,32 @@ export const Button = ({
     // Lock immediately synchronously
     isLockedRef.current = true;
 
+    // Clear any pending cooldown from a previous click
+    if (cooldownRef.current) {
+      clearTimeout(cooldownRef.current);
+      cooldownRef.current = null;
+    }
+
     try {
       if (onClick) {
         const result = onClick(e);
-        // If the click handler returned a Promise, automatically handle loading state
+        // If the click handler returned a Promise, show the spinner until it settles
         if (result && typeof result.then === 'function') {
           setInternalLoading(true);
-          await result;
+          try {
+            await result;
+          } finally {
+            // Release the spinner BEFORE any cooldown so a blocked main thread
+            // (e.g. window.print()) can never leave the button stuck spinning.
+            if (isMountedRef.current) setInternalLoading(false);
+          }
         }
       }
     } finally {
       // Cooldown to prevent ghost clicks or rapid touch bounces
-      setTimeout(() => {
+      cooldownRef.current = setTimeout(() => {
         isLockedRef.current = false;
-        if (isMountedRef.current) {
-          setInternalLoading(false);
-        }
+        cooldownRef.current = null;
       }, 300);
     }
   };

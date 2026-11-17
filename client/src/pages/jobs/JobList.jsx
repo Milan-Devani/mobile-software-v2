@@ -20,7 +20,9 @@ import {
   PhoneForwarded,
   MessageSquare,
   Receipt,
-  IndianRupee
+  IndianRupee,
+  Truck,
+  PackageCheck
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -32,6 +34,8 @@ import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { SendToVendorModal } from '../../components/jobs/SendToVendorModal';
+import { ReceiveFromVendorModal } from '../../components/jobs/ReceiveFromVendorModal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 
@@ -53,6 +57,13 @@ export const JobList = () => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState([]);
+
+  // Send to Specialist Partner (migration 005) — additive, isolated state
+  const [isSendToVendorOpen, setIsSendToVendorOpen] = useState(false);
+  const [sendToVendorRows, setSendToVendorRows] = useState([]);
+  const [isReceiveOpen, setIsReceiveOpen] = useState(false);
+  const [receiveRows, setReceiveRows] = useState([]);
+  const [vendorMap, setVendorMap] = useState({});
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -130,6 +141,28 @@ export const JobList = () => {
   useEffect(() => {
     fetchJobs();
   }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
+
+  // Load the Partner column data for the visible page (migration 005).
+  // Fails silently — an unlinked/unmigrated DB simply shows no vendors.
+  useEffect(() => {
+    const ids = (jobs || []).map((j) => j.id);
+    if (ids.length === 0) {
+      setVendorMap({});
+      return;
+    }
+    let cancelled = false;
+    jobService
+      .getVendorMap(ids)
+      .then((map) => {
+        if (!cancelled) setVendorMap(map || {});
+      })
+      .catch(() => {
+        if (!cancelled) setVendorMap({});
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [jobs]);
 
   const handlePageChange = (newPage) => {
     const params = new URLSearchParams(searchParams);
@@ -581,6 +614,34 @@ export const JobList = () => {
         updateLabel="Change Status"
         onBulkDelete={handleBulkDelete}
         deleteLabel={`Delete (${selectedIds.length})`}
+        customActions={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                const rows = (jobs || []).filter((j) => selectedIds.includes(j.id));
+                setSendToVendorRows(rows.length > 0 ? rows : selectedIds.map((id) => ({ id })));
+                setIsSendToVendorOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.98] bg-violet-600 hover:bg-violet-700 text-white transition-all"
+            >
+              <Truck className="w-3.5 h-3.5 stroke-[2]" />
+              <span>Send to Partner ({selectedIds.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const rows = (jobs || []).filter((j) => selectedIds.includes(j.id));
+                setReceiveRows(rows.length > 0 ? rows : selectedIds.map((id) => ({ id })));
+                setIsReceiveOpen(true);
+              }}
+              className="px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white transition-all"
+            >
+              <PackageCheck className="w-3.5 h-3.5 stroke-[2]" />
+              <span>Receive Back ({selectedIds.length})</span>
+            </button>
+          </>
+        }
       />
 
       {/* Jobs Table Card */}
@@ -622,6 +683,7 @@ export const JobList = () => {
                     <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
                     <th className="px-5 py-3 whitespace-nowrap">Complaint / Issue</th>
                     <th className="px-5 py-3 whitespace-nowrap">Status</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Partner</th>
                     <th className="px-5 py-3 whitespace-nowrap">Warranty Claim</th>
                     <th className="px-5 py-3 whitespace-nowrap">Warranty Status</th>
                     <th className="px-5 py-3 text-right whitespace-nowrap">Estimate</th>
@@ -673,6 +735,35 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <Badge status={job.status} />
+                        </td>
+                        {/* Specialist Partner column (migration 005) */}
+                        <td className="px-5 py-3.5 whitespace-nowrap">
+                          {(() => {
+                            const v = vendorMap[job.id];
+                            if (!v) {
+                              return <span className="text-[11px] text-[var(--spatial-text-muted)] opacity-40">—</span>;
+                            }
+                            if (v.at_vendor) {
+                              return (
+                                <span
+                                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-700 dark:text-violet-300 text-[11px] font-semibold shadow-2xs"
+                                  title={`At ${v.vendor_name}${v.vendor_shop ? ' · ' + v.vendor_shop : ''}${v.status ? ' · ' + v.status : ''}`}
+                                >
+                                  <Truck className="w-3 h-3 shrink-0" />
+                                  <span className="max-w-[130px] truncate">{v.vendor_name}</span>
+                                </span>
+                              );
+                            }
+                            return (
+                              <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-700 dark:text-emerald-400 text-[10.5px] font-medium"
+                                title="Returned from partner"
+                              >
+                                <PackageCheck className="w-3 h-3 shrink-0" />
+                                <span className="max-w-[110px] truncate">{v.vendor_name}</span>
+                              </span>
+                            );
+                          })()}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           {job.is_warranty_claim || (job.reopen_count && job.reopen_count > 0) ? (
@@ -806,6 +897,34 @@ export const JobList = () => {
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+
+                            {/* Send to / Receive from Specialist Partner (migration 005) */}
+                            {!['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status) &&
+                              (vendorMap[job.id]?.at_vendor ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setReceiveRows([job]);
+                                    setIsReceiveOpen(true);
+                                  }}
+                                  className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                                  title={`Receive back from ${vendorMap[job.id]?.vendor_name || 'partner'}`}
+                                >
+                                  <PackageCheck className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSendToVendorRows([job]);
+                                    setIsSendToVendorOpen(true);
+                                  }}
+                                  className="p-1.5 text-[var(--spatial-text-muted)] hover:text-violet-500 hover:bg-violet-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                                  title="Send to Specialist Partner"
+                                >
+                                  <Truck className="w-4 h-4" />
+                                </button>
+                              ))}
 
                             {/* Delete Job Sheet */}
                             <button
@@ -973,6 +1092,42 @@ export const JobList = () => {
         </div>,
         document.body
       )}
+
+      {/* Send to Specialist Partner Modal (migration 005) */}
+      {isSendToVendorOpen && (
+        <SendToVendorModal
+          open={isSendToVendorOpen}
+          onClose={() => setIsSendToVendorOpen(false)}
+          jobIds={sendToVendorRows.map((r) => r.id)}
+          jobLabel={
+            sendToVendorRows.length === 1
+              ? sendToVendorRows[0].job_number || ''
+              : `${sendToVendorRows.length} jobs`
+          }
+          onSuccess={() => {
+            setSelectedIds([]);
+            fetchJobs();
+          }}
+        />
+      )}
+
+      {/* Receive Back from Specialist Partner Modal (migration 005) */}
+      {isReceiveOpen && (
+        <ReceiveFromVendorModal
+          open={isReceiveOpen}
+          onClose={() => setIsReceiveOpen(false)}
+          jobIds={receiveRows.map((r) => r.id)}
+          jobLabel={receiveRows.length === 1 ? receiveRows[0].job_number || '' : `${receiveRows.length} jobs`}
+          vendorName={
+            receiveRows.length === 1 ? vendorMap[receiveRows[0].id]?.vendor_name || '' : ''
+          }
+          onSuccess={() => {
+            setSelectedIds([]);
+            fetchJobs();
+          }}
+        />
+      )}
+
     </div>
   );
 };

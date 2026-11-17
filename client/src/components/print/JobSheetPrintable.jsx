@@ -443,11 +443,13 @@ export const JobSheetPrintable = ({ job, shop }) => {
           <div className="w-[62%] pr-3">
             <div className="flex items-center gap-2">
               {shop?.logo_url ? (
-                <img
-                  src={shop.logo_url}
-                  alt={shop?.name || 'Shop Logo'}
-                  className="w-9 h-9 rounded object-contain shrink-0 border border-slate-300 p-0.5"
-                />
+                <div className="w-[150px] max-w-[150px] h-12 rounded bg-white shrink-0 flex items-center justify-center overflow-hidden">
+                  <img
+                    src={shop.logo_url}
+                    alt={shop?.name || 'Shop Logo'}
+                    className="w-full max-w-[150px] max-h-full object-contain block"
+                  />
+                </div>
               ) : (
                 <div className="w-8 h-8 rounded bg-black text-white flex items-center justify-center font-black text-sm shrink-0">
                   <Wrench className="w-4 h-4 text-white" />

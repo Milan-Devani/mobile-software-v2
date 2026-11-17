@@ -165,8 +165,9 @@ const MobotechLogo = ({
         {logoUrl ? (
           <div
             style={{
-              // width: "28px",
-              // height: "28px",
+              width: "150px",
+              maxWidth: "150px",
+              height: "48px",
               borderRadius: "4px",
               // border: "1px solid #cbd5e1",
               display: "flex",
@@ -174,50 +175,55 @@ const MobotechLogo = ({
               justifyContent: "center",
               overflow: "hidden",
               background: "#fff",
-              padding: "1px",
+              padding: "3px 5px",
               flexShrink: 0,
+              boxSizing: "border-box",
             }}
           >
             <img
               src={logoUrl}
               alt={shopName}
               style={{
-                maxWidth: "100%",
+                width: "100%",
+                maxWidth: "150px",
                 maxHeight: "100%",
                 objectFit: "contain",
+                display: "block",
               }}
             />
           </div>
         ) : (
-          <svg
-            width="26"
-            height="26"
-            viewBox="0 0 32 32"
-            fill="none"
-            style={{ flexShrink: 0 }}
-          >
-            <rect
-              x="3"
-              y="3"
+          <>
+            <svg
               width="26"
               height="26"
-              rx="6"
-              stroke="#000"
-              strokeWidth="2.5"
-            />
-            <path
-              d="M9 22V10L16 17L23 10V22"
-              stroke="#000"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <circle cx="16" cy="7" r="1.5" fill="#000" />
-          </svg>
+              viewBox="0 0 32 32"
+              fill="none"
+              style={{ flexShrink: 0 }}
+            >
+              <rect
+                x="3"
+                y="3"
+                width="26"
+                height="26"
+                rx="6"
+                stroke="#000"
+                strokeWidth="2.5"
+              />
+              <path
+                d="M9 22V10L16 17L23 10V22"
+                stroke="#000"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="16" cy="7" r="1.5" fill="#000" />
+            </svg>
+            <span style={{ fontSize: "20px", fontWeight: 900, lineHeight: 1 }}>
+              {shopName.toLowerCase()}
+            </span>
+          </>
         )}
-        <span style={{ fontSize: "20px", fontWeight: 900, lineHeight: 1 }}>
-          {shopName.toLowerCase()}
-        </span>
       </div>
     );
   }
@@ -227,26 +233,30 @@ const MobotechLogo = ({
       {logoUrl ? (
         <div
           style={{
-            width: "36px",
-            height: "36px",
+            width: "150px",
+            maxWidth: "150px",
+            height: "48px",
             borderRadius: "6px",
-            border: "1px solid #cbd5e1",
+            // border: "1px solid #cbd5e1",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             overflow: "hidden",
             background: "#fff",
-            padding: "2px",
+            padding: "3px 5px",
             flexShrink: 0,
+            boxSizing: "border-box",
           }}
         >
           <img
             src={logoUrl}
             alt={shopName}
             style={{
-              maxWidth: "100%",
+              width: "100%",
+              maxWidth: "150px",
               maxHeight: "100%",
               objectFit: "contain",
+              display: "block",
             }}
           />
         </div>
@@ -323,7 +333,7 @@ const SignatureStroke = () => (
 export const InvoicePrintable = ({ invoice, job, shop }) => {
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState("both"); // 'both' | 'page1' | 'page2'
+  const [viewMode, setViewMode] = useState("page1"); // Page 2 disabled — only Page 1 is printed
   const printAreaRef = useRef(null);
 
   // Shop Details (matching defaults in pdfService.js)
@@ -447,17 +457,22 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         ? `${apiBase}/invoices/job/${job.id || job.job_number}/download-pdf`
         : `${apiBase}/invoices/public/${job.id || job.job_number}/download-pdf`;
 
+      // Server PDF generation takes ~10-25s (headless Chrome) — allow 90s.
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
-      const response = await fetch(downloadUrl, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
+      let response = null;
+      try {
+        response = await fetch(downloadUrl, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
-      const contentType = response.headers.get("content-type") || "";
-      if (response.ok && contentType.includes("application/pdf")) {
+      const contentType = response?.headers?.get("content-type") || "";
+      if (response?.ok && contentType.includes("application/pdf")) {
         const blob = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -466,32 +481,42 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
+        setTimeout(() => window.URL.revokeObjectURL(blobUrl), 5000);
 
         toast.success(`Downloaded ${filename} successfully!`, { id: toastId });
-        setIsGeneratingPdf(false);
-        return;
+        return; // Success — stop here.
       }
+
+      throw new Error(
+        `Server returned ${response?.status || "no response"} (${contentType || "unknown type"})`,
+      );
     } catch (netErr) {
       console.warn(
-        "Backend vector PDF download error, switching to native vector generator:",
+        "Backend vector PDF unavailable, falling back to browser print:",
         netErr.message,
       );
+      toast.dismiss(toastId);
+      toast("Server PDF unavailable — opening browser Print / Save as PDF instead.", {
+        icon: "ℹ️",
+        duration: 4000,
+      });
+
+      // 2. Fallback: browser's native vector pipeline via Print dialog.
+      // Deferred so the button's spinner is released BEFORE the blocking
+      // print dialog opens (window.print() freezes the main thread).
+      const cleanTitle = `Mobotech_Invoice_${cleanJobNum}`;
+      setTimeout(() => {
+        const prevTitle = document.title;
+        document.title = cleanTitle;
+        window.print();
+        setTimeout(() => {
+          document.title = prevTitle;
+        }, 2000);
+      }, 350);
     } finally {
+      // ALWAYS release the button, no matter which path ran
       setIsGeneratingPdf(false);
     }
-
-    // 2. High-fidelity native vector PDF generation:
-    // Uses the browser's native Skia vector pipeline (producing 100% identical layout to bill-live.pdf).
-    // Pre-setting document.title ensures Chrome / Edge "Save as PDF" automatically names it "Mobotech_Invoice_INV-2026-000001.pdf"
-    toast.dismiss(toastId);
-    const cleanTitle = `Mobotech_Invoice_${cleanJobNum}`;
-    const prevTitle = document.title;
-    document.title = cleanTitle;
-    window.print();
-    setTimeout(() => {
-      document.title = prevTitle;
-    }, 2000);
   };
 
   // Date Formatting helper matching the exact (29-03-2024 11:31) format in PDF
@@ -1066,22 +1091,10 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700">Display View:</span>
             <button
-              onClick={() => setViewMode("both")}
-              className={`px-2.5 py-1 rounded transition-colors ${viewMode === "both" ? "bg-black text-white font-bold" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-            >
-              Complete (Page 1 & 2)
-            </button>
-            <button
               onClick={() => setViewMode("page1")}
               className={`px-2.5 py-1 rounded transition-colors ${viewMode === "page1" ? "bg-black text-white font-bold" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
             >
-              Page 1 Only
-            </button>
-            <button
-              onClick={() => setViewMode("page2")}
-              className={`px-2.5 py-1 rounded transition-colors ${viewMode === "page2" ? "bg-black text-white font-bold" : "bg-slate-100 text-slate-700 hover:bg-slate-200"}`}
-            >
-              Page 2 (Terms)
+              Page 1
             </button>
           </div>
           <span className="hidden sm:inline font-mono text-[11px] text-slate-500">
@@ -2240,8 +2253,8 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                         paddingLeft: "14px",
                       }}
                     >
-                      * Note: For complete detailed terms & conditions, please
-                      refer to Page 2 overleaf.
+                      * Note: The above terms &amp; conditions apply to this repair
+                      and are binding upon acceptance of the device.
                     </div>
                   </div>
                   {qrDataUrl && (
@@ -2317,13 +2330,14 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
           </div>
         )}
 
-        {/* Page Break for Print */}
-        <div className="page-break" />
+        {/* Page Break for Print — disabled with Page 2 */}
+        {/* <div className="page-break" /> */}
 
         {/* ============================================================ */}
         {/* PAGE 2: COMPLETE TERMS AND CONDITIONS CONTINUATION           */}
+        {/* DISABLED: only Page 1 is printed (set to true to restore)     */}
         {/* ============================================================ */}
-        {(viewMode === "both" || viewMode === "page2") && (
+        {false && (viewMode === "both" || viewMode === "page2") && (
           <div
             className="service-record-page bg-white shadow-md border border-slate-300 print:shadow-none print:border-none"
             style={{

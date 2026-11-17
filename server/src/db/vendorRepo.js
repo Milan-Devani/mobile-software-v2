@@ -261,6 +261,281 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
   // Vendor Methods Object
   const vendorDbMethods = {
+    // -----------------------------------------------------------------
+    // JOB → VENDOR LINK (migration 005) — ADDITIVE.
+    // Powers the "Send to Specialist Partner" feature on the Job page.
+    // It never calls, modifies or replaces the existing send/receive
+    // chalan flows; it only inserts a vendor_mobiles row carrying a
+    // repair_job_id back-reference.
+    // -----------------------------------------------------------------
+    job_vendor_links: {
+      /** Create one vendor_mobiles row linked to a repair job. */
+      createForJob: async ({
+        repair_job_id,
+        vendor_id,
+        brand = '',
+        model = '',
+        imei = '',
+        customer_name = '',
+        repair_problem = '',
+        condition = '',
+        accessories = '',
+        estimated_cost = 0,
+        expected_return_date = null,
+        notes = '',
+        created_by = 'Staff',
+      }) => {
+        ensureCollections();
+        const db = getLocalDb();
+
+        const record = {
+          id: uuidv4(),
+          vendor_id,
+          repair_job_id,
+          send_txn_id: null,
+          return_txn_id: null,
+          flow_type: 'SENT_TO_VENDOR',
+          brand: String(brand || '').trim(),
+          model: String(model || '').trim(),
+          imei: String(imei || '').trim(),
+          customer_name: String(customer_name || '').trim(),
+          repair_problem: String(repair_problem || '').trim(),
+          condition: String(condition || '').trim(),
+          accessories: String(accessories || '').trim(),
+          expected_return_date: expected_return_date || null,
+          estimated_cost: parseFloat(estimated_cost) || 0,
+          actual_cost: 0,
+          repair_result: 'PENDING',
+          current_status: 'PENDING',
+          payment_status: 'PENDING',
+          sent_date: new Date().toISOString().split('T')[0],
+          received_date: null,
+          returned_date: null,
+          notes: String(notes || '').trim(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+
+        if (db) {
+          db.vendor_mobiles = db.vendor_mobiles || [];
+          db.vendor_mobiles.push(record);
+        }
+        if (typeof saveLocalDb === 'function') saveLocalDb();
+
+        if (isSupabaseConfigured() && safeInsert) {
+          await safeInsert('vendor_mobiles', record);
+        }
+
+        // Status history is best-effort and never blocks the send
+        try {
+          const hist = {
+            id: uuidv4(),
+            vendor_mobile_id: record.id,
+            previous_status: null,
+            new_status: record.current_status,
+            changed_by: created_by,
+            remarks: `Job ${repair_job_id} sent to specialist partner`,
+            created_at: new Date().toISOString(),
+          };
+          if (db) {
+            db.vendor_status_history = db.vendor_status_history || [];
+            db.vendor_status_history.push(hist);
+          }
+          if (isSupabaseConfigured() && safeInsert) {
+            await safeInsert('vendor_status_history', hist);
+          }
+        } catch (_) {
+          // non-blocking
+        }
+
+        return record;
+      },
+
+      /** Every vendor record linked to one job (newest first). */
+      listForJob: async (repairJobId) => {
+        if (!repairJobId) return [];
+        ensureCollections();
+        const db = getLocalDb();
+
+        let rows = (db?.vendor_mobiles || []).filter((m) => m.repair_job_id === repairJobId);
+
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            if (supabase) {
+              const { data, error } = await supabase
+                .from('vendor_mobiles')
+                .select('*')
+                .eq('repair_job_id', repairJobId);
+              if (!error && Array.isArray(data)) rows = data;
+            }
+          } catch (_) {
+            // fall back to the in-memory mirror
+          }
+        }
+
+        return rows.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+      },
+
+      /**
+       * Map of job_id -> vendor info, for the Job List table column.
+       * Batched (one query per table, never per job) and read-only.
+       * ADDITIVE — does not affect any existing vendor behaviour.
+       */
+      mapForJobs: async (repairJobIds = []) => {
+        const result = {};
+        if (!Array.isArray(repairJobIds) || repairJobIds.length === 0) return result;
+
+        const wanted = new Set(repairJobIds);
+        ensureCollections();
+        const db = getLocalDb();
+
+        let rows = (db?.vendor_mobiles || []).filter((m) => m.repair_job_id && wanted.has(m.repair_job_id));
+        let vendorRows = db?.vendors || [];
+
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            if (supabase) {
+              const { data, error } = await supabase
+                .from('vendor_mobiles')
+                .select('*')
+                .in('repair_job_id', repairJobIds);
+              if (!error && Array.isArray(data)) rows = data;
+
+              const { data: vData, error: vErr } = await supabase
+                .from('vendors')
+                .select('id, name, shop_name, mobile');
+              if (!vErr && Array.isArray(vData)) vendorRows = vData;
+            }
+          } catch (_) {
+            // fall back to the in-memory mirror
+          }
+        }
+
+        const vendorMap = new Map((vendorRows || []).map((v) => [v.id, v]));
+
+        rows.forEach((m) => {
+          if (!m.repair_job_id) return;
+
+          const isActive = !['RETURNED', 'CANCELLED'].includes(String(m.current_status || '').toUpperCase());
+          const existing = result[m.repair_job_id];
+
+          // An active link always wins over a returned one; otherwise keep the newest
+          if (existing) {
+            if (existing.at_vendor && !isActive) return;
+            if (existing.at_vendor === isActive) {
+              const prevT = new Date(existing.sent_date || 0).getTime();
+              const nextT = new Date(m.sent_date || m.created_at || 0).getTime();
+              if (nextT <= prevT) return;
+            }
+          }
+
+          const vendor = vendorMap.get(m.vendor_id) || null;
+          result[m.repair_job_id] = {
+            vendor_name: vendor?.name || 'Specialist Partner',
+            vendor_shop: vendor?.shop_name || '',
+            status: m.current_status || 'PENDING',
+            at_vendor: isActive,
+            sent_date: m.sent_date || m.created_at || null,
+            expected_back_date: m.expected_return_date || null,
+            returned_date: m.returned_date || null,
+            link_id: m.id,
+          };
+        });
+
+        return result;
+      },
+
+      /**
+       * RECEIVE BACK a device that was sent to a partner.
+       * Closes the round-trip: marks the link RETURNED, records the real cost,
+       * payment status and return date, and writes an audit row.
+       * Uses the SAME primitives as the vendor module (no duplicated logic).
+       */
+      receiveBack: async ({
+        link_id,
+        actual_cost = null,
+        payment_status = 'PENDING',
+        returned_status = 'RETURNED',
+        notes = '',
+        received_by = 'Staff',
+      }) => {
+        ensureCollections();
+        const db = getLocalDb();
+
+        let existing = (db?.vendor_mobiles || []).find((m) => m.id === link_id) || null;
+
+        if (isSupabaseConfigured() && safeInsert && safeUpdate) {
+          try {
+            const supabase = getSupabase();
+            if (supabase) {
+              const { data } = await supabase.from('vendor_mobiles').select('*').eq('id', link_id).maybeSingle();
+              if (data) existing = data;
+            }
+          } catch (_) {
+            // fall back to the in-memory mirror
+          }
+        }
+
+        if (!existing) throw new Error('Vendor device record not found.');
+
+        const nowIso = new Date().toISOString();
+        const today = nowIso.split('T')[0];
+
+        const updates = {
+          current_status: returned_status,
+          repair_result: returned_status === 'RETURNED' ? 'COMPLETED' : 'CANCELLED',
+          payment_status,
+          received_date: today,
+          returned_date: today,
+          updated_at: nowIso,
+        };
+
+        if (actual_cost !== null && actual_cost !== undefined && !isNaN(parseFloat(actual_cost))) {
+          updates.actual_cost = parseFloat(actual_cost) || 0;
+        }
+        if (notes) {
+          updates.notes = [existing.notes, notes].filter(Boolean).join(' | ');
+        }
+
+        // In-memory mirror
+        if (db) {
+          const idx = (db.vendor_mobiles || []).findIndex((m) => m.id === link_id);
+          if (idx !== -1) db.vendor_mobiles[idx] = { ...db.vendor_mobiles[idx], ...updates };
+          db.vendor_status_history = db.vendor_status_history || [];
+          db.vendor_status_history.push({
+            id: uuidv4(),
+            vendor_mobile_id: link_id,
+            previous_status: existing.current_status,
+            new_status: returned_status,
+            changed_by: received_by,
+            remarks: notes || 'Received back from specialist partner',
+            created_at: nowIso,
+          });
+        }
+        if (typeof saveLocalDb === 'function') saveLocalDb();
+
+        // Supabase
+        if (isSupabaseConfigured() && safeUpdate) {
+          await safeUpdate('vendor_mobiles', link_id, updates);
+          if (safeInsert) {
+            await safeInsert('vendor_status_history', {
+              id: uuidv4(),
+              vendor_mobile_id: link_id,
+              previous_status: existing.current_status,
+              new_status: returned_status,
+              changed_by: received_by,
+              remarks: notes || 'Received back from specialist partner',
+              created_at: nowIso,
+            });
+          }
+        }
+
+        return { ...existing, ...updates };
+      },
+    },
+
     // -------------------------------------------------------------
     // VENDORS MASTER
     // -------------------------------------------------------------
@@ -1649,6 +1924,37 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           vendor,
           mobiles: updatedMobiles,
         };
+      },
+
+      /**
+       * ADDITIVE (feature: send job to vendor) — look up a single transaction
+       * by id. Used only to resolve the chalan number for a job's vendor link.
+       * Does not alter list() or any send/receive behaviour.
+       */
+      findById: async (id) => {
+        if (!id) return null;
+        ensureCollections();
+        const db = getLocalDb();
+
+        let txn = (db?.vendor_transactions || []).find((t) => t.id === id) || null;
+
+        if (isSupabaseConfigured()) {
+          try {
+            const supabase = getSupabase();
+            if (supabase) {
+              const { data, error } = await supabase
+                .from('vendor_transactions')
+                .select('*')
+                .eq('id', id)
+                .maybeSingle();
+              if (!error && data) txn = data;
+            }
+          } catch (_) {
+            // fall back to the in-memory mirror
+          }
+        }
+
+        return txn;
       },
     },
 
