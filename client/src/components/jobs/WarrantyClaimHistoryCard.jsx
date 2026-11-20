@@ -1,18 +1,12 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   ShieldCheck,
   RotateCcw,
   Clock,
-  Calendar,
   Wrench,
   CheckCircle2,
-  FileText,
-  AlertTriangle,
   Pencil,
-  ArrowRight,
   Sparkles,
-  Layers,
-  Table as TableIcon,
 } from 'lucide-react';
 import { getAllWarrantyClaims, formatDateTime } from '../../utils/warrantyUtils';
 

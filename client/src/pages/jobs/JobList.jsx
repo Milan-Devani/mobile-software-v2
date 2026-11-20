@@ -4,13 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Search,
-  Filter,
   Plus,
   Eye,
-  Calendar,
   Phone,
-  Smartphone,
-  ArrowUpDown,
   Trash2,
   RotateCcw,
   ShieldCheck,
@@ -18,18 +14,16 @@ import {
   X,
   Send,
   PhoneForwarded,
-  MessageSquare,
-  Receipt,
   IndianRupee,
   Truck,
-  PackageCheck
+  PackageCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { jobService } from '../../services/jobService';
 import { invoiceService } from '../../services/invoiceService';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
@@ -38,6 +32,7 @@ import { SendToVendorModal } from '../../components/jobs/SendToVendorModal';
 import { ReceiveFromVendorModal } from '../../components/jobs/ReceiveFromVendorModal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'All Jobs' },
@@ -107,7 +102,9 @@ export const JobList = () => {
     }
   }, [debouncedSearch]);
 
+  const beginJobsRequest = useLatestRequest();
   const fetchJobs = async () => {
+    const isLatest = beginJobsRequest();
     try {
       setLoading(true);
       const params = {
@@ -130,12 +127,14 @@ export const JobList = () => {
       }
 
       const res = await jobService.getJobs(params);
+      if (!isLatest()) return;
       setJobs(res.jobs || []);
       setTotal(res.total || 0);
     } catch {
+      if (!isLatest()) return;
       toast.error('Failed to load repair jobs');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 
@@ -456,51 +455,6 @@ export const JobList = () => {
   };
 
   // 4. Open directly in WhatsApp Web / App chat
-  const handleOpenDirectWhatsAppChat = () => {
-    if (!directSendJob) return;
-    const cleanDigits = directPhone.replace(/\D/g, '');
-    if (cleanDigits.length < 10) {
-      toast.error('Please enter a valid phone number first');
-      return;
-    }
-    const intlPhone = cleanDigits.length === 10 ? `91${cleanDigits}` : cleanDigits;
-    const trackingUrl = `${window.location.origin}/repair/${directSendJob.job_number}/approval?token=${directSendJob.approval_token || ''}`;
-    const downloadPdfLink = `${window.location.origin}/api/invoices/public/${directSendJob.id}/download-pdf`;
-
-    const getGreeting = () => {
-      let hour;
-      try {
-        const istTimeStr = new Date().toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Kolkata',
-          hour12: false,
-          hour: 'numeric',
-        });
-        hour = parseInt(istTimeStr, 10);
-      } catch (_) {
-        hour = new Date().getHours();
-      }
-      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
-      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
-      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
-      return '🌙 Hello';
-    };
-
-    const customerName = (directSendJob.customer?.full_name || 'Customer').trim();
-    const deviceName = `${directSendJob.device?.brand || ''} ${directSendJob.device?.model || 'Device'}`.trim();
-
-    const text =
-      `${getGreeting()} *${customerName}*!\n\n` +
-      `🎊 *Thank You for Choosing Mobotech Mobile Care!* ❤️\n\n` +
-      `Your repair invoice #${directSendJob.job_number} is ready.\n\n` +
-      `📱 *Device:* ${deviceName}\n` +
-      `🆔 *Job ID:* #${directSendJob.job_number}\n` +
-      `💰 *Total Amount:* ₹${Number(directSendJob.total_amount || 0).toFixed(2)}\n` +
-      (directSendJob.balance_due > 0 ? `⚠️ *Balance Due:* ₹${Number(directSendJob.balance_due).toFixed(2)}\n\n` : `✅ *Payment Status: FULLY PAID*\n\n`) +
-      `Thank you for trusting *Mobotech Mobile Care*!\n` +
-      `We appreciate your business and look forward to serving you again! ❤️`;
-
-    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(text)}`, '_blank');
-  };
 
   return (
     <div className="space-y-6">

@@ -7,12 +7,10 @@ import {
   Plus,
   Search,
   AlertTriangle,
-  ArrowUpDown,
   ArrowLeft,
   Edit2,
   Trash2,
   Layers,
-  TrendingDown,
   X,
   Tag,
 } from "lucide-react";
@@ -22,7 +20,6 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { partsService } from "../../services/partsService";
 import {
   Card,
-  LoadingSpinner,
   EmptyState,
   TableSkeleton,
 } from "../../components/common/Card";
@@ -39,6 +36,7 @@ import {
   MAX_QUANTITY,
   numberInputProps,
 } from "../../utils/numberInput";
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 const partSchema = z.object({
   name: z.string().min(2, "Part name is required"),
@@ -183,12 +181,14 @@ export const PartsList = () => {
     }
   };
 
+  const beginCategoryItemsRequest = useLatestRequest();
   const fetchCategoryItems = async (
     categoryName,
     pageNum = categoryItemsPage,
     sizeNum = categoryItemsPageSize,
   ) => {
     if (!categoryName) return;
+    const isLatest = beginCategoryItemsRequest();
     setCategoryItemsLoading(true);
     try {
       const res = await partsService.getParts({
@@ -196,15 +196,17 @@ export const PartsList = () => {
         limit: sizeNum,
         offset: (pageNum - 1) * sizeNum,
       });
+      if (!isLatest()) return;
       const items = res.parts || res || [];
       const totalCount =
         res.total ?? (Array.isArray(res) ? res.length : items.length);
       setCategoryItems(items);
       setCategoryItemsTotal(totalCount);
     } catch {
+      if (!isLatest()) return;
       toast.error(`Failed to load items for ${categoryName}`);
     } finally {
-      setCategoryItemsLoading(false);
+      if (isLatest()) setCategoryItemsLoading(false);
     }
   };
 
@@ -227,7 +229,9 @@ export const PartsList = () => {
     fetchCategories();
   }, []);
 
+  const beginPartsRequest = useLatestRequest();
   const fetchParts = async (pageNum = page, sizeNum = pageSize) => {
+    const isLatest = beginPartsRequest();
     try {
       setLoading(true);
       const params = {
@@ -241,13 +245,15 @@ export const PartsList = () => {
       if (endDate) params.endDate = endDate;
 
       const res = await partsService.getParts(params);
+      if (!isLatest()) return;
       const items = res.parts || res || [];
       setParts(items);
       setTotal(res.total ?? (Array.isArray(res) ? res.length : items.length));
     } catch {
+      if (!isLatest()) return;
       toast.error("Failed to load parts inventory");
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 

@@ -7,16 +7,15 @@ import {
   Copy,
   Check,
   Wrench,
-  ShieldCheck,
-  CheckCircle2,
-  RefreshCw
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
 import { notificationService } from '../../services/notificationService';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { WhatsAppQrModal } from '../common/WhatsAppQrModal';
+import { API_BASE_URL, authHeaders } from '../../services/api';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
+import { getGreeting } from '../../utils/greeting';
 
 // High-Precision Code 39 Barcode Generator (Scalable Vector SVG)
 const CODE39_PATTERNS = {
@@ -96,8 +95,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
 
   // Check Baileys WhatsApp status on mount
   React.useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-    fetch(`${apiBase}/whatsapp/status`)
+    fetch(`${API_BASE_URL}/whatsapp/status`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data?.success) setWaStatus(data.data);
@@ -126,23 +124,6 @@ export const JobSheetPrintable = ({ job, shop }) => {
   const getWhatsAppMessage = (isAlternate = false) => {
     const shopName = shop?.name || 'Mobotech Mobile Care';
     const trackingUrl = `${window.location.origin}/repair/${job.job_number}/approval?token=${job.approval_token || ''}`;
-    const getGreeting = () => {
-      let hour;
-      try {
-        const istTimeStr = new Date().toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Kolkata',
-          hour12: false,
-          hour: 'numeric',
-        });
-        hour = parseInt(istTimeStr, 10);
-      } catch (_) {
-        hour = new Date().getHours();
-      }
-      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
-      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
-      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
-      return '🌙 Hello';
-    };
 
     const customerName = (cust.full_name || 'Customer').trim();
     const deviceName = `${dev.brand || ''} ${dev.model || 'Device'}`.trim();

@@ -1,29 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  User,
   Phone,
   Mail,
   MapPin,
   Smartphone,
   Wrench,
-  Clock,
-  CheckCircle2,
   Plus,
   ArrowLeft,
-  Calendar,
   Eye,
   MessageCircle,
   Pencil,
   Trash2,
-  Cake
+  Cake,
 } from 'lucide-react';
 import { formatDateOfBirth } from '../../components/customers/DateOfBirthField';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { customerService } from '../../services/customerService';
 import { jobService } from '../../services/jobService';
-import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';

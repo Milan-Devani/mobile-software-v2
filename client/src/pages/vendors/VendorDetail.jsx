@@ -1,29 +1,19 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Building2,
   Phone,
   MessageCircle,
   MapPin,
-  Calendar,
-  CreditCard,
   IndianRupee,
   ArrowUpRight,
   ArrowDownLeft,
   ArrowLeft,
   Pencil,
-  Clock,
   Printer,
-  Share2,
   FileText,
-  CheckCircle2,
-  AlertCircle,
   Plus,
   Smartphone,
-  ExternalLink,
-  Sparkles,
-  Info,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
@@ -32,7 +22,6 @@ import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPr
 import { VendorModal } from '../../components/vendors/VendorModal';
 import {
   Card,
-  LoadingSpinner,
   EmptyState,
   DetailSkeleton,
 } from '../../components/common/Card';

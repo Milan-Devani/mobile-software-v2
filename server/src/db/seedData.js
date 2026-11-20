@@ -1,5 +1,4 @@
 import bcrypt from 'bcryptjs';
-import { v4 as uuidv4 } from 'uuid';
 
 export const createInitialSeedData = async () => {
   const adminPasswordHash = await bcrypt.hash('Admin@123456', 10);

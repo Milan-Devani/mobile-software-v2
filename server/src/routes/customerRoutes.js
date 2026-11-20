@@ -8,7 +8,7 @@ import {
   bulkDeleteCustomers
 } from '../controllers/customerController.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireAdmin, requireAnyRole } from '../middleware/roleGuard.js';
+import { requireAnyRole } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 

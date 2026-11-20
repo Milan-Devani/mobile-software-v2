@@ -26,18 +26,20 @@ export function usePagedQuery(fetchPage, filterDeps = [], { initialPageSize = 10
   const fetchRef = useRef(fetchPage);
   fetchRef.current = fetchPage;
 
-  // Filters changed → back to page 1 (skip the very first render)
+  // Filters changed → back to page 1. Handled inside the fetch effect so a filter change
+  // on page N doesn't first fire a wasted request for page N with the new filters.
   const filterKey = JSON.stringify(filterDeps);
-  const firstFilterRunRef = useRef(true);
-  useEffect(() => {
-    if (firstFilterRunRef.current) {
-      firstFilterRunRef.current = false;
-      return;
-    }
-    setPage(1);
-  }, [filterKey]);
+  const lastFilterKeyRef = useRef(filterKey);
 
   useEffect(() => {
+    if (lastFilterKeyRef.current !== filterKey) {
+      lastFilterKeyRef.current = filterKey;
+      if (page !== 1) {
+        requestIdRef.current += 1; // drop any in-flight response for the old filters
+        setPage(1); // re-runs this effect with page 1
+        return;
+      }
+    }
     if (!enabled) return;
     const requestId = ++requestIdRef.current;
     setLoading(true);

@@ -7,27 +7,22 @@ import {
   Users,
   Plus,
   Search,
-  Phone,
-  Mail,
-  MapPin,
   Eye,
   MessageCircle,
-  FileText,
   Pencil,
   Trash2,
-  X
+  X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { customerService } from '../../services/customerService';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
 import { DateOfBirthField, isValidDateOfBirth, DATE_OF_BIRTH_ERROR } from '../../components/customers/DateOfBirthField';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
-import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 import {
@@ -35,6 +30,7 @@ import {
   MAX_PHONE_INPUT_LENGTH,
   PHONE_NUMBER_VALIDATION_MESSAGE,
 } from '../../utils/phoneValidation';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 const optionalPhoneSchema = z.string().optional().refine(
   (value) => !value || isValidPhoneNumber(value),
@@ -130,7 +126,9 @@ export const CustomerList = () => {
     },
   });
 
+  const beginCustomersRequest = useLatestRequest();
   const fetchCustomers = async (query = debouncedSearch, pageNum = page, sizeNum = pageSize) => {
+    const isLatest = beginCustomersRequest();
     try {
       setLoading(true);
       const params = {
@@ -142,12 +140,14 @@ export const CustomerList = () => {
       if (endDate) params.endDate = endDate;
 
       const res = await customerService.getCustomers(params);
+      if (!isLatest()) return;
       setCustomers(res.customers || []);
       setTotal(res.total || 0);
     } catch {
+      if (!isLatest()) return;
       toast.error('Failed to load customers');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 

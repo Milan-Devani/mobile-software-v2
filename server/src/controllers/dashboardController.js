@@ -5,10 +5,6 @@ export const getDashboardStats = async (req, res, next) => {
     const { startDate, endDate } = req.query;
     const { jobs } = await db.jobs.list({ limit: 5000, startDate, endDate });
     const { sales } = await db.sales.list({ limit: 5000, startDate, endDate });
-    const payments = await db.payments.listByJobId(''); // list all
-    const allPayments = (await db.payments.listByJobId('')) || []; // or fetch all
-    // Since payments in localDb is an array:
-    // Let's get payments
     const today = new Date().toISOString().slice(0, 10);
 
     const counts = {

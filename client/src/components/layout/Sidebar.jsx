@@ -11,18 +11,15 @@ import {
   Settings,
   LogOut,
   Smartphone,
-  PlusCircle,
   Receipt,
   Trash2,
   Star,
-  ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
 import { logout } from '../../store/authSlice';
 import { setShopProfile } from '../../store/settingsSlice';
 import { settingsService } from '../../services/settingsService';
 import { useTheme } from '../../context/ThemeContext';
-import Swal from 'sweetalert2';
 
 export const Sidebar = ({ isOpen, onClose, collapsed = false, onToggleCollapse }) => {
   const { user } = useSelector((state) => state.auth);
@@ -45,7 +42,9 @@ export const Sidebar = ({ isOpen, onClose, collapsed = false, onToggleCollapse }
     ? (shop?.logo_url_dark || shop?.logo_url)
     : (shop?.logo_url || shop?.logo_url_dark);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // sweetalert2 is loaded on demand so it stays out of the initial bundle.
+    const { default: Swal } = await import('sweetalert2');
     Swal.fire({
       title: 'Sign out?',
       text: 'You will need to enter your credentials to log in again.',

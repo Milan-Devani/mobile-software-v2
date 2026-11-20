@@ -1,16 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Building2,
-  Phone,
   AlertTriangle,
-  CheckCircle2,
-  X,
-  Plus,
   MapPin,
-  FileText,
   IndianRupee,
-  HelpCircle,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
@@ -19,8 +12,6 @@ import { SpatialSelect } from '../common/SpatialSelect';
 import { vendorService } from '../../services/vendorService';
 import {
   PHONE_NUMBER_LENGTH,
-  MAX_CURRENCY_AMOUNT,
-  limitNumberValue,
   numberInputProps,
   sanitizePhoneNumber,
 } from '../../utils/numberInput';

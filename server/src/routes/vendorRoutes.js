@@ -27,7 +27,7 @@ import {
   getVendorReports,
 } from '../controllers/vendorController.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireAnyRole, requireAdmin } from '../middleware/roleGuard.js';
+import { requireAnyRole } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 

@@ -10,6 +10,7 @@ import {
   Smartphone,
 } from "lucide-react";
 import { Button } from "../common/Button";
+import { API_BASE_URL, authHeaders } from "../../services/api";
 import toast from "react-hot-toast";
 import QRCode from "qrcode";
 import { WhatsAppQrModal } from "../common/WhatsAppQrModal";
@@ -18,6 +19,7 @@ import {
   INWARD_CHECKLIST_CONFIG,
   resolveChecklistValue,
 } from "../../utils/checklistConstants";
+import { getGreeting } from '../../utils/greeting';
 
 // Code 39 Barcode Generator for crisp vector barcodes in PDF and Print
 const CODE39_PATTERNS = {
@@ -403,12 +405,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
 
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
-    const rawApiBase =
-      import.meta.env.VITE_API_URL || "http://localhost:5050/api";
-    const apiBase = rawApiBase.endsWith("/api")
-      ? rawApiBase
-      : `${rawApiBase.replace(/\/+$/, "")}/api`;
-    fetch(`${apiBase}/whatsapp/status`)
+    fetch(`${API_BASE_URL}/whatsapp/status`, { headers: authHeaders() })
       .then((r) => r.json())
       .then((data) => {
         if (data?.success) setWaStatus(data.data);
@@ -705,23 +702,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       job.warranty_same_issue ||
       job.warranty_free_rework,
     );
-    const getGreeting = () => {
-      let hour;
-      try {
-        const istTimeStr = new Date().toLocaleTimeString("en-US", {
-          timeZone: "Asia/Kolkata",
-          hour12: false,
-          hour: "numeric",
-        });
-        hour = parseInt(istTimeStr, 10);
-      } catch (_) {
-        hour = new Date().getHours();
-      }
-      if (hour >= 5 && hour < 12) return "☀️ Good Morning";
-      if (hour >= 12 && hour < 17) return "🌤️ Good Afternoon";
-      if (hour >= 17 && hour < 21) return "🌆 Good Evening";
-      return "🌙 Hello";
-    };
     const customerName = (cust.full_name || "Customer").trim();
     const deviceName = `${dev.brand || ""} ${dev.model || "Device"}`.trim();
 

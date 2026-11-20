@@ -3,22 +3,17 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Search,
-  Filter,
   RefreshCw,
   Phone,
   MessageSquare,
   Clock,
   ArrowRight,
   CheckCircle,
-  AlertTriangle,
   History,
   Send,
-  Building2,
   Calendar,
-  X,
-  ExternalLink,
   Smartphone,
-  Info
+  Info,
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { Button } from '../../components/common/Button';

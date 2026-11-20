@@ -7,16 +7,13 @@ import {
   Printer,
   Share2,
   Calendar,
-  Building2,
   ArrowUpRight,
   ArrowDownLeft,
   X,
-  Plus,
-  Eye,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
@@ -26,6 +23,7 @@ import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
 import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
+import { getGreeting } from '../../utils/greeting';
 
 const TYPE_TABS = [
   { key: 'ALL', label: 'All Transactions' },
@@ -160,23 +158,6 @@ export const VendorTransactionsList = () => {
       )
       .join('\n');
 
-    const getGreeting = () => {
-      let hour;
-      try {
-        const istTimeStr = new Date().toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Kolkata',
-          hour12: false,
-          hour: 'numeric',
-        });
-        hour = parseInt(istTimeStr, 10);
-      } catch (_) {
-        hour = new Date().getHours();
-      }
-      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
-      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
-      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
-      return '🌙 Hello';
-    };
 
     const msg = encodeURIComponent(
       `${getGreeting()} *${vendor.name || 'Vendor'}*!\n\n` +

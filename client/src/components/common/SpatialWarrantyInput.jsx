@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, ShieldCheck, X } from 'lucide-react';
+import { ChevronDown, Check, ShieldCheck } from 'lucide-react';
 
 const DEFAULT_PRESETS = [
   'Continue Existing Warranty',

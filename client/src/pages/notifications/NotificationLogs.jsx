@@ -4,25 +4,22 @@ import {
   Mail,
   MessageCircle,
   Smartphone,
-  CheckCircle2,
-  AlertTriangle,
   RotateCcw,
   Search,
-  Filter,
   Trash2,
-  ExternalLink,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { notificationService } from '../../services/notificationService';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 export const NotificationLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -39,7 +36,9 @@ export const NotificationLogs = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
+  const beginLogsRequest = useLatestRequest();
   const fetchLogs = useCallback(async () => {
+    const isLatest = beginLogsRequest();
     try {
       setLoading(true);
       const res = await notificationService.getLogs({
@@ -50,6 +49,7 @@ export const NotificationLogs = () => {
         limit: pageSize,
         offset: (page - 1) * pageSize,
       });
+      if (!isLatest()) return;
 
       const logsList = Array.isArray(res) ? res : (res?.logs || []);
       const totalCount = res?.total ?? (logsList ? logsList.length : 0);
@@ -57,11 +57,12 @@ export const NotificationLogs = () => {
       setLogs(logsList);
       setTotal(totalCount);
     } catch (err) {
+      if (!isLatest()) return;
       toast.error('Failed to load notification logs');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [channelFilter, debouncedSearch, startDate, endDate, page, pageSize]);
+  }, [channelFilter, debouncedSearch, startDate, endDate, page, pageSize, beginLogsRequest]);
 
   useEffect(() => {
     fetchLogs();

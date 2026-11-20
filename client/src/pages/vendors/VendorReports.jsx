@@ -3,27 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Search,
-  Filter,
-  Download,
   Printer,
-  Calendar,
   Building2,
   Smartphone,
-  CheckCircle2,
-  Clock,
   ArrowRight,
-  TrendingUp,
-  CreditCard,
   IndianRupee,
   RefreshCw,
   FileSpreadsheet,
-  AlertCircle
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
-import { formatIndianCurrency } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
 import { usePagedQuery } from '../../hooks/usePagedQuery';
 import { SpatialPagination } from '../../components/common/SpatialPagination';

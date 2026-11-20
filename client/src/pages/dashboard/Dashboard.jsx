@@ -5,28 +5,22 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  TrendingUp,
   IndianRupee,
   Plus,
   ArrowRight,
   Search,
-  Filter,
-  Calendar,
   Eye,
   Trash2,
-  Edit3,
-  Layers,
-  Sparkles,
   Wallet,
   Receipt,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { dashboardService } from '../../services/dashboardService';
 import { useDebounce } from '../../hooks/useDebounce';
 import { jobService } from '../../services/jobService';
-import { Card, LoadingSpinner, EmptyState, StatsSkeleton, TableSkeleton, Skeleton } from '../../components/common/Card';
+import { Card, EmptyState, StatsSkeleton, TableSkeleton, Skeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';

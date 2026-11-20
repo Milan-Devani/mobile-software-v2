@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import QRCode from "qrcode";
-import { Printer, Share2, Download, Copy, Check, X } from "lucide-react";
+import { Printer, Share2, Copy, Check } from "lucide-react";
 import toast from "react-hot-toast";
 import { copyTextToClipboard } from '../../utils/clipboard';
 import {

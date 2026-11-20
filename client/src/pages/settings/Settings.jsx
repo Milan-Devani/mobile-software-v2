@@ -18,13 +18,9 @@ import {
   Search,
   Mail,
   Phone,
-  Shield,
-  Layers,
-  CheckCircle2,
   Sliders,
   Trash2,
   X,
-  Edit2,
   LogOut,
   Database,
   Upload,
@@ -38,7 +34,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { settingsService } from '../../services/settingsService';
 import { setShopProfile } from '../../store/settingsSlice';
 import { authService } from '../../services/authService';
-import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { Badge } from '../../components/common/Badge';
@@ -261,13 +257,15 @@ export const Settings = () => {
     }
   };
 
-  const fetchSettings = async () => {
+  // refreshUsers: reload the staff list too (after add/delete user). Skipped on mount,
+  // where the users effect below already performs the initial load.
+  const fetchSettings = async ({ refreshUsers = true } = {}) => {
     try {
       setLoading(true);
       const settingsData = await settingsService.getSettings();
       setShop(settingsData.shop || {});
       setNotifications(settingsData.notifications || {});
-      fetchUsersRef.current?.();
+      if (refreshUsers) fetchUsersRef.current?.();
       fetchWaStatus();
     } catch {
       toast.error('Failed to load settings');
@@ -277,7 +275,7 @@ export const Settings = () => {
   };
 
   useEffect(() => {
-    fetchSettings();
+    fetchSettings({ refreshUsers: false });
   }, []);
 
   // ---- Staff & Users: server-side pagination / search / role filter ----

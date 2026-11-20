@@ -1,8 +1,6 @@
 import {
   db,
-  generateNextVendorCode,
   generateNextVendorTxnNumber,
-  generateNextVendorVoucherNumber,
 } from '../db/db.js';
 import { readPagination, paginateArray } from '../utils/pagination.js';
 import { AppError } from '../middleware/errorHandler.js';

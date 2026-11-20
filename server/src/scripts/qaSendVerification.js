@@ -1,6 +1,5 @@
-import { sendBaileysMessage, formatJid, getBaileysStatus } from '../services/baileysService.js';
+import { sendBaileysMessage, getBaileysStatus } from '../services/baileysService.js';
 import { sendBrevoEmail } from '../services/brevoEmailService.js';
-import { env } from '../config/env.js';
 
 const targetPhone = process.argv[2] || process.env.QA_TEST_PHONE;
 const targetEmail = process.argv[3] || process.env.QA_TEST_EMAIL;

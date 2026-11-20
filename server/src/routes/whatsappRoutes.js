@@ -14,9 +14,11 @@ import { AppError } from '../middleware/errorHandler.js';
 const router = express.Router();
 
 /**
- * Public or Authenticated status of Baileys connection
+ * Status of the Baileys connection. Requires login: while disconnected the payload
+ * includes the pairing QR code, which would let anyone link their phone to the
+ * shop's WhatsApp account if this route were public.
  */
-router.get('/status', async (req, res, next) => {
+router.get('/status', authenticateToken, async (req, res, next) => {
   try {
     const status = getBaileysStatus();
     // If disconnected, trigger background initialization without blocking response

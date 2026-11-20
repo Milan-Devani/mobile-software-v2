@@ -7,27 +7,21 @@ import {
   Search,
   Printer,
   Trash2,
-  Eye,
-  Smartphone,
-  Package,
   Calendar,
   Clock,
-  CreditCard,
   IndianRupee,
   Share2,
   X,
   Phone,
   ShieldCheck,
   CheckCircle2,
-  Tag,
-  Building,
   Download,
   FileText,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
@@ -42,6 +36,7 @@ import {
   cleanWarrantyText,
   calculatePendingWarranty,
 } from '../../utils/billFormatters';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'All Bills' },
@@ -120,7 +115,9 @@ export const SalesList = () => {
     }
   }, [debouncedSearch]);
 
+  const beginSalesRequest = useLatestRequest();
   const fetchSales = async () => {
+    const isLatest = beginSalesRequest();
     try {
       setLoading(true);
       const params = {
@@ -143,15 +140,17 @@ export const SalesList = () => {
       }
 
       const res = await salesService.getSales(params);
+      if (!isLatest()) return;
       const list = res?.data?.sales || res?.sales || [];
       const totalCount = res?.data?.total !== undefined ? res.data.total : (res?.total !== undefined ? res.total : (Array.isArray(list) ? list.length : 0));
       setSales(list);
       setTotal(totalCount);
     } catch (err) {
+      if (!isLatest()) return;
       console.error('Failed to load sales list:', err);
       toast.error('Failed to load sales bills');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 

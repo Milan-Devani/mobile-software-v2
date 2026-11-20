@@ -1,5 +1,4 @@
 import { db, initDb, generateNextJobNumber } from '../db/db.js';
-import { env } from '../config/env.js';
 import bcrypt from 'bcryptjs';
 
 async function runComprehensiveQA() {

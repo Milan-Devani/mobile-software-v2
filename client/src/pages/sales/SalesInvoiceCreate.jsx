@@ -2,30 +2,17 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
-  Smartphone,
-  Package,
   Plus,
   Trash2,
   Printer,
   Save,
   Receipt,
-  User,
-  Phone,
-  Mail,
-  MapPin,
-  ShieldCheck,
-  Percent,
-  IndianRupee,
   ArrowLeft,
-  X,
-  Building,
-  CheckCircle2,
   FileText,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   Card,
-  LoadingSpinner,
   FormSkeleton,
 } from "../../components/common/Card";
 import { Button } from "../../components/common/Button";

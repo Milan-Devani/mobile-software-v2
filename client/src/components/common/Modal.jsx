@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/bodyScrollLock';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -13,23 +14,25 @@ export const Modal = ({
   footer,
   bodyClassName = 'py-3.5 px-3 sm:py-4 sm:px-4',
 }) => {
+  // Keep the latest onClose without re-running the effect: callers usually pass a new
+  // inline function on every render.
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
+  useEffect(() => {
+    if (!isOpen) return undefined;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onCloseRef.current?.();
     };
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-      document.body.classList.add('modal-open');
-      window.addEventListener('keydown', handleKeyDown);
-    }
+    lockBodyScroll();
+    window.addEventListener('keydown', handleKeyDown);
     return () => {
-      document.body.style.overflow = 'unset';
-      document.body.classList.remove('modal-open');
+      unlockBodyScroll();
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   const sizeMap = {
     sm: 'max-w-sm',

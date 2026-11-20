@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Package, ChevronDown, Search, X, Check, Boxes } from 'lucide-react';
+import { Package, ChevronDown, Search, X, Boxes } from 'lucide-react';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 
 export const SpatialPartsPicker = ({

@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { IndianRupee, Calendar, FileText, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';

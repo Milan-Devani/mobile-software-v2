@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/bodyScrollLock';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -14,6 +15,13 @@ export const SpatialDrawer = ({
 }) => {
   const [mounted, setMounted] = useState(false);
   const [active, setActive] = useState(false);
+  // Whether this drawer currently holds the page scroll lock. Only a drawer that
+  // actually opened releases it, so mounting closed never unlocks another overlay.
+  const holdsLockRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
 
   useEffect(() => {
     let timer;
@@ -25,42 +33,42 @@ export const SpatialDrawer = ({
           setActive(true);
         }, 20);
       });
-      document.body.style.overflow = 'hidden';
-      document.body.classList.add('modal-open');
+      if (!holdsLockRef.current) {
+        holdsLockRef.current = true;
+        lockBodyScroll();
+      }
       return () => {
         cancelAnimationFrame(raf);
         clearTimeout(timer);
       };
-    } else {
-      setActive(false);
-      timer = setTimeout(() => {
-        setMounted(false);
-        document.body.style.overflow = 'unset';
-        document.body.classList.remove('modal-open');
-      }, 350);
-      return () => clearTimeout(timer);
     }
+    setActive(false);
+    timer = setTimeout(() => {
+      setMounted(false);
+      if (holdsLockRef.current) {
+        holdsLockRef.current = false;
+        unlockBodyScroll();
+      }
+    }, 350);
+    return () => clearTimeout(timer);
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return undefined;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onCloseRef.current?.();
     };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
 
-  // Cleanup on unmount
+  // Release the lock if the drawer unmounts while open (or mid close-animation).
   useEffect(() => {
     return () => {
-      document.body.style.overflow = 'unset';
-      document.body.classList.remove('modal-open');
+      if (holdsLockRef.current) {
+        holdsLockRef.current = false;
+        unlockBodyScroll();
+      }
     };
   }, []);
 

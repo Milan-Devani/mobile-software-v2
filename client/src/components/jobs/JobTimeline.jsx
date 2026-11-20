@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Clock, ArrowRight } from 'lucide-react';
 import { Badge } from '../common/Badge';
 
 export const JobTimeline = ({ history = [] }) => {

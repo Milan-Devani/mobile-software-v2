@@ -13,7 +13,7 @@ import {
   bulkDeleteCategories
 } from '../controllers/partsController.js';
 import { authenticateToken } from '../middleware/auth.js';
-import { requireAdmin, requireTechnicianOrAdmin, requireAnyRole } from '../middleware/roleGuard.js';
+import { requireTechnicianOrAdmin, requireAnyRole } from '../middleware/roleGuard.js';
 
 const router = express.Router();
 

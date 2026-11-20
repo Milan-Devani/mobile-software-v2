@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom';
 import {
   FileText,
-  Calendar,
   Download,
   Printer,
   PlusCircle,
@@ -12,9 +11,6 @@ import {
   ArrowDownLeft,
   Building2,
   Phone,
-  ShieldCheck,
-  IndianRupee,
-  AlertCircle
 } from 'lucide-react';
 import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { Button } from '../../components/common/Button';
@@ -22,7 +18,6 @@ import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
-import { formatIndianCurrency } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 

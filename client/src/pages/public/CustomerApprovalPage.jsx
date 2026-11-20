@@ -8,11 +8,10 @@ import {
   Phone,
   MapPin,
   AlertCircle,
-  FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { jobService } from '../../services/jobService';
-import { LoadingSpinner, CardSkeleton } from '../../components/common/Card';
+import { CardSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 
 export const CustomerApprovalPage = () => {

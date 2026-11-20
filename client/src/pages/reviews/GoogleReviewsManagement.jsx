@@ -8,37 +8,29 @@ import {
   Clock,
   Eye,
   ExternalLink,
-  RotateCcw,
   Search,
-  Filter,
   Copy,
   Check,
   Settings,
   ShieldAlert,
-  Smartphone,
-  MessageSquare,
-  Wrench,
-  X,
   RefreshCw,
   Save,
   Globe,
   Sliders,
   Layers,
-  ChevronRight,
-  TrendingUp,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { reviewService } from '../../services/reviewService';
 import { copyTextToClipboard } from '../../utils/clipboard';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
-import { Badge } from '../../components/common/Badge';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { formatInvoiceDate } from '../../utils/billFormatters';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 export const GoogleReviewsManagement = () => {
   const [loading, setLoading] = useState(true);
@@ -78,7 +70,9 @@ export const GoogleReviewsManagement = () => {
   const [copiedId, setCopiedId] = useState(null);
 
   // Fetch Requests & Dashboard Stats
+  const beginRequestsRequest = useLatestRequest();
   const fetchData = useCallback(async () => {
+    const isLatest = beginRequestsRequest();
     try {
       setLoading(true);
       const res = await reviewService.getRequests({
@@ -88,6 +82,7 @@ export const GoogleReviewsManagement = () => {
         rating: ratingFilter,
         search: debouncedSearch,
       });
+      if (!isLatest()) return;
 
       setRequests(res.requests || []);
       setTotalCount(res.total || 0);
@@ -95,11 +90,12 @@ export const GoogleReviewsManagement = () => {
         setStats(res.stats);
       }
     } catch (err) {
+      if (!isLatest()) return;
       toast.error('Failed to load review requests.');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [page, pageSize, statusFilter, ratingFilter, debouncedSearch]);
+  }, [page, pageSize, statusFilter, ratingFilter, debouncedSearch, beginRequestsRequest]);
 
   useEffect(() => {
     fetchData();

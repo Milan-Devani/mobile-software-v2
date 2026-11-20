@@ -1,28 +1,24 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  CreditCard,
   IndianRupee,
   Search,
   ExternalLink,
   Trash2,
   RefreshCw,
-  Wallet,
-  Receipt,
-  ArrowUpDown,
-  Filter,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { paymentService } from '../../services/paymentService';
-import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 
 export const PaymentsList = () => {
   const navigate = useNavigate();
@@ -46,7 +42,9 @@ export const PaymentsList = () => {
     upiTotal: 0,
   });
 
+  const beginPaymentsRequest = useLatestRequest();
   const fetchPayments = useCallback(async () => {
+    const isLatest = beginPaymentsRequest();
     try {
       setLoading(true);
       const params = {
@@ -59,6 +57,7 @@ export const PaymentsList = () => {
       if (endDate) params.endDate = endDate;
 
       const res = await paymentService.getPayments(params);
+      if (!isLatest()) return;
 
       setPayments(res.payments || []);
       setTotal(res.total ?? (res.payments ? res.payments.length : 0));
@@ -66,11 +65,12 @@ export const PaymentsList = () => {
         setStats(res.stats);
       }
     } catch (err) {
+      if (!isLatest()) return;
       toast.error('Failed to load payments ledger');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
-  }, [methodFilter, debouncedSearch, page, pageSize, startDate, endDate]);
+  }, [methodFilter, debouncedSearch, page, pageSize, startDate, endDate, beginPaymentsRequest]);
 
   useEffect(() => {
     fetchPayments();

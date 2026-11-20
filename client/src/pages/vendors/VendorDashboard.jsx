@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { NavLink } from "react-router-dom";
+import React, { useState, useEffect, useCallback } from "react";
 import { useDebounce } from "../../hooks/useDebounce";
 import { usePagedQuery } from "../../hooks/usePagedQuery";
 import { SpatialPagination } from "../../components/common/SpatialPagination";
@@ -10,35 +9,25 @@ import {
   Smartphone,
   Plus,
   Search,
-  Filter,
   IndianRupee,
   Printer,
   Copy,
   Check,
   Phone,
   Mail,
-  MapPin,
   Trash2,
   Edit2,
-  Calendar,
   Clock,
   Eye,
   CheckCircle2,
-  AlertCircle,
-  HelpCircle,
-  Receipt,
   X,
-  ExternalLink,
-  ChevronDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import {
   Card,
-  LoadingSpinner,
   EmptyState,
   TableSkeleton,
-  StatsSkeleton,
 } from "../../components/common/Card";
 import { Button } from "../../components/common/Button";
 import { SpatialSelect } from "../../components/common/SpatialSelect";

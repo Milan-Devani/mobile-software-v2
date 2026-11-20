@@ -4,17 +4,14 @@ import {
   Share2,
   Copy,
   Check,
-  Building2,
-  Phone,
   Calendar,
-  Smartphone,
-  ShieldCheck,
   Receipt,
   X,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { copyTextToClipboard } from '../../utils/clipboard';
 import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
+import { getGreeting } from '../../utils/greeting';
 
 // Simple Barcode SVG
 const SimpleBarcode = ({ value = 'VND-0001' }) => {
@@ -110,23 +107,6 @@ export const VendorReceiptPrintable = ({
       )
       .join('\n\n');
 
-    const getGreeting = () => {
-      let hour;
-      try {
-        const istTimeStr = new Date().toLocaleTimeString('en-US', {
-          timeZone: 'Asia/Kolkata',
-          hour12: false,
-          hour: 'numeric',
-        });
-        hour = parseInt(istTimeStr, 10);
-      } catch (_) {
-        hour = new Date().getHours();
-      }
-      if (hour >= 5 && hour < 12) return '☀️ Good Morning';
-      if (hour >= 12 && hour < 17) return '🌤️ Good Afternoon';
-      if (hour >= 17 && hour < 21) return '🌆 Good Evening';
-      return '🌙 Hello';
-    };
 
     const msg = encodeURIComponent(
       `${getGreeting()} *${vendor.name || 'Vendor'}*!\n\n` +

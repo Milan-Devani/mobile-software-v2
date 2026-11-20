@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, Phone, Mail, MapPin, Save, X } from 'lucide-react';
+import { Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
-import { SpatialSelect } from '../common/SpatialSelect';
 import {
   isValidPhoneNumber,
   MAX_PHONE_INPUT_LENGTH,

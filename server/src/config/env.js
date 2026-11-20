@@ -106,3 +106,9 @@ export const env = {
   AI_MAX_RETRIES: parseInt(process.env.AI_MAX_RETRIES || '1', 10),
   AI_REVIEW_MAX_WORDS: parseInt(process.env.AI_REVIEW_MAX_WORDS || '55', 10),
 };
+
+// The JWT_SECRET fallback above is public (it's in the source code), so any token signed with
+// it can be forged. Warn loudly if production ever starts without a real secret.
+if (env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.error('🚨 SECURITY: JWT_SECRET is not set in production. Login tokens can be forged. Set JWT_SECRET now.');
+}

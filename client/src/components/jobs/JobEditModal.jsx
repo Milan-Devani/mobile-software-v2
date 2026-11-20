@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Smartphone, Save, AlertCircle } from 'lucide-react';
+import { Smartphone, Save } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';

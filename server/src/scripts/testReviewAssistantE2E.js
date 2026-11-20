@@ -1,6 +1,6 @@
 import { generateReviewText } from '../services/aiReview.service.js';
 import { db, initDb } from '../db/db.js';
-import { generateSecureReviewToken, triggerAutoReviewInvitation } from '../services/reviewInvitationService.js';
+import { generateSecureReviewToken } from '../services/reviewInvitationService.js';
 import { env } from '../config/env.js';
 
 async function runE2eTests() {

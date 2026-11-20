@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLatestRequest } from '../../hooks/useLatestRequest';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import {
   Wrench,
-  Clock,
   CheckCircle2,
   AlertCircle,
   FileText,
@@ -13,13 +13,10 @@ import {
   Share2,
   ExternalLink,
   ArrowLeft,
-  Smartphone,
-  User,
   ShieldCheck,
   Send,
   Plus,
   Trash2,
-  History,
   Copy,
   Check,
   Ban,
@@ -27,10 +24,9 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Tag,
-  Percent,
   Sparkles,
   Truck,
-  PackageCheck
+  PackageCheck,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -44,7 +40,7 @@ import { copyTextToClipboard } from '../../utils/clipboard';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 import { MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps } from '../../utils/numberInput';
 
-import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
+import { Card, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -278,14 +274,27 @@ export const JobDetail = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isPrintInvoiceOpen, isPrintJobSheetOpen]);
 
+  // Shop settings can't change from this page, so after the first successful load they
+  // are reused when the job is refetched after an action (parts are still refetched
+  // because stock levels can change).
+  const shopCacheRef = useRef(null);
+  const beginJobRequest = useLatestRequest();
+
   const fetchJobData = async () => {
+    const isLatest = beginJobRequest();
     try {
       setLoading(true);
+      const shopRequest = shopCacheRef.current
+        ? Promise.resolve(shopCacheRef.current)
+        : settingsService.getSettings().then((res) => res.shop).catch(() => null);
       const [jobData, shopData, partsData] = await Promise.all([
         jobService.getJobById(id),
-        settingsService.getSettings().then((res) => res.shop).catch(() => null),
+        shopRequest,
         partsService.getParts().catch(() => []),
       ]);
+      // Ignore responses for a job the user has already navigated away from.
+      if (!isLatest()) return;
+      if (shopData) shopCacheRef.current = shopData;
       setJob(jobData);
       setShop(shopData);
       setAvailableParts(partsData);
@@ -351,10 +360,11 @@ export const JobDetail = () => {
         }));
       }
     } catch (err) {
+      if (!isLatest()) return;
       toast.error('Failed to load Job Sheet');
       navigate('/jobs');
     } finally {
-      setLoading(false);
+      if (isLatest()) setLoading(false);
     }
   };
 

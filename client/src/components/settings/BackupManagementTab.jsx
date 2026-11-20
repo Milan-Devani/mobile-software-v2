@@ -8,7 +8,6 @@ import {
   Play,
   CheckCircle2,
   XCircle,
-  HardDrive,
   Info,
   ExternalLink,
   Copy,
@@ -26,7 +25,7 @@ import toast from "react-hot-toast";
 import Swal from "sweetalert2";
 import { backupService } from "../../services/backupService";
 import { copyTextToClipboard } from "../../utils/clipboard";
-import { Card, LoadingSpinner, EmptyState, CardSkeleton } from "../common/Card";
+import { Card, EmptyState, CardSkeleton } from "../common/Card";
 import { Button } from "../common/Button";
 import { SpatialPagination } from "../common/SpatialPagination";
 import { useSelector } from "react-redux";

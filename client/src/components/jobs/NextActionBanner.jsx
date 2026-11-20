@@ -5,12 +5,10 @@ import {
   AlertCircle,
   FileText,
   Clock,
-  Sparkles,
   ShoppingBag,
-  Send,
   Play,
   RotateCcw,
-  SlidersHorizontal
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Badge } from '../common/Badge';
 
@@ -235,17 +233,6 @@ export const NextActionBanner = ({
           btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
           action: onReopenJob,
           canPerform: false,
-        };
-        return {
-          title: 'Job Sheet Returned Unrepaired',
-          instruction: 'This repair job was not repaired and closed. You can reopen it if service is requested again.',
-          buttonLabel: 'Reopen Repair Job',
-          icon: RotateCcw,
-          bg: 'bg-slate-100 border-slate-300',
-          textColor: 'text-slate-800',
-          btnClass: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm',
-          action: onReopenJob,
-          canPerform: true,
         };
 
       default:

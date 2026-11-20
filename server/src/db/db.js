@@ -173,6 +173,33 @@ export const extractInvoiceSeq = (rawNumber, explicitSeq = null) => {
   return 0;
 };
 
+// Supabase's REST API caps every response (1000 rows by default), so a plain
+// select('*') silently returns a truncated table once it grows past that. This keeps the
+// original single request for normal-sized tables (same rows, same order) and only pages
+// through the table, in a stable id order, when the first response hits the cap.
+const SUPABASE_PAGE_SIZE = 1000;
+const SUPABASE_MAX_ROWS_PER_TABLE = 200000; // safety ceiling for the in-memory copy
+
+const selectAllRows = async (supabase, table, columns = '*') => {
+  const first = await supabase.from(table).select(columns).limit(3000);
+  if (first.error || !Array.isArray(first.data) || first.data.length < SUPABASE_PAGE_SIZE) {
+    return first;
+  }
+  const rows = [];
+  for (let from = 0; from < SUPABASE_MAX_ROWS_PER_TABLE; from += SUPABASE_PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .order('id', { ascending: true })
+      .range(from, from + SUPABASE_PAGE_SIZE - 1);
+    if (error || !Array.isArray(data)) return first; // paging not possible: keep previous behaviour
+    rows.push(...data);
+    if (data.length < SUPABASE_PAGE_SIZE) return { data: rows, error: null };
+  }
+  console.warn(`⚠️ ${table}: more than ${SUPABASE_MAX_ROWS_PER_TABLE} rows, in-memory copy truncated.`);
+  return { data: rows, error: null };
+};
+
 export const syncFromSupabase = async () => {
   if (!isSupabaseConfigured()) return;
   if (isSyncInProgress && syncPromise) {
@@ -223,7 +250,7 @@ export const syncFromSupabase = async () => {
       await Promise.all(
         coreTables.map(async (tbl) => {
           try {
-            const { data, error } = await supabase.from(tbl).select('*').limit(3000);
+            const { data, error } = await selectAllRows(supabase, tbl);
             if (!error && Array.isArray(data)) {
               if (!seedFallbackTables.has(tbl) || data.length > 0) {
                 if (tbl === 'repair_jobs') {
@@ -463,8 +490,8 @@ export const generateNextSaleInvoiceNumber = async () => {
       const supabase = getSupabase();
       if (supabase) {
         const [{ data: remoteSales }, { data: remoteInvoices }] = await Promise.all([
-          supabase.from('sales').select('invoice_number, invoice_no_seq').limit(3000),
-          supabase.from('invoices').select('invoice_number').limit(3000),
+          selectAllRows(supabase, 'sales', 'id, invoice_number, invoice_no_seq'),
+          selectAllRows(supabase, 'invoices', 'id, invoice_number'),
         ]);
         for (const s of (remoteSales || [])) {
           recordSeq(s.invoice_number, s.invoice_no_seq);
@@ -540,6 +567,19 @@ export const db = {
     findById: async (id) => {
       if (isSupabaseConfigured()) {
         const { data } = await getSupabase().from('users').select('*').eq('id', id).single();
+        return data || null;
+      }
+      return (localDb.users || []).find(u => u.id === id) || null;
+    },
+    // Lightweight lookup for the auth middleware (runs on every request): fetches only
+    // the columns it needs, never the password hash.
+    findAuthById: async (id) => {
+      if (isSupabaseConfigured()) {
+        const { data } = await getSupabase()
+          .from('users')
+          .select('id, email, role_id, full_name, is_active')
+          .eq('id', id)
+          .single();
         return data || null;
       }
       return (localDb.users || []).find(u => u.id === id) || null;

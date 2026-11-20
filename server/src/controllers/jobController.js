@@ -546,8 +546,8 @@ export const saveEstimate = async (req, res, next) => {
 export const publicGetApprovalDetails = async (req, res, next) => {
   try {
     const { tokenOrJobNumber } = req.params;
-    const job = (await db.jobs.findById(tokenOrJobNumber)) ||
-      (await db.jobs.list({ limit: 1000 })).jobs.find(j => j.approval_token === tokenOrJobNumber || j.job_number === tokenOrJobNumber);
+    // findById matches id, job_number and approval_token.
+    const job = await db.jobs.findById(tokenOrJobNumber);
 
     if (!job) {
       throw new AppError('Approval link is invalid or expired.', 404, 'APPROVAL_NOT_FOUND');
@@ -613,8 +613,8 @@ export const publicSubmitApproval = async (req, res, next) => {
     const { tokenOrJobNumber } = req.params;
     const { decision, reason = '' } = req.body; // decision: 'APPROVE' or 'REJECT'
 
-    const job = (await db.jobs.findById(tokenOrJobNumber)) ||
-      (await db.jobs.list({ limit: 1000 })).jobs.find(j => j.approval_token === tokenOrJobNumber || j.job_number === tokenOrJobNumber);
+    // findById matches id, job_number and approval_token.
+    const job = await db.jobs.findById(tokenOrJobNumber);
 
     if (!job) {
       throw new AppError('Repair job not found or invalid approval link.', 404, 'JOB_NOT_FOUND');
@@ -1875,11 +1875,7 @@ export const updateFinalCost = async (req, res, next) => {
 export const downloadJobSheetPdf = async (req, res, next) => {
   try {
     const { jobId } = req.params;
-    let job = await db.jobs.findById(jobId);
-    if (!job) {
-      const allJobs = await db.jobs.list({ limit: 1000 });
-      job = allJobs.jobs.find(j => j.job_number === jobId);
-    }
+    const job = await db.jobs.findById(jobId); // matches id or job_number
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
     const shop = await db.shops.getProfile();

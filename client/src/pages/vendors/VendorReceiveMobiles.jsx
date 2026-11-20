@@ -8,12 +8,10 @@ import {
   Building2,
   Save,
   ArrowLeft,
-  Calendar,
   Search,
   X,
   Eye,
   Phone,
-  Receipt,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { VendorNavTabs } from '../../components/vendors/VendorNavTabs';

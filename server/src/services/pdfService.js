@@ -2,7 +2,7 @@ import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { spawn, spawnSync, execSync } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import QRCode from 'qrcode';
 import axios from 'axios';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
@@ -115,7 +115,18 @@ function generateBarcodeSvg(val, height = 20, align = 'right') {
   `;
 }
 
+// The browser location never changes while the server runs, but locating it involves
+// `which` plus blocking directory walks. Cache a successful lookup (re-validated cheaply)
+// so PDF generation doesn't stall the event loop on every request.
+let cachedBrowserBinary = null;
+
 function findBrowserBinary() {
+  if (cachedBrowserBinary && fs.existsSync(cachedBrowserBinary)) return cachedBrowserBinary;
+  cachedBrowserBinary = locateBrowserBinary();
+  return cachedBrowserBinary;
+}
+
+function locateBrowserBinary() {
   const candidatePaths = [
     process.env.CHROME_BIN,
     process.env.PUPPETEER_EXECUTABLE_PATH,

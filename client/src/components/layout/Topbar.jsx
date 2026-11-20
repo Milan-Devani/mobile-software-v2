@@ -11,7 +11,6 @@ import {
   Sparkles,
   ChevronDown,
   Check,
-  Palette,
   X,
 } from 'lucide-react';
 import { setSearchQuery } from '../../store/jobSlice';

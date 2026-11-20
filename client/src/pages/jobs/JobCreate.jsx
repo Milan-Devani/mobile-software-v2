@@ -4,26 +4,17 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import {
-  Smartphone,
-  User,
   Plus,
   ArrowLeft,
-  CheckSquare,
-  AlertTriangle,
-  Upload,
   ShieldAlert,
-  Camera,
-  Layers,
   FileCheck,
-  X,
-  Sparkles,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
 import { DateOfBirthField, isValidDateOfBirth, DATE_OF_BIRTH_ERROR } from '../../components/customers/DateOfBirthField';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
-import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
+import { Card, FormSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { SpatialSelect } from '../../components/common/SpatialSelect';

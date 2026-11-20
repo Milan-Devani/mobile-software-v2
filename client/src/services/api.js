@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-const API_BASE_URL = rawApiBase.endsWith('/api')
+export const API_BASE_URL = rawApiBase.endsWith('/api')
   ? rawApiBase
   : `${rawApiBase.replace(/\/+$/, '')}/api`;
 
@@ -77,5 +77,11 @@ api.interceptors.response.use(
     return Promise.reject(customError);
   }
 );
+
+/** Authorization header for the few calls made with fetch() instead of the axios instance. */
+export const authHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export default api;

@@ -1,55 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { QrCode, CheckCircle, RefreshCw, Smartphone, LogOut, X, AlertCircle } from 'lucide-react';
+import { CheckCircle, RefreshCw, Smartphone, LogOut, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { confirmDialog } from '../../utils/dialogs';
+import { API_BASE_URL, authHeaders } from '../../services/api';
 
 export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
   const [loading, setLoading] = useState(true);
   const [statusData, setStatusData] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchStatus = async () => {
+  // Polling guards: `activeRef` drops results that arrive after the modal closed,
+  // `inFlightRef` stops polls from piling up on a slow connection, and `notifiedRef`
+  // makes onConnected fire once per link instead of on every poll.
+  const activeRef = useRef(false);
+  const inFlightRef = useRef(false);
+  const notifiedRef = useRef(false);
+
+  // force: manual refreshes (after reconnect/disconnect) always fetch, even mid-poll.
+  const fetchStatus = async ({ force = false } = {}) => {
+    if (inFlightRef.current && !force) return;
+    inFlightRef.current = true;
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${apiBase}/whatsapp/status`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await fetch(`${API_BASE_URL}/whatsapp/status`, { headers: authHeaders() });
       const data = await res.json();
+      if (!activeRef.current) return;
       if (data?.success) {
         setStatusData(data.data);
-        if (data.data.isConnected && onConnected) {
-          onConnected(data.data.user);
+        if (data.data.isConnected) {
+          if (onConnected && !notifiedRef.current) {
+            notifiedRef.current = true;
+            onConnected(data.data.user);
+          }
+        } else {
+          notifiedRef.current = false;
         }
       }
     } catch (err) {
       console.error('Failed to fetch WhatsApp status:', err);
     } finally {
-      setLoading(false);
+      inFlightRef.current = false;
+      if (activeRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) return undefined;
+    activeRef.current = true;
+    notifiedRef.current = false;
 
     fetchStatus();
     // Poll every 2.5 seconds to detect when user scans the QR code on their phone
     const timer = setInterval(fetchStatus, 2500);
-    return () => clearInterval(timer);
+    return () => {
+      activeRef.current = false;
+      clearInterval(timer);
+    };
   }, [isOpen]);
 
   const handleReconnect = async () => {
     setIsRefreshing(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-      const token = localStorage.getItem('token');
-      await fetch(`${apiBase}/whatsapp/connect`, {
+      await fetch(`${API_BASE_URL}/whatsapp/connect`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: authHeaders(),
       });
       toast.success('Regenerating QR code...');
-      await fetchStatus();
+      await fetchStatus({ force: true });
     } catch (err) {
       toast.error('Failed to regenerate QR code');
     } finally {
@@ -66,14 +83,12 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
     });
     if (!ok) return;
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
-      const token = localStorage.getItem('token');
-      await fetch(`${apiBase}/whatsapp/disconnect`, {
+      await fetch(`${API_BASE_URL}/whatsapp/disconnect`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: authHeaders(),
       });
       toast.success('WhatsApp session disconnected');
-      await fetchStatus();
+      await fetchStatus({ force: true });
     } catch (err) {
       toast.error('Failed to disconnect');
     }
