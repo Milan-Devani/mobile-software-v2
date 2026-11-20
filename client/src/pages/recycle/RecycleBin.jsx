@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Trash2,
   RotateCcw,
@@ -104,18 +104,31 @@ export const RecycleBin = () => {
 
   const debouncedSearch = useDebounce(search, 350);
 
-  // Fetch Recycle Bin items
+  // Latest-request guard: ignore slower responses from outdated filters/pages
+  const requestIdRef = useRef(0);
+
+  // Fetch one page of Recycle Bin items from the backend
   const fetchItems = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     try {
       setLoading(true);
       const res = await recycleBinService.getItems({
         type: activeTab,
         search: debouncedSearch.trim(),
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
       });
+      if (requestId !== requestIdRef.current) return;
       const data = res?.data || res || {};
       const list = Array.isArray(data) ? data : (data.items || res?.items || []);
+      const total = data.total ?? res?.total ?? list.length;
+      // Page became empty (e.g. last item restored/deleted) → step back to the last valid page
+      if (list.length === 0 && page > 1 && total > 0) {
+        setPage(Math.max(1, Math.ceil(total / pageSize)));
+        return;
+      }
       setItems(list);
-      setTotalCount(data.total ?? res?.total ?? list.length);
+      setTotalCount(total);
       if (data.counts || res?.counts) {
         setCounts(data.counts || res?.counts);
       }
@@ -125,22 +138,27 @@ export const RecycleBin = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch]);
+  }, [activeTab, debouncedSearch, page, pageSize]);
 
+  // Filters changed → back to page 1 and clear selection
   useEffect(() => {
     setSelectedIds([]);
     setPage(1);
+  }, [activeTab, debouncedSearch]);
+
+  useEffect(() => {
     fetchItems();
   }, [fetchItems]);
 
-  // Selection logic
-  const isAllSelected = items.length > 0 && selectedIds.length === items.length;
+  // Selection logic (applies to the rows on the current page)
+  const isAllSelected = items.length > 0 && items.every((i) => selectedIds.includes(i.id));
 
   const toggleSelectAll = () => {
+    const pageIds = items.map((i) => i.id);
     if (isAllSelected) {
-      setSelectedIds([]);
+      setSelectedIds((prev) => prev.filter((id) => !pageIds.includes(id)));
     } else {
-      setSelectedIds(items.map((i) => i.id));
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...pageIds])));
     }
   };
 
@@ -277,7 +295,8 @@ export const RecycleBin = () => {
   };
 
   // Pagination slice
-  const paginatedItems = items.slice((page - 1) * pageSize, page * pageSize);
+  // Items already contain only the current page (server-side pagination)
+  const paginatedItems = items;
 
   // Tab Badge helper
   const getTabCount = (tabId) => {
@@ -427,7 +446,7 @@ export const RecycleBin = () => {
             {selectedIds.length > 0 && (
               <div className="mx-4 mt-3 mb-1 p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs flex items-center justify-between text-rose-500 animate-in fade-in">
                 <span className="font-semibold">
-                  {selectedIds.length} of {items.length} item(s) selected
+                  {selectedIds.length} of {totalCount} item(s) selected
                 </span>
                 <div className="flex items-center gap-3">
                   <button
@@ -604,12 +623,13 @@ export const RecycleBin = () => {
             </div>
 
             {/* Pagination */}
-            {items.length > pageSize && (
+            {totalCount > 0 && (
               <div className="p-4 border-t border-[var(--spatial-border)]">
                 <SpatialPagination
                   currentPage={page}
-                  totalItems={items.length}
+                  totalItems={totalCount}
                   pageSize={pageSize}
+                  pageSizeOptions={[12, 24, 50]}
                   onPageChange={(p) => setPage(p)}
                   onPageSizeChange={(s) => {
                     setPageSize(s);

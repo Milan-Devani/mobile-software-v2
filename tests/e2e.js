@@ -1,4 +1,4 @@
-const API_URL = process.env.API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.API_URL || 'http://localhost:5050/api';
 
 const req = async (path, options = {}) => {
   const url = `${API_URL}${path}`;

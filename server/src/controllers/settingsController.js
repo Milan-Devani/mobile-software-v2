@@ -87,8 +87,17 @@ export const testWhatsAppDispatch = async (req, res, next) => {
     const { getDynamicGreeting } = await import('../services/notificationService.js');
     const greeting = getDynamicGreeting();
 
+    let targetPhone = phone;
+    if (!targetPhone) {
+      const shop = await db.shops.getProfile();
+      targetPhone = shop?.phone;
+    }
+    if (!targetPhone) {
+      throw new AppError('Phone number is required for the WhatsApp test.', 400, 'PHONE_REQUIRED');
+    }
+
     const result = await sendFast2SmsWhatsApp({
-      phone: phone || '8758152507',
+      phone: targetPhone,
       message: message || `${greeting} *Customer*!\n\n*Mobotech Mobile Care - Verification*\nWhatsApp notification service is active and working properly! ❤️`,
     });
 
@@ -108,7 +117,14 @@ export const testEmailDispatch = async (req, res, next) => {
     const { sendBrevoEmail } = await import('../services/brevoEmailService.js');
     const { getDynamicGreeting } = await import('../services/notificationService.js');
     const greeting = getDynamicGreeting();
-    const recipient = email || 'milandevani994@gmail.com';
+    let recipient = email;
+    if (!recipient) {
+      const shop = await db.shops.getProfile();
+      recipient = shop?.email || env.EMAIL_FROM;
+    }
+    if (!recipient) {
+      throw new AppError('Email address is required for the test email.', 400, 'EMAIL_REQUIRED');
+    }
 
     const result = await sendBrevoEmail({
       toEmail: recipient,

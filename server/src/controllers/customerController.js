@@ -40,6 +40,32 @@ const validateChangedPhoneFields = (updates, existing) => {
   }
 };
 
+/**
+ * Normalizes an optional date of birth to 'YYYY-MM-DD' or null.
+ * Empty values become null (Postgres DATE rejects ''). Invalid / future dates throw.
+ */
+const normalizeDateOfBirth = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || String(value).trim() === '') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value).trim());
+  if (!match) {
+    throw new AppError('Date of birth must be a valid date (YYYY-MM-DD).', 400, 'INVALID_DOB');
+  }
+  const [, y, m, d] = match;
+  const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+  const valid =
+    date.getUTCFullYear() === Number(y) &&
+    date.getUTCMonth() === Number(m) - 1 &&
+    date.getUTCDate() === Number(d);
+  if (!valid || Number(y) < 1900) {
+    throw new AppError('Date of birth must be a valid date (YYYY-MM-DD).', 400, 'INVALID_DOB');
+  }
+  if (date.getTime() > Date.now()) {
+    throw new AppError('Date of birth cannot be in the future.', 400, 'INVALID_DOB');
+  }
+  return `${y}-${m}-${d}`;
+};
+
 export const getCustomers = async (req, res, next) => {
   try {
     const { search = '', limit = 50, offset = 0, startDate = '', endDate = '' } = req.query;
@@ -71,7 +97,9 @@ export const getCustomerById = async (req, res, next) => {
 
     // Fetch devices and repair jobs for this customer
     const devices = await db.devices.listByCustomerId(id);
-    const { jobs } = await db.jobs.list({ customerId: id, limit: 100 });
+    // Stats are computed over ALL of the customer's jobs (previously capped at 100).
+    // The jobs table itself is paginated by the client via GET /jobs?customerId=…
+    const { jobs } = await db.jobs.list({ customerId: id, limit: 100000 });
 
     // Calculate customer statistics
     let totalRepairs = jobs.length;
@@ -96,7 +124,8 @@ export const getCustomerById = async (req, res, next) => {
       data: {
         customer,
         devices,
-        jobs,
+        jobs: jobs.slice(0, 100), // kept for backward compatibility
+        jobs_total: jobs.length,
         stats: {
           total_repairs: totalRepairs,
           active_repairs: activeRepairs,
@@ -127,6 +156,7 @@ export const createCustomer = async (req, res, next) => {
       state,
       postal_code,
       notes,
+      date_of_birth,
     } = req.body;
 
     if (!full_name || !phone) {
@@ -134,6 +164,7 @@ export const createCustomer = async (req, res, next) => {
     }
 
     assertValidPhone(phone);
+    const dob = normalizeDateOfBirth(date_of_birth);
     validateChangedPhoneFields(
       { whatsapp_number, alternate_phone, alternate_whatsapp },
       { whatsapp_number: '', alternate_phone: '', alternate_whatsapp: '' }
@@ -153,6 +184,7 @@ export const createCustomer = async (req, res, next) => {
       state: state || '',
       postal_code: postal_code || '',
       notes: notes || '',
+      ...(dob ? { date_of_birth: dob } : {}),
     });
 
     res.status(201).json({
@@ -175,7 +207,12 @@ export const updateCustomer = async (req, res, next) => {
 
     validateChangedPhoneFields(req.body, existing);
 
-    const updated = await db.customers.update(id, req.body);
+    const updates = { ...req.body };
+    if (Object.prototype.hasOwnProperty.call(updates, 'date_of_birth')) {
+      updates.date_of_birth = normalizeDateOfBirth(updates.date_of_birth);
+    }
+
+    const updated = await db.customers.update(id, updates);
 
     res.json({
       success: true,
@@ -193,7 +230,7 @@ export const deleteCustomer = async (req, res, next) => {
     const force = req.query.force === 'true' || req.body?.force === true;
 
     // Check if customer has associated jobs
-    const { jobs } = await db.jobs.list({ customerId: id, limit: 100 });
+    const { jobs } = await db.jobs.list({ customerId: id, limit: 100000 });
     if (jobs && jobs.length > 0 && !force) {
       throw new AppError(
         `Customer has ${jobs.length} existing repair job(s). Please confirm deletion to remove this customer and their repair history.`,

@@ -4,6 +4,7 @@ import {
   generateNextVendorTxnNumber,
   generateNextVendorVoucherNumber,
 } from '../db/db.js';
+import { readPagination, paginateArray } from '../utils/pagination.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 // -------------------------------------------------------------
@@ -374,22 +375,46 @@ export const getVendorMobiles = async (req, res, next) => {
       offset = 0,
       sortBy = 'created_at',
       sortDir = 'desc',
+      excludeStatus = '',
+      countStatuses = '',
     } = req.query;
 
-    const result = await db.vendor_mobiles.list({
+    const baseFilters = {
       search,
       vendorId,
       flowType,
-      status,
+      excludeStatuses: String(excludeStatus || '').split(',').map((s) => s.trim()).filter(Boolean),
       paymentStatus,
       imei,
       startDate,
       endDate,
+    };
+
+    const result = await db.vendor_mobiles.list({
+      ...baseFilters,
+      status,
       limit: parseInt(limit, 10),
       offset: parseInt(offset, 10),
       sortBy,
       sortDir,
     });
+
+    // Optional: per-status totals over the whole filtered set (not just this page),
+    // e.g. ?countStatuses=IN_REPAIR,PENDING — used by KPI cards on paginated screens.
+    const statusesToCount = String(countStatuses || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => /^[A-Z_]+$/.test(s));
+    if (statusesToCount.length > 0) {
+      const entries = await Promise.all(
+        statusesToCount.map(async (s) => {
+          if (status && status !== 'ALL' && status !== s) return [s, 0];
+          const { total } = await db.vendor_mobiles.list({ ...baseFilters, status: s, limit: 1, offset: 0 });
+          return [s, total || 0];
+        })
+      );
+      result.status_counts = Object.fromEntries(entries);
+    }
 
     res.json({
       success: true,
@@ -492,16 +517,38 @@ export const bulkDeleteVendorMobiles = async (req, res, next) => {
 export const getVendorLedger = async (req, res, next) => {
   try {
     const { vendorId } = req.params;
-    const { startDate = '', endDate = '' } = req.query;
+    const { startDate = '', endDate = '', search = '' } = req.query;
 
     const statement = await db.vendor_ledger.getVendorStatement(vendorId, {
       startDate,
       endDate,
     });
 
+    const pagination = readPagination(req.query);
+    const term = String(search || '').toLowerCase().trim();
+    if (!pagination && !term) {
+      // Old behaviour: full statement
+      return res.json({ success: true, data: statement });
+    }
+
+    const matching = term
+      ? statement.entries.filter(
+          (entry) =>
+            (entry.description || '').toLowerCase().includes(term) ||
+            (entry.reference_no || '').toLowerCase().includes(term) ||
+            (entry.entry_type || '').toLowerCase().includes(term) ||
+            (entry.payment_mode || '').toLowerCase().includes(term)
+        )
+      : statement.entries;
+
     res.json({
       success: true,
-      data: statement,
+      data: {
+        ...statement,
+        entries: paginateArray(matching, pagination),
+        total_entries: matching.length,
+        ...(pagination || {}),
+      },
     });
   } catch (err) {
     next(err);

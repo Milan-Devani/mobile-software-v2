@@ -28,6 +28,7 @@ import { backupService } from "../../services/backupService";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import { Card, LoadingSpinner, EmptyState, CardSkeleton } from "../common/Card";
 import { Button } from "../common/Button";
+import { SpatialPagination } from "../common/SpatialPagination";
 import { useSelector } from "react-redux";
 
 export const BackupManagementTab = () => {
@@ -37,6 +38,13 @@ export const BackupManagementTab = () => {
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [total, setTotal] = useState(0);
+  // Backup history pagination (server-side via limit/offset)
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize, setHistoryPageSize] = useState(10);
+  // Refs let polling/action refreshes always load the page the user is viewing
+  const historyPagingRef = useRef({ page: 1, pageSize: 10 });
+  historyPagingRef.current = { page: historyPage, pageSize: historyPageSize };
+  const historyRequestIdRef = useRef(0);
   const [isTriggering, setIsTriggering] = useState(false);
   const [isWiping, setIsWiping] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
@@ -60,13 +68,23 @@ export const BackupManagementTab = () => {
   const fetchStatusAndHistory = async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+      const { page: hPage, pageSize: hSize } = historyPagingRef.current;
+      const requestId = ++historyRequestIdRef.current;
       const [statusRes, historyRes] = await Promise.all([
         backupService.getBackupStatus(),
-        backupService.getBackupHistory({ limit: 15 }),
+        backupService.getBackupHistory({ limit: hSize, offset: (hPage - 1) * hSize }),
       ]);
       setStatus(statusRes || null);
-      setHistory(historyRes?.backups || []);
-      setTotal(historyRes?.total || 0);
+      if (requestId !== historyRequestIdRef.current) return;
+      const rows = historyRes?.backups || [];
+      const totalRows = historyRes?.total || 0;
+      // Page emptied (e.g. after deleting its last backup) → go to the last valid page
+      if (rows.length === 0 && hPage > 1 && totalRows > 0) {
+        setHistoryPage(Math.max(1, Math.ceil(totalRows / hSize)));
+        return;
+      }
+      setHistory(rows);
+      setTotal(totalRows);
     } catch (err) {
       if (!silent) {
         toast.error(
@@ -79,6 +97,18 @@ export const BackupManagementTab = () => {
       if (!silent) setLoading(false);
     }
   };
+
+  // Page / page-size change → load that page quietly (first load handled below)
+  const historyPagingMountedRef = useRef(false);
+  useEffect(() => {
+    if (!historyPagingMountedRef.current) {
+      historyPagingMountedRef.current = true;
+      return;
+    }
+    setSelectedIds([]);
+    fetchStatusAndHistory(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyPage, historyPageSize]);
 
   useEffect(() => {
     fetchStatusAndHistory();
@@ -513,7 +543,7 @@ export const BackupManagementTab = () => {
   };
 
   const toggleSelectAll = () => {
-    if (selectedIds.length === history.length) {
+    if (history.length > 0 && selectedIds.length === history.length) {
       setSelectedIds([]);
     } else {
       setSelectedIds(history.map((b) => b.id));
@@ -1358,7 +1388,7 @@ export const BackupManagementTab = () => {
             )}
           </div>
         }
-        subtitle={`Displaying last ${history.length} backup executions.`}
+        subtitle={`${total} backup execution${total === 1 ? "" : "s"} recorded (newest first).`}
       >
         {history.length === 0 ? (
           <EmptyState
@@ -1544,6 +1574,20 @@ export const BackupManagementTab = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {total > 0 && (
+          <div className="pt-3 border-t border-[var(--spatial-border)]">
+            <SpatialPagination
+              currentPage={historyPage}
+              pageSize={historyPageSize}
+              totalItems={total}
+              onPageChange={setHistoryPage}
+              onPageSizeChange={(size) => {
+                setHistoryPageSize(size);
+                setHistoryPage(1);
+              }}
+            />
           </div>
         )}
       </Card>

@@ -219,7 +219,7 @@ export const VendorSendMobiles = () => {
         setLoadingInit(true);
         const [nextNoRes, vendorsRes, settingsRes] = await Promise.allSettled([
           vendorService.getNextTxnNumber("SEND_TO_VENDOR"),
-          vendorService.getVendors({ limit: 150, status: "ACTIVE" }),
+          vendorService.getVendors({ limit: 1000, status: "ACTIVE" }),
           settingsService.getSettings(),
         ]);
 

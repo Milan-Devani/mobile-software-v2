@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { db } from '../db/db.js';
 import { env } from '../config/env.js';
 import { AppError } from '../middleware/errorHandler.js';
+import { readPagination, paginateArray } from '../utils/pagination.js';
 
 export const login = async (req, res, next) => {
   try {
@@ -72,10 +73,45 @@ export const getProfile = async (req, res, next) => {
 
 export const listUsers = async (req, res, next) => {
   try {
+    const pagination = readPagination(req.query);
     const users = await db.users.list();
+
+    // Old behaviour (no ?limit): full list, exactly as before
+    if (!pagination) {
+      return res.json({
+        success: true,
+        data: { users },
+      });
+    }
+
+    const { search = '', role = 'ALL' } = req.query;
+    // Developer accounts are only visible to developers (same rule the UI applied)
+    const visible = req.user?.role_id === 'developer' ? users : users.filter((u) => u.role_id !== 'developer');
+
+    const counts = visible.reduce((acc, u) => {
+      acc[u.role_id] = (acc[u.role_id] || 0) + 1;
+      return acc;
+    }, { ALL: visible.length });
+
+    const q = String(search).toLowerCase().trim();
+    const filtered = visible.filter((u) => {
+      const matchesSearch =
+        !q ||
+        (u.full_name || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q) ||
+        (u.phone || '').toLowerCase().includes(q);
+      const matchesRole = !role || role === 'ALL' || u.role_id === role;
+      return matchesSearch && matchesRole;
+    });
+
     res.json({
       success: true,
-      data: { users },
+      data: {
+        users: paginateArray(filtered, pagination),
+        total: filtered.length,
+        counts,
+        ...pagination,
+      },
     });
   } catch (err) {
     next(err);

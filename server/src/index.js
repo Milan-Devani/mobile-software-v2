@@ -177,6 +177,14 @@ const startServer = async () => {
     await dbInitPromise;
     dbInitPromise = null;
 
+    // Daily birthday wishes (WhatsApp + Email) — checks every 10 min, sends 09:00–21:00 IST
+    try {
+      const { startBirthdayScheduler } = await import('./services/birthdayService.js');
+      startBirthdayScheduler();
+    } catch (err) {
+      console.warn('Birthday scheduler start warning:', err.message);
+    }
+
     // Auto-connect Baileys WhatsApp session if saved auth credentials exist
     try {
       const { initBaileys } = await import('./services/baileysService.js');

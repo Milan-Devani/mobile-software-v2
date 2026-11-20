@@ -11,7 +11,7 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
 
   const fetchStatus = async () => {
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
       const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/whatsapp/status`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -42,7 +42,7 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
   const handleReconnect = async () => {
     setIsRefreshing(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
       const token = localStorage.getItem('token');
       await fetch(`${apiBase}/whatsapp/connect`, {
         method: 'POST',
@@ -66,7 +66,7 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
     });
     if (!ok) return;
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
       const token = localStorage.getItem('token');
       await fetch(`${apiBase}/whatsapp/disconnect`, {
         method: 'POST',
@@ -127,7 +127,7 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
                 </div>
                 <h4 className="text-lg font-bold text-slate-900">WhatsApp is Connected!</h4>
                 <p className="text-xs text-slate-600 mt-1">
-                  Linked as: <strong className="text-black font-mono font-bold text-sm">+{statusData.user?.phone || '8758152507'}</strong>
+                  Linked as: <strong className="text-black font-mono font-bold text-sm">{statusData.user?.phone ? `+${statusData.user.phone}` : 'Connected device'}</strong>
                 </p>
                 <div className="mt-4 p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-800 text-left">
                   ✅ When you click <strong>"WhatsApp"</strong> on any invoice, it will now send <strong>automatically in the background</strong> with the attached PDF without opening browser tabs!

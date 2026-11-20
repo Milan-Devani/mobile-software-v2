@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'http://localhost:5050/api';
 
 async function testOwnerChangeStatus() {
   console.log('🧪 Starting Shop Owner Change Status Test Suite...\n');

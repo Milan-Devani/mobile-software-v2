@@ -34,6 +34,11 @@ import { SpatialWarrantyInput } from "../../components/common/SpatialWarrantyInp
 import { SpatialPartsPicker } from "../../components/common/SpatialPartsPicker";
 import { Modal } from "../../components/common/Modal";
 import { customerService } from "../../services/customerService";
+import {
+  DateOfBirthField,
+  isValidDateOfBirth,
+  DATE_OF_BIRTH_ERROR,
+} from "../../components/customers/DateOfBirthField";
 import { partsService } from "../../services/partsService";
 import { settingsService } from "../../services/settingsService";
 import { salesService } from "../../services/salesService";
@@ -84,6 +89,7 @@ export const SalesInvoiceCreate = () => {
   const [newCustCity, setNewCustCity] = useState("");
   const [newCustState, setNewCustState] = useState("");
   const [newCustPostalCode, setNewCustPostalCode] = useState("");
+  const [newCustDob, setNewCustDob] = useState("");
   const [newCustNotes, setNewCustNotes] = useState("");
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
 
@@ -221,6 +227,10 @@ export const SalesInvoiceCreate = () => {
       );
       return;
     }
+    if (!isValidDateOfBirth(newCustDob)) {
+      toast.error(DATE_OF_BIRTH_ERROR);
+      return;
+    }
 
     try {
       setIsCreatingCustomer(true);
@@ -240,6 +250,7 @@ export const SalesInvoiceCreate = () => {
         state: newCustState.trim() || "",
         postal_code: newCustPostalCode.trim() || "",
         notes: newCustNotes.trim() || "Created from Sales Billing",
+        date_of_birth: newCustDob || null,
       });
 
       toast.success(`Customer "${created.full_name}" registered!`);
@@ -261,6 +272,7 @@ export const SalesInvoiceCreate = () => {
       setNewCustCity("");
       setNewCustState("");
       setNewCustPostalCode("");
+      setNewCustDob("");
       setNewCustNotes("");
     } catch (err) {
       toast.error(err.message || "Failed to create customer");
@@ -1248,7 +1260,7 @@ export const SalesInvoiceCreate = () => {
             <input
               type="text"
               required
-              placeholder="e.g. Milan Devani"
+              placeholder="e.g. Rahul Sharma"
               value={newCustName}
               onChange={(e) => setNewCustName(e.target.value)}
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
@@ -1392,6 +1404,9 @@ export const SalesInvoiceCreate = () => {
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
             />
           </div>
+
+          {/* Date of Birth (for birthday wishes) */}
+          <DateOfBirthField value={newCustDob} onChange={setNewCustDob} />
 
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">

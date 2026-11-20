@@ -10,6 +10,7 @@ import {
   MAX_PHONE_INPUT_LENGTH,
   PHONE_NUMBER_VALIDATION_MESSAGE,
 } from '../../utils/phoneValidation';
+import { DateOfBirthField, isValidDateOfBirth, DATE_OF_BIRTH_ERROR } from './DateOfBirthField';
 
 export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave }) => {
   const [formData, setFormData] = useState({
@@ -25,6 +26,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
     state: '',
     postal_code: '',
     notes: '',
+    date_of_birth: '',
   });
   const [sameAsPhone, setSameAsPhone] = useState(true);
   const [hasAltPhone, setHasAltPhone] = useState(false);
@@ -48,6 +50,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
         state: customer.state || '',
         postal_code: customer.postal_code || '',
         notes: customer.notes || '',
+        date_of_birth: customer.date_of_birth ? String(customer.date_of_birth).slice(0, 10) : '',
       });
     }
   }, [customer]);
@@ -97,11 +100,16 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
       toast.error('Please enter a WhatsApp number or check "WhatsApp number is same as Phone number"');
       return;
     }
+    if (!isValidDateOfBirth(formData.date_of_birth)) {
+      toast.error(DATE_OF_BIRTH_ERROR);
+      return;
+    }
 
     try {
       setIsSubmitting(true);
       const payload = {
         ...formData,
+        date_of_birth: formData.date_of_birth || null,
         whatsapp_number: sameAsPhone ? formData.phone : (formData.whatsapp_number || formData.phone),
         alternate_phone: hasAltPhone ? (formData.alternate_phone || '') : '',
         alternate_whatsapp: hasAltPhone ? (formData.alternate_whatsapp || '') : '',
@@ -263,6 +271,14 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
               value={formData.email}
               onChange={handleChange}
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+            />
+          </div>
+
+          {/* Date of Birth (for birthday wishes) */}
+          <div className="sm:col-span-2">
+            <DateOfBirthField
+              value={formData.date_of_birth}
+              onChange={(value) => setFormData((prev) => ({ ...prev, date_of_birth: value }))}
             />
           </div>
 

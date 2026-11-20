@@ -108,7 +108,7 @@ cp .env.example server/.env
 
 Configure your credentials:
 ```env
-PORT=5000
+PORT=5050
 NODE_ENV=development
 
 # JWT Secret
@@ -142,7 +142,7 @@ npm run dev
 
 Or run them individually:
 ```bash
-# Terminal 1: Backend Server (http://localhost:5000)
+# Terminal 1: Backend Server (http://localhost:5050)
 npm run server
 
 # Terminal 2: Frontend Client (http://localhost:5173)

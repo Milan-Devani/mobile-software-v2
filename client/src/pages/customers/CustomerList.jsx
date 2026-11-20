@@ -25,6 +25,7 @@ import { Card, LoadingSpinner, EmptyState, TableSkeleton } from '../../component
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { CustomerEditModal } from '../../components/customers/CustomerEditModal';
+import { DateOfBirthField, isValidDateOfBirth, DATE_OF_BIRTH_ERROR } from '../../components/customers/DateOfBirthField';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
@@ -54,6 +55,7 @@ const customerSchema = z.object({
   state: z.string().optional(),
   postal_code: z.string().optional(),
   notes: z.string().optional(),
+  date_of_birth: z.string().optional().refine((value) => isValidDateOfBirth(value || ''), DATE_OF_BIRTH_ERROR),
 });
 
 export const CustomerList = () => {
@@ -124,6 +126,7 @@ export const CustomerList = () => {
       state: '',
       postal_code: '',
       notes: '',
+      date_of_birth: '',
     },
   });
 
@@ -192,7 +195,7 @@ export const CustomerList = () => {
           const res = await customerService.bulkDeleteCustomers(selectedIds, true);
           toast.success(res.message || `Deleted ${selectedIds.length} customers`);
           setSelectedIds([]);
-          fetchCustomers(search, page, pageSize);
+          fetchCustomers(debouncedSearch, page, pageSize);
         } catch (err) {
           toast.error(err.message || 'Failed to delete customers');
         }
@@ -208,6 +211,7 @@ export const CustomerList = () => {
         whatsapp_number: addSameAsPhone ? data.phone : (data.whatsapp_number || data.phone),
         alternate_phone: addHasAltPhone ? (data.alternate_phone || '') : '',
         alternate_whatsapp: addHasAltPhone ? (data.alternate_whatsapp || '') : '',
+        date_of_birth: data.date_of_birth || null,
       };
       const created = await customerService.createCustomer(payload);
       toast.success(`Customer "${created.full_name}" registered!`);
@@ -442,7 +446,7 @@ export const CustomerList = () => {
             </label>
             <input
               type="text"
-              placeholder="e.g. Milan Devani"
+              placeholder="e.g. Rahul Sharma"
               {...register('full_name')}
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
@@ -559,6 +563,13 @@ export const CustomerList = () => {
               <p className="text-[11px] text-rose-400 mt-1">{errors.email.message}</p>
             )}
           </div>
+
+          {/* Date of Birth (for birthday wishes) */}
+          <DateOfBirthField
+            value={watch('date_of_birth')}
+            onChange={(value) => setValue('date_of_birth', value, { shouldValidate: !value || /^\d{4}-\d{2}-\d{2}$/.test(value) })}
+            error={errors.date_of_birth?.message}
+          />
 
           <div>
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">

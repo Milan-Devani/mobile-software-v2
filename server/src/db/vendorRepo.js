@@ -8,6 +8,55 @@ import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
  * when Supabase is unconfigured or offline.
  */
 
+
+/**
+ * Extra aggregates for the Vendor Dashboard KPI cards & per-vendor counts, computed over
+ * ALL vendor mobiles (so they stay correct now that the tables are paginated).
+ */
+const buildVendorDashboardSummary = (mList = []) => {
+  const isActive = (m) => !['RETURNED', 'CANCELLED'].includes(m.current_status);
+  const isReceivedFlow = (m) => m.flow_type === 'RECEIVED_FROM_VENDOR' || m.flow_type === 'VENDOR_JOB_INWARD';
+  const sumCost = (list) => Math.round(list.reduce((s, m) => s + (parseFloat(m.actual_cost) || 0), 0) * 100) / 100;
+  const sent = mList.filter((m) => m.flow_type === 'SENT_TO_VENDOR');
+  const received = mList.filter(isReceivedFlow);
+  const counted = [...sent, ...received];
+  const perVendor = {};
+  counted.forEach((m) => {
+    if (!m.vendor_id) return;
+    const entry = perVendor[m.vendor_id] || (perVendor[m.vendor_id] = { out: 0, in: 0, any: 0 });
+    entry.any += 1;
+    if (isActive(m)) {
+      if (m.flow_type === 'SENT_TO_VENDOR') entry.out += 1;
+      else entry.in += 1;
+    }
+  });
+  const byPayment = (status) => counted.filter((m) => m.payment_status === status);
+  return {
+    total_mobiles: counted.length,
+    sent_count: sent.length,
+    received_count: received.length,
+    active_vendors: Object.keys(perVendor).length,
+    collected_amount: sumCost(byPayment('PAID')),
+    pending_amount: sumCost(byPayment('PENDING')),
+    advance_amount: sumCost(byPayment('ADVANCE')),
+    advance_count: byPayment('ADVANCE').length,
+    per_vendor_active: perVendor,
+  };
+};
+
+/** Reads every row of a Supabase select in 1000-row batches (PostgREST caps single responses). */
+const selectAllRows = async (supabase, table, columns) => {
+  const all = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(table).select(columns).range(from, from + PAGE - 1);
+    if (error) throw error;
+    all.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
+  return all;
+};
+
 export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, getRecycleBin = null, ensureFreshSync = null) => {
   const { safeInsert, safeUpdate, safeDelete, safeUpsert } = supabaseHelpers;
 
@@ -893,14 +942,10 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         if (isSupabaseConfigured()) {
           try {
             const supabase = getSupabase();
-            const [
-              { data: vendors },
-              { data: mobiles },
-              { data: ledger }
-            ] = await Promise.all([
-              supabase.from('vendors').select('id, current_balance'),
-              supabase.from('vendor_mobiles').select('id, vendor_id, flow_type, current_status'),
-              supabase.from('vendor_ledger').select('vendor_id, debit, credit'),
+            const [vendors, mobiles, ledger] = await Promise.all([
+              selectAllRows(supabase, 'vendors', 'id, current_balance'),
+              selectAllRows(supabase, 'vendor_mobiles', 'id, vendor_id, flow_type, current_status, payment_status, actual_cost'),
+              selectAllRows(supabase, 'vendor_ledger', 'vendor_id, debit, credit'),
             ]);
 
             const vList = vendors || [];
@@ -944,6 +989,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
               ready_for_collection: readyForCollection,
               total_vendor_payable: Math.round(totalPayable * 100) / 100,
               total_vendor_receivable: Math.round(totalReceivable * 100) / 100,
+              dashboard: buildVendorDashboardSummary(mList),
             };
           } catch (err) {
             console.warn('⚠️ Supabase vendors.getStats fallback to local:', err.message);
@@ -985,6 +1031,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
           ready_for_collection: readyForCollection,
           total_vendor_payable: Math.round(totalPayable * 100) / 100,
           total_vendor_receivable: Math.round(totalReceivable * 100) / 100,
+          dashboard: buildVendorDashboardSummary(mobiles),
         };
       },
     },
@@ -1967,6 +2014,7 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         vendorId = '',
         flowType = 'ALL',
         status = 'ALL',
+        excludeStatuses = [],
         paymentStatus = 'ALL',
         imei = '',
         startDate = '',
@@ -1976,10 +2024,17 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
         sortBy = 'created_at',
         sortDir = 'desc',
       } = {}) => {
+        // Only status codes (letters/underscores) are allowed into the filter
+        const hiddenStatuses = (Array.isArray(excludeStatuses) ? excludeStatuses : [])
+          .filter((s) => /^[A-Z_]+$/.test(s));
         if (isSupabaseConfigured()) {
           try {
             const supabase = getSupabase();
             let query = supabase.from('vendor_mobiles').select('*', { count: 'exact' });
+
+            if (hiddenStatuses.length > 0 && (!status || status === 'ALL')) {
+              query = query.not('current_status', 'in', `(${hiddenStatuses.join(',')})`);
+            }
 
             if (vendorId) {
               query = query.eq('vendor_id', vendorId);
@@ -2007,8 +2062,22 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
               query = query.lte('created_at', endDate.length === 10 ? `${endDate}T23:59:59.999Z` : endDate);
             }
             if (search) {
-              const q = search.trim();
-              query = query.or(`brand.ilike.%${q}%,model.ilike.%${q}%,imei.ilike.%${q}%,customer_name.ilike.%${q}%,repair_problem.ilike.%${q}%`);
+              // Strip characters that would break PostgREST's or() filter syntax
+              const q = search.trim().replace(/[,()%*]/g, ' ').trim();
+              if (q) {
+                // Also match by vendor name / shop name (same as the local fallback below)
+                let vendorIdMatches = [];
+                try {
+                  const { data: vMatches } = await supabase
+                    .from('vendors')
+                    .select('id')
+                    .or(`name.ilike.%${q}%,shop_name.ilike.%${q}%`)
+                    .limit(200);
+                  vendorIdMatches = (vMatches || []).map((v) => v.id);
+                } catch (_) {}
+                const vendorClause = vendorIdMatches.length > 0 ? `,vendor_id.in.(${vendorIdMatches.join(',')})` : '';
+                query = query.or(`brand.ilike.%${q}%,model.ilike.%${q}%,imei.ilike.%${q}%,customer_name.ilike.%${q}%,repair_problem.ilike.%${q}%${vendorClause}`);
+              }
             }
 
             const isAsc = sortDir === 'asc';
@@ -2072,6 +2141,8 @@ export const setupVendorRepo = (getLocalDb, saveLocalDb, supabaseHelpers = {}, g
 
         if (status && status !== 'ALL') {
           list = list.filter((m) => m.current_status === status);
+        } else if (hiddenStatuses.length > 0) {
+          list = list.filter((m) => !hiddenStatuses.includes(m.current_status));
         }
 
         if (paymentStatus && paymentStatus !== 'ALL') {

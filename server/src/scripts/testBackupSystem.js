@@ -162,7 +162,7 @@ async function runTests() {
     // TEST 7: API Authorization & Endpoints (HTTP Simulation)
     // -------------------------------------------------------------------------
     console.log('\n--- 7. Express API Route Security Verification ---');
-    const baseUrl = 'http://127.0.0.1:5000/api';
+    const baseUrl = 'http://127.0.0.1:5050/api';
 
     // 7.1 Unauthenticated requests must receive 401
     const unauthStatusRes = await fetch(`${baseUrl}/backups/status`);

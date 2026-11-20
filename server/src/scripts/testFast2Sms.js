@@ -2,8 +2,12 @@ import { testFast2SmsConnection } from '../services/fast2smsService.js';
 import { env } from '../config/env.js';
 
 // Read target phone from CLI args or default
-const targetPhone = process.argv[2] || '8758152507';
-const customMsg = process.argv[3] || `*Mobotech Mobile Care*\nHello Milan, this is an official test message from Mobotech Service Portal!\nFast2SMS Status: Verified & Connected.`;
+const targetPhone = process.argv[2] || process.env.QA_TEST_PHONE;
+if (!targetPhone) {
+  console.error('Usage: node testFast2Sms.js <phone> [message]  (or set QA_TEST_PHONE)');
+  process.exit(1);
+}
+const customMsg = process.argv[3] || `*Mobotech Mobile Care*\nHello, this is an official test message from Mobotech Service Portal!\nFast2SMS Status: Verified & Connected.`;
 
 console.log('========================================================');
 console.log('🚀 FAST2SMS WHATSAPP TEST RUNNER');

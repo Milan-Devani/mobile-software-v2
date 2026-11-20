@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Wrench,
@@ -83,6 +83,54 @@ export const Dashboard = () => {
     return () => clearTimeout(timer);
   }, [loading]);
 
+  // ---- Repair jobs table: server-side pagination (status / search / date range) ----
+  const [jobRows, setJobRows] = useState([]);
+  const [jobsTotal, setJobsTotal] = useState(0);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const jobsRequestIdRef = useRef(0);
+
+  const fetchJobsPage = useCallback(async () => {
+    const requestId = ++jobsRequestIdRef.current;
+    try {
+      setJobsLoading(true);
+      const params = {
+        limit: pageSize,
+        offset: (currentPage - 1) * pageSize,
+        sortBy: 'created_at',
+        sortDir: 'desc',
+      };
+      if (statusFilter !== 'ALL') params.status = statusFilter;
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      const res = await jobService.getJobs(params);
+      if (requestId !== jobsRequestIdRef.current) return;
+      const rows = res?.jobs || [];
+      const total = res?.total ?? rows.length;
+      if (rows.length === 0 && currentPage > 1 && total > 0) {
+        setCurrentPage(Math.max(1, Math.ceil(total / pageSize)));
+        return;
+      }
+      setJobRows(rows);
+      setJobsTotal(total);
+    } catch (err) {
+      if (requestId === jobsRequestIdRef.current) {
+        console.error('Failed to load repair jobs:', err);
+      }
+    } finally {
+      if (requestId === jobsRequestIdRef.current) setJobsLoading(false);
+    }
+  }, [statusFilter, debouncedSearch, startDate, endDate, currentPage, pageSize]);
+
+  useEffect(() => {
+    fetchJobsPage();
+  }, [fetchJobsPage]);
+
+  // Status / search changed → back to page 1
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, debouncedSearch]);
+
   if (loading) {
     return (
       <div className="space-y-6 spatial-tab-pane">
@@ -124,19 +172,10 @@ export const Dashboard = () => {
   const pipeline = data?.pipeline || [];
   const recentJobs = data?.recent_jobs || [];
 
-  const filteredJobs = recentJobs.filter((job) => {
-    const matchesStatus = statusFilter === 'ALL' || job.status === statusFilter;
-    const matchesSearch =
-      !debouncedSearch ||
-      job.job_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      job.customer?.full_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      job.device?.model?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-      job.customer_complaint?.toLowerCase().includes(debouncedSearch.toLowerCase());
-    return matchesStatus && matchesSearch;
-  });
-
-  const totalItems = filteredJobs.length;
-  const paginatedJobs = filteredJobs.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  // Jobs table rows come from GET /jobs (already filtered + paginated on the server)
+  const filteredJobs = jobRows;
+  const totalItems = jobsTotal;
+  const paginatedJobs = jobRows;
   const isPageAllSelected =
     paginatedJobs.length > 0 && paginatedJobs.every((j) => selectedIds.includes(j.id));
 
@@ -180,6 +219,7 @@ export const Dashboard = () => {
           toast.success(`Job #${job.job_number} deleted successfully`);
           setSelectedIds((prev) => prev.filter((id) => id !== job.id));
           fetchStats();
+          fetchJobsPage();
         } catch (err) {
           toast.error(err.message || 'Failed to delete job');
         }
@@ -204,6 +244,7 @@ export const Dashboard = () => {
           toast.success(res.message || `Deleted ${selectedIds.length} jobs`);
           setSelectedIds([]);
           fetchStats();
+          fetchJobsPage();
         } catch (err) {
           toast.error(err.message || 'Failed to delete jobs');
         }
@@ -243,6 +284,7 @@ export const Dashboard = () => {
           toast.success(res.message || `Updated status for ${selectedIds.length} jobs`);
           setSelectedIds([]);
           fetchStats();
+          fetchJobsPage();
         } catch (err) {
           toast.error(err.message || 'Failed to update job status');
         }
@@ -475,14 +517,14 @@ export const Dashboard = () => {
       {/* Recent Jobs Table */}
       <Card
         title="Recent Repair Jobs"
-        subtitle={`Showing ${paginatedJobs.length} of ${filteredJobs.length} jobs`}
+        subtitle={`Showing ${paginatedJobs.length} of ${totalItems} jobs`}
         action={
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Filter recent..."
+                placeholder="Search jobs..."
                 value={search}
                 onChange={(e) => {
                   setSearch(e.target.value);
@@ -502,7 +544,7 @@ export const Dashboard = () => {
         }
         bodyClassName="p-0"
       >
-        {filteredJobs.length === 0 ? (
+        {totalItems === 0 && !jobsLoading ? (
           <EmptyState
             icon={Wrench}
             title="No repair jobs match this filter"

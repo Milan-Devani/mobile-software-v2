@@ -32,7 +32,7 @@ export const cleanIndianPhoneNumber = (phone) => {
  * @param {string} options.phone - Recipient mobile number
  * @param {string} options.message - Text message / body
  * @param {string} [options.messageId] - Fast2SMS pre-approved WhatsApp message_id (if using templates)
- * @param {string} [options.variablesValues] - Pipe-separated values e.g. "Milan|iPhone 14|8500"
+ * @param {string} [options.variablesValues] - Pipe-separated values e.g. "Rahul|iPhone 14|8500"
  * @param {string} [options.phoneNumberId] - Registered WABA phone number id (optional)
  * @param {string} [options.mediaUrl] - Public URL to PDF or media file (optional)
  * @param {string} [options.documentFilename] - Filename for PDF e.g. Invoice_INV001.pdf (optional)

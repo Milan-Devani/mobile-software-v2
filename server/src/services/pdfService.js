@@ -714,19 +714,19 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <div style="font-weight:700; font-size:12px; text-transform:uppercase; margin-bottom:2px;">Customer Details</div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Name : </span>
-              <b style="font-size:12px;">${cust.full_name || 'Milan Devani'}</b>
+              <b style="font-size:12px;">${cust.full_name || 'Walk-in Customer'}</b>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Address : </span>
-              <span style="font-size:11px;">${cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : 'pasodara')}</span>
+              <span style="font-size:11px;">${cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : '—')}</span>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Contact Number : </span>
-              <b style="font-size:11px;">${cust.phone || '8758152507'}</b>
+              <b style="font-size:11px;">${cust.phone || '—'}</b>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Mail ID : </span>
-              <b style="font-size:11px;">${cust.email || 'milandevani994@gmail.com'}</b>
+              <b style="font-size:11px;">${cust.email || '—'}</b>
             </div>
             ${cust.alternate_phone ? `<div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Alternate Contact : </span><b style="font-size:11px;">${cust.alternate_phone}</b></div>` : ''}
           </div>
@@ -984,7 +984,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
       <div style="height:20px;"></div>
       <div style="border-top:1px solid #000; padding-top:1px;">
         <div style="font-weight:700; font-size:12.5px;">Customer's Signature</div>
-        <div style="font-size:11px;">(${cust.full_name || 'Milan Devani'})</div>
+        <div style="font-size:11px;">(${cust.full_name || 'Walk-in Customer'})</div>
       </div>
     </div>
   </div>
@@ -1064,7 +1064,7 @@ ${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
       <div style="height:20px;"></div>
       <div style="border-top:1px solid #000; padding-top:1px;">
         <div style="font-weight:700; font-size:12.5px;">Customer's Signature</div>
-        <div style="font-size:11px;">(${cust.full_name || 'Milan Devani'})</div>
+        <div style="font-size:11px;">(${cust.full_name || 'Walk-in Customer'})</div>
       </div>
     </div>
   </div>

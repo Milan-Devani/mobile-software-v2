@@ -161,7 +161,7 @@ npm --prefix client install
 cp .env.example server/.env   # then fill in credentials
 
 # 3. dev — both apps together
-npm run dev        # server :5000 + client :5173
+npm run dev        # server :5050 + client :5173
 
 # individually
 npm run server      # backend only

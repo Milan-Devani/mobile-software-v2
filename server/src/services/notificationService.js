@@ -201,7 +201,7 @@ export const dispatchNotification = async ({
     const apiBase =
       env.API_URL && env.API_URL.startsWith("http")
         ? env.API_URL.replace(/\/+$/, "")
-        : "http://localhost:5000";
+        : "http://localhost:5050";
     if (type === "JOB_CREATED") {
       pdfPublicUrl = `${apiBase}/api/jobs/public/${job.id}/download-jobsheet-pdf`;
     } else if (type === "INVOICE_GENERATED") {
@@ -910,7 +910,7 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
         ? env.API_URL.replace(/\/+$/, "")
         : env.APP_URL && env.APP_URL.startsWith("http") && env.APP_URL !== "*"
           ? env.APP_URL.replace(/\/+$/, "")
-          : "http://localhost:5000";
+          : "http://localhost:5050";
     salePdfPublicUrl = `${apiBase}/api/sales/public/${sale.id}/download-pdf`;
   }
 

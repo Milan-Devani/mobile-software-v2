@@ -309,6 +309,26 @@ export const initDb = async () => {
 };
 const saveLocalDb = () => {};
 
+/** Map of key → FIRST row with that key (same result as rows.find(r => r[key] === k)). */
+const indexFirstBy = (rows, key) => {
+  const map = new Map();
+  for (const row of rows || []) {
+    if (!map.has(row[key])) map.set(row[key], row);
+  }
+  return map;
+};
+
+/** Map of key → all rows with that key, in original order (same as rows.filter(r => r[key] === k)). */
+const groupBy = (rows, key) => {
+  const map = new Map();
+  for (const row of rows || []) {
+    const list = map.get(row[key]);
+    if (list) list.push(row);
+    else map.set(row[key], [row]);
+  }
+  return map;
+};
+
 export const parseWarrantyDays = (val) => {
   if (val === undefined || val === null || val === '') return -1;
   if (typeof val === 'number') return val;
@@ -937,17 +957,26 @@ export const db = {
         }
       }
 
+      // Lookup maps built once per call (O(n)) instead of scanning every table for every job.
+      // indexFirstBy keeps the FIRST match per key, exactly like Array.prototype.find did;
+      // groupBy keeps original order, exactly like Array.prototype.filter did.
+      const customersById = indexFirstBy(localDb.customers, 'id');
+      const devicesById = indexFirstBy(localDb.devices, 'id');
+      const usersById = indexFirstBy(localDb.users, 'id');
+      const estimateByJobId = indexFirstBy(localDb.repair_estimates, 'job_id');
+      const itemsByEstimateId = groupBy(localDb.repair_estimate_items, 'estimate_id');
+
       // Populate joined customer & device
       let populated = jobs.map(j => {
-        const customer = (localDb.customers || []).find(c => c.id === j.customer_id) || {};
-        const device = (localDb.devices || []).find(d => d.id === j.device_id) || {};
-        const tech = (localDb.users || []).find(u => u.id === j.assigned_technician_id) || null;
+        const customer = customersById.get(j.customer_id) || {};
+        const device = devicesById.get(j.device_id) || {};
+        const tech = usersById.get(j.assigned_technician_id) || null;
 
         // Dynamic warranty days calculation based on estimate items
         let effectiveWarrantyDays = 0;
-        const est = (localDb.repair_estimates || []).find(e => e.job_id === j.id);
+        const est = estimateByJobId.get(j.id);
         if (est) {
-          const estItems = (localDb.repair_estimate_items || []).filter(i => i.estimate_id === est.id);
+          const estItems = itemsByEstimateId.get(est.id) || [];
           const warranties = estItems
             .map(it => it.warranty)
             .filter(w => w !== undefined && w !== null && String(w).trim() !== '');

@@ -41,7 +41,7 @@ export const SendToVendorModal = ({ open, onClose, jobId, jobIds = [], jobLabel 
     let cancelled = false;
     setLoadingVendors(true);
     vendorService
-      .getVendors({ status: 'ACTIVE', limit: 200 })
+      .getVendors({ status: 'ACTIVE', limit: 1000 })
       .then((res) => {
         if (cancelled) return;
         const list = res?.vendors || (Array.isArray(res) ? res : []);

@@ -14,7 +14,7 @@ How the Mobotech system is put together, request by request.
 └───────────────────────────┬──────────────────────────────────┘
                             │  HTTP + Bearer JWT
 ┌───────────────────────────▼──────────────────────────────────┐
-│ SERVER — Express 4 (ES Modules)           localhost:5000     │
+│ SERVER — Express 4 (ES Modules)           localhost:5050     │
 │  index.js → helmet/cors/morgan → rateLimiter → /api routers   │
 │           → authenticateToken → requireRoles → controller     │
 │  controllers/  →  db façade (db/db.js)  →  Supabase or local  │
@@ -151,7 +151,7 @@ Render instance.
 
 ### HTTP layer (`services/api.js`)
 
-- Base URL from `VITE_API_URL` (falls back to `http://localhost:5000/api`).
+- Base URL from `VITE_API_URL` (falls back to `http://localhost:5050/api`).
 - **Request interceptor** attaches `Authorization: Bearer <localStorage.token>`.
 - **Response interceptor**
   - returns `response.data` (callers receive the payload directly);

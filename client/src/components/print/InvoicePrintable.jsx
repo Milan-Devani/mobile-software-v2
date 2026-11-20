@@ -404,7 +404,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
     const rawApiBase =
-      import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+      import.meta.env.VITE_API_URL || "http://localhost:5050/api";
     const apiBase = rawApiBase.endsWith("/api")
       ? rawApiBase
       : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -448,7 +448,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       // 1. Attempt official server-side vector PDF download
       const token = localStorage.getItem("token");
       const rawApiBase =
-        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+        import.meta.env.VITE_API_URL || "http://localhost:5050/api";
       const apiBase = rawApiBase.endsWith("/api")
         ? rawApiBase
         : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -662,7 +662,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       try {
         const token = localStorage.getItem("token");
         const rawApiBase =
-          import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+          import.meta.env.VITE_API_URL || "http://localhost:5050/api";
         const apiBase = rawApiBase.endsWith("/api")
           ? rawApiBase
           : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -763,7 +763,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       try {
         const token = localStorage.getItem("token");
         const rawApiBase =
-          import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+          import.meta.env.VITE_API_URL || "http://localhost:5050/api";
         const apiBase = rawApiBase.endsWith("/api")
           ? rawApiBase
           : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -1057,7 +1057,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
               <Smartphone className="w-3.5 h-3.5" />
               <span>
                 {waStatus?.isConnected
-                  ? `Linked (+${waStatus.user?.phone || "8758152507"})`
+                  ? (waStatus.user?.phone ? `Linked (+${waStatus.user.phone})` : "Linked")
                   : "Link WhatsApp (QR)"}
               </span>
             </button>
@@ -1280,7 +1280,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           Name :{" "}
                         </span>
                         <b style={{ fontSize: "12px" }}>
-                          {cust.full_name || "Milan Devani"}
+                          {cust.full_name || "Walk-in Customer"}
                         </b>
                       </div>
                       <div style={{ marginBottom: "1.5px" }}>
@@ -1297,7 +1297,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           {cust.address ||
                             (cust.city
                               ? `${cust.city}, ${cust.state || "Gujarat"}, India`
-                              : "pasodara")}
+                              : "—")}
                         </span>
                       </div>
                       <div style={{ marginBottom: "1.5px" }}>
@@ -1311,7 +1311,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           Contact Number :{" "}
                         </span>
                         <b style={{ fontSize: "11px" }}>
-                          {cust.phone || "8758152507"}
+                          {cust.phone || "—"}
                         </b>
                       </div>
                       <div style={{ marginBottom: "1.5px" }}>
@@ -1325,7 +1325,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                           Mail ID :{" "}
                         </span>
                         <b style={{ fontSize: "11px" }}>
-                          {cust.email || "milandevani994@gmail.com"}
+                          {cust.email || "—"}
                         </b>
                       </div>
                       {cust.alternate_phone && (
@@ -2322,7 +2322,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                     Customer's Signature
                   </div>
                   <div style={{ fontSize: "11px" }}>
-                    ({cust.full_name || "Milan Devani"})
+                    ({cust.full_name || "Walk-in Customer"})
                   </div>
                 </div>
               </div>
@@ -2583,7 +2583,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                     Customer's Signature
                   </div>
                   <div style={{ fontSize: "11px" }}>
-                    ({cust.full_name || "Milan Devani"})
+                    ({cust.full_name || "Walk-in Customer"})
                   </div>
                 </div>
               </div>

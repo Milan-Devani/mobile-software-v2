@@ -15,7 +15,7 @@ The **client** only uses `VITE_API_URL`.
 |---|---|---|
 | `PORT` | `5000` | HTTP port |
 | `NODE_ENV` | `development` | `production` changes the CLIENT_URL fallback; `test` disables morgan |
-| `API_URL` | `http://localhost:5000` | Own base URL (upload links, keep-alive) |
+| `API_URL` | `http://localhost:5050` | Own base URL (upload links, keep-alive) |
 | `CLIENT_URL` | `http://localhost:5173` | CORS allowlist + links in messages |
 | `APP_URL` | falls back to `CLIENT_URL` | Alternate public app URL |
 
@@ -123,7 +123,7 @@ installed by `postinstall`).
 
 | Key | Default | Purpose |
 |---|---|---|
-| `VITE_API_URL` | `http://localhost:5000/api` | API base URL (client appends `/api` if missing) |
+| `VITE_API_URL` | `http://localhost:5050/api` | API base URL (client appends `/api` if missing) |
 
 ---
 

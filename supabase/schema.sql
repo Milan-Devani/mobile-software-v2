@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS customers (
     state VARCHAR(100),
     postal_code VARCHAR(20),
     notes TEXT,
+    date_of_birth DATE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );

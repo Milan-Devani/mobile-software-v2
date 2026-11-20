@@ -114,6 +114,7 @@ ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS city VARCHAR(100);
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS state VARCHAR(100);
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS postal_code VARCHAR(20);
 ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS date_of_birth DATE;
 
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone);
 CREATE INDEX IF NOT EXISTS idx_customers_email ON public.customers(email);

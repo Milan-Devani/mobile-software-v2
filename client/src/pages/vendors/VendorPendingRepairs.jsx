@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
@@ -28,6 +28,7 @@ import { errorDialog } from '../../utils/dialogs';
 import { useDebounce } from '../../hooks/useDebounce';
 import SpatialSelect from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
 
 const STATUS_OPTIONS = [
   { value: 'ALL', label: 'All Active Statuses' },
@@ -50,7 +51,12 @@ export default function VendorPendingRepairs() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [mobiles, setMobiles] = useState([]);
+  const [mobiles, setMobiles] = useState([]); // current page only
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalMobiles, setTotalMobiles] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({});
+  const mobilesRequestIdRef = useRef(0);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -76,7 +82,7 @@ export default function VendorPendingRepairs() {
 
   const fetchVendors = async () => {
     try {
-      const res = await vendorService.getVendors({ limit: 100 });
+      const res = await vendorService.getVendors({ limit: 1000 });
       setVendors(res?.data?.vendors || res?.vendors || []);
     } catch (err) {
       console.error('Failed to load vendors', err);
@@ -86,11 +92,17 @@ export default function VendorPendingRepairs() {
   const fetchMobiles = useCallback(async () => {
     try {
       setRefreshing(true);
+      const requestId = ++mobilesRequestIdRef.current;
       const params = {
-        limit: 200,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
         sortBy: 'created_at',
         sortDir: 'desc',
+        // KPI card totals over the whole filtered set (not just this page)
+        countStatuses: 'IN_REPAIR,WAITING_PARTS,READY_FOR_RETURN,REPAIR_COMPLETED,PENDING',
       };
+      // Returned devices are hidden by default (now filtered on the server so page counts are exact)
+      if (!selectedStatus || selectedStatus === 'ALL') params.excludeStatus = 'RETURNED';
       if (selectedVendor && selectedVendor !== 'ALL') params.vendorId = selectedVendor;
       if (selectedFlow && selectedFlow !== 'ALL') params.flowType = selectedFlow;
       if (selectedStatus && selectedStatus !== 'ALL') params.status = selectedStatus;
@@ -99,20 +111,29 @@ export default function VendorPendingRepairs() {
       if (endDate) params.endDate = endDate;
 
       const res = await vendorService.getVendorMobiles(params);
-      
-      // Filter out RETURNED and CANCELLED by default unless specifically selected
-      let items = res?.data?.mobiles || res?.mobiles || [];
-      if (selectedStatus === 'ALL') {
-        items = items.filter((m) => !['RETURNED'].includes(m.current_status));
-      }
+      if (requestId !== mobilesRequestIdRef.current) return;
 
+      const payload = res?.data || res || {};
+      const items = payload.mobiles || [];
+      const total = payload.total ?? items.length;
+      if (items.length === 0 && page > 1 && total > 0) {
+        setPage(Math.max(1, Math.ceil(total / pageSize)));
+        return;
+      }
       setMobiles(items);
+      setTotalMobiles(total);
+      setStatusCounts(payload.status_counts || {});
     } catch (err) {
       console.error('Failed to load vendor mobiles', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
+  }, [selectedVendor, selectedFlow, selectedStatus, debouncedSearch, startDate, endDate, page, pageSize]);
+
+  // Any filter change → back to page 1
+  useEffect(() => {
+    setPage(1);
   }, [selectedVendor, selectedFlow, selectedStatus, debouncedSearch, startDate, endDate]);
 
   useEffect(() => {
@@ -135,14 +156,15 @@ export default function VendorPendingRepairs() {
 
   // Summary counts
   const summaryCounts = useMemo(() => {
+    // Totals come from the server for the whole filtered set (all pages)
     return {
-      total: mobiles.length,
-      inRepair: mobiles.filter((m) => m.current_status === 'IN_REPAIR').length,
-      waitingParts: mobiles.filter((m) => m.current_status === 'WAITING_PARTS').length,
-      readyReturn: mobiles.filter((m) => m.current_status === 'READY_FOR_RETURN' || m.current_status === 'REPAIR_COMPLETED').length,
-      pending: mobiles.filter((m) => m.current_status === 'PENDING').length,
+      total: totalMobiles,
+      inRepair: statusCounts.IN_REPAIR || 0,
+      waitingParts: statusCounts.WAITING_PARTS || 0,
+      readyReturn: (statusCounts.READY_FOR_RETURN || 0) + (statusCounts.REPAIR_COMPLETED || 0),
+      pending: statusCounts.PENDING || 0,
     };
-  }, [mobiles]);
+  }, [totalMobiles, statusCounts]);
 
   const handleOpenStatusModal = (mobile) => {
     setStatusModalMobile(mobile);
@@ -536,6 +558,20 @@ export default function VendorPendingRepairs() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {totalMobiles > 0 && (
+          <div className="p-4 border-t border-[var(--spatial-border)]">
+            <SpatialPagination
+              currentPage={page}
+              pageSize={pageSize}
+              totalItems={totalMobiles}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </div>

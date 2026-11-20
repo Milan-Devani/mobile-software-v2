@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   Palette,
@@ -66,7 +66,9 @@ export const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [shop, setShop] = useState({});
   const [notifications, setNotifications] = useState({});
-  const [usersList, setUsersList] = useState([]);
+  const [usersList, setUsersList] = useState([]); // current page only
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [userCounts, setUserCounts] = useState({});
   const [isSaving, setIsSaving] = useState(false);
 
   // User search & filter
@@ -245,7 +247,7 @@ export const Settings = () => {
 
   const fetchWaStatus = async () => {
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
       const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/whatsapp/status`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -262,13 +264,10 @@ export const Settings = () => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const [settingsData, usersData] = await Promise.all([
-        settingsService.getSettings(),
-        authService.getUsers().catch(() => []),
-      ]);
+      const settingsData = await settingsService.getSettings();
       setShop(settingsData.shop || {});
       setNotifications(settingsData.notifications || {});
-      setUsersList(usersData || []);
+      fetchUsersRef.current?.();
       fetchWaStatus();
     } catch {
       toast.error('Failed to load settings');
@@ -280,6 +279,45 @@ export const Settings = () => {
   useEffect(() => {
     fetchSettings();
   }, []);
+
+  // ---- Staff & Users: server-side pagination / search / role filter ----
+  const usersRequestIdRef = useRef(0);
+  const fetchUsers = useCallback(async () => {
+    const requestId = ++usersRequestIdRef.current;
+    try {
+      const res = await authService.getUsersPage({
+        limit: userPageSize,
+        offset: (userPage - 1) * userPageSize,
+        search: debouncedUserSearch.trim(),
+        role: roleFilter,
+      });
+      if (requestId !== usersRequestIdRef.current) return;
+      const rows = res?.users || [];
+      const total = res?.total ?? rows.length;
+      if (rows.length === 0 && userPage > 1 && total > 0) {
+        setUserPage(Math.max(1, Math.ceil(total / userPageSize)));
+        return;
+      }
+      setUsersList(rows);
+      setUsersTotal(total);
+      setUserCounts(res?.counts || {});
+    } catch {
+      if (requestId === usersRequestIdRef.current) setUsersList([]);
+    }
+  }, [userPage, userPageSize, debouncedUserSearch, roleFilter]);
+
+  // fetchSettings() (called after add/delete user) refreshes the current users page via this ref
+  const fetchUsersRef = useRef(null);
+  fetchUsersRef.current = fetchUsers;
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // New search text → back to page 1
+  useEffect(() => {
+    setUserPage(1);
+  }, [debouncedUserSearch]);
 
   const handleSaveShopProfile = async (e) => {
     e.preventDefault();
@@ -353,7 +391,11 @@ export const Settings = () => {
   const handleSendTestEmail = async () => {
     setIsSendingTestEmail(true);
     try {
-      const targetEmail = notifications.sender_email || 'milandevani994@gmail.com';
+      const targetEmail = notifications.sender_email || shop?.email || '';
+      if (!targetEmail) {
+        toast.error('Set a sender email (or shop email) first, then send the test email.');
+        return;
+      }
       const res = await settingsService.testEmail(targetEmail);
       toast.success(res?.message || `Test email dispatched to ${targetEmail}! Check inbox and spam folders.`);
     } catch (err) {
@@ -379,7 +421,7 @@ export const Settings = () => {
 
     try {
       setIsUnlinkingWa(true);
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
       const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/whatsapp/disconnect`, {
         method: 'POST',
@@ -513,26 +555,11 @@ export const Settings = () => {
     }
   };
 
-  // Filter users list (hide developer accounts from non-developer roles)
-  const visibleUsers = isDeveloper
-    ? usersList
-    : usersList.filter((u) => u.role_id !== 'developer');
-
-  const filteredUsers = visibleUsers.filter((u) => {
-    const matchesSearch =
-      !debouncedUserSearch ||
-      u.full_name?.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
-      u.email?.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
-      u.phone?.toLowerCase().includes(debouncedUserSearch.toLowerCase());
-    const matchesRole = roleFilter === 'ALL' || u.role_id === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
-  const paginatedUsers = filteredUsers.slice(
-    (userPage - 1) * userPageSize,
-    userPage * userPageSize
-  );
-  const totalUserPages = Math.ceil(filteredUsers.length / userPageSize) || 1;
+  // Users come from the backend already filtered (search/role, developer accounts hidden
+  // from non-developers) and paginated; usersList holds only the current page.
+  const visibleUsersCount = userCounts.ALL ?? usersTotal;
+  const paginatedUsers = usersList;
+  const totalUserPages = Math.ceil(usersTotal / userPageSize) || 1;
 
   const isAllCurrentPageUsersSelected =
     paginatedUsers.length > 0 &&
@@ -639,7 +666,7 @@ export const Settings = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Staff & Users ({visibleUsers.length})</span>
+          <span>Staff & Users ({visibleUsersCount})</span>
         </button>
 
         <button
@@ -1246,7 +1273,7 @@ export const Settings = () => {
       {activeTab === 'users' && (
         <div key="users" className="spatial-tab-pane space-y-4">
           <Card
-            title={`Shop Staff & Technician Accounts (${visibleUsers.length})`}
+            title={`Shop Staff & Technician Accounts (${visibleUsersCount})`}
             subtitle="Manage login credentials and authorization roles for technicians, front desk staff, and shop managers"
             action={
               isAdminLike ? (
@@ -1297,7 +1324,7 @@ export const Settings = () => {
                       setUserSelectedIds([]);
                     }}
                     options={[
-                      { value: 'ALL', label: `All Roles (${visibleUsers.length})` },
+                      { value: 'ALL', label: `All Roles (${visibleUsersCount})` },
                       { value: 'admin', label: 'Admins' },
                       { value: 'developer', label: 'Developers' },
                       { value: 'technician', label: 'Technicians' },
@@ -1315,7 +1342,7 @@ export const Settings = () => {
             </div>
 
             {/* Responsive User Display: Cards on mobile, Sleek Table on Desktop */}
-            {filteredUsers.length === 0 ? (
+            {usersTotal === 0 ? (
               <EmptyState
                 icon={Users}
                 title="No staff members found"
@@ -1477,7 +1504,7 @@ export const Settings = () => {
                 <SpatialPagination
                   currentPage={userPage}
                   totalPages={totalUserPages}
-                  totalItems={filteredUsers.length}
+                  totalItems={usersTotal}
                   pageSize={userPageSize}
                   pageSizeOptions={[10, 15, 20, 50]}
                   onPageChange={setUserPage}
@@ -1527,7 +1554,7 @@ export const Settings = () => {
                     }`}
                   >
                     {waStatus?.isConnected
-                      ? `Linked: +${waStatus.user?.phone || '8758152507'}`
+                      ? (waStatus.user?.phone ? `Linked: +${waStatus.user.phone}` : 'Linked')
                       : 'Not Linked (Click to Scan QR)'}
                   </span>
                 </div>

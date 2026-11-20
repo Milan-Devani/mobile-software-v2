@@ -24,6 +24,7 @@ import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
 
 export default function VendorLedger() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,14 +38,20 @@ export default function VendorLedger() {
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  const [statement, setStatement] = useState(null);
+  const [statement, setStatement] = useState(null); // entries = current page only
   const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalEntries, setTotalEntries] = useState(0);
+  // When printing, the full (filtered) statement is loaded here so the printout is complete
+  const [printEntries, setPrintEntries] = useState(null);
+  const ledgerRequestIdRef = useRef(0);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
   // Load vendors list
   const loadVendors = async () => {
     try {
-      const res = await vendorService.getVendors({ limit: 100 });
+      const res = await vendorService.getVendors({ limit: 1000 });
       const list = res?.data?.vendors || res?.vendors || [];
       setVendors(list);
       if (!selectedVendorId && list.length > 0) {
@@ -62,20 +69,46 @@ export default function VendorLedger() {
   // Fetch ledger statement for selected vendor
   const fetchLedger = useCallback(async () => {
     if (!selectedVendorId) return;
+    const requestId = ++ledgerRequestIdRef.current;
     try {
       setLoading(true);
-      const params = {};
+      const params = { limit: pageSize, offset: (page - 1) * pageSize };
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
+      if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
 
       const res = await vendorService.getVendorLedger(selectedVendorId, params);
-      setStatement(res.data || res);
+      if (requestId !== ledgerRequestIdRef.current) return;
+      const data = res.data || res;
+      const total = data?.total_entries ?? (data?.entries || []).length;
+      if ((data?.entries || []).length === 0 && page > 1 && total > 0) {
+        setPage(Math.max(1, Math.ceil(total / pageSize)));
+        return;
+      }
+      setStatement(data);
+      setTotalEntries(total);
     } catch (err) {
       console.error('Failed to fetch vendor ledger', err);
     } finally {
-      setLoading(false);
+      if (requestId === ledgerRequestIdRef.current) setLoading(false);
     }
-  }, [selectedVendorId, startDate, endDate]);
+  }, [selectedVendorId, startDate, endDate, debouncedSearchTerm, page, pageSize]);
+
+  // Vendor / date / search changed → back to page 1
+  useEffect(() => {
+    setPage(1);
+  }, [selectedVendorId, startDate, endDate, debouncedSearchTerm]);
+
+  /** Loads every matching entry (all pages) — used by CSV export and Print. */
+  const fetchAllMatchingEntries = async () => {
+    if (!selectedVendorId) return [];
+    const params = {};
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (debouncedSearchTerm.trim()) params.search = debouncedSearchTerm.trim();
+    const res = await vendorService.getVendorLedger(selectedVendorId, params);
+    return (res.data || res)?.entries || [];
+  };
 
   useEffect(() => {
     fetchLedger();
@@ -92,18 +125,12 @@ export default function VendorLedger() {
   }, [selectedVendorId, datePreset, startDate, endDate, setSearchParams]);
 
   // Filter entries based on search term
+  // Search is applied on the server; entries are already the current page.
+  // While printing, the full statement is shown instead.
   const filteredEntries = useMemo(() => {
-    if (!statement || !statement.entries) return [];
-    if (!debouncedSearchTerm.trim()) return statement.entries;
-    const term = debouncedSearchTerm.toLowerCase();
-    return statement.entries.filter(
-      (entry) =>
-        (entry.description || '').toLowerCase().includes(term) ||
-        (entry.reference_no || '').toLowerCase().includes(term) ||
-        (entry.entry_type || '').toLowerCase().includes(term) ||
-        (entry.payment_mode || '').toLowerCase().includes(term)
-    );
-  }, [statement, debouncedSearchTerm]);
+    if (printEntries) return printEntries;
+    return statement?.entries || [];
+  }, [statement, printEntries]);
 
   // Active vendor profile
   const activeVendor = useMemo(() => {
@@ -127,11 +154,20 @@ export default function VendorLedger() {
   };
 
   // CSV Export
-  const exportToCSV = () => {
-    if (!filteredEntries || filteredEntries.length === 0) return;
+  const exportToCSV = async () => {
+    if (!totalEntries) return;
+    // Export the complete statement (all pages), not just the visible page
+    let allEntries = [];
+    try {
+      allEntries = await fetchAllMatchingEntries();
+    } catch (err) {
+      console.error('Failed to export vendor ledger', err);
+      return;
+    }
+    if (allEntries.length === 0) return;
 
     const headers = ['Date', 'Reference No', 'Description', 'Payment Mode', 'Debit (Rs)', 'Credit (Rs)', 'Running Balance (Rs)'];
-    const rows = filteredEntries.map((e) => [
+    const rows = allEntries.map((e) => [
       `"${e.date || ''}"`,
       `"${e.reference_no || ''}"`,
       `"${(e.description || '').replace(/"/g, '""')}"`,
@@ -152,8 +188,19 @@ export default function VendorLedger() {
   };
 
   // Print function
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    // Print the complete statement: load all matching entries, render, print, then restore the page view
+    try {
+      const allEntries = await fetchAllMatchingEntries();
+      setPrintEntries(allEntries);
+      setTimeout(() => {
+        window.print();
+        setPrintEntries(null);
+      }, 80);
+    } catch (err) {
+      console.error('Failed to prepare ledger for printing', err);
+      window.print();
+    }
   };
 
   return (
@@ -189,7 +236,7 @@ export default function VendorLedger() {
 
           <button
             onClick={exportToCSV}
-            disabled={!filteredEntries.length}
+            disabled={!totalEntries}
             className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium disabled:opacity-50 cursor-pointer"
             title="Export to CSV"
           >
@@ -199,7 +246,7 @@ export default function VendorLedger() {
 
           <button
             onClick={handlePrint}
-            disabled={!filteredEntries.length}
+            disabled={!totalEntries}
             className="px-3.5 py-2.5 rounded-xl bg-[var(--spatial-bg-card)] hover:bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-body)] border border-[var(--spatial-border)] transition-all active:scale-95 flex items-center gap-2 text-sm font-medium disabled:opacity-50 cursor-pointer"
             title="Print Statement"
           >
@@ -472,6 +519,21 @@ export default function VendorLedger() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+        {totalEntries > 0 && !printEntries && (
+          <div className="p-4 border-t border-[var(--spatial-border)] print:hidden">
+            <SpatialPagination
+              currentPage={page}
+              pageSize={pageSize}
+              totalItems={totalEntries}
+              pageSizeOptions={[20, 50, 100]}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPageSize(size);
+                setPage(1);
+              }}
+            />
           </div>
         )}
       </div>

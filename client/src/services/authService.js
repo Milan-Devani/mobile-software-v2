@@ -34,6 +34,12 @@ export const authService = {
     return res.data.users;
   },
 
+  /** One page of users (server-side search/role filter). Returns { users, total, counts }. */
+  getUsersPage: async (params = {}) => {
+    const res = await api.get('/auth/users', { params });
+    return res.data;
+  },
+
   createUser: async (userData) => {
     const res = await api.post('/auth/users', userData);
     return res.data.user;

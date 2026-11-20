@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 async function testViaServer() {
-  console.log('1. Logging in to http://localhost:5000/api/auth/login...');
-  const loginRes = await axios.post('http://localhost:5000/api/auth/login', {
+  console.log('1. Logging in to http://localhost:5050/api/auth/login...');
+  const loginRes = await axios.post('http://localhost:5050/api/auth/login', {
     email: 'admin@mobotech.com',
     password: 'Admin@123456',
   });
@@ -13,7 +13,7 @@ async function testViaServer() {
   console.log('\n2. Checking WhatsApp status on live server...');
   let isConnected = false;
   for (let i = 0; i < 15; i++) {
-    const statusRes = await axios.get('http://localhost:5000/api/whatsapp/status');
+    const statusRes = await axios.get('http://localhost:5050/api/whatsapp/status');
     const st = statusRes.data?.data?.status;
     console.log(`[Attempt ${i + 1}] WhatsApp Status: ${st}`);
     if (st === 'CONNECTED') {
@@ -28,18 +28,22 @@ async function testViaServer() {
   }
   console.log('✅ WhatsApp is CONNECTED on the server!');
 
-  console.log('\n3. Sending WhatsApp test message to 8758152507 via live server...');
-  const targetPhone = '8758152507';
+  const targetPhone = process.argv[2] || process.env.QA_TEST_PHONE;
+  const targetName = process.env.QA_TEST_NAME || 'Customer';
+  if (!targetPhone) {
+    throw new Error('Pass a phone number as the first argument or set QA_TEST_PHONE.');
+  }
+  console.log(`\n3. Sending WhatsApp test message to ${targetPhone} via live server...`);
   const customMessage =
     `*Mobotech Mobile Care — System Verification*\n` +
-    `Hello Milan Devani,\n\n` +
+    `Hello ${targetName},\n\n` +
     `✅ *WhatsApp Connected Sender:* 7575841604\n` +
     `🔍 *QA Audit Status:* Full Master QA Inspection & Verification Active\n` +
     `⚡ *System State:* Frontend & Backend Operational\n` +
     `⏰ *Timestamp:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`;
 
   const sendRes = await axios.post(
-    'http://localhost:5000/api/whatsapp/send-test',
+    'http://localhost:5050/api/whatsapp/send-test',
     {
       phone: targetPhone,
       message: customMessage,

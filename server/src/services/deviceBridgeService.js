@@ -98,7 +98,7 @@ class DeviceBridgeService {
     const candidates = [
       'adb',
       path.join(process.env.LOCALAPPDATA || '', 'Android', 'Sdk', 'platform-tools', 'adb.exe'),
-      'C:\\Users\\Milan Devani\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe',
+      process.env.USERPROFILE ? path.join(process.env.USERPROFILE, 'AppData', 'Local', 'Android', 'Sdk', 'platform-tools', 'adb.exe') : '',
       'C:\\Program Files\\Android\\platform-tools\\adb.exe',
       'C:\\Program Files (x86)\\Android\\platform-tools\\adb.exe',
     ].filter(Boolean);

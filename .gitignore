@@ -81,3 +81,6 @@ Thumbs.db
 *.sln
 *.sw?
 *.swp
+
+# Puppeteer-downloaded Chrome binary (too large for GitHub)
+server/chrome/

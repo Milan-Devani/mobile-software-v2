@@ -144,7 +144,7 @@ export const VendorReceiveMobiles = () => {
       try {
         setLoadingInit(true);
         const [vendorsRes, settingsRes] = await Promise.allSettled([
-          vendorService.getVendors({ limit: 150, status: 'ACTIVE' }),
+          vendorService.getVendors({ limit: 1000, status: 'ACTIVE' }),
           settingsService.getSettings(),
         ]);
 

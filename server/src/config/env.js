@@ -10,9 +10,9 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env'), override: true });
 dotenv.config({ path: path.resolve(__dirname, '../../../.env'), override: true });
 
 export const env = {
-  PORT: process.env.PORT || 5000,
+  PORT: process.env.PORT || 5050,
   NODE_ENV: process.env.NODE_ENV || 'development',
-  API_URL: process.env.API_URL || 'http://localhost:5000',
+  API_URL: process.env.API_URL || 'http://localhost:5050',
   CLIENT_URL: (process.env.CLIENT_URL && process.env.CLIENT_URL !== '*' && process.env.CLIENT_URL.startsWith('http'))
     ? process.env.CLIENT_URL
     : (process.env.APP_URL && process.env.APP_URL !== '*' && process.env.APP_URL.startsWith('http'))

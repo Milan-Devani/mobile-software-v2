@@ -59,7 +59,7 @@ ON CONFLICT (id) DO NOTHING;
 -- 2. USERS  (bcrypt hashes generated with bcryptjs cost 10)
 -- ---------------------------------------------------------------------------
 INSERT INTO public.users (id, role_id, full_name, email, password_hash, phone, is_active) VALUES
-  ('10000000-0000-0000-0000-000000000001', 'admin',      'Milan Devani',
+  ('10000000-0000-0000-0000-000000000001', 'admin',      'Shop Admin',
    'admin@mobotech.com',
    '$2b$10$FAOQJQo5YAUVcBEWAG6Nk.bWO3fhPfmNuNV5k8raCEtNmYjtjo8UO',
    '080000 24439', TRUE),
@@ -138,7 +138,7 @@ END $$;
 -- ---------------------------------------------------------------------------
 INSERT INTO public.customers (id, shop_id, customer_code, full_name, email, phone, whatsapp_number,
                               gender, user_type, address, city, state, postal_code, notes) VALUES
-  ('d0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001','CUST-0001','Milan Devani','milandevani994@gmail.com','8758152507','8758152507','male','End User','Pasodara','Surat','Gujarat','395006','Regular customer'),
+  ('d0000000-0000-0000-0000-000000000001','a0000000-0000-0000-0000-000000000001','CUST-0001','Rahul Sharma','rahul.sharma@example.com','9876500010','9876500010','male','End User','Pasodara','Surat','Gujarat','395006','Regular customer'),
   ('d0000000-0000-0000-0000-000000000002','a0000000-0000-0000-0000-000000000001','CUST-0002','Sneha Joshi','sneha.joshi@example.com','9876500011','9876500011','female','End User','Varachha','Surat','Gujarat','395006','Prefers WhatsApp'),
   ('d0000000-0000-0000-0000-000000000003','a0000000-0000-0000-0000-000000000001','CUST-0003','Kiran Desai','kiran.desai@example.com','9876500012','9876500012','male','End User','Adajan','Surat','Gujarat','395009','Corporate account'),
   ('d0000000-0000-0000-0000-000000000004','a0000000-0000-0000-0000-000000000001','CUST-0004','Riya Patel','riya.patel@example.com','9876500013',NULL,'female','End User','Vesu','Surat','Gujarat','395007',NULL),

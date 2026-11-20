@@ -13,7 +13,7 @@ const supabase = createClient(
 
 async function testMutationSync() {
   console.log('1. Logging in to backend...');
-  const loginRes = await fetch('http://localhost:5000/api/auth/login', {
+  const loginRes = await fetch('http://localhost:5050/api/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: 'admin@mobotech.com', password: 'Admin@123456' }),
@@ -22,7 +22,7 @@ async function testMutationSync() {
 
   console.log('2. Creating a test part via REST API...');
   const partSku = `TEST-SUPA-${Date.now()}`;
-  const createPartRes = await fetch('http://localhost:5000/api/parts', {
+  const createPartRes = await fetch('http://localhost:5050/api/parts', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -65,7 +65,7 @@ async function testMutationSync() {
   console.log('✅ Supabase verified! Found part in PostgreSQL table "parts":', supaPart.name, '| SKU:', supaPart.sku);
 
   console.log('4. Deleting part via REST API...');
-  const delRes = await fetch(`http://localhost:5000/api/parts/${partId}`, {
+  const delRes = await fetch(`http://localhost:5050/api/parts/${partId}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` }
   });

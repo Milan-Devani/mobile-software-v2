@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   User,
@@ -15,11 +15,14 @@ import {
   Eye,
   MessageCircle,
   Pencil,
-  Trash2
+  Trash2,
+  Cake
 } from 'lucide-react';
+import { formatDateOfBirth } from '../../components/customers/DateOfBirthField';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { customerService } from '../../services/customerService';
+import { jobService } from '../../services/jobService';
 import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
@@ -75,6 +78,34 @@ export const CustomerDetail = () => {
     fetchCustomerDetails();
   }, [id]);
 
+  // Repair history table: one page at a time from the backend
+  const [jobRows, setJobRows] = useState([]);
+  const [jobTotal, setJobTotal] = useState(0);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const jobsRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    setJobPage(1);
+  }, [id]);
+
+  useEffect(() => {
+    const requestId = ++jobsRequestIdRef.current;
+    setJobsLoading(true);
+    jobService
+      .getJobs({ customerId: id, limit: jobPageSize, offset: (jobPage - 1) * jobPageSize })
+      .then((res) => {
+        if (requestId !== jobsRequestIdRef.current) return;
+        setJobRows(res?.jobs || []);
+        setJobTotal(res?.total ?? (res?.jobs || []).length);
+      })
+      .catch(() => {
+        if (requestId === jobsRequestIdRef.current) toast.error('Failed to load repair history');
+      })
+      .finally(() => {
+        if (requestId === jobsRequestIdRef.current) setJobsLoading(false);
+      });
+  }, [id, jobPage, jobPageSize]);
+
   if (loading) {
     return (
       <div className="spatial-tab-pane">
@@ -85,7 +116,7 @@ export const CustomerDetail = () => {
 
   const customer = data?.customer;
   const devices = data?.devices || [];
-  const jobs = data?.jobs || [];
+  const jobs = jobRows; // current page only
   const stats = data?.stats || {};
 
   return (
@@ -247,6 +278,16 @@ export const CustomerDetail = () => {
               </div>
             )}
 
+            {customer?.date_of_birth && formatDateOfBirth(customer.date_of_birth) && (
+              <div className="flex items-center gap-3 pt-2 border-t border-[var(--spatial-border)]">
+                <Cake className="w-4 h-4 text-pink-500 shrink-0" />
+                <div>
+                  <p className="text-[var(--spatial-text-muted)] text-[10px] uppercase font-bold">Date of Birth</p>
+                  <p className="font-semibold text-[var(--spatial-text-title)] font-mono">{formatDateOfBirth(customer.date_of_birth)}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start gap-3 pt-2 border-t border-[var(--spatial-border)]">
               <MapPin className="w-4 h-4 text-[var(--spatial-text-muted)] shrink-0 mt-0.5" />
               <div>
@@ -293,11 +334,11 @@ export const CustomerDetail = () => {
 
       {/* Repair History Table */}
       <Card
-        title={`Repair History (${jobs.length})`}
+        title={`Repair History (${jobTotal})`}
         subtitle="Complete record of all service tickets and job sheets"
         bodyClassName="p-0"
       >
-        {jobs.length === 0 ? (
+        {jobTotal === 0 && !jobsLoading ? (
           <EmptyState
             icon={Wrench}
             title="No repair history for this customer"
@@ -324,7 +365,6 @@ export const CustomerDetail = () => {
                 </thead>
                 <tbody className="divide-y divide-[var(--spatial-border)]">
                   {jobs
-                    .slice((jobPage - 1) * jobPageSize, jobPage * jobPageSize)
                     .map((job) => (
                       <tr
                         key={job.id}
@@ -379,11 +419,11 @@ export const CustomerDetail = () => {
               </table>
             </div>
 
-            {jobs.length > 0 && (
+            {jobTotal > 0 && (
               <SpatialPagination
                 currentPage={jobPage}
-                totalPages={Math.ceil(jobs.length / jobPageSize) || 1}
-                totalItems={jobs.length}
+                totalPages={Math.ceil(jobTotal / jobPageSize) || 1}
+                totalItems={jobTotal}
                 pageSize={jobPageSize}
                 pageSizeOptions={[10, 15, 20, 50]}
                 onPageChange={setJobPage}

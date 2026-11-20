@@ -24,7 +24,7 @@ if (!fs.existsSync(AUTH_DIR)) {
 
 /**
  * Clean & format Indian phone number to WhatsApp JID format
- * e.g. "8758152507" -> "918758152507@s.whatsapp.net"
+ * e.g. "9876543210" -> "919876543210@s.whatsapp.net"
  */
 export const formatJid = (phone) => {
   if (!phone) return null;

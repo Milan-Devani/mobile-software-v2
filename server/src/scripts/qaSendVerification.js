@@ -2,7 +2,15 @@ import { sendBaileysMessage, formatJid, getBaileysStatus } from '../services/bai
 import { sendBrevoEmail } from '../services/brevoEmailService.js';
 import { env } from '../config/env.js';
 
+const targetPhone = process.argv[2] || process.env.QA_TEST_PHONE;
+const targetEmail = process.argv[3] || process.env.QA_TEST_EMAIL;
+const targetName = process.env.QA_TEST_NAME || 'Customer';
+
 async function run() {
+  if (!targetPhone || !targetEmail) {
+    console.error('Usage: node qaSendVerification.js <phone> <email>  (or set QA_TEST_PHONE / QA_TEST_EMAIL)');
+    process.exit(1);
+  }
   console.log('========================================================');
   console.log('🚀 QA AUDIT NOTIFICATION DISPATCH VERIFICATION');
   console.log('========================================================');
@@ -11,10 +19,9 @@ async function run() {
   const wpStatus = getBaileysStatus();
   console.log('📱 WhatsApp Status:', JSON.stringify(wpStatus, null, 2));
 
-  // 2. Send WhatsApp message to 8758152507
-  const targetPhone = '8758152507';
+  // 2. Send WhatsApp message to the test recipient
   const wpText = `*Mobotech Mobile Care — System Verification*\n` +
-    `Hello Milan Devani,\n\n` +
+    `Hello ${targetName},\n\n` +
     `✅ *WhatsApp Connected Sender:* 7575841604\n` +
     `🔍 *QA Audit Status:* Full Master QA Inspection In Progress\n` +
     `⚡ *System State:* Frontend & Backend Operational\n` +
@@ -31,13 +38,12 @@ async function run() {
     console.error('❌ WhatsApp Send Error:', wpErr.message);
   }
 
-  // 3. Send Brevo Email to milandevani994@gmail.com
-  const targetEmail = 'milandevani994@gmail.com';
+  // 3. Send Brevo Email to the test recipient
   console.log(`\n📧 Sending Email to ${targetEmail}...`);
   try {
     const emailResult = await sendBrevoEmail({
       toEmail: targetEmail,
-      toName: 'Milan Devani',
+      toName: targetName,
       subject: 'Mobotech Care — System Verification & QA Audit Initiated',
       htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px; background: #ffffff;">
@@ -46,11 +52,11 @@ async function run() {
             <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">System Verification & Full QA Audit</p>
           </div>
           <div style="padding: 20px 0; color: #334155; font-size: 14px; line-height: 1.6;">
-            <p>Hello <strong>Milan Devani</strong>,</p>
+            <p>Hello <strong>${targetName}</strong>,</p>
             <p>This automated notification confirms that your communication channels are active and integrated with the Mobotech management system:</p>
             <ul style="background: #f8fafc; padding: 15px 30px; border-radius: 8px; border: 1px solid #e2e8f0;">
               <li><strong>WhatsApp Sender:</strong> 7575841604 (Connected via Baileys)</li>
-              <li><strong>WhatsApp Recipient:</strong> 8758152507</li>
+              <li><strong>WhatsApp Recipient:</strong> ${targetPhone}</li>
               <li><strong>Email Provider:</strong> Brevo Transactional API</li>
               <li><strong>Email Recipient:</strong> ${targetEmail}</li>
               <li><strong>Audit Status:</strong> Comprehensive Phase 1-15 Execution</li>

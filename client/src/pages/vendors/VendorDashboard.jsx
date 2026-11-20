@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { NavLink } from "react-router-dom";
+import { useDebounce } from "../../hooks/useDebounce";
+import { usePagedQuery } from "../../hooks/usePagedQuery";
+import { SpatialPagination } from "../../components/common/SpatialPagination";
 import {
   Building2,
   ArrowUpRight,
@@ -101,15 +104,15 @@ export const VendorDashboard = () => {
   const [activeTab, setActiveTab] = useState("sent"); // 'sent' | 'received' | 'vendors'
   const [loading, setLoading] = useState(true);
 
-  // Raw data from API
-  const [sentMobiles, setSentMobiles] = useState([]);
-  const [receivedMobiles, setReceivedMobiles] = useState([]);
+  // Vendors list for the filter dropdown / lookups (tables load their own pages)
   const [vendors, setVendors] = useState([]);
   const [stats, setStats] = useState(null);
   const [shopProfile, setShopProfile] = useState(null);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
+  // Lists filter on the debounced value so typing stays smooth on large vendor/mobile lists
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [paymentStatusFilter, setPaymentStatusFilter] = useState("ALL");
   const [repairStatusFilter, setRepairStatusFilter] = useState("ALL");
   const [selectedVendorFilter, setSelectedVendorFilter] = useState("");
@@ -128,48 +131,16 @@ export const VendorDashboard = () => {
   const [printableTxn, setPrintableTxn] = useState(null);
   const [copiedImei, setCopiedImei] = useState("");
 
-  // Calculate dashboard metrics
-  const activeVendors = useMemo(() => {
-    return vendors.filter(v => {
-      const hasActiveMobiles = sentMobiles.some(m => m.vendor_id === v.id) ||
-                            receivedMobiles.some(m => m.vendor_id === v.id);
-      return hasActiveMobiles;
-    }).length;
-  }, [vendors, sentMobiles, receivedMobiles]);
+  // Dashboard metrics come from the server (computed over ALL vendor mobiles)
+  const dash = stats?.dashboard || {};
+  const activeVendors = dash.active_vendors || 0;
+  const collectedAmount = dash.collected_amount || 0;
+  const pendingAmount = dash.pending_amount || 0;
+  const advanceAmount = dash.advance_amount || 0;
+  const advanceCount = dash.advance_count || 0;
 
-  const collectedAmount = useMemo(() => {
-    return sentMobiles
-      .filter(m => m.payment_status === 'PAID')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0) +
-      receivedMobiles
-      .filter(m => m.payment_status === 'PAID')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0);
-  }, [sentMobiles, receivedMobiles]);
-
-  const pendingAmount = useMemo(() => {
-    return sentMobiles
-      .filter(m => m.payment_status === 'PENDING')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0) +
-      receivedMobiles
-      .filter(m => m.payment_status === 'PENDING')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0);
-  }, [sentMobiles, receivedMobiles]);
-
-  const advanceAmount = useMemo(() => {
-    return sentMobiles
-      .filter(m => m.payment_status === 'ADVANCE')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0) +
-      receivedMobiles
-      .filter(m => m.payment_status === 'ADVANCE')
-      .reduce((sum, m) => sum + (m.actual_cost || 0), 0);
-  }, [sentMobiles, receivedMobiles]);
-
-  const advanceCount = useMemo(() => {
-    return sentMobiles
-      .filter(m => m.payment_status === 'ADVANCE').length +
-      receivedMobiles
-      .filter(m => m.payment_status === 'ADVANCE').length;
-  }, [sentMobiles, receivedMobiles]);
+  // Lets fetchData() (called after every create/update/delete) also refresh the paginated tables
+  const reloadTablesRef = React.useRef(null);
 
   // Load all data
   const fetchData = useCallback(async () => {
@@ -177,24 +148,12 @@ export const VendorDashboard = () => {
       setLoading(true);
       const [mobilesRes, vendorsRes, statsRes, settingsRes] =
         await Promise.allSettled([
-          vendorService.getVendorMobiles({ limit: 300 }),
-          vendorService.getVendors({ limit: 150 }),
+          Promise.resolve(null), // mobiles are loaded page-by-page by the tables
+          vendorService.getVendors({ limit: 1000 }),
           vendorService.getVendorStats(),
           settingsService.getSettings(),
         ]);
 
-      if (mobilesRes.status === "fulfilled") {
-        const allMobiles =
-          mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
-        const sent = allMobiles.filter((m) => m.flow_type === "SENT_TO_VENDOR");
-        const received = allMobiles.filter(
-          (m) =>
-            m.flow_type === "RECEIVED_FROM_VENDOR" ||
-            m.flow_type === "VENDOR_JOB_INWARD",
-        );
-        setSentMobiles(sent);
-        setReceivedMobiles(received);
-      }
 
       if (vendorsRes.status === "fulfilled") {
         const list =
@@ -216,10 +175,11 @@ export const VendorDashboard = () => {
       toast.error("Failed to refresh vendor data");
     } finally {
       setLoading(false);
+      reloadTablesRef.current?.();
     }
   }, []);
 
-  const totalMobiles = useMemo(() => sentMobiles.length + receivedMobiles.length, [sentMobiles, receivedMobiles]);
+  const totalMobiles = dash.total_mobiles || 0;
 
   useEffect(() => {
     fetchData();
@@ -382,113 +342,54 @@ export const VendorDashboard = () => {
     setPrintableTxn(dummyTxn);
   };
 
-  // Filtered Sent Mobiles
-  const filteredSentMobiles = useMemo(() => {
-    return sentMobiles.filter((m) => {
-      if (selectedVendorFilter && m.vendor_id !== selectedVendorFilter)
-        return false;
-      if (
-        paymentStatusFilter !== "ALL" &&
-        (m.payment_status || "PENDING") !== paymentStatusFilter
-      )
-        return false;
-      if (
-        repairStatusFilter !== "ALL" &&
-        m.current_status !== repairStatusFilter
-      )
-        return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const vendorName = m.vendor?.name?.toLowerCase() || "";
-        const vendorShop = m.vendor?.shop_name?.toLowerCase() || "";
-        const brand = (m.brand || "").toLowerCase();
-        const model = (m.model || "").toLowerCase();
-        const imei = (m.imei || "").toLowerCase();
-        const problem = (m.repair_problem || "").toLowerCase();
-        return (
-          brand.includes(q) ||
-          model.includes(q) ||
-          imei.includes(q) ||
-          problem.includes(q) ||
-          vendorName.includes(q) ||
-          vendorShop.includes(q)
-        );
-      }
-      return true;
-    });
-  }, [
-    sentMobiles,
-    selectedVendorFilter,
-    paymentStatusFilter,
-    repairStatusFilter,
-    searchQuery,
-  ]);
+  // ---- Server-side paginated tables (filters + search applied by the backend) ----
+  const mobileQueryParams = (flowType) => {
+    const params = { flowType, sortBy: 'created_at', sortDir: 'desc' };
+    if (selectedVendorFilter) params.vendorId = selectedVendorFilter;
+    if (paymentStatusFilter !== "ALL") params.paymentStatus = paymentStatusFilter;
+    if (repairStatusFilter !== "ALL") params.status = repairStatusFilter;
+    if (debouncedSearchQuery.trim()) params.search = debouncedSearchQuery.trim();
+    return params;
+  };
+  const mobileFilterDeps = [selectedVendorFilter, paymentStatusFilter, repairStatusFilter, debouncedSearchQuery];
 
-  // Filtered Received Mobiles
-  const filteredReceivedMobiles = useMemo(() => {
-    return receivedMobiles.filter((m) => {
-      if (selectedVendorFilter && m.vendor_id !== selectedVendorFilter)
-        return false;
-      if (
-        paymentStatusFilter !== "ALL" &&
-        (m.payment_status || "PENDING") !== paymentStatusFilter
-      )
-        return false;
-      if (
-        repairStatusFilter !== "ALL" &&
-        m.current_status !== repairStatusFilter
-      )
-        return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const vendorName = m.vendor?.name?.toLowerCase() || "";
-        const vendorShop = m.vendor?.shop_name?.toLowerCase() || "";
-        const brand = (m.brand || "").toLowerCase();
-        const model = (m.model || "").toLowerCase();
-        const imei = (m.imei || "").toLowerCase();
-        const problem = (m.repair_problem || "").toLowerCase();
-        return (
-          brand.includes(q) ||
-          model.includes(q) ||
-          imei.includes(q) ||
-          problem.includes(q) ||
-          vendorName.includes(q) ||
-          vendorShop.includes(q)
-        );
-      }
-      return true;
-    });
-  }, [
-    receivedMobiles,
-    selectedVendorFilter,
-    paymentStatusFilter,
-    repairStatusFilter,
-    searchQuery,
-  ]);
+  const sentQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const res = await vendorService.getVendorMobiles({ ...mobileQueryParams("SENT_TO_VENDOR"), limit, offset });
+      return { rows: res?.mobiles || res?.data?.mobiles || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    mobileFilterDeps,
+    { enabled: activeTab === "sent" }
+  );
+  const receivedQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      // Backend treats RECEIVED_FROM_VENDOR as "received + vendor job inward"
+      const res = await vendorService.getVendorMobiles({ ...mobileQueryParams("RECEIVED_FROM_VENDOR"), limit, offset });
+      return { rows: res?.mobiles || res?.data?.mobiles || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    mobileFilterDeps,
+    { enabled: activeTab === "received" }
+  );
+  const vendorsQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const params = { limit, offset };
+      if (debouncedSearchQuery.trim()) params.search = debouncedSearchQuery.trim();
+      const res = await vendorService.getVendors(params);
+      return { rows: res?.vendors || res?.data?.vendors || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    [debouncedSearchQuery],
+    { enabled: activeTab === "vendors" }
+  );
+  reloadTablesRef.current = () => {
+    sentQ.reload();
+    receivedQ.reload();
+    vendorsQ.reload();
+  };
 
-  // Filtered Vendors Directory
-  const filteredVendors = useMemo(() => {
-    return vendors.filter((v) => {
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const name = (v.name || "").toLowerCase();
-        const shop = (v.shop_name || "").toLowerCase();
-        const phone = (v.mobile || "").toLowerCase();
-        const email = (v.email || "").toLowerCase();
-        const spec = (v.specialization || "").toLowerCase();
-        const addr = (v.address || "").toLowerCase();
-        return (
-          name.includes(q) ||
-          shop.includes(q) ||
-          phone.includes(q) ||
-          email.includes(q) ||
-          spec.includes(q) ||
-          addr.includes(q)
-        );
-      }
-      return true;
-    });
-  }, [vendors, searchQuery]);
+  // Current page rows
+  const filteredSentMobiles = sentQ.rows;
+  const filteredReceivedMobiles = receivedQ.rows;
+  const filteredVendors = vendorsQ.rows;
 
   // Status Badge Helper
   const renderPaymentBadge = (status) => {
@@ -643,7 +544,7 @@ export const VendorDashboard = () => {
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Total Vendors</span>
-              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{vendors.length}</span>
+              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{stats?.total_vendors ?? vendors.length}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Active Vendors</span>
@@ -651,7 +552,7 @@ export const VendorDashboard = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Mobiles Tracked</span>
-              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{sentMobiles.length + receivedMobiles.length}</span>
+              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{totalMobiles}</span>
             </div>
           </div>
         </Card>
@@ -687,11 +588,11 @@ export const VendorDashboard = () => {
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Sent to Vendors</span>
-              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{sentMobiles.length}</span>
+              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{dash.sent_count || 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Received from Vendors</span>
-              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{receivedMobiles.length}</span>
+              <span className="text-lg font-bold text-[var(--spatial-text-title)]">{dash.received_count || 0}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-[var(--spatial-text-muted)]">Advance Payments</span>
@@ -791,7 +692,7 @@ export const VendorDashboard = () => {
           {/* ------------------------------------------------------------- */}
           {activeTab === "sent" && (
             <Card
-              title={`Mobiles Dispatched to Vendors (${filteredSentMobiles.length})`}
+              title={`Mobiles Dispatched to Vendors (${sentQ.total})`}
               subtitle="Outsourced repairs sent to outside labs and specialists"
               bodyClassName="p-0"
               actions={
@@ -804,7 +705,7 @@ export const VendorDashboard = () => {
                 </Button>
               }
             >
-              {filteredSentMobiles.length === 0 ? (
+              {sentQ.total === 0 && !sentQ.loading ? (
                 <EmptyState
                   icon={ArrowUpRight}
                   title="No sent mobiles found"
@@ -998,6 +899,17 @@ export const VendorDashboard = () => {
                   </div>
                 </div>
               )}
+              {sentQ.total > 0 && (
+                <div className="p-4 border-t border-[var(--spatial-border)]">
+                  <SpatialPagination
+                    currentPage={sentQ.page}
+                    pageSize={sentQ.pageSize}
+                    totalItems={sentQ.total}
+                    onPageChange={sentQ.setPage}
+                    onPageSizeChange={sentQ.setPageSize}
+                  />
+                </div>
+              )}
             </Card>
           )}
 
@@ -1006,7 +918,7 @@ export const VendorDashboard = () => {
           {/* ------------------------------------------------------------- */}
           {activeTab === "received" && (
             <Card
-              title={`Mobiles Received from Partner Vendors (${filteredReceivedMobiles.length})`}
+              title={`Mobiles Received from Partner Vendors (${receivedQ.total})`}
               subtitle="Handsets brought to your shop by other vendors and shops to repair"
               bodyClassName="p-0"
               actions={
@@ -1020,7 +932,7 @@ export const VendorDashboard = () => {
                 </Button>
               }
             >
-              {filteredReceivedMobiles.length === 0 ? (
+              {receivedQ.total === 0 && !receivedQ.loading ? (
                 <EmptyState
                   icon={ArrowDownLeft}
                   title="No received mobiles found"
@@ -1218,6 +1130,17 @@ export const VendorDashboard = () => {
                   </div>
                 </div>
               )}
+              {receivedQ.total > 0 && (
+                <div className="p-4 border-t border-[var(--spatial-border)]">
+                  <SpatialPagination
+                    currentPage={receivedQ.page}
+                    pageSize={receivedQ.pageSize}
+                    totalItems={receivedQ.total}
+                    onPageChange={receivedQ.setPage}
+                    onPageSizeChange={receivedQ.setPageSize}
+                  />
+                </div>
+              )}
             </Card>
           )}
 
@@ -1235,7 +1158,7 @@ export const VendorDashboard = () => {
               />
 
               <Card
-                title={`Partner Vendors & Specialists (${filteredVendors.length})`}
+                title={`Partner Vendors & Specialists (${vendorsQ.total})`}
                 subtitle="Directory of external workshops, technicians, and specialized repair labs"
                 bodyClassName="p-0"
                 actions={
@@ -1269,7 +1192,7 @@ export const VendorDashboard = () => {
                   </div>
                 }
               >
-                {filteredVendors.length === 0 ? (
+                {vendorsQ.total === 0 && !vendorsQ.loading ? (
                   <EmptyState
                     icon={Building2}
                     title="No vendors found"
@@ -1333,20 +1256,9 @@ export const VendorDashboard = () => {
                         <tbody className="divide-y divide-[var(--spatial-border)]">
                           {filteredVendors.map((v) => {
                             const isSelected = selectedVendorIds.includes(v.id);
-                            const activeOut = sentMobiles.filter(
-                              (m) =>
-                                m.vendor_id === v.id &&
-                                !["RETURNED", "CANCELLED"].includes(
-                                  m.current_status,
-                                ),
-                            ).length;
-                            const activeIn = receivedMobiles.filter(
-                              (m) =>
-                                m.vendor_id === v.id &&
-                                !["RETURNED", "CANCELLED"].includes(
-                                  m.current_status,
-                                ),
-                            ).length;
+                            // Active (not returned/cancelled) counts across ALL mobiles, from the server summary
+                            const activeOut = dash.per_vendor_active?.[v.id]?.out || 0;
+                            const activeIn = dash.per_vendor_active?.[v.id]?.in || 0;
 
                             return (
                               <tr
@@ -1519,6 +1431,17 @@ export const VendorDashboard = () => {
                     </div>
                   </div>
                 )}
+              {vendorsQ.total > 0 && (
+                <div className="p-4 border-t border-[var(--spatial-border)]">
+                  <SpatialPagination
+                    currentPage={vendorsQ.page}
+                    pageSize={vendorsQ.pageSize}
+                    totalItems={vendorsQ.total}
+                    onPageChange={vendorsQ.setPage}
+                    onPageSizeChange={vendorsQ.setPageSize}
+                  />
+                </div>
+              )}
               </Card>
             </div>
           )}

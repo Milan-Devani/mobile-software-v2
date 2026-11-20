@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { customerService } from '../../services/customerService';
+import { DateOfBirthField, isValidDateOfBirth, DATE_OF_BIRTH_ERROR } from '../../components/customers/DateOfBirthField';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
 import { Card, LoadingSpinner, FormSkeleton } from '../../components/common/Card';
@@ -96,6 +97,7 @@ export const JobCreate = () => {
   const [newCustCity, setNewCustCity] = useState('');
   const [newCustState, setNewCustState] = useState('');
   const [newCustPostalCode, setNewCustPostalCode] = useState('');
+  const [newCustDob, setNewCustDob] = useState('');
 
   const {
     register,
@@ -215,6 +217,10 @@ export const JobCreate = () => {
       toast.error('Please enter a WhatsApp number or check "WhatsApp number is same as Phone number"');
       return;
     }
+    if (!isValidDateOfBirth(newCustDob)) {
+      toast.error(DATE_OF_BIRTH_ERROR);
+      return;
+    }
     try {
       const created = await customerService.createCustomer({
         full_name: newCustName.trim(),
@@ -229,6 +235,7 @@ export const JobCreate = () => {
         city: newCustCity,
         state: newCustState,
         postal_code: newCustPostalCode,
+        date_of_birth: newCustDob || null,
       });
       toast.success(`Customer "${created.full_name}" registered!`);
       setCustomers((prev) => [created, ...prev]);
@@ -248,6 +255,7 @@ export const JobCreate = () => {
       setNewCustCity('');
       setNewCustState('');
       setNewCustPostalCode('');
+      setNewCustDob('');
     } catch (err) {
       toast.error(err.message || 'Failed to create customer');
     }
@@ -806,7 +814,7 @@ export const JobCreate = () => {
             <input
               type="text"
               required
-              placeholder="e.g. Milan Devani"
+              placeholder="e.g. Rahul Sharma"
               value={newCustName}
               onChange={(e) => setNewCustName(e.target.value)}
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
@@ -821,12 +829,19 @@ export const JobCreate = () => {
             <input
               type="email"
               required
-              placeholder="e.g. milan@example.com"
+              placeholder="e.g. customer@example.com"
               value={newCustEmail}
               onChange={(e) => setNewCustEmail(e.target.value)}
               className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
             />
           </div>
+
+          {/* Date of Birth (for birthday wishes) */}
+          <DateOfBirthField
+            value={newCustDob}
+            onChange={setNewCustDob}
+            labelClassName="block text-xs font-semibold text-[var(--spatial-text-title)] uppercase tracking-wider mb-1"
+          />
 
           {/* Primary Phone & Primary WhatsApp */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -841,7 +856,7 @@ export const JobCreate = () => {
                 maxLength={PHONE_NUMBER_LENGTH}
                 pattern="[0-9]{10}"
                 {...numberInputProps({ allowDecimal: false })}
-                placeholder="e.g. 8758152507"
+                placeholder="e.g. 9876543210"
                 value={newCustPhone}
                 onChange={(e) => {
                   const phone = sanitizePhoneNumber(e.target.value);
@@ -921,7 +936,7 @@ export const JobCreate = () => {
                   maxLength={PHONE_NUMBER_LENGTH}
                   pattern="[0-9]{10}"
                   {...numberInputProps({ allowDecimal: false })}
-                  placeholder="e.g. 8160751302"
+                  placeholder="e.g. 9123456780"
                   value={newCustAltPhone}
                   onChange={(e) => {
                     const phone = sanitizePhoneNumber(e.target.value);

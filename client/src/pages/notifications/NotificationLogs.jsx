@@ -91,6 +91,7 @@ export const NotificationLogs = () => {
     try {
       await notificationService.resend({
         jobId: log.job_id,
+        customerId: log.customer_id,
         channel: log.channel,
         type: log.message_type,
       });

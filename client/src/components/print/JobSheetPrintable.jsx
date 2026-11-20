@@ -96,7 +96,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
 
   // Check Baileys WhatsApp status on mount
   React.useEffect(() => {
-    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
     fetch(`${apiBase}/whatsapp/status`)
       .then((r) => r.json())
       .then((data) => {
@@ -203,7 +203,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
       const toastId = toast.loading('Sending to alternate WhatsApp in background...');
       try {
         const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
         const res = await fetch(`${apiBase}/whatsapp/send-test`, {
           method: 'POST',
           headers: {
@@ -402,7 +402,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
               title={waStatus?.isConnected ? 'Device linked! Click to manage' : 'Click to scan QR code & link your phone'}
             >
               <Smartphone className="w-3.5 h-3.5" />
-              <span>{waStatus?.isConnected ? `Linked (+${waStatus.user?.phone || '8758152507'})` : 'Link WhatsApp (QR)'}</span>
+              <span>{waStatus?.isConnected ? (waStatus.user?.phone ? `Linked (+${waStatus.user.phone})` : 'Linked') : 'Link WhatsApp (QR)'}</span>
             </button>
             {cust.email && (
               <button

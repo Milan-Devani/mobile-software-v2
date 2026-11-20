@@ -1,6 +1,6 @@
 # API REFERENCE
 
-Base URL: `http://localhost:5000/api` (configure `VITE_API_URL` for the client).
+Base URL: `http://localhost:5050/api` (configure `VITE_API_URL` for the client).
 
 **Conventions**
 

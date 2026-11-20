@@ -25,6 +25,8 @@ import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { formatIndianCurrency } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
+import { usePagedQuery } from '../../hooks/usePagedQuery';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
 
 export default function VendorReports() {
   const navigate = useNavigate();
@@ -50,7 +52,7 @@ export default function VendorReports() {
   // Fetch vendors
   const fetchVendors = async () => {
     try {
-      const res = await vendorService.getVendors({ limit: 100 });
+      const res = await vendorService.getVendors({ limit: 1000 });
       setVendors(res?.data?.vendors || res?.vendors || []);
     } catch (err) {
       console.error('Failed to load vendors', err);
@@ -107,6 +109,23 @@ export default function VendorReports() {
     );
   }, [reportData, debouncedImeiSearch]);
 
+  // Mobile History table: loaded page-by-page from the backend with the same filters
+  const mobileHistoryQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const params = { limit, offset, sortBy: 'created_at', sortDir: 'desc' };
+      if (selectedVendorId && selectedVendorId !== 'ALL') params.vendorId = selectedVendorId;
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      if (statusFilter && statusFilter !== 'ALL') params.status = statusFilter;
+      if (flowFilter && flowFilter !== 'ALL') params.flowType = flowFilter;
+      if (debouncedImeiSearch.trim()) params.search = debouncedImeiSearch.trim();
+      const res = await vendorService.getVendorMobiles(params);
+      return { rows: res?.mobiles || res?.data?.mobiles || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    [selectedVendorId, startDate, endDate, statusFilter, flowFilter, debouncedImeiSearch],
+    { enabled: activeReportTab === 'mobile_history' }
+  );
+
   // Vendor-wise breakdown computed from report data
   const vendorBreakdown = useMemo(() => {
     if (!vendors.length) return [];
@@ -134,6 +153,26 @@ export default function VendorReports() {
       };
     });
   }, [vendors, reportData]);
+
+  // Breakdown / balances tables have one computed row per vendor → paginate those rows
+  const [vendorWisePage, setVendorWisePage] = useState(1);
+  const [vendorWisePageSize, setVendorWisePageSize] = useState(10);
+  const [balancesPage, setBalancesPage] = useState(1);
+  const [balancesPageSize, setBalancesPageSize] = useState(10);
+  const vendorWiseQ = {
+    page: vendorWisePage,
+    pageSize: vendorWisePageSize,
+    setPage: setVendorWisePage,
+    setPageSize: (s) => { setVendorWisePageSize(s); setVendorWisePage(1); },
+  };
+  const balancesQ = {
+    page: balancesPage,
+    pageSize: balancesPageSize,
+    setPage: setBalancesPage,
+    setPageSize: (s) => { setBalancesPageSize(s); setBalancesPage(1); },
+  };
+  const vendorWiseRows = vendorBreakdown.slice((vendorWisePage - 1) * vendorWisePageSize, vendorWisePage * vendorWisePageSize);
+  const balanceRows = vendors.slice((balancesPage - 1) * balancesPageSize, balancesPage * balancesPageSize);
 
   // CSV Export Function
   const exportToCSV = () => {
@@ -471,7 +510,7 @@ export default function VendorReports() {
           </div>
 
           <div className="spatial-card rounded-2xl overflow-hidden">
-            {filteredMobiles.length === 0 ? (
+            {mobileHistoryQ.total === 0 && !mobileHistoryQ.loading ? (
               <div className="p-12 text-center text-[var(--spatial-text-muted)]">
                 <Smartphone className="w-12 h-12 mx-auto mb-3 opacity-30" />
                 <p>No handsets found matching your search criteria.</p>
@@ -492,7 +531,7 @@ export default function VendorReports() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--spatial-border)]">
-                    {filteredMobiles.map((mob) => (
+                    {mobileHistoryQ.rows.map((mob) => (
                       <tr key={mob.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                         <td className="py-3 px-4">
                           <div className="font-semibold text-[var(--spatial-text-title)]">{mob.brand} {mob.model}</div>
@@ -538,6 +577,17 @@ export default function VendorReports() {
                 </table>
               </div>
             )}
+            {mobileHistoryQ.total > 0 && (
+              <div className="p-4 border-t border-[var(--spatial-border)]">
+                <SpatialPagination
+                  currentPage={mobileHistoryQ.page}
+                  pageSize={mobileHistoryQ.pageSize}
+                  totalItems={mobileHistoryQ.total}
+                  onPageChange={mobileHistoryQ.setPage}
+                  onPageSizeChange={mobileHistoryQ.setPageSize}
+                />
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -560,7 +610,7 @@ export default function VendorReports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--spatial-border)]">
-                {vendorBreakdown.map((v) => (
+                {vendorWiseRows.map((v) => (
                   <tr key={v.id} className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors">
                     <td className="py-3 px-4">
                       <div className="font-semibold text-[var(--spatial-text-title)]">{v.name}</div>
@@ -589,6 +639,17 @@ export default function VendorReports() {
               </tbody>
             </table>
           </div>
+          {vendorBreakdown.length > 0 && (
+            <div className="p-4 border-t border-[var(--spatial-border)]">
+              <SpatialPagination
+                currentPage={vendorWiseQ.page}
+                pageSize={vendorWiseQ.pageSize}
+                totalItems={vendorBreakdown.length}
+                onPageChange={vendorWiseQ.setPage}
+                onPageSizeChange={vendorWiseQ.setPageSize}
+              />
+            </div>
+          )}
         </div>
       )}
 
@@ -608,7 +669,7 @@ export default function VendorReports() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--spatial-border)]">
-                {vendors.map((v) => {
+                {balanceRows.map((v) => {
                   const bal = parseFloat(v.current_balance || 0);
                   const isPayable = bal > 0;
                   const isReceivable = bal < 0;
@@ -663,6 +724,17 @@ export default function VendorReports() {
               </tbody>
             </table>
           </div>
+          {vendors.length > 0 && (
+            <div className="p-4 border-t border-[var(--spatial-border)]">
+              <SpatialPagination
+                currentPage={balancesQ.page}
+                pageSize={balancesQ.pageSize}
+                totalItems={vendors.length}
+                onPageChange={balancesQ.setPage}
+                onPageSizeChange={balancesQ.setPageSize}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -62,7 +62,7 @@ export const VendorModal = ({
         setVendorPool(existingVendors);
       } else {
         vendorService
-          .getVendors({ limit: 150 })
+          .getVendors({ limit: 1000 })
           .then((res) => {
             const list = res?.data?.vendors || res?.vendors || [];
             setVendorPool(list);

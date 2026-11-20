@@ -37,6 +37,8 @@ import {
   DetailSkeleton,
 } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
+import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { usePagedQuery } from '../../hooks/usePagedQuery';
 import { vendorService } from '../../services/vendorService';
 import { settingsService } from '../../services/settingsService';
 import {
@@ -54,10 +56,7 @@ export const VendorDetail = () => {
   const [mobileFilter, setMobileFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'RETURNED'
 
   // Sub-data
-  const [mobiles, setMobiles] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [ledgerData, setLedgerData] = useState(null);
-  const [payments, setPayments] = useState([]);
+  // mobiles / ledger / payments / transactions are loaded page-by-page (see usePagedQuery below)
   const [shopProfile, setShopProfile] = useState(null);
 
   // Modals
@@ -68,19 +67,8 @@ export const VendorDetail = () => {
   const fetchVendorProfile = async () => {
     try {
       setLoading(true);
-      const [
-        vendorRes,
-        mobilesRes,
-        txnsRes,
-        ledgerRes,
-        paymentsRes,
-        settingsRes,
-      ] = await Promise.allSettled([
+      const [vendorRes, settingsRes] = await Promise.allSettled([
         vendorService.getVendorById(id),
-        vendorService.getVendorMobiles({ vendorId: id, limit: 100 }),
-        vendorService.getVendorTransactions({ vendorId: id, limit: 50 }),
-        vendorService.getVendorLedger(id),
-        vendorService.getVendorPayments({ vendorId: id, limit: 50 }),
         settingsService.getSettings(),
       ]);
 
@@ -96,26 +84,6 @@ export const VendorDetail = () => {
         return;
       }
 
-      if (mobilesRes.status === 'fulfilled') {
-        const list =
-          mobilesRes.value?.data?.mobiles || mobilesRes.value?.mobiles || [];
-        setMobiles(list);
-      }
-      if (txnsRes.status === 'fulfilled') {
-        const list =
-          txnsRes.value?.data?.transactions ||
-          txnsRes.value?.transactions ||
-          [];
-        setTransactions(list);
-      }
-      if (ledgerRes.status === 'fulfilled') {
-        setLedgerData(ledgerRes.value?.data || ledgerRes.value || {});
-      }
-      if (paymentsRes.status === 'fulfilled') {
-        const list =
-          paymentsRes.value?.data?.payments || paymentsRes.value?.payments || [];
-        setPayments(list);
-      }
       if (settingsRes.status === 'fulfilled') {
         const shop =
           settingsRes.value?.data?.shop || settingsRes.value?.shop;
@@ -133,18 +101,83 @@ export const VendorDetail = () => {
     if (id) fetchVendorProfile();
   }, [id]);
 
-  // Filtered mobiles list
-  const filteredMobiles = useMemo(() => {
-    if (mobileFilter === 'PENDING') {
-      return mobiles.filter(
-        (m) => !['RETURNED', 'CANCELLED'].includes(m.current_status)
-      );
-    }
-    if (mobileFilter === 'RETURNED') {
-      return mobiles.filter((m) => m.current_status === 'RETURNED');
-    }
-    return mobiles;
-  }, [mobiles, mobileFilter]);
+  // ---- Server-side paginated tables (each loads one page from the backend) ----
+  const mobilesQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const params = { vendorId: id, limit, offset };
+      if (mobileFilter === 'PENDING') params.excludeStatus = 'RETURNED,CANCELLED';
+      if (mobileFilter === 'RETURNED') params.status = 'RETURNED';
+      const res = await vendorService.getVendorMobiles(params);
+      return { rows: res?.mobiles || res?.data?.mobiles || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    [id, mobileFilter],
+    { enabled: Boolean(id) }
+  );
+  const ledgerQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const res = await vendorService.getVendorLedger(id, { limit, offset });
+      const data = res?.data || res || {};
+      return {
+        rows: data.entries || [],
+        total: data.total_entries ?? (data.entries || []).length,
+        extra: { total_debit: data.total_debit, total_credit: data.total_credit, closing_balance: data.closing_balance },
+      };
+    },
+    [id],
+    { enabled: Boolean(id), initialPageSize: 20 }
+  );
+  const paymentsQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const res = await vendorService.getVendorPayments({ vendorId: id, limit, offset });
+      return { rows: res?.payments || res?.data?.payments || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    [id],
+    { enabled: Boolean(id) }
+  );
+  const transactionsQ = usePagedQuery(
+    async ({ limit, offset }) => {
+      const res = await vendorService.getVendorTransactions({ vendorId: id, limit, offset });
+      return { rows: res?.transactions || res?.data?.transactions || [], total: res?.total ?? res?.data?.total ?? 0 };
+    },
+    [id],
+    { enabled: Boolean(id) }
+  );
+
+  // Pill counts (all phones / collected) over ALL of this vendor's phones
+  const [mobileCounts, setMobileCounts] = useState({ all: 0, returned: 0 });
+  const [countsKey, setCountsKey] = useState(0);
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    vendorService
+      .getVendorMobiles({ vendorId: id, limit: 1, countStatuses: 'RETURNED' })
+      .then((res) => {
+        if (cancelled) return;
+        setMobileCounts({
+          all: res?.total ?? res?.data?.total ?? 0,
+          returned: (res?.status_counts || res?.data?.status_counts || {}).RETURNED || 0,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id, countsKey]);
+
+  /** Refresh profile + every table (after edit / payment). */
+  const refreshAll = () => {
+    fetchVendorProfile();
+    mobilesQ.reload();
+    ledgerQ.reload();
+    paymentsQ.reload();
+    transactionsQ.reload();
+    setCountsKey((k) => k + 1);
+  };
+
+  const mobiles = mobilesQ.rows;
+  const filteredMobiles = mobilesQ.rows; // already filtered on the server
+  const payments = paymentsQ.rows;
+  const transactions = transactionsQ.rows;
 
   if (loading || !vendor) {
     return <DetailSkeleton />;
@@ -389,7 +422,7 @@ export const VendorDetail = () => {
         {[
           {
             key: 'mobiles',
-            label: `Phones Sent (${mobiles.length})`,
+            label: `Phones Sent (${mobileCounts.all})`,
             icon: Smartphone,
           },
           {
@@ -399,12 +432,12 @@ export const VendorDetail = () => {
           },
           {
             key: 'payments',
-            label: `Payment Vouchers (${payments.length})`,
+            label: `Payment Vouchers (${paymentsQ.total})`,
             icon: IndianRupee,
           },
           {
             key: 'transactions',
-            label: `Challans & Dispatches (${transactions.length})`,
+            label: `Challans & Dispatches (${transactionsQ.total})`,
             icon: FileText,
           },
         ].map((tab) => {
@@ -432,19 +465,17 @@ export const VendorDetail = () => {
       {activeTab === 'mobiles' && (
         <div key="mobiles" className="spatial-tab-pane space-y-3">
           {/* Quick Filter Sub-Pills */}
-          {mobiles.length > 0 && (
+          {mobileCounts.all > 0 && (
             <div className="flex items-center gap-2">
               {[
-                { key: 'ALL', label: `All Phones (${mobiles.length})` },
+                { key: 'ALL', label: `All Phones (${mobileCounts.all})` },
                 {
                   key: 'PENDING',
                   label: `⚡ At Lab Now (${currentlyAtVendor})`,
                 },
                 {
                   key: 'RETURNED',
-                  label: `Collected (${
-                    mobiles.filter((m) => m.current_status === 'RETURNED').length
-                  })`,
+                  label: `Collected (${mobileCounts.returned})`,
                 },
               ].map((pill) => (
                 <button
@@ -464,7 +495,7 @@ export const VendorDetail = () => {
           )}
 
           <Card
-            title={`Phones Outsourced to ${vendor.name} (${filteredMobiles.length})`}
+            title={`Phones Outsourced to ${vendor.name} (${mobilesQ.total})`}
             subtitle="Track handset models, faults, repair costs, and current status"
             action={
               <Button
@@ -480,7 +511,7 @@ export const VendorDetail = () => {
             }
             bodyClassName="p-0"
           >
-            {filteredMobiles.length === 0 ? (
+            {mobilesQ.total === 0 && !mobilesQ.loading ? (
               <EmptyState
                 icon={Smartphone}
                 title="No phones found"
@@ -565,6 +596,17 @@ export const VendorDetail = () => {
                 </table>
               </div>
             )}
+            {mobilesQ.total > 0 && (
+              <div className="p-4 border-t border-[var(--spatial-border)]">
+                <SpatialPagination
+                  currentPage={mobilesQ.page}
+                  pageSize={mobilesQ.pageSize}
+                  totalItems={mobilesQ.total}
+                  onPageChange={mobilesQ.setPage}
+                  onPageSizeChange={mobilesQ.setPageSize}
+                />
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -587,7 +629,7 @@ export const VendorDetail = () => {
             }
             bodyClassName="p-0"
           >
-            {!ledgerData || ledgerData.entries?.length === 0 ? (
+            {ledgerQ.total === 0 && !ledgerQ.loading ? (
               <EmptyState
                 icon={IndianRupee}
                 title="No Khata entries recorded yet"
@@ -615,7 +657,7 @@ export const VendorDetail = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--spatial-border)]">
-                      {ledgerData.entries.map((entry) => (
+                      {ledgerQ.rows.map((entry) => (
                         <tr
                           key={entry.id}
                           className="hover:bg-[var(--spatial-bg-card-subtle)] transition-colors"
@@ -662,17 +704,29 @@ export const VendorDetail = () => {
                     </tbody>
                   </table>
                 </div>
+            {ledgerQ.total > 0 && (
+              <div className="p-4 border-t border-[var(--spatial-border)]">
+                <SpatialPagination
+                  currentPage={ledgerQ.page}
+                  pageSize={ledgerQ.pageSize}
+                  totalItems={ledgerQ.total}
+                  pageSizeOptions={[20, 50, 100]}
+                  onPageChange={ledgerQ.setPage}
+                  onPageSizeChange={ledgerQ.setPageSize}
+                />
+              </div>
+            )}
 
-                {/* Ledger Summary Footer */}
+                {/* Ledger Summary Footer (totals cover the full statement, not just this page) */}
                 <div className="p-4 border-t border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] flex flex-wrap items-center justify-between gap-4 text-xs">
                   <div className="text-[var(--spatial-text-muted)]">
                     Total Amount Paid:{' '}
                     <span className="font-mono font-bold text-emerald-400">
-                      {formatIndianCurrency(ledgerData.total_debit || 0, true)}
+                      {formatIndianCurrency(ledgerQ.extra?.total_debit || 0, true)}
                     </span>{' '}
                     | Total Charges:{' '}
                     <span className="font-mono font-bold text-rose-400">
-                      {formatIndianCurrency(ledgerData.total_credit || 0, true)}
+                      {formatIndianCurrency(ledgerQ.extra?.total_credit || 0, true)}
                     </span>
                   </div>
                   <div className="text-right">
@@ -681,7 +735,7 @@ export const VendorDetail = () => {
                     </span>
                     <span className="font-mono font-black text-base text-[var(--spatial-text-title)]">
                       {formatIndianCurrency(
-                        Math.abs(ledgerData.closing_balance || 0),
+                        Math.abs(ledgerQ.extra?.closing_balance || 0),
                         true
                       )}
                     </span>
@@ -697,7 +751,7 @@ export const VendorDetail = () => {
       {activeTab === 'payments' && (
         <div key="payments" className="spatial-tab-pane">
           <Card
-            title={`Payment Vouchers (${payments.length})`}
+            title={`Payment Vouchers (${paymentsQ.total})`}
             subtitle="Record of money paid to or received from this vendor"
             action={
               <Button
@@ -711,7 +765,7 @@ export const VendorDetail = () => {
             }
             bodyClassName="p-0"
           >
-            {payments.length === 0 ? (
+            {paymentsQ.total === 0 && !paymentsQ.loading ? (
               <EmptyState
                 icon={IndianRupee}
                 title="No payment vouchers recorded"
@@ -764,6 +818,17 @@ export const VendorDetail = () => {
                 </table>
               </div>
             )}
+            {paymentsQ.total > 0 && (
+              <div className="p-4 border-t border-[var(--spatial-border)]">
+                <SpatialPagination
+                  currentPage={paymentsQ.page}
+                  pageSize={paymentsQ.pageSize}
+                  totalItems={paymentsQ.total}
+                  onPageChange={paymentsQ.setPage}
+                  onPageSizeChange={paymentsQ.setPageSize}
+                />
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -772,11 +837,11 @@ export const VendorDetail = () => {
       {activeTab === 'transactions' && (
         <div key="transactions" className="spatial-tab-pane">
           <Card
-            title={`Challan & Transaction History (${transactions.length})`}
+            title={`Challan & Transaction History (${transactionsQ.total})`}
             subtitle="Every dispatch challan and inward receipt generated for this vendor"
             bodyClassName="p-0"
           >
-            {transactions.length === 0 ? (
+            {transactionsQ.total === 0 && !transactionsQ.loading ? (
               <EmptyState
                 icon={ArrowUpRight}
                 title="No transactions recorded yet"
@@ -857,6 +922,17 @@ export const VendorDetail = () => {
                 </table>
               </div>
             )}
+            {transactionsQ.total > 0 && (
+              <div className="p-4 border-t border-[var(--spatial-border)]">
+                <SpatialPagination
+                  currentPage={transactionsQ.page}
+                  pageSize={transactionsQ.pageSize}
+                  totalItems={transactionsQ.total}
+                  onPageChange={transactionsQ.setPage}
+                  onPageSizeChange={transactionsQ.setPageSize}
+                />
+              </div>
+            )}
           </Card>
         </div>
       )}
@@ -870,7 +946,7 @@ export const VendorDetail = () => {
         onSuccess={(updated) => {
           setIsEditModalOpen(false);
           setVendor(updated);
-          fetchVendorProfile();
+          refreshAll();
         }}
       />
 
@@ -880,7 +956,7 @@ export const VendorDetail = () => {
         onClose={() => setIsPaymentModalOpen(false)}
         vendors={[vendor]}
         selectedVendorId={vendor.id}
-        onPaymentRecorded={() => fetchVendorProfile()}
+        onPaymentRecorded={() => refreshAll()}
       />
 
       {/* Print Receipt Modal */}

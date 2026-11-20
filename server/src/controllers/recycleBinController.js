@@ -1,4 +1,5 @@
 import { db } from '../db/db.js';
+import { readPagination, paginateArray } from '../utils/pagination.js';
 import { AppError } from '../middleware/errorHandler.js';
 
 /**
@@ -12,9 +13,13 @@ export const getRecycleBinItems = async (req, res, next) => {
   try {
     const { type = 'ALL', search = '' } = req.query;
     const result = await db.recycle_bin.list({ type, search });
+    const pagination = readPagination(req.query);
     res.json({
       success: true,
-      data: result,
+      // total = all matching items (for page count); items = only the requested page
+      data: pagination
+        ? { ...result, items: paginateArray(result.items, pagination), ...pagination }
+        : result,
     });
   } catch (err) {
     next(err);
