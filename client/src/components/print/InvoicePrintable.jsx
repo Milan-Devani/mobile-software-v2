@@ -445,7 +445,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       // 1. Attempt official server-side vector PDF download
       const token = localStorage.getItem("token");
       const rawApiBase =
-        import.meta.env.VITE_API_URL || "http://localhost:5050/api";
+        import.meta.env.VITE_API_URL || "http://localhost:5000/api";
       const apiBase = rawApiBase.endsWith("/api")
         ? rawApiBase
         : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -659,7 +659,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       try {
         const token = localStorage.getItem("token");
         const rawApiBase =
-          import.meta.env.VITE_API_URL || "http://localhost:5050/api";
+          import.meta.env.VITE_API_URL || "http://localhost:5000/api";
         const apiBase = rawApiBase.endsWith("/api")
           ? rawApiBase
           : `${rawApiBase.replace(/\/+$/, "")}/api`;
@@ -743,7 +743,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
       try {
         const token = localStorage.getItem("token");
         const rawApiBase =
-          import.meta.env.VITE_API_URL || "http://localhost:5050/api";
+          import.meta.env.VITE_API_URL || "http://localhost:5000/api";
         const apiBase = rawApiBase.endsWith("/api")
           ? rawApiBase
           : `${rawApiBase.replace(/\/+$/, "")}/api`;

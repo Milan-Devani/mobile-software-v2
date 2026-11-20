@@ -184,7 +184,7 @@ export const JobSheetPrintable = ({ job, shop }) => {
       const toastId = toast.loading('Sending to alternate WhatsApp in background...');
       try {
         const token = localStorage.getItem('token');
-        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
         const res = await fetch(`${apiBase}/whatsapp/send-test`, {
           method: 'POST',
           headers: {

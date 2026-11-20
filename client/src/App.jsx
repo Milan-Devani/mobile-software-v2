@@ -11,7 +11,7 @@ export default function App() {
   useEffect(() => {
     // Non-blocking pre-warm ping: If backend is asleep on Render, this immediately wakes it up in the background
     try {
-      const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+      const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const rootUrl = rawApiBase.replace(/\/api\/?$/, '');
       fetch(`${rootUrl}/health`, { method: 'GET', keepalive: true }).catch(() => {});
     } catch (_) {}

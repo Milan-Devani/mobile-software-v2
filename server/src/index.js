@@ -177,6 +177,11 @@ const startServer = async () => {
     await dbInitPromise;
     dbInitPromise = null;
 
+    // Auto-clear any interrupted backup jobs from prior process lifecycles so UI never starts up locked
+    try {
+      await db.backup_logs.clearStaleJobs(0);
+    } catch (_) {}
+
     // Daily birthday wishes (WhatsApp + Email) — checks every 10 min, sends 09:00–21:00 IST
     try {
       const { startBirthdayScheduler } = await import('./services/birthdayService.js');

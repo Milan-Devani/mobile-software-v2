@@ -242,9 +242,41 @@ async function restoreViaSupabaseApi(sqlFilePath) {
         .upsert(batch, { onConflict: 'id', ignoreDuplicates: true });
 
       if (error) {
-        const msg = `Table "${tableName}" batch [${start}-${start + batch.length}]: ${error.message}`;
-        console.warn(`  ⚠️ ${msg}`);
-        errors.push(msg);
+        console.warn(`  ⚠️ Batch upsert failed for ${tableName} (${error.message}). Retrying row-by-row with auto-sanitization...`);
+        // Fallback: row-by-row with automatic JSON & Foreign-Key repair
+        for (const row of batch) {
+          const sanitizedRow = { ...row };
+
+          // 1. Repair invalid JSON syntax (e.g. "Real PDF Sent" in notification_logs.provider_response)
+          if (tableName === 'notification_logs' && sanitizedRow.provider_response) {
+            if (typeof sanitizedRow.provider_response === 'string') {
+              try {
+                sanitizedRow.provider_response = JSON.parse(sanitizedRow.provider_response);
+              } catch (_) {
+                sanitizedRow.provider_response = { raw: sanitizedRow.provider_response };
+              }
+            }
+          }
+
+          let { error: rowErr } = await supabase
+            .from(tableName)
+            .upsert(sanitizedRow, { onConflict: 'id', ignoreDuplicates: true });
+
+          // 2. Repair foreign-key constraint violations on job_id (e.g. part_stock_movements referencing deleted job)
+          if (rowErr && (rowErr.code === '23503' || rowErr.message?.includes('violates foreign key constraint')) && sanitizedRow.job_id) {
+            sanitizedRow.job_id = null;
+            const retryRes = await supabase
+              .from(tableName)
+              .upsert(sanitizedRow, { onConflict: 'id', ignoreDuplicates: true });
+            rowErr = retryRes.error;
+          }
+
+          if (rowErr) {
+            errors.push(`Table "${tableName}" row [${sanitizedRow.id || 'unknown'}]: ${rowErr.message}`);
+          } else {
+            totalUpserted++;
+          }
+        }
       } else {
         totalUpserted += batch.length;
       }

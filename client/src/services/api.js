@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+const rawApiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 export const API_BASE_URL = rawApiBase.endsWith('/api')
   ? rawApiBase
   : `${rawApiBase.replace(/\/+$/, '')}/api`;
@@ -46,8 +46,29 @@ api.interceptors.response.use(
     if (config && retryCount < 3 && isColdStartError) {
       config._retryCount = retryCount + 1;
       config._retry = true;
-      // Wait progressively (1.5s, 2.5s, 3.5s) to allow server restart/startup
-      await new Promise((resolve) => setTimeout(resolve, 1500 + retryCount * 1000));
+
+      // Smart port failover for local development:
+      // If localhost:5000 is down, probe localhost:5050 (or vice versa) and switch baseURL automatically
+      const currentBase = api.defaults.baseURL || '';
+      if (currentBase.includes('localhost') || currentBase.includes('127.0.0.1')) {
+        try {
+          const is5000 = currentBase.includes(':5000');
+          const is5050 = currentBase.includes(':5050');
+          if (is5000 || is5050) {
+            const altPort = is5000 ? '5050' : '5000';
+            const altUrl = currentBase.replace(/:(5000|5050)/, `:${altPort}`);
+            const altHealth = altUrl.replace(/\/api\/?$/, '') + '/health';
+            const probe = await fetch(altHealth, { method: 'GET', signal: AbortSignal.timeout(1000) });
+            if (probe.ok) {
+              api.defaults.baseURL = altUrl;
+              config.baseURL = altUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      // Wait progressively (1s, 2s, 3s) to allow server restart/startup
+      await new Promise((resolve) => setTimeout(resolve, 1000 + retryCount * 1000));
       return api(config);
     }
 

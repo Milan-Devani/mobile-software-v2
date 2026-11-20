@@ -34,6 +34,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { settingsService } from '../../services/settingsService';
 import { setShopProfile } from '../../store/settingsSlice';
 import { authService } from '../../services/authService';
+import { API_BASE_URL } from '../../services/api';
 import { Card, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -243,7 +244,7 @@ export const Settings = () => {
 
   const fetchWaStatus = async () => {
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+      const apiBase = API_BASE_URL;
       const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/whatsapp/status`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -419,7 +420,7 @@ export const Settings = () => {
 
     try {
       setIsUnlinkingWa(true);
-      const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5050/api';
+      const apiBase = API_BASE_URL;
       const token = localStorage.getItem('token');
       const res = await fetch(`${apiBase}/whatsapp/disconnect`, {
         method: 'POST',
