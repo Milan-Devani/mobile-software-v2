@@ -326,6 +326,7 @@ export const PaymentsList = () => {
                       />
                     </th>
                     <th className="px-4 py-3 whitespace-nowrap">Receipt / Ref</th>
+                    <th className="px-4 py-3 whitespace-nowrap">Type</th>
                     <th className="px-4 py-3 whitespace-nowrap">Job Ticket</th>
                     <th className="px-4 py-3 whitespace-nowrap">Customer</th>
                     <th className="px-4 py-3 whitespace-nowrap">Device</th>
@@ -351,23 +352,45 @@ export const PaymentsList = () => {
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={p.source === 'SALE'}
                             onChange={() => handleToggleSelect(p.id)}
-                            className="rounded border-[var(--spatial-border)] text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer"
+                            className="rounded border-[var(--spatial-border)] text-sky-600 focus:ring-sky-500 w-4 h-4 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                           />
                         </td>
                         <td className="px-4 py-3.5 font-mono font-bold text-[var(--spatial-text-title)] whitespace-nowrap">
                           {p.payment_number}
                         </td>
                         <td className="px-4 py-3.5 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/jobs/${p.job_id}`)}
-                            className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 whitespace-nowrap"
-                            title="View Job Ticket"
-                          >
-                            <span>{p.job_number}</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </button>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                            p.source === 'SALE'
+                              ? 'bg-violet-500/10 text-violet-500 border-violet-500/20'
+                              : 'bg-sky-500/10 text-sky-500 border-sky-500/20'
+                          }`}>
+                            {p.source === 'SALE' ? 'Sale' : 'Repair'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          {p.source === 'SALE' ? (
+                            <button
+                              type="button"
+                              onClick={() => navigate('/sales')}
+                              className="font-mono font-bold text-violet-400 hover:text-violet-300 hover:underline flex items-center gap-1 whitespace-nowrap"
+                              title="View Sale Invoice"
+                            >
+                              <span>{p.job_number}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/jobs/${p.job_id}`)}
+                              className="font-mono font-bold text-sky-400 hover:text-sky-300 hover:underline flex items-center gap-1 whitespace-nowrap"
+                              title="View Job Ticket"
+                            >
+                              <span>{p.job_number}</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </button>
+                          )}
                         </td>
                         <td className="px-4 py-3.5 font-semibold text-[var(--spatial-text-title)] whitespace-nowrap">
                           {p.customer_name}
@@ -390,20 +413,22 @@ export const PaymentsList = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => navigate(`/jobs/${p.job_id}`)}
+                              onClick={() => navigate(p.source === 'SALE' ? '/sales' : `/jobs/${p.job_id}`)}
                               className="p-1 text-[var(--spatial-text-muted)] hover:text-sky-400 hover:bg-sky-500/10 rounded transition-colors"
-                              title="View Ticket"
+                              title={p.source === 'SALE' ? 'View Sale Invoice' : 'View Ticket'}
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeletePayment(p)}
-                              className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
-                              title="Delete Payment Record"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {p.source !== 'SALE' && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePayment(p)}
+                                className="p-1 text-[var(--spatial-text-muted)] hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors"
+                                title="Delete Payment Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -224,38 +224,21 @@ export const NextActionBanner = ({
           canPerform: ['admin', 'staff'].includes(userRole),
         };
 
-      case 'RETURNED_UNREPAIRED': {
-        const isEstimateDeclined = job.approval_status === 'REJECTED';
-        return {
-          title: isEstimateDeclined
-            ? 'Device Returned Unrepaired (Estimate Declined)'
-            : 'Device Returned Unrepaired (Job Cancelled)',
-          instruction: 'Device was returned to customer in original condition without repair. If customer agrees to proceed or requests a revised quote, click below to reopen this job.',
-          buttonLabel: 'Reopen Job',
-          icon: RotateCcw,
-          bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
-          textColor: 'text-amber-900',
-          btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
-          action: onReopenJob,
-          canPerform: true,
-        };
-      }
-
       case 'CANCELLED':
         return {
-          title: 'Device Returned Unrepaired (Job Cancelled)',
-          instruction: 'Device was returned to customer in original condition without repair. If customer agrees to proceed or requests a revised quote, click below to reopen this job.',
+          title: 'Device Returned Unrepaired',
+          instruction: 'This repair job was marked Returned Unrepaired and is now closed. Reopening and status changes are disabled for Returned Unrepaired jobs.',
           buttonLabel: 'Reopen Job',
           icon: RotateCcw,
           bg: 'bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-amber-200',
           textColor: 'text-amber-900',
           btnClass: 'bg-amber-600 hover:bg-amber-700 text-white shadow-sm',
           action: onReopenJob,
-          canPerform: true,
+          canPerform: false,
         };
         return {
-          title: 'Job Sheet Cancelled',
-          instruction: 'This repair job was cancelled and closed. You can reopen it if service is requested again.',
+          title: 'Job Sheet Returned Unrepaired',
+          instruction: 'This repair job was not repaired and closed. You can reopen it if service is requested again.',
           buttonLabel: 'Reopen Repair Job',
           icon: RotateCcw,
           bg: 'bg-slate-100 border-slate-300',
@@ -289,8 +272,9 @@ export const NextActionBanner = ({
               <button
                 type="button"
                 onClick={onChangeStatus}
-                className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--spatial-bg-card-subtle)] text-[#0071e3] dark:text-[#0a84ff] border border-[var(--spatial-border)] hover:border-[#0071e3]/40 transition-all active:scale-95"
-                title="Shop Owner: Change Job Status"
+                disabled={status === 'CANCELLED'}
+                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[var(--spatial-bg-card-subtle)] text-[#0071e3] dark:text-[#0a84ff] border border-[var(--spatial-border)] hover:border-[#0071e3]/40 transition-all active:scale-95 ${status === 'CANCELLED' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={status === 'CANCELLED' ? 'Status change is disabled for Returned Unrepaired jobs.' : 'Shop Owner: Change Job Status'}
               >
                 <SlidersHorizontal className="w-3 h-3" />
                 <span>Change Status</span>

@@ -39,6 +39,7 @@ import { VendorReceiptPrintable } from "../../components/vendors/VendorReceiptPr
 import { VendorModal } from "../../components/vendors/VendorModal";
 import { vendorService } from "../../services/vendorService";
 import { settingsService } from "../../services/settingsService";
+import { confirmDialog } from '../../utils/dialogs';
 import {
   formatIndianCurrency,
   formatInvoiceDate,
@@ -413,11 +414,13 @@ export const VendorSendMobiles = () => {
   const handleDeleteSelected = async () => {
     if (selectedMobileIds.length !== dispatchedMobiles.length) return;
     const count = selectedMobileIds.length;
-    if (
-      !window.confirm(
-        `Delete all ${count} selected outward dispatch record(s)? This cannot be undone.`,
-      )
-    )
+    const okDeleteBulk = await confirmDialog({
+      title: `Delete ${count} dispatch record(s)?`,
+      text: 'The selected outward dispatch records will be removed. This cannot be undone.',
+      confirmText: `Delete ${count}`,
+      danger: true,
+    });
+    if (!okDeleteBulk)
       return;
 
     try {

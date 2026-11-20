@@ -105,13 +105,17 @@ export const createJob = async (req, res, next) => {
       if (!device_data.brand || !device_data.model) {
         throw new AppError('Device brand and model are required.', 400, 'DEVICE_INFO_REQUIRED');
       }
+      const imei = String(device_data.imei || '').trim();
+      if (imei && !/^\d{15}$/.test(imei)) {
+        throw new AppError('IMEI must be exactly 15 digits.', 400, 'INVALID_IMEI');
+      }
       const newDevice = await db.devices.create({
         customer_id,
         brand: device_data.brand,
         model: device_data.model,
         color: device_data.color || '',
         storage_capacity: device_data.storage_capacity || '',
-        imei: device_data.imei || '',
+        imei,
         serial_number: device_data.serial_number || '',
         passcode: device_data.passcode || '',
         operating_system: device_data.operating_system || 'iOS',
@@ -189,7 +193,7 @@ export const updateJob = async (req, res, next) => {
       throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
     }
 
-    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(existing.status)) {
+    if (['DELIVERED', 'CANCELLED'].includes(existing.status)) {
       throw new AppError(`Cannot edit a job with status "${existing.status}".`, 400, 'JOB_LOCKED');
     }
 
@@ -328,6 +332,13 @@ export const bulkUpdateJobStatus = async (req, res, next) => {
       userId: req.user?.id,
     });
 
+    // When bulk-marking jobs as not repaired / returned unrepaired, nothing is owed.
+    if (status === 'CANCELLED') {
+      await Promise.all(
+        validIds.map((id) => db.jobs.update(id, { balance_due: 0 }).catch(() => null))
+      );
+    }
+
     res.json({
       success: true,
       message: skippedDelivered.length > 0
@@ -377,7 +388,7 @@ export const saveDiagnosis = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
       throw new AppError(`Cannot update diagnosis for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
     }
 
@@ -428,13 +439,14 @@ export const saveEstimate = async (req, res, next) => {
       tax_rate,
       notes,
       valid_until,
-      send_notification = true
+      send_notification = true,
+      target_status
     } = req.body;
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
       throw new AppError(`Cannot create estimate for ${job.status} job.`, 400, 'JOB_LOCKED');
     }
 
@@ -452,6 +464,7 @@ export const saveEstimate = async (req, res, next) => {
     });
 
     const isFreeWarranty = estimate.total_amount === 0 || (job.is_warranty_claim && (job.warranty_same_issue || job.warranty_free_rework));
+    const isDirectApproval = ['APPROVED', 'IN_PROGRESS'].includes(target_status);
 
     if (isFreeWarranty) {
       await db.jobs.update(id, {
@@ -469,6 +482,22 @@ export const saveEstimate = async (req, res, next) => {
         ['DIAGNOSING', 'RECEIVED', 'ESTIMATE_SENT'].includes(job.status) ? 'APPROVED' : job.status,
         'Free Warranty Rework Authorized',
         'Total amount is ₹0.00 (covered under warranty). Customer authorization pre-approved.',
+        req.user.id
+      );
+    } else if (isDirectApproval) {
+      // Walk-in / over-the-counter approval: the shop owner directly confirms the
+      // final price and moves the job forward without waiting for customer approval.
+      await db.jobs.update(id, {
+        approval_status: 'APPROVED',
+        approval_decision_at: new Date().toISOString(),
+        approval_notes: 'Approved directly by shop owner (walk-in / over-the-counter).',
+      });
+
+      await db.jobs.updateStatus(
+        id,
+        target_status,
+        target_status === 'IN_PROGRESS' ? 'Repair Started (Direct Approval)' : 'Estimate Approved (Direct)',
+        `Final repair cost ₹${estimate.total_amount.toFixed(2)} confirmed directly by shop owner.`,
         req.user.id
       );
     } else {
@@ -490,7 +519,7 @@ export const saveEstimate = async (req, res, next) => {
     const updatedJob = await db.jobs.findById(id);
     const customer = await db.customers.findById(updatedJob.customer_id);
 
-    if (send_notification) {
+    if (send_notification && !isDirectApproval) {
       dispatchNotification({
         job: updatedJob,
         customer,
@@ -503,7 +532,9 @@ export const saveEstimate = async (req, res, next) => {
       success: true,
       message: isFreeWarranty
         ? 'Free warranty rework estimate confirmed (₹0 balance, pre-approved).'
-        : `Estimate of ₹${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
+        : isDirectApproval
+          ? `Final repair cost ₹${estimate.total_amount.toFixed(2)} saved — job ${target_status === 'IN_PROGRESS' ? 'started' : 'approved'} directly.`
+          : `Estimate of ₹${estimate.total_amount.toFixed(2)} saved and sent to customer.`,
       data: { estimate, job: updatedJob },
     });
   } catch (err) {
@@ -744,7 +775,7 @@ export const saveTests = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    if (['DELIVERED', 'CANCELLED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
+    if (['DELIVERED', 'CANCELLED'].includes(job.status)) {
       throw new AppError(`Cannot update tests for ${job.status} job. Reopen job first.`, 400, 'JOB_LOCKED');
     }
 
@@ -839,8 +870,9 @@ export const recordPickup = async (req, res, next) => {
     }
 
     // Check payment balance (waived for free warranty rework AND rejected estimate returns, or if staff authorized payment remaining)
-    const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED' || job.status === 'RETURNED_UNREPAIRED';
+    const isEstimateRejected = job.status === 'REJECTED' || job.approval_status === 'REJECTED';
     const isFreeWarranty = job.warranty_same_issue || job.warranty_free_rework || (job.is_warranty_claim && (Number(job.balance_due) === 0 || Number(job.total_amount) === 0));
+    const finalStatus = isEstimateRejected ? 'CANCELLED' : 'DELIVERED';
 
     if (!isFreeWarranty && !isEstimateRejected && job.balance_due > 0 && !allow_payment_remaining) {
       throw new AppError(
@@ -857,14 +889,14 @@ export const recordPickup = async (req, res, next) => {
       delivery_notes: delivery_notes || '',
       delivered_at: new Date().toISOString(),
       delivered_by_user_id: req.user.id,
-      status: 'DELIVERED',
+      status: finalStatus,
       ...(allow_payment_remaining ? { payment_remaining_authorized: true } : {}),
       ...(isEstimateRejected ? { balance_due: 0 } : {}),
     });
 
     await db.jobs.updateStatus(
       id,
-      'DELIVERED',
+      finalStatus,
       isEstimateRejected ? 'Device Handed Over Unrepaired (Estimate Declined)' : 'Device Delivered to Customer',
       isEstimateRejected
         ? `Device returned to customer in original intake condition without repair. Handled by staff ${req.user.full_name}.`
@@ -910,7 +942,7 @@ export const recordPickup = async (req, res, next) => {
 export const cancelJob = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { reason = 'Cancelled by staff or customer' } = req.body;
+    const { reason = 'Cancelled by staff or customer', amount } = req.body;
 
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
@@ -918,6 +950,18 @@ export const cancelJob = async (req, res, next) => {
     if (job.status === 'DELIVERED') {
       throw new AppError('Cannot cancel an already delivered job.', 400, 'CANNOT_CANCEL_DELIVERED');
     }
+
+    // Nothing was repaired, so by default nothing is owed. If the shop owner
+    // provided an estimate/charge amount (e.g. diagnostic fee), use that instead.
+    const updates = {};
+    const parsedAmount = amount !== undefined && amount !== null && amount !== '' ? Number(amount) : NaN;
+    if (!Number.isNaN(parsedAmount) && parsedAmount >= 0) {
+      updates.total_amount = parsedAmount;
+      updates.balance_due = parsedAmount;
+    } else {
+      updates.balance_due = 0;
+    }
+    await db.jobs.update(id, updates);
 
     await db.jobs.updateStatus(
       id,
@@ -928,6 +972,23 @@ export const cancelJob = async (req, res, next) => {
     );
 
     const updatedJob = await db.jobs.findById(id);
+
+    // Notify the customer with an apology message (reason included) via Email & WhatsApp
+    try {
+      const customer = await db.customers.findById(updatedJob.customer_id);
+      if (customer) {
+        dispatchNotification({
+          job: updatedJob,
+          customer,
+          type: 'NOT_REPAIRED',
+          channels: ['EMAIL', 'WHATSAPP'],
+          metadata: { reason, clientUrl: extractClientUrl(req) },
+        }).catch((notifyErr) => console.warn('Not repaired notification warning:', notifyErr.message));
+      }
+    } catch (notifyErr) {
+      console.warn('Not repaired notification lookup failed:', notifyErr.message);
+    }
+
     res.json({
       success: true,
       message: 'Job has been cancelled.',
@@ -952,7 +1013,7 @@ export const reopenJob = async (req, res, next) => {
     const job = await db.jobs.findById(id);
     if (!job) throw new AppError('Job not found.', 404, 'JOB_NOT_FOUND');
 
-    const allowedStatuses = ['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'];
+    const allowedStatuses = ['DELIVERED', 'CANCELLED', 'REJECTED'];
     if (!allowedStatuses.includes(job.status)) {
       throw new AppError(
         `Cannot reopen job with current status "${job.status}". Only delivered, cancelled, or rejected jobs can be reopened.`,
@@ -963,7 +1024,7 @@ export const reopenJob = async (req, res, next) => {
 
     const validTargets = ['DIAGNOSING', 'ESTIMATE_SENT', 'IN_PROGRESS', 'RECEIVED', 'TESTING'];
     const finalTargetStatus = validTargets.includes(target_status) ? target_status : 'DIAGNOSING';
-    const isEstimateRejected = job.approval_status === 'REJECTED' || job.status === 'RETURNED_UNREPAIRED';
+    const isEstimateRejected = job.approval_status === 'REJECTED';
     const isWarrantyClaim = job.status === 'DELIVERED' && !isEstimateRejected;
     const isSameIssue = isWarrantyClaim && (claim_type === 'SAME_ISSUE');
     const reopenCount = (job.reopen_count || 0) + 1;
@@ -1535,7 +1596,6 @@ export const updateJobStatus = async (req, res, next) => {
       'TESTING',
       'READY_FOR_PICKUP',
       'DELIVERED',
-      'RETURNED_UNREPAIRED',
       'CANCELLED',
     ];
 
@@ -1575,19 +1635,13 @@ export const updateJobStatus = async (req, res, next) => {
       jobUpdates.delivered_by_user_id = req.user.id;
       jobUpdates.customer_tested_device = true;
       jobUpdates.customer_acceptance_confirmed = true;
-    } else if (status === 'RETURNED_UNREPAIRED') {
-      jobUpdates.delivered_at = new Date().toISOString();
-      jobUpdates.delivered_by_user_id = req.user.id;
-      jobUpdates.customer_tested_device = true;
-      jobUpdates.customer_acceptance_confirmed = true;
-      jobUpdates.balance_due = 0;
-      if (!job.approval_status || job.approval_status === 'PENDING') {
-        jobUpdates.approval_status = 'REJECTED';
-      }
     } else if (status === 'REJECTED') {
       jobUpdates.approval_status = 'REJECTED';
       jobUpdates.rejection_reason = notes?.trim() || job.rejection_reason || 'Declined by customer';
       jobUpdates.approval_decision_at = new Date().toISOString();
+    } else if (status === 'CANCELLED') {
+      // Nothing was repaired, so nothing is owed by the customer.
+      jobUpdates.balance_due = 0;
     } else if (status === 'APPROVED') {
       jobUpdates.approval_status = 'APPROVED';
       jobUpdates.approval_decision_at = new Date().toISOString();
@@ -1858,7 +1912,7 @@ export const downloadJobSheetPdf = async (req, res, next) => {
    ========================================================================== */
 
 const ACTIVE_VENDOR_STATUSES = ['PENDING', 'IN_REPAIR', 'WAITING_PARTS', 'READY_FOR_RETURN'];
-const CLOSED_JOB_STATUSES = ['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'];
+const CLOSED_JOB_STATUSES = ['CANCELLED', 'REJECTED'];
 
 const isJobClosed = (job) => CLOSED_JOB_STATUSES.includes(String(job?.status || '').toUpperCase());
 const isActiveVendorLink = (row) =>

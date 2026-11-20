@@ -5,11 +5,13 @@ export const createInitialSeedData = async () => {
   const adminPasswordHash = await bcrypt.hash('Admin@123456', 10);
   const techPasswordHash = await bcrypt.hash('Tech@123456', 10);
   const staffPasswordHash = await bcrypt.hash('Staff@123456', 10);
+  const developerPasswordHash = await bcrypt.hash('Developer@123456', 10);
 
   const shopId = 'a0000000-0000-0000-0000-000000000001';
   const adminId = '10000000-0000-0000-0000-000000000001';
   const techId = '10000000-0000-0000-0000-000000000002';
   const staffId = '10000000-0000-0000-0000-000000000003';
+  const developerId = '10000000-0000-0000-0000-000000000007';
 
   return {
     shops: [
@@ -37,6 +39,7 @@ export const createInitialSeedData = async () => {
     ],
     roles: [
       { id: 'admin', name: 'Admin / Shop Owner', description: 'Full access to all system features and settings' },
+      { id: 'developer', name: 'Developer', description: 'Full system access for software development and maintenance' },
       { id: 'technician', name: 'Technician', description: 'Diagnose devices, request parts, execute repairs, QC tests' },
       { id: 'staff', name: 'Shop Staff', description: 'Check-in, job sheets, customer pickup, payments' }
     ],
@@ -64,6 +67,28 @@ export const createInitialSeedData = async () => {
         updated_at: new Date().toISOString()
       },
       {
+        id: '10000000-0000-0000-0000-000000000005',
+        role_id: 'technician',
+        full_name: 'Lead Technician (Legacy)',
+        email: 'tech@fixitrepair.com',
+        password_hash: techPasswordHash,
+        phone: '080000 24439',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: '10000000-0000-0000-0000-000000000006',
+        role_id: 'staff',
+        full_name: 'Front Desk Staff (Legacy)',
+        email: 'staff@fixitrepair.com',
+        password_hash: staffPasswordHash,
+        phone: '080000 24439',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
         id: techId,
         role_id: 'technician',
         full_name: 'Lead Technician',
@@ -80,6 +105,17 @@ export const createInitialSeedData = async () => {
         full_name: 'Front Desk Staff',
         email: 'staff@mobotech.com',
         password_hash: staffPasswordHash,
+        phone: '080000 24439',
+        is_active: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      },
+      {
+        id: developerId,
+        role_id: 'developer',
+        full_name: 'Developer',
+        email: 'developer@mobotech.com',
+        password_hash: developerPasswordHash,
         phone: '080000 24439',
         is_active: true,
         created_at: new Date().toISOString(),

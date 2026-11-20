@@ -22,15 +22,16 @@ import { NotificationLogs } from '../pages/notifications/NotificationLogs';
 import { Settings } from '../pages/settings/Settings';
 import { SalesList } from '../pages/sales/SalesList';
 import { SalesInvoiceCreate } from '../pages/sales/SalesInvoiceCreate';
-import { VendorDashboard } from '../pages/vendors/VendorDashboard';
-import { VendorList } from '../pages/vendors/VendorList';
-import { VendorDetail } from '../pages/vendors/VendorDetail';
-import { VendorSendMobiles } from '../pages/vendors/VendorSendMobiles';
-import { VendorReceiveMobiles } from '../pages/vendors/VendorReceiveMobiles';
-import { VendorTransactionsList } from '../pages/vendors/VendorTransactionsList';
-import { VendorPendingRepairs } from '../pages/vendors/VendorPendingRepairs';
-import { VendorLedger } from '../pages/vendors/VendorLedger';
-import { VendorReports } from '../pages/vendors/VendorReports';
+// Vendor Management module temporarily hidden
+// import { VendorDashboard } from '../pages/vendors/VendorDashboard';
+// import { VendorList } from '../pages/vendors/VendorList';
+// import { VendorDetail } from '../pages/vendors/VendorDetail';
+// import { VendorSendMobiles } from '../pages/vendors/VendorSendMobiles';
+// import { VendorReceiveMobiles } from '../pages/vendors/VendorReceiveMobiles';
+// import { VendorTransactionsList } from '../pages/vendors/VendorTransactionsList';
+// import { VendorPendingRepairs } from '../pages/vendors/VendorPendingRepairs';
+// import { VendorLedger } from '../pages/vendors/VendorLedger';
+// import { VendorReports } from '../pages/vendors/VendorReports';
 // import { NearByVendors } from '../pages/vendors/NearByVendors';
 // import { NearBySendMobiles } from '../pages/vendors/NearBySendMobiles';
 // import { NearByReceiveMobiles } from '../pages/vendors/NearByReceiveMobiles';
@@ -76,8 +77,8 @@ export const AppRouter = () => {
         <Route path="sales" element={<SalesList />} />
         <Route path="sales/new" element={<SalesInvoiceCreate />} />
 
-        {/* Vendor Management Module */}
-        <Route path="vendors" element={<VendorDashboard />} />
+        {/* Vendor Management Module (temporarily hidden) */}
+        {/* <Route path="vendors" element={<VendorDashboard />} />
         <Route path="vendors/list" element={<VendorList />} />
         <Route path="vendors/send" element={<VendorSendMobiles />} />
         <Route path="vendors/receive" element={<VendorReceiveMobiles />} />
@@ -85,13 +86,13 @@ export const AppRouter = () => {
         <Route path="vendors/pending" element={<VendorPendingRepairs />} />
         <Route path="vendors/ledger" element={<VendorLedger />} />
         <Route path="vendors/reports" element={<VendorReports />} />
-        <Route path="vendors/:id" element={<VendorDetail />} />
+        <Route path="vendors/:id" element={<VendorDetail />} /> */}
 
         {/* Payments */}
         <Route
           path="payments"
           element={
-            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+            <ProtectedRoute allowedRoles={['admin', 'developer', 'staff']}>
               <PaymentsList />
             </ProtectedRoute>
           }
@@ -110,7 +111,7 @@ export const AppRouter = () => {
         <Route
           path="settings"
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'developer']}>
               <Settings />
             </ProtectedRoute>
           }

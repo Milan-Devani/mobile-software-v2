@@ -41,35 +41,34 @@ function updateEnvFile(updates) {
 
 async function main() {
   console.log('================================================================');
-  console.log('🔐 GOOGLE DRIVE OAUTH 2.0 ONE-TIME SETUP FOR DATABASE BACKUPS');
+  console.log('🔐 GOOGLE DRIVE OAUTH 2.0 SETUP FOR DATABASE BACKUPS');
   console.log('================================================================\n');
 
-  console.log('📋 PRE-REQUISITES (Takes 2 minutes in Google Cloud Console):');
-  console.log('1. Go to: https://console.cloud.google.com/');
-  console.log('2. Create or select a project.');
-  console.log('3. Enable "Google Drive API" under APIs & Services > Enabled APIs & Services.');
-  console.log('4. Go to APIs & Services > OAuth consent screen:');
-  console.log('   - User Type: "External"');
-  console.log('   - App name: "Supabase Database Backups"');
-  console.log('   - Add your Google account under "Test users".');
-  console.log('5. Go to APIs & Services > Credentials:');
-  console.log('   - Click "Create Credentials" > "OAuth client ID"');
-  console.log('   - Application type: "Web application"');
-  console.log('   - Authorized redirect URIs: http://localhost:3000/oauth2callback\n');
+  const isArg2 = process.argv.includes('--account-2') || process.argv.includes('-2');
+  let targetAccount = isArg2 ? 2 : 1;
 
-  let clientId = env.GOOGLE_CLIENT_ID;
-  let clientSecret = env.GOOGLE_CLIENT_SECRET;
+  if (!isArg2) {
+    const accountChoice = await ask('👉 Which account to set up? Enter 1 for Primary, or 2 for Secondary [Default: 1]: ');
+    if (accountChoice.trim() === '2') {
+      targetAccount = 2;
+    }
+  }
+
+  console.log(`\nConfiguring: ${targetAccount === 2 ? 'Secondary Google Drive (Account 2)' : 'Primary Google Drive (Account 1)'}\n`);
+
+  let clientId = targetAccount === 2 ? (env.GOOGLE_CLIENT_ID_2 || env.GOOGLE_CLIENT_ID) : env.GOOGLE_CLIENT_ID;
+  let clientSecret = targetAccount === 2 ? (env.GOOGLE_CLIENT_SECRET_2 || env.GOOGLE_CLIENT_SECRET) : env.GOOGLE_CLIENT_SECRET;
 
   if (!clientId) {
     clientId = await ask('👉 Enter your Google Client ID: ');
   } else {
-    console.log(`ℹ️ Using configured GOOGLE_CLIENT_ID: ${clientId.slice(0, 15)}...`);
+    console.log(`ℹ️ Using configured Google Client ID: ${clientId.slice(0, 15)}...`);
   }
 
   if (!clientSecret) {
     clientSecret = await ask('👉 Enter your Google Client Secret: ');
   } else {
-    console.log(`ℹ️ Using configured GOOGLE_CLIENT_SECRET: ${clientSecret.slice(0, 6)}...`);
+    console.log(`ℹ️ Using configured Google Client Secret: ${clientSecret.slice(0, 6)}...`);
   }
 
   if (!clientId || !clientSecret) {
@@ -83,10 +82,11 @@ async function main() {
     access_type: 'offline',
     prompt: 'consent',
     scope: SCOPES,
+    state: String(targetAccount),
   });
 
   console.log('\n================================================================');
-  console.log('🌐 STEP 2: AUTHORIZE GOOGLE DRIVE ACCESS');
+  console.log(`🌐 STEP 2: AUTHORIZE GOOGLE DRIVE (ACCOUNT ${targetAccount})`);
   console.log('================================================================');
   console.log('Open this URL in your web browser:');
   console.log(`\n🔗 ${authUrl}\n`);
@@ -111,10 +111,10 @@ async function main() {
       if (code) {
         codeReceived = true;
         res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`<h1>Authentication Successful!</h1><p>You can close this window now. The refresh token has been received.</p>`);
+        res.end(`<h1>Authentication Successful!</h1><p>You can close this window now. Google Drive Account ${targetAccount} is configured.</p>`);
         server.close();
 
-        await handleAuthCode(oauth2Client, clientId, clientSecret, code);
+        await handleAuthCode(oauth2Client, clientId, clientSecret, code, targetAccount);
       }
     }
   });
@@ -131,13 +131,13 @@ async function main() {
       const manualCode = await ask('👉 Enter authorization code (or press Enter to keep waiting): ');
       if (manualCode) {
         server.close();
-        await handleAuthCode(oauth2Client, clientId, clientSecret, manualCode);
+        await handleAuthCode(oauth2Client, clientId, clientSecret, manualCode, targetAccount);
       }
     }
   }, 10000);
 }
 
-async function handleAuthCode(oauth2Client, clientId, clientSecret, code) {
+async function handleAuthCode(oauth2Client, clientId, clientSecret, code, targetAccount = 1) {
   try {
     console.log('\n⏳ Exchanging authorization code for OAuth tokens...');
     const { tokens } = await oauth2Client.getToken(code);
@@ -146,14 +146,14 @@ async function handleAuthCode(oauth2Client, clientId, clientSecret, code) {
     if (!tokens.refresh_token) {
       console.warn('⚠️ No refresh token was returned. If you have already authorized this app, go to your Google Account security settings, revoke access, and run this script again with prompt=consent.');
     } else {
-      console.log('✅ Received Google OAuth Refresh Token!');
+      console.log(`✅ Received Google OAuth Refresh Token for Account ${targetAccount}!`);
     }
 
     // Test Google Drive API
     const drive = google.drive({ version: 'v3', auth: oauth2Client });
     console.log('🔍 Testing Google Drive connection...');
     const about = await drive.about.get({ fields: 'user(displayName, emailAddress), storageQuota' });
-    console.log(`✅ Connected as: ${about.data.user?.displayName} (${about.data.user?.emailAddress})`);
+    console.log(`✅ Connected Account ${targetAccount} as: ${about.data.user?.displayName} (${about.data.user?.emailAddress})`);
 
     // Generate encryption key if missing
     let encryptionKey = env.BACKUP_ENCRYPTION_KEY;
@@ -162,20 +162,19 @@ async function handleAuthCode(oauth2Client, clientId, clientSecret, code) {
       console.log(`🔑 Generated fresh 256-bit AES-256-GCM Backup Encryption Key.`);
     }
 
+    const refreshTokenKey = targetAccount === 2 ? 'GOOGLE_REFRESH_TOKEN_2' : 'GOOGLE_REFRESH_TOKEN';
     const updates = {
-      GOOGLE_CLIENT_ID: clientId,
-      GOOGLE_CLIENT_SECRET: clientSecret,
-      ...(tokens.refresh_token && { GOOGLE_REFRESH_TOKEN: tokens.refresh_token }),
+      ...(tokens.refresh_token && { [refreshTokenKey]: tokens.refresh_token }),
       BACKUP_ENCRYPTION_KEY: encryptionKey,
     };
 
     updateEnvFile(updates);
 
     console.log('\n================================================================');
-    console.log('🎉 GOOGLE DRIVE BACKUP CONFIGURATION COMPLETE!');
+    console.log(`🎉 GOOGLE DRIVE ACCOUNT ${targetAccount} CONFIGURATION COMPLETE!`);
     console.log('================================================================');
     console.log('Your environment is ready. You can test a backup immediately by:');
-    console.log('  1. Running: node src/scripts/runScheduledBackup.js');
+    console.log('  1. Running: node server/src/scripts/runScheduledBackup.js');
     console.log('  2. Or clicking "Trigger Backup Now" in Settings > Backups');
     process.exit(0);
   } catch (err) {

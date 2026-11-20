@@ -9,6 +9,7 @@ import {
   RotateCcw,
   Sparkles
 } from 'lucide-react';
+import { SpatialSelect } from './SpatialSelect';
 
 // Format Date object to local YYYY-MM-DD string
 export const formatLocalDate = (date) => {
@@ -48,6 +49,7 @@ export const DATE_PRESETS = [
   { key: 'TODAY', label: 'Today', description: 'Current day jobs' },
   { key: 'YESTERDAY', label: 'Yesterday', description: 'Previous day jobs' },
   { key: 'LAST_7_DAYS', label: 'Last 7 Days', description: 'Past 7 days up to today' },
+  { key: 'LAST_1_MONTH', label: 'Last 1 Month', description: 'Past 30 days up to today' },
   { key: 'THIS_MONTH', label: 'This Month', description: 'From 1st to today' },
   { key: 'LAST_MONTH', label: 'Last Month', description: 'Previous full month' },
   { key: 'LAST_3_MONTHS', label: 'Last 3 Months', description: 'Past 90 days' },
@@ -75,6 +77,11 @@ export const getPresetDates = (presetKey) => {
       const d7 = new Date(today);
       d7.setDate(d7.getDate() - 6);
       return { startDate: formatLocalDate(d7), endDate: formatLocalDate(today) };
+    }
+    case 'LAST_1_MONTH': {
+      const start = new Date(today);
+      start.setMonth(start.getMonth() - 1);
+      return { startDate: formatLocalDate(start), endDate: formatLocalDate(today) };
     }
     case 'THIS_MONTH': {
       const start = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -542,30 +549,28 @@ export const SpatialDateFilter = ({
                 <div className="flex items-center justify-between mb-3 px-1">
                   <div className="flex items-center gap-1.5">
                     {/* Month Select */}
-                    <select
-                      value={viewMonth}
-                      onChange={(e) => setViewMonth(parseInt(e.target.value, 10))}
-                      className="px-2 py-1 text-xs font-semibold rounded-lg bg-[#27272a] dark:bg-[#27272a] data-[theme=light]:bg-[#f5f5f7] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-[#0071e3] cursor-pointer"
-                    >
-                      {MONTH_NAMES.map((name, idx) => (
-                        <option key={name} value={idx}>
-                          {name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-28">
+                      <SpatialSelect
+                        value={viewMonth}
+                        onChange={(val) => setViewMonth(Number(val))}
+                        options={MONTH_NAMES.map((name, idx) => ({ value: idx, label: name }))}
+                        searchable={false}
+                        buttonClassName="!px-2 !py-1 text-xs font-semibold"
+                        placeholder="Month"
+                      />
+                    </div>
 
                     {/* Year Select */}
-                    <select
-                      value={viewYear}
-                      onChange={(e) => setViewYear(parseInt(e.target.value, 10))}
-                      className="px-2 py-1 text-xs font-semibold rounded-lg bg-[#27272a] dark:bg-[#27272a] data-[theme=light]:bg-[#f5f5f7] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] focus:outline-none focus:border-[#0071e3] cursor-pointer"
-                    >
-                      {Array.from({ length: 15 }, (_, i) => 2020 + i).map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="w-20">
+                      <SpatialSelect
+                        value={viewYear}
+                        onChange={(val) => setViewYear(Number(val))}
+                        options={Array.from({ length: 15 }, (_, i) => 2020 + i).map((y) => ({ value: y, label: String(y) }))}
+                        searchable={false}
+                        buttonClassName="!px-2 !py-1 text-xs font-semibold"
+                        placeholder="Year"
+                      />
+                    </div>
 
                     <button
                       type="button"

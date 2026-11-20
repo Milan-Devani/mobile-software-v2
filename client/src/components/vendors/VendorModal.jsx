@@ -15,6 +15,7 @@ import {
 import toast from 'react-hot-toast';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
+import { SpatialSelect } from '../common/SpatialSelect';
 import { vendorService } from '../../services/vendorService';
 import {
   PHONE_NUMBER_LENGTH,
@@ -660,16 +661,17 @@ export const VendorModal = ({
                 {formData.status}
               </strong>
             </span>
-            <select
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({ ...formData, status: e.target.value })
-              }
-              className="px-2.5 py-1 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] rounded-lg text-xs font-bold text-[var(--spatial-text-title)] cursor-pointer"
-            >
-              <option value="ACTIVE">Active Vendor</option>
-              <option value="INACTIVE">Inactive / Paused</option>
-            </select>
+            <div className="w-44">
+              <SpatialSelect
+                value={formData.status}
+                onChange={(val) => setFormData({ ...formData, status: val })}
+                options={[
+                  { value: 'ACTIVE', label: 'Active Vendor' },
+                  { value: 'INACTIVE', label: 'Inactive / Paused' },
+                ]}
+                searchable={false}
+              />
+            </div>
           </div>
         )}
       </form>

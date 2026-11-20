@@ -5,6 +5,9 @@ const settingsSlice = createSlice({
   initialState: {
     shop: {
       name: 'Mobotech mobile care',
+      tagline: 'mobile care',
+      logo_url: '',
+      logo_url_dark: '',
       phone: '080000 24439',
       email: 'support@mobotech.com',
       address: 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006',

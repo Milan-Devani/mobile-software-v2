@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Wrench, Smartphone, Save, AlertCircle, Cable } from 'lucide-react';
+import { Wrench, Smartphone, Save, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { jobService } from '../../services/jobService';
 import { authService } from '../../services/authService';
-import { deviceBridgeService } from '../../services/deviceBridgeService';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { SpatialSelect } from '../common/SpatialSelect';
@@ -33,34 +32,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
 
   const [technicians, setTechnicians] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [detectingDevice, setDetectingDevice] = useState(false);
-
-  const handleAutoDetectDevice = async () => {
-    try {
-      setDetectingDevice(true);
-      const res = await deviceBridgeService.detectDevice();
-      if (res && res.connected) {
-        setFormData((prev) => ({
-          ...prev,
-          device_data: {
-            ...prev.device_data,
-            brand: res.brand || prev.device_data.brand || 'Apple',
-            model: res.model || prev.device_data.model,
-            serial_number: res.serial_number || prev.device_data.serial_number,
-            imei: res.imei || prev.device_data.imei,
-            operating_system: res.platform === 'ios' ? 'iOS' : res.platform === 'android' ? 'Android' : prev.device_data.operating_system,
-          },
-        }));
-        toast.success(`Detected: ${res.brand} ${res.model}`, { icon: '📱' });
-      } else {
-        toast.error(res?.message || 'No mobile device detected on USB ports');
-      }
-    } catch (err) {
-      toast.error('Failed to detect device via USB');
-    } finally {
-      setDetectingDevice(false);
-    }
-  };
+  const [isCustomStorage, setIsCustomStorage] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -248,18 +220,6 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
               <Smartphone className="w-4 h-4 text-apple-blue" />
               Device Specifications
             </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              icon={Cable}
-              loading={detectingDevice}
-              onClick={handleAutoDetectDevice}
-              className="text-xs h-7 px-2.5 border-apple-blue/40 text-apple-blue hover:bg-apple-blue/10"
-              title="Detect connected iPhone or Android via USB cable"
-            >
-              {detectingDevice ? 'Scanning USB...' : 'Auto-Detect via USB'}
-            </Button>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -325,14 +285,54 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
               <label className="block text-xs font-medium text-[var(--spatial-text-muted)] mb-1">
                 Storage
               </label>
-              <input
-                type="text"
-                name="storage_capacity"
-                value={formData.device_data.storage_capacity}
-                onChange={handleDeviceChange}
-                placeholder="e.g. 128GB, 256GB"
-                className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
-              />
+              {(formData.device_data.brand || '').trim().toLowerCase() === 'apple' ? (
+                isCustomStorage ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={formData.device_data.storage_capacity}
+                      onChange={(e) => handleDeviceChange({ target: { name: 'storage_capacity', value: e.target.value } })}
+                      placeholder="Enter custom storage (e.g. 1TB)"
+                      className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { setIsCustomStorage(false); handleDeviceChange({ target: { name: 'storage_capacity', value: '' } }); }}
+                      className="shrink-0 px-2 py-2 text-[11px] font-semibold text-[#0071e3] dark:text-[#0a84ff] hover:bg-blue-500/10 rounded-lg"
+                    >
+                      Preset
+                    </button>
+                  </div>
+                ) : (
+                  <select
+                    value={formData.device_data.storage_capacity || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'Custom') {
+                        setIsCustomStorage(true);
+                        handleDeviceChange({ target: { name: 'storage_capacity', value: '' } });
+                      } else {
+                        handleDeviceChange({ target: { name: 'storage_capacity', value: val } });
+                      }
+                    }}
+                    className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
+                  >
+                    <option value="">-- Select Storage --</option>
+                    {['16GB', '32GB', '64GB', '128GB', '256GB', '512GB', '1TB', '2TB', 'Custom'].map((opt) => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                )
+              ) : (
+                <input
+                  type="text"
+                  name="storage_capacity"
+                  value={formData.device_data.storage_capacity}
+                  onChange={handleDeviceChange}
+                  placeholder="e.g. 128GB, 256GB"
+                  className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs focus:ring-1 focus:ring-apple-blue focus:outline-none"
+                />
+              )}
             </div>
 
             <div>
@@ -344,7 +344,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 name="imei"
                 value={formData.device_data.imei}
                 onChange={handleDeviceChange}
-                placeholder="15-digit IMEI"
+                placeholder="15-digit IMEI or device serial number"
                 className="w-full px-3 py-2 bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-[var(--spatial-text-title)] rounded-xl text-xs font-mono focus:ring-1 focus:ring-apple-blue focus:outline-none"
               />
             </div>
@@ -469,7 +469,7 @@ export const JobEditModal = ({ isOpen, onClose, job, onSuccess }) => {
                 { value: 'TESTING', label: 'Testing' },
                 { value: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
                 { value: 'DELIVERED', label: 'Delivered' },
-                { value: 'CANCELLED', label: 'Cancelled' },
+                { value: 'CANCELLED', label: 'Returned Unrepaired' },
               ]}
             />
           </div>

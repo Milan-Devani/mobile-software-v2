@@ -98,7 +98,7 @@ export const Login = () => {
                 <input
                   type="email"
                   autoComplete="email"
-                  placeholder="admin@fixitrepair.com"
+                  placeholder="admin@mobotech.com"
                   {...register('email')}
                   className={`block w-full pl-10 pr-3.5 py-2.5 spatial-input rounded-xl text-sm transition-all ${
                     errors.email ? 'border-rose-500 focus:ring-rose-500/20' : ''
@@ -180,7 +180,7 @@ export const Login = () => {
             <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
-                onClick={() => handleFillDemo('admin@fixitrepair.com', 'Admin@123456')}
+                onClick={() => handleFillDemo('admin@mobotech.com', 'Admin@123456')}
                 className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
                 <span className="block font-bold text-apple-blue">Admin</span>
@@ -188,7 +188,7 @@ export const Login = () => {
               </button>
               <button
                 type="button"
-                onClick={() => handleFillDemo('tech@fixitrepair.com', 'Tech@123456')}
+                onClick={() => handleFillDemo('tech@mobotech.com', 'Tech@123456')}
                 className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
                 <span className="block font-bold text-purple-600 dark:text-purple-400">Tech</span>
@@ -196,7 +196,7 @@ export const Login = () => {
               </button>
               <button
                 type="button"
-                onClick={() => handleFillDemo('staff@fixitrepair.com', 'Staff@123456')}
+                onClick={() => handleFillDemo('staff@mobotech.com', 'Staff@123456')}
                 className="p-2 text-center rounded-xl bg-[var(--spatial-bg-card-subtle)] hover:bg-[var(--spatial-border)]/50 border border-[var(--spatial-border)] text-[11px] font-medium text-[var(--spatial-text-body)] transition-all active:scale-95 cursor-pointer"
               >
                 <span className="block font-bold text-emerald-600 dark:text-emerald-400">Staff</span>

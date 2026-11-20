@@ -1,8 +1,8 @@
 import api from './api';
 
 export const dashboardService = {
-  getStats: async () => {
-    const res = await api.get('/dashboard/stats');
+  getStats: async (params = {}) => {
+    const res = await api.get('/dashboard/stats', { params });
     return res.data;
   },
 };

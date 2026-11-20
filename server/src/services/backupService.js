@@ -1,23 +1,30 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { spawn } from 'child_process';
 import pkg from 'pg';
 const { Client: PgClient } = pkg;
 import { env } from '../config/env.js';
 import { db } from '../db/db.js';
 import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
-import { encryptFileToFile } from './encryptionService.js';
+import { encryptFileToFileMultiRecipient, RECIPIENT_IDS } from './encryptionService.js';
 import {
   uploadBackupToDrive,
   listBackupsFromDrive,
   deleteBackupFile,
 } from './googleDriveService.js';
+import { appendStorageAssetsToDump } from './assetBackupService.js';
 
-const BACKUP_FILENAME_REGEX = /^supabase-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.enc$/;
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const BACKUP_FILENAME_REGEX_NEW = /^backup-(\d{2})-(\d{2})-(\d{4})-(\d{2})-(\d{2})-(\d{2})\.enc$/;
+const BACKUP_FILENAME_REGEX_LEGACY = /^supabase-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.enc$/;
 
 /**
- * Generates standardized timestamped filename: supabase-backup-YYYY-MM-DD-HH-mm-ss.enc
+ * Generates standardized timestamped filename: backup-DD-MM-YYYY-HH-mm-ss.enc
+ * (The legacy "supabase-backup-YYYY-MM-DD-HH-mm-ss.enc" format remains supported for parsing/restore.)
  */
 export function generateBackupFilename(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -27,17 +34,26 @@ export function generateBackupFilename(date = new Date()) {
   const HH = pad(date.getHours());
   const mm = pad(date.getMinutes());
   const ss = pad(date.getSeconds());
-  return `supabase-backup-${yyyy}-${MM}-${dd}-${HH}-${mm}-${ss}.enc`;
+  return `backup-${dd}-${MM}-${yyyy}-${HH}-${mm}-${ss}.enc`;
 }
 
 /**
- * Parses timestamp from a standardized backup filename.
+ * Parses timestamp from a backup filename (new DD-MM-YYYY or legacy YYYY-MM-DD).
  */
 export function parseDateFromBackupFilename(fileName) {
-  const match = fileName.match(BACKUP_FILENAME_REGEX);
-  if (!match) return null;
-  const [, yyyy, MM, dd, HH, mm, ss] = match;
-  return new Date(`${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}`);
+  let match = fileName.match(BACKUP_FILENAME_REGEX_NEW);
+  if (match) {
+    const [, dd, MM, yyyy, HH, mm, ss] = match;
+    return new Date(`${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}`);
+  }
+
+  match = fileName.match(BACKUP_FILENAME_REGEX_LEGACY);
+  if (match) {
+    const [, yyyy, MM, dd, HH, mm, ss] = match;
+    return new Date(`${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}`);
+  }
+
+  return null;
 }
 
 /**
@@ -119,7 +135,7 @@ async function dumpUsingPgClient(connectionUrl, outputPath) {
     writeStream.write(`-- SUPABASE DATABASE LOGICAL BACKUP (DIRECT PG DUMP)\n`);
     writeStream.write(`-- Generated at: ${new Date().toISOString()}\n`);
     writeStream.write(`-- ========================================================\n\n`);
-    writeStream.write(`BEGIN;\nSET statement_timeout = 0;\nSET lock_timeout = 0;\n\n`);
+    writeStream.write(`BEGIN;\nSET statement_timeout = 0;\nSET lock_timeout = 0;\nSET session_replication_role = 'replica';\n\n`);
 
     // Get list of tables in public schema
     const tablesRes = await client.query(`
@@ -129,10 +145,39 @@ async function dumpUsingPgClient(connectionUrl, outputPath) {
       ORDER BY table_name;
     `);
 
-    const tableNames = tablesRes.rows.map((r) => r.table_name);
-    console.log(`📋 Found ${tableNames.length} tables in public schema to dump.`);
+    const availableTables = new Set(tablesRes.rows.map((r) => r.table_name));
 
-    for (const table of tableNames) {
+    // Desired dependency order to ensure parent tables come before foreign-key dependents
+    const preferredOrder = [
+      'shops', 'roles', 'users', 'customers', 'devices', 'parts', 'vendors',
+      'repair_jobs', 'job_status_history', 'diagnoses', 'repair_estimates',
+      'repair_estimate_items', 'repair_job_parts', 'repair_job_labor', 'repair_tests',
+      'part_stock_movements', 'invoices', 'invoice_items', 'sales', 'payments',
+      'vendor_transactions', 'vendor_mobiles', 'vendor_status_history', 'vendor_ledger',
+      'vendor_payments', 'attachments', 'notifications', 'notification_logs',
+      'recycle_bin', 'settings', 'backup_logs',
+    ];
+
+    const orderedTables = [
+      ...preferredOrder.filter(t => availableTables.has(t)),
+      ...[...availableTables].filter(t => !preferredOrder.includes(t)),
+    ];
+
+    console.log(`📋 Found ${orderedTables.length} tables in public schema to dump.`);
+
+    const JSONB_COLUMNS = new Set([
+      'device_condition',
+      'accessories_received',
+      'warranty_history',
+      'provider_response',
+      'value',
+      'items',
+      'bank_details',
+      'terms_conditions',
+      'data',
+    ]);
+
+    for (const table of orderedTables) {
       writeStream.write(`\n-- Table: public."${table}"\n`);
       const rowsRes = await client.query(`SELECT * FROM public."${table}"`);
       if (rowsRes.rows.length === 0) continue;
@@ -147,6 +192,14 @@ async function dumpUsingPgClient(connectionUrl, outputPath) {
           if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
           if (typeof val === 'number') return String(val);
           if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+          if (JSONB_COLUMNS.has(c)) {
+            try {
+              JSON.parse(val);
+              return `'${String(val).replace(/'/g, "''")}'::jsonb`;
+            } catch (_) {
+              return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+            }
+          }
           return `'${String(val).replace(/'/g, "''")}'`;
         }).join(', ');
 
@@ -154,7 +207,7 @@ async function dumpUsingPgClient(connectionUrl, outputPath) {
       }
     }
 
-    writeStream.write(`\nCOMMIT;\n`);
+    writeStream.write(`\nSET session_replication_role = 'origin';\nCOMMIT;\n`);
     await new Promise((resolve, reject) => {
       writeStream.end(() => resolve());
       writeStream.on('error', reject);
@@ -176,13 +229,39 @@ async function dumpUsingSupabaseClient(outputPath) {
   writeStream.write(`-- ========================================================\n`);
   writeStream.write(`-- SUPABASE LOGICAL DATABASE EXPORT (SUPABASE API DUMP)\n`);
   writeStream.write(`-- Generated at: ${new Date().toISOString()}\n`);
-  writeStream.write(`-- ========================================================\n\nBEGIN;\n`);
+  writeStream.write(`-- ========================================================\n\nBEGIN;\nSET session_replication_role = 'replica';\n\n`);
 
   const tables = [
-    'shops', 'roles', 'users', 'customers', 'devices', 'parts',
-    'repair_jobs', 'job_status_history', 'diagnoses', 'repair_estimates',
-    'repair_estimate_items', 'part_stock_movements', 'repair_tests',
-    'payments', 'invoices', 'invoice_items', 'notification_logs', 'settings',
+    'shops',
+    'roles',
+    'users',
+    'customers',
+    'devices',
+    'parts',
+    'vendors',
+    'repair_jobs',
+    'job_status_history',
+    'diagnoses',
+    'repair_estimates',
+    'repair_estimate_items',
+    'repair_job_parts',
+    'repair_job_labor',
+    'repair_tests',
+    'part_stock_movements',
+    'invoices',
+    'invoice_items',
+    'sales',
+    'payments',
+    'vendor_transactions',
+    'vendor_mobiles',
+    'vendor_status_history',
+    'vendor_ledger',
+    'vendor_payments',
+    'attachments',
+    'recycle_bin',
+    'notification_logs',
+    'settings',
+    'backup_logs',
   ];
 
   for (const table of tables) {
@@ -194,6 +273,18 @@ async function dumpUsingSupabaseClient(outputPath) {
       const columns = Object.keys(data[0]);
       const colList = columns.map((c) => `"${c}"`).join(', ');
 
+      const JSONB_COLUMNS = new Set([
+        'device_condition',
+        'accessories_received',
+        'warranty_history',
+        'provider_response',
+        'value',
+        'items',
+        'bank_details',
+        'terms_conditions',
+        'data',
+      ]);
+
       for (const row of data) {
         const values = columns.map((c) => {
           const val = row[c];
@@ -201,6 +292,14 @@ async function dumpUsingSupabaseClient(outputPath) {
           if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
           if (typeof val === 'number') return String(val);
           if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+          if (JSONB_COLUMNS.has(c)) {
+            try {
+              JSON.parse(val);
+              return `'${String(val).replace(/'/g, "''")}'::jsonb`;
+            } catch (_) {
+              return `'${JSON.stringify(val).replace(/'/g, "''")}'::jsonb`;
+            }
+          }
           return `'${String(val).replace(/'/g, "''")}'`;
         }).join(', ');
 
@@ -209,7 +308,7 @@ async function dumpUsingSupabaseClient(outputPath) {
     } catch (_) {}
   }
 
-  writeStream.write(`\nCOMMIT;\n`);
+  writeStream.write(`\nSET session_replication_role = 'origin';\nCOMMIT;\n`);
   await new Promise((resolve, reject) => {
     writeStream.end(() => resolve());
     writeStream.on('error', reject);
@@ -239,14 +338,14 @@ async function generateDatabaseDump(outputSqlPath, timeoutMs) {
 }
 
 /**
- * Executes retention pruning of old backups in Google Drive.
+ * Executes retention pruning of old backups in Google Drive (Account 1 or 2).
  * Safeguard: Never deletes if total valid backups <= 1 (always preserves at least the latest backup).
  */
-export async function cleanupExpiredBackups(retentionDays = env.BACKUP_RETENTION_DAYS) {
+export async function cleanupExpiredBackups(retentionDays = env.BACKUP_RETENTION_DAYS, accountIndex = 1) {
   try {
-    const backups = await listBackupsFromDrive();
+    const backups = await listBackupsFromDrive(accountIndex);
     if (backups.length <= 1) {
-      console.log(`🛡️ Retention check: Only ${backups.length} backup(s) found in Google Drive. Keeping all backups.`);
+      console.log(`🛡️ Retention check (Account ${accountIndex}): Only ${backups.length} backup(s) found in Google Drive. Keeping all backups.`);
       return { deletedCount: 0, preservedCount: backups.length };
     }
 
@@ -265,27 +364,71 @@ export async function cleanupExpiredBackups(retentionDays = env.BACKUP_RETENTION
     for (const b of candidatesForPruning) {
       const ageMs = now - b.parsedDate.getTime();
       if (ageMs > maxAgeMs) {
-        console.log(`🗑️ Pruning expired backup: "${b.name}" (${Math.floor(ageMs / (24 * 3600 * 1000))} days old, limit: ${retentionDays} days)...`);
+        console.log(`🗑️ Pruning expired backup (Account ${accountIndex}): "${b.name}" (${Math.floor(ageMs / (24 * 3600 * 1000))} days old, limit: ${retentionDays} days)...`);
         try {
-          await deleteBackupFile(b.id);
+          await deleteBackupFile(b.id, accountIndex);
           deletedCount++;
         } catch (err) {
-          console.warn(`⚠️ Failed to delete expired backup [${b.id}] "${b.name}": ${err.message}`);
+          console.warn(`⚠️ Failed to delete expired backup [${b.id}] "${b.name}" from Account ${accountIndex}: ${err.message}`);
         }
       }
     }
 
-    console.log(`✅ Retention cleanup completed. Deleted: ${deletedCount}, Retained: ${sorted.length - deletedCount}`);
+    console.log(`✅ Retention cleanup completed for Account ${accountIndex}. Deleted: ${deletedCount}, Retained: ${sorted.length - deletedCount}`);
     return { deletedCount, preservedCount: sorted.length - deletedCount };
   } catch (err) {
-    console.warn(`⚠️ Retention cleanup encountered an error: ${err.message}`);
+    console.warn(`⚠️ Retention cleanup encountered an error for Account ${accountIndex}: ${err.message}`);
     return { deletedCount: 0, error: err.message };
   }
 }
 
 /**
+ * Executes retention pruning of local backup files on the server disk.
+ * Safeguard: Always preserves at least the latest 2 backups.
+ */
+export async function cleanupLocalBackups(backupsDir, retentionDays = env.BACKUP_RETENTION_DAYS) {
+  try {
+    if (!fs.existsSync(backupsDir)) return { deletedCount: 0 };
+    const files = await fs.promises.readdir(backupsDir);
+    const backupFiles = [];
+    for (const file of files) {
+      if (file.endsWith('.enc')) {
+        const filePath = path.join(backupsDir, file);
+        const stats = await fs.promises.stat(filePath);
+        const parsedDate = parseDateFromBackupFilename(file) || stats.mtime;
+        backupFiles.push({ file, filePath, date: parsedDate });
+      }
+    }
+
+    if (backupFiles.length <= 2) {
+      return { deletedCount: 0, preservedCount: backupFiles.length };
+    }
+
+    backupFiles.sort((a, b) => b.date - a.date);
+    const toPrune = backupFiles.slice(2);
+    const now = Date.now();
+    const maxAgeMs = retentionDays * 24 * 60 * 60 * 1000;
+    let deletedCount = 0;
+
+    for (const b of toPrune) {
+      const ageMs = now - b.date.getTime();
+      if (ageMs > maxAgeMs) {
+        try {
+          await fs.promises.unlink(b.filePath);
+          deletedCount++;
+        } catch (_) {}
+      }
+    }
+    return { deletedCount, preservedCount: backupFiles.length - deletedCount };
+  } catch (err) {
+    console.warn('⚠️ Local backup retention cleanup error:', err.message);
+    return { deletedCount: 0 };
+  }
+}
+
+/**
  * Master Backup Execution Function.
- * Orchestrates dump, AES-256-GCM encryption, Google Drive upload, retention pruning, and logging.
+ * Orchestrates dump, AES-256-GCM encryption, local disk preservation, Google Drive upload, retention pruning, and logging.
  */
 export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
   const startTime = Date.now();
@@ -299,9 +442,6 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
   // 2. Validate essential configurations
   if (!env.BACKUP_ENCRYPTION_KEY) {
     throw new Error('BACKUP_ENCRYPTION_KEY is not configured. Set a secure 32-byte key in environment variables.');
-  }
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
-    throw new Error('Google Drive OAuth credentials are not fully configured. Run setupGoogleDriveAuth.js.');
   }
 
   const fileName = generateBackupFilename(new Date());
@@ -333,41 +473,119 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
     const sqlStats = await fs.promises.stat(rawSqlPath);
     console.log(`📦 Logical dump created (${(sqlStats.size / 1024).toFixed(1)} KB) using method: [${dumpMethod}]`);
 
-    // 5. Encrypt with AES-256-GCM + Gzip compression
-    console.log(`🔐 Encrypting dump with AES-256-GCM authenticated cipher...`);
-    const encResult = await encryptFileToFile(rawSqlPath, encFilePath, env.BACKUP_ENCRYPTION_KEY);
+    // 4b. Bundle logo images, dark theme logos, QR codes, and media assets into backup
+    try {
+      await appendStorageAssetsToDump(rawSqlPath);
+    } catch (assetErr) {
+      console.warn('⚠️ Asset bundling warning (continuing with database dump):', assetErr.message);
+    }
+
+    // 5. Encrypt with AES-256-GCM multi-recipient key wrapping + Gzip compression.
+    //    Any one of the configured keys (Owner / Shopkeeper / Developer) can decrypt.
+    const backupRecipients = [
+      { id: RECIPIENT_IDS.OWNER, key: env.BACKUP_ENCRYPTION_KEY },
+      ...(env.SHOPKEEPER_KEY ? [{ id: RECIPIENT_IDS.SHOPKEEPER, key: env.SHOPKEEPER_KEY }] : []),
+      ...(env.DEVELOPER_KEY ? [{ id: RECIPIENT_IDS.DEVELOPER, key: env.DEVELOPER_KEY }] : []),
+    ];
+    console.log(`🔐 Encrypting dump with AES-256-GCM authenticated cipher (${backupRecipients.length} recipient key${backupRecipients.length === 1 ? '' : 's'})...`);
+    const encResult = await encryptFileToFileMultiRecipient(rawSqlPath, encFilePath, backupRecipients);
     console.log(`🔒 Encryption complete. Encrypted archive size: ${(encResult.fileSizeBytes / 1024).toFixed(1)} KB`);
 
     // Immediately remove unencrypted plaintext dump
     try { await fs.promises.unlink(rawSqlPath); } catch (_) {}
 
-    // 6. Upload encrypted archive to personal Google Drive
-    const uploadResult = await uploadBackupToDrive(encFilePath, fileName);
+    // 6. Permanently preserve encrypted archive in server/backups directory so data is NEVER lost
+    const localBackupsDir = path.resolve(__dirname, '../../backups');
+    if (!fs.existsSync(localBackupsDir)) {
+      fs.mkdirSync(localBackupsDir, { recursive: true });
+    }
+    const persistentLocalPath = path.join(localBackupsDir, fileName);
+    await fs.promises.copyFile(encFilePath, persistentLocalPath);
+    console.log(`💾 Encrypted backup archive preserved locally at: ${persistentLocalPath}`);
 
-    // 7. Cleanup local encrypted file
+    // Prune expired local backups older than retention policy
+    await cleanupLocalBackups(localBackupsDir, env.BACKUP_RETENTION_DAYS);
+
+    // 7. Upload encrypted archive to personal Google Drive (Account 1 - Primary)
+    let uploadResult1 = null;
+    let driveWarning1 = null;
+
+    if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN) {
+      try {
+        uploadResult1 = await uploadBackupToDrive(encFilePath, fileName, 1);
+      } catch (gErr) {
+        if (gErr.message?.includes('invalid_grant')) {
+          driveWarning1 = 'Google Drive Account 1 OAuth token expired (invalid_grant). Backup safely stored locally on server. Please reconnect Account 1 in Settings.';
+        } else {
+          driveWarning1 = `Google Drive Account 1 upload failed (${gErr.message}). Backup safely stored locally on server.`;
+        }
+        console.warn(`⚠️ ${driveWarning1}`);
+      }
+    } else {
+      driveWarning1 = 'Google Drive Account 1 credentials are not configured. Backup safely stored locally on server.';
+      console.warn(`⚠️ ${driveWarning1}`);
+    }
+
+    // 7b. Upload encrypted archive to secondary Google Drive (Account 2 - Secondary / Redundant)
+    let uploadResult2 = null;
+    let driveWarning2 = null;
+
+    if (env.GOOGLE_REFRESH_TOKEN_2) {
+      try {
+        uploadResult2 = await uploadBackupToDrive(encFilePath, fileName, 2);
+      } catch (gErr2) {
+        if (gErr2.message?.includes('invalid_grant')) {
+          driveWarning2 = 'Google Drive Account 2 OAuth token expired (invalid_grant). Please reconnect Account 2 in Settings.';
+        } else {
+          driveWarning2 = `Google Drive Account 2 upload failed (${gErr2.message}).`;
+        }
+        console.warn(`⚠️ ${driveWarning2}`);
+      }
+    }
+
+    // 8. Cleanup temporary file in os.tmpdir
     try { await fs.promises.unlink(encFilePath); } catch (_) {}
 
-    // 8. Run retention policy cleanup
-    console.log(`🧹 Running backup retention cleanup (retention: ${env.BACKUP_RETENTION_DAYS} days)...`);
-    await cleanupExpiredBackups(env.BACKUP_RETENTION_DAYS);
+    // 9. Run retention policy cleanup on Google Drive if upload succeeded
+    if (uploadResult1) {
+      console.log(`🧹 Running Google Drive Account 1 backup retention cleanup (retention: ${env.BACKUP_RETENTION_DAYS} days)...`);
+      await cleanupExpiredBackups(env.BACKUP_RETENTION_DAYS, 1);
+    }
+    if (uploadResult2) {
+      console.log(`🧹 Running Google Drive Account 2 backup retention cleanup (retention: ${env.BACKUP_RETENTION_DAYS} days)...`);
+      await cleanupExpiredBackups(env.BACKUP_RETENTION_DAYS, 2);
+    }
 
     const durationMs = Date.now() - startTime;
+    const combinedWarning = [driveWarning1, driveWarning2].filter(Boolean).join(' | ');
 
-    // 9. Mark job completed in database
+    // 10. Mark job completed in database
     const completedLog = await db.backup_logs.update(logRecord.id, {
       status: 'COMPLETED',
-      drive_file_id: uploadResult.fileId,
-      drive_folder_id: uploadResult.folderId,
-      file_size_bytes: uploadResult.fileSizeBytes,
-      checksum_md5: uploadResult.checksumMd5,
+      drive_file_id: uploadResult1?.fileId || null,
+      drive_folder_id: uploadResult1?.folderId || null,
+      drive_file_id_2: uploadResult2?.fileId || null,
+      drive_folder_id_2: uploadResult2?.folderId || null,
+      file_size_bytes: encResult.fileSizeBytes,
+      checksum_md5: uploadResult1?.checksumMd5 || uploadResult2?.checksumMd5 || encResult.authTagHex || null,
       duration_ms: durationMs,
+      error_message: combinedWarning || null,
       completed_at: new Date().toISOString(),
     });
 
     console.log(`====================================================`);
     console.log(`🎉 BACKUP SUCCESSFUL in ${(durationMs / 1000).toFixed(2)}s`);
-    console.log(`   Drive File ID: ${uploadResult.fileId}`);
-    console.log(`   Archive Size:  ${(uploadResult.fileSizeBytes / 1024).toFixed(1)} KB`);
+    if (uploadResult1?.fileId) {
+      console.log(`   Drive 1 File ID: ${uploadResult1.fileId}`);
+    }
+    if (uploadResult2?.fileId) {
+      console.log(`   Drive 2 File ID: ${uploadResult2.fileId}`);
+    }
+    if (!uploadResult1?.fileId && !uploadResult2?.fileId) {
+      console.log(`   Local File:      ${persistentLocalPath}`);
+      if (combinedWarning) console.log(`   Notice:          ${combinedWarning}`);
+    }
+    console.log(`   Archive Size:    ${(encResult.fileSizeBytes / 1024).toFixed(1)} KB`);
     console.log(`====================================================`);
 
     return completedLog;

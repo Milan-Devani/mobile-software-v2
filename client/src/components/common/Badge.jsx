@@ -53,10 +53,11 @@ const STATUS_CONFIGS = {
     dot: 'bg-teal-500'
   },
   CANCELLED: {
-    label: 'Cancelled',
-    bg: 'bg-slate-100 text-slate-600 border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
-    dot: 'bg-slate-400'
+    label: 'Returned Unrepaired',
+    bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',
+    dot: 'bg-amber-500'
   },
+  // Legacy alias (kept so any pre-merge records still render correctly)
   RETURNED_UNREPAIRED: {
     label: 'Returned Unrepaired',
     bg: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800/60',

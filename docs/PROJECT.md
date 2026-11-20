@@ -180,7 +180,7 @@ npm test            # tests/e2e.js
 | Technician | `tech@mobotech.com` | `Tech@123456` |
 | Staff / Reception | `staff@mobotech.com` | `Staff@123456` |
 
-> Legacy admin `admin@fixitrepair.com` also exists (same admin password).
+> Legacy accounts `admin@fixitrepair.com`, `tech@fixitrepair.com`, and `staff@fixitrepair.com` also exist (same passwords) for backward compatibility in local mode.
 
 ---
 

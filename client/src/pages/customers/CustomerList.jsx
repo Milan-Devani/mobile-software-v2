@@ -29,15 +29,25 @@ import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
+import {
+  isValidPhoneNumber,
+  MAX_PHONE_INPUT_LENGTH,
+  PHONE_NUMBER_VALIDATION_MESSAGE,
+} from '../../utils/phoneValidation';
+
+const optionalPhoneSchema = z.string().optional().refine(
+  (value) => !value || isValidPhoneNumber(value),
+  PHONE_NUMBER_VALIDATION_MESSAGE
+);
 
 const customerSchema = z.object({
   full_name: z.string().min(2, 'Name must be at least 2 characters'),
   gender: z.string().default('male'),
   user_type: z.string().default('End User'),
-  phone: z.string().min(6, 'Valid phone number required'),
-  whatsapp_number: z.string().optional(),
-  alternate_phone: z.string().optional(),
-  alternate_whatsapp: z.string().optional(),
+  phone: z.string().refine(isValidPhoneNumber, PHONE_NUMBER_VALIDATION_MESSAGE),
+  whatsapp_number: optionalPhoneSchema,
+  alternate_phone: optionalPhoneSchema,
+  alternate_whatsapp: optionalPhoneSchema,
   email: z.string().min(1, 'Email address (Mail ID) is required').email('Valid email address required'),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -448,6 +458,7 @@ export const CustomerList = () => {
               </label>
               <input
                 type="tel"
+                maxLength={MAX_PHONE_INPUT_LENGTH}
                 placeholder="Primary phone number"
                 {...register('phone')}
                 className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
@@ -472,6 +483,7 @@ export const CustomerList = () => {
                 </label>
                 <input
                   type="tel"
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Enter separate WhatsApp number"
                   {...register('whatsapp_number')}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
@@ -512,6 +524,7 @@ export const CustomerList = () => {
                 </label>
                 <input
                   type="tel"
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Secondary phone"
                   {...register('alternate_phone')}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
@@ -523,6 +536,7 @@ export const CustomerList = () => {
                 </label>
                 <input
                   type="tel"
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Active WP number while phone in shop"
                   {...register('alternate_whatsapp')}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"

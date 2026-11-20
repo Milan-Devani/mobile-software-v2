@@ -16,26 +16,35 @@ import {
   Trash2,
   Edit3,
   Layers,
-  Sparkles
+  Sparkles,
+  Wallet,
+  Receipt,
+  RotateCcw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { dashboardService } from '../../services/dashboardService';
+import { useDebounce } from '../../hooks/useDebounce';
 import { jobService } from '../../services/jobService';
 import { Card, LoadingSpinner, EmptyState, StatsSkeleton, TableSkeleton, Skeleton } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
+import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { BulkActionBar } from '../../components/common/BulkActionBar';
 
 export const Dashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [selectedIds, setSelectedIds] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [datePreset, setDatePreset] = useState('ALL');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const navigate = useNavigate();
 
   const [fetchError, setFetchError] = useState(null);
@@ -44,7 +53,10 @@ export const Dashboard = () => {
     try {
       setLoading(true);
       setFetchError(null);
-      const res = await dashboardService.getStats();
+      const params = {};
+      if (startDate) params.startDate = startDate;
+      if (endDate) params.endDate = endDate;
+      const res = await dashboardService.getStats(params);
       setData(res);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
@@ -59,7 +71,7 @@ export const Dashboard = () => {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [startDate, endDate]);
 
   useEffect(() => {
     let timer;
@@ -115,11 +127,11 @@ export const Dashboard = () => {
   const filteredJobs = recentJobs.filter((job) => {
     const matchesStatus = statusFilter === 'ALL' || job.status === statusFilter;
     const matchesSearch =
-      !search ||
-      job.job_number.toLowerCase().includes(search.toLowerCase()) ||
-      job.customer?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
-      job.device?.model?.toLowerCase().includes(search.toLowerCase()) ||
-      job.customer_complaint?.toLowerCase().includes(search.toLowerCase());
+      !debouncedSearch ||
+      job.job_number.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      job.customer?.full_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      job.device?.model?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      job.customer_complaint?.toLowerCase().includes(debouncedSearch.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -143,6 +155,13 @@ export const Dashboard = () => {
     setSelectedIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
+  };
+
+  const handleDateFilterChange = ({ preset, startDate: s, endDate: e }) => {
+    setDatePreset(preset || 'ALL');
+    setStartDate(s || '');
+    setEndDate(e || '');
+    setCurrentPage(1);
   };
 
   const handleSingleDelete = (job) => {
@@ -206,7 +225,8 @@ export const Dashboard = () => {
         TESTING: 'QC Testing',
         READY_FOR_PICKUP: 'Ready for Pickup',
         DELIVERED: 'Delivered / Completed',
-        CANCELLED: 'Cancelled',
+        REJECTED: 'Estimate Rejected',
+        CANCELLED: 'Returned Unrepaired',
       },
       inputPlaceholder: 'Select new lifecycle status',
       showCancelButton: true,
@@ -242,7 +262,13 @@ export const Dashboard = () => {
             Real-time repair lifecycle tracking and revenue metrics
           </p>
         </div>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 flex-wrap justify-end">
+          <SpatialDateFilter
+            preset={datePreset}
+            startDate={startDate}
+            endDate={endDate}
+            onChange={handleDateFilterChange}
+          />
           <Button
             icon={Plus}
             onClick={() => navigate('/jobs/new')}
@@ -254,7 +280,7 @@ export const Dashboard = () => {
       </div>
 
       {/* Top Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 sm:gap-4">
         {/* Total Active Jobs */}
         <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -309,6 +335,24 @@ export const Dashboard = () => {
           </div>
         </div>
 
+        {/* Returned Unrepaired */}
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Returned Unrepaired</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/15 flex items-center justify-center">
+              <RotateCcw className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-amber-600 dark:text-amber-400 tabular-nums">
+              {summary.returned_unrepaired || 0}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              <span className="text-amber-600 dark:text-amber-400 font-semibold">{summary.rejected || 0}</span> estimate rejected
+            </div>
+          </div>
+        </div>
+
         {/* Pending Receivables / Balance */}
         <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -323,6 +367,60 @@ export const Dashboard = () => {
             </p>
             <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
               Today's revenue: <strong className="text-[var(--spatial-text-title)] font-semibold tabular-nums">₹{Number(summary.today_revenue || 0).toLocaleString()}</strong>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Balance (Collected) */}
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Total Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/15 flex items-center justify-center">
+              <Wallet className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums">
+              ₹{Number(summary.total_revenue || 0).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              Total collected (jobs + sales)
+            </div>
+          </div>
+        </div>
+
+        {/* Repaired Job Balance */}
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Repaired Job Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/15 flex items-center justify-center">
+              <Wrench className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-sky-600 dark:text-sky-400 tabular-nums">
+              ₹{Number(summary.repair_balance || 0).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              Collected from repair jobs
+            </div>
+          </div>
+        </div>
+
+        {/* Sales Balance */}
+        <div className="spatial-card spatial-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] sm:text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider">Sales Balance</span>
+            <div className="w-8 h-8 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/15 flex items-center justify-center">
+              <Receipt className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-2xl sm:text-3xl font-semibold tracking-tight text-violet-600 dark:text-violet-400 tabular-nums">
+              ₹{Number(summary.sales_balance || 0).toLocaleString()}
+            </p>
+            <div className="flex items-center gap-1.5 mt-1.5 text-[11px] sm:text-xs text-[var(--spatial-text-muted)]">
+              Collected from sales invoices
             </div>
           </div>
         </div>
@@ -443,12 +541,17 @@ export const Dashboard = () => {
                 <tbody className="divide-y divide-[var(--spatial-border)]">
                   {paginatedJobs.map((job) => {
                     const isSelected = selectedIds.includes(job.id);
+                    const hasPendingBalance = Number(job.balance_due) > 0;
                     return (
                       <tr
                         key={job.id}
                         onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${
-                          isSelected ? 'bg-blue-500/[0.08]' : ''
+                        className={`transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-500/[0.08]'
+                            : hasPendingBalance
+                              ? 'bg-rose-500/[0.07] hover:bg-rose-500/[0.14] dark:bg-rose-500/10 dark:hover:bg-rose-500/20'
+                              : 'hover:bg-[var(--spatial-bg-card-subtle)]/70'
                         }`}
                       >
                         <td

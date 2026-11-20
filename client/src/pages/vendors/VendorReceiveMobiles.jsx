@@ -25,6 +25,7 @@ import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { VendorReceiptPrintable } from '../../components/vendors/VendorReceiptPrintable';
 import { VendorModal } from '../../components/vendors/VendorModal';
 import { vendorService } from '../../services/vendorService';
+import { confirmDialog } from '../../utils/dialogs';
 import { settingsService } from '../../services/settingsService';
 import { formatIndianCurrency, formatInvoiceDate } from '../../utils/billFormatters';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -253,11 +254,13 @@ export const VendorReceiveMobiles = () => {
     if (selectedMobileIds.length === 0) return;
     const count = selectedMobileIds.length;
     const isAll = count === receivedMobiles.length;
-    const confirmMessage = isAll
-      ? `Delete ALL ${count} selected inward handset record(s)? This action cannot be undone.`
-      : `Delete ${count} selected inward handset record(s)? This action cannot be undone.`;
-
-    if (!window.confirm(confirmMessage)) return;
+    const okDeleteSelected = await confirmDialog({
+      title: isAll ? `Delete ALL ${count} inward record(s)?` : `Delete ${count} inward record(s)?`,
+      text: 'The selected inward handset records will be removed. This action cannot be undone.',
+      confirmText: `Delete ${count}`,
+      danger: true,
+    });
+    if (!okDeleteSelected) return;
 
     try {
       setReceivedLoading(true);
@@ -279,11 +282,13 @@ export const VendorReceiveMobiles = () => {
 
   const handleDeleteSingle = async (mob, e) => {
     e?.stopPropagation();
-    if (
-      !window.confirm(
-        `Delete inward handset "${mob.brand} ${mob.model}" (IMEI: ${mob.imei || 'N/A'})? This cannot be undone.`
-      )
-    ) {
+    const okDeleteOne = await confirmDialog({
+      title: 'Delete inward handset?',
+      text: `"${mob.brand} ${mob.model}" (IMEI: ${mob.imei || 'N/A'}) will be removed. This cannot be undone.`,
+      confirmText: 'Delete',
+      danger: true,
+    });
+    if (!okDeleteOne) {
       return;
     }
 

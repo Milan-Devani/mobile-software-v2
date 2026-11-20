@@ -13,7 +13,7 @@ const router = express.Router();
 
 router.use(authenticateToken);
 
-router.get('/', requireAnyRole, getPayments);
+router.get('/', requireStaffOrAdmin, getPayments);
 router.post('/bulk-delete', requireStaffOrAdmin, bulkDeletePayments);
 router.post('/', requireStaffOrAdmin, recordPayment);
 router.get('/job/:jobId', requireAnyRole, getJobPayments);

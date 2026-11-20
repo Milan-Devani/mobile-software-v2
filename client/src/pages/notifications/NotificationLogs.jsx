@@ -293,7 +293,7 @@ export const NotificationLogs = () => {
                     <th className="px-5 py-3 whitespace-nowrap">Channel</th>
                     <th className="px-5 py-3 whitespace-nowrap">Event / Message Type</th>
                     <th className="px-5 py-3 whitespace-nowrap">Recipient</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Provider</th>
+                    <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
                     <th className="px-5 py-3 text-center whitespace-nowrap">Status</th>
                     <th className="px-5 py-3 whitespace-nowrap">Sent At</th>
                     <th className="px-5 py-3 text-center whitespace-nowrap">Action</th>
@@ -331,8 +331,8 @@ export const NotificationLogs = () => {
                         <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-body)] whitespace-nowrap">
                           {log.recipient}
                         </td>
-                        <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-semibold whitespace-nowrap">
-                          {log.provider === 'BAILEYS' ? 'WHATSAPP' : log.provider === 'BREVO' ? 'EMAIL' : log.provider === 'MSG91' ? 'SMS' : (log.provider || log.channel || 'SYSTEM')}
+                        <td className="px-5 py-3.5 font-mono text-[var(--spatial-text-body)] font-semibold whitespace-nowrap">
+                          {log.job_number || '—'}
                         </td>
                         <td className="px-5 py-3.5 text-center whitespace-nowrap">
                           <span

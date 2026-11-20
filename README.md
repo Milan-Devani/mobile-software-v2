@@ -73,9 +73,11 @@ Status: DELIVERED
 
 | Role | Email | Password | Permissions |
 | :--- | :--- | :--- | :--- |
-| **Admin / Owner** | `admin@fixitrepair.com` | `Admin@123456` | Full administrative access, settings, user management, financials |
-| **Technician** | `tech@fixitrepair.com` | `Tech@123456` | Diagnosis, parts inventory, repairs, 16-point QC testing |
-| **Staff / Reception** | `staff@fixitrepair.com` | `Staff@123456` | Customer check-in, Job Sheet creation, pickups, payments |
+| **Admin / Owner** | `admin@mobotech.com` | `Admin@123456` | Full administrative access, settings, user management, financials |
+| **Technician** | `tech@mobotech.com` | `Tech@123456` | Diagnosis, parts inventory, repairs, 16-point QC testing |
+| **Staff / Reception** | `staff@mobotech.com` | `Staff@123456` | Customer check-in, Job Sheet creation, pickups, payments |
+
+> 💡 Legacy accounts `admin@fixitrepair.com`, `tech@fixitrepair.com`, and `staff@fixitrepair.com` (same passwords) are also seeded for backward compatibility in local mode.
 
 ---
 

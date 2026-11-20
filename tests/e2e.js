@@ -25,7 +25,7 @@ export const runE2ETest = async () => {
     const loginRes = await req('/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        email: 'admin@fixitrepair.com',
+        email: 'admin@mobotech.com',
         password: 'Admin@123456',
       }),
     });

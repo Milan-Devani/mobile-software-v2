@@ -1,0 +1,90 @@
+/* ==========================================================================
+   THEMED SWEETALERT (Spatial UI)
+   --------------------------------------------------------------------------
+   Makes Swal dialogs inherit the app theme by reading the same
+   --spatial-* variables used everywhere else. Applies to dialogs opened via
+   utils/dialogs.js (which sets .spatial-swal-* classes) and also to the many
+   existing Swal.fire() calls that pass confirmButtonColor inline.
+
+   Included automatically because main.jsx imports index.css.
+   ========================================================================== */
+
+.swal2-popup.spatial-swal-popup {
+  background: var(--spatial-bg-card) !important;
+  color: var(--spatial-text-body) !important;
+  border: 1px solid var(--spatial-border) !important;
+  border-radius: 18px !important;
+  box-shadow: var(--spatial-shadow-hover, 0 12px 32px -4px rgba(0, 0, 0, 0.3)) !important;
+  font-family: inherit !important;
+  padding: 1.35rem 1.35rem 1rem !important;
+}
+
+.swal2-title.spatial-swal-title,
+.swal2-popup.spatial-swal-popup .swal2-title {
+  color: var(--spatial-text-title) !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  padding-top: 0.35rem !important;
+}
+
+.swal2-html-container.spatial-swal-text,
+.swal2-popup.spatial-swal-popup .swal2-html-container {
+  color: var(--spatial-text-muted) !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.55 !important;
+  margin: 0.5rem 0 0.25rem !important;
+}
+
+/* Buttons: match .spatial-btn-primary / .spatial-btn-secondary */
+.swal2-popup.spatial-swal-popup .swal2-confirm,
+.swal2-popup.spatial-swal-popup .swal2-cancel {
+  border-radius: 12px !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 0.95rem !important;
+  box-shadow: none !important;
+  transition: transform 0.15s ease, filter 0.15s ease !important;
+}
+
+.swal2-popup.spatial-swal-popup .swal2-confirm:active,
+.swal2-popup.spatial-swal-popup .swal2-cancel:active {
+  transform: scale(0.98);
+}
+
+.swal2-popup.spatial-swal-popup .swal2-actions {
+  gap: 0.5rem !important;
+  margin-top: 1.1rem !important;
+}
+
+/* Icon accents stay readable on dark backgrounds */
+.swal2-popup.spatial-swal-popup .swal2-icon {
+  border-width: 2px !important;
+  margin: 0.35rem auto 0.9rem !important;
+  transform: scale(0.85);
+}
+
+/* Inputs used by Swal input-prompts */
+.swal2-popup.spatial-swal-popup .swal2-input,
+.swal2-popup.spatial-swal-popup .swal2-select,
+.swal2-popup.spatial-swal-popup .swal2-textarea {
+  background: var(--spatial-input-bg, var(--spatial-bg-card-subtle)) !important;
+  color: var(--spatial-text-title) !important;
+  border: 1px solid var(--spatial-border) !important;
+  border-radius: 12px !important;
+  font-size: 0.8125rem !important;
+  box-shadow: none !important;
+}
+
+.swal2-popup.spatial-swal-popup .swal2-input:focus,
+.swal2-popup.spatial-swal-popup .swal2-select:focus,
+.swal2-popup.spatial-swal-popup .swal2-textarea:focus {
+  border-color: #0071e3 !important;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18) !important;
+  outline: none !important;
+}
+
+.swal2-container.swal2-backdrop-show {
+  background: rgba(2, 6, 23, 0.55) !important;
+  backdrop-filter: blur(3px);
+}

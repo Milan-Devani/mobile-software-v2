@@ -6,21 +6,37 @@ const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
 const DEFAULT_FOLDER_NAME = 'Supabase Database Backups';
 
 /**
- * Creates and configures an authenticated Google Drive API client using OAuth2 refresh tokens.
+ * Resolves credentials for a given Google Drive account index (1 for Primary, 2 for Secondary).
+ * Secondary account falls back to Primary Client ID and Secret so the user can use the same project.
  */
-export function getDriveClient() {
-  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET || !env.GOOGLE_REFRESH_TOKEN) {
-    throw new Error('Google Drive credentials are not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN.');
+export function getDriveCredentials(accountIndex = 1) {
+  const isSecond = Number(accountIndex) === 2;
+  const clientId = isSecond ? (env.GOOGLE_CLIENT_ID_2 || env.GOOGLE_CLIENT_ID) : env.GOOGLE_CLIENT_ID;
+  const clientSecret = isSecond ? (env.GOOGLE_CLIENT_SECRET_2 || env.GOOGLE_CLIENT_SECRET) : env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = isSecond ? env.GOOGLE_REFRESH_TOKEN_2 : env.GOOGLE_REFRESH_TOKEN;
+  const folderId = isSecond ? env.GOOGLE_DRIVE_FOLDER_ID_2 : env.GOOGLE_DRIVE_FOLDER_ID;
+  return { clientId, clientSecret, refreshToken, folderId, isSecond };
+}
+
+/**
+ * Creates and configures an authenticated Google Drive API client using OAuth2 refresh tokens.
+ * Supports accountIndex = 1 (Primary) and accountIndex = 2 (Secondary).
+ */
+export function getDriveClient(accountIndex = 1) {
+  const { clientId, clientSecret, refreshToken } = getDriveCredentials(accountIndex);
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    throw new Error(`Google Drive credentials for Account ${accountIndex} are not configured. Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and GOOGLE_REFRESH_TOKEN${Number(accountIndex) === 2 ? '_2' : ''}.`);
   }
 
   const oauth2Client = new google.auth.OAuth2(
-    env.GOOGLE_CLIENT_ID,
-    env.GOOGLE_CLIENT_SECRET,
+    clientId,
+    clientSecret,
     'http://localhost:3000/oauth2callback'
   );
 
   oauth2Client.setCredentials({
-    refresh_token: env.GOOGLE_REFRESH_TOKEN,
+    refresh_token: refreshToken,
   });
 
   return google.drive({ version: 'v3', auth: oauth2Client });
@@ -55,13 +71,14 @@ async function withRetry(fn, maxRetries = 3, initialDelayMs = 1000) {
 }
 
 /**
- * Resolves the backup folder ID in Google Drive.
- * If GOOGLE_DRIVE_FOLDER_ID is configured, verifies access.
+ * Resolves the backup folder ID in Google Drive for Account 1 or Account 2.
+ * If GOOGLE_DRIVE_FOLDER_ID(_2) is configured, verifies access.
  * Otherwise, searches for or creates a private folder named "Supabase Database Backups".
  */
-export async function getOrCreateBackupFolder(drive) {
-  if (env.GOOGLE_DRIVE_FOLDER_ID && env.GOOGLE_DRIVE_FOLDER_ID.trim()) {
-    const configuredId = env.GOOGLE_DRIVE_FOLDER_ID.trim();
+export async function getOrCreateBackupFolder(drive, accountIndex = 1) {
+  const { folderId: configuredFolderId } = getDriveCredentials(accountIndex);
+  if (configuredFolderId && configuredFolderId.trim()) {
+    const configuredId = configuredFolderId.trim();
     try {
       const { data } = await withRetry(() =>
         drive.files.get({
@@ -73,7 +90,7 @@ export async function getOrCreateBackupFolder(drive) {
         return configuredId;
       }
     } catch (err) {
-      console.warn(`⚠️ Configured GOOGLE_DRIVE_FOLDER_ID "${configuredId}" could not be accessed (${err.message}). Searching by name...`);
+      console.warn(`⚠️ Configured GOOGLE_DRIVE_FOLDER_ID${Number(accountIndex) === 2 ? '_2' : ''} "${configuredId}" could not be accessed (${err.message}). Searching by name...`);
     }
   }
 
@@ -92,11 +109,11 @@ export async function getOrCreateBackupFolder(drive) {
   }
 
   // Create dedicated backup folder
-  console.log(`📁 Creating dedicated Google Drive folder: "${DEFAULT_FOLDER_NAME}"...`);
+  console.log(`📁 Creating dedicated Google Drive folder (Account ${accountIndex}): "${DEFAULT_FOLDER_NAME}"...`);
   const folderMetadata = {
     name: DEFAULT_FOLDER_NAME,
     mimeType: 'application/vnd.google-apps.folder',
-    description: 'Automated encrypted database backups for Supabase.',
+    description: `Automated encrypted database backups for Supabase (Account ${accountIndex}).`,
   };
 
   const createRes = await withRetry(() =>
@@ -106,17 +123,17 @@ export async function getOrCreateBackupFolder(drive) {
     })
   );
 
-  console.log(`✅ Created Google Drive backup folder with ID: ${createRes.data.id}`);
+  console.log(`✅ Created Google Drive backup folder (Account ${accountIndex}) with ID: ${createRes.data.id}`);
   return createRes.data.id;
 }
 
 /**
- * Uploads an encrypted backup file to the target Google Drive backup folder.
+ * Uploads an encrypted backup file to the target Google Drive backup folder (Account 1 or 2).
  * Verifies upload metadata (size and existence) before reporting success.
  */
-export async function uploadBackupToDrive(filePath, fileName) {
-  const drive = getDriveClient();
-  const folderId = await getOrCreateBackupFolder(drive);
+export async function uploadBackupToDrive(filePath, fileName, accountIndex = 1) {
+  const drive = getDriveClient(accountIndex);
+  const folderId = await getOrCreateBackupFolder(drive, accountIndex);
 
   const stats = await fs.promises.stat(filePath);
   const media = {
@@ -130,7 +147,7 @@ export async function uploadBackupToDrive(filePath, fileName) {
     description: `Encrypted Supabase PostgreSQL database backup. Size: ${(stats.size / 1024 / 1024).toFixed(2)} MB.`,
   };
 
-  console.log(`🚀 Uploading "${fileName}" (${(stats.size / 1024).toFixed(1)} KB) to Google Drive folder [${folderId}]...`);
+  console.log(`🚀 Uploading "${fileName}" (${(stats.size / 1024).toFixed(1)} KB) to Google Drive Account ${accountIndex} folder [${folderId}]...`);
 
   const uploadRes = await withRetry(() =>
     drive.files.create({
@@ -142,7 +159,7 @@ export async function uploadBackupToDrive(filePath, fileName) {
 
   const file = uploadRes.data;
   if (!file || !file.id) {
-    throw new Error('Google Drive upload failed: No file ID returned.');
+    throw new Error(`Google Drive Account ${accountIndex} upload failed: No file ID returned.`);
   }
 
   // Verification step: fetch uploaded metadata
@@ -155,15 +172,15 @@ export async function uploadBackupToDrive(filePath, fileName) {
 
   const verifiedFile = verifyRes.data;
   if (verifiedFile.trashed) {
-    throw new Error('Upload verification failed: file is marked as trashed.');
+    throw new Error(`Upload verification failed for Account ${accountIndex}: file is marked as trashed.`);
   }
 
   const uploadedSize = parseInt(verifiedFile.size || file.size || '0', 10);
   if (uploadedSize > 0 && Math.abs(uploadedSize - stats.size) > 1024) {
-    throw new Error(`Upload verification failed: file size mismatch. Local: ${stats.size}, Remote: ${uploadedSize}`);
+    throw new Error(`Upload verification failed for Account ${accountIndex}: file size mismatch. Local: ${stats.size}, Remote: ${uploadedSize}`);
   }
 
-  console.log(`✅ Upload verified: Google Drive File ID: ${file.id}, MD5: ${verifiedFile.md5Checksum || 'N/A'}`);
+  console.log(`✅ Upload verified (Account ${accountIndex}): Google Drive File ID: ${file.id}, MD5: ${verifiedFile.md5Checksum || 'N/A'}`);
 
   return {
     fileId: file.id,
@@ -171,15 +188,16 @@ export async function uploadBackupToDrive(filePath, fileName) {
     folderId,
     fileSizeBytes: stats.size,
     checksumMd5: verifiedFile.md5Checksum || null,
+    accountIndex,
   };
 }
 
 /**
- * Lists backup files in the Google Drive backup folder with pagination.
+ * Lists backup files in the Google Drive backup folder with pagination (Account 1 or 2).
  */
-export async function listBackupsFromDrive() {
-  const drive = getDriveClient();
-  const folderId = await getOrCreateBackupFolder(drive);
+export async function listBackupsFromDrive(accountIndex = 1) {
+  const drive = getDriveClient(accountIndex);
+  const folderId = await getOrCreateBackupFolder(drive, accountIndex);
 
   const files = [];
   let pageToken = null;
@@ -187,7 +205,7 @@ export async function listBackupsFromDrive() {
   do {
     const res = await withRetry(() =>
       drive.files.list({
-        q: `'${folderId}' in parents and trashed = false and name contains 'supabase-backup-'`,
+        q: `'${folderId}' in parents and trashed = false and name contains 'backup-'`,
         fields: 'nextPageToken, files(id, name, size, md5Checksum, createdTime, modifiedTime)',
         orderBy: 'createdTime desc',
         pageSize: 100,
@@ -208,14 +226,15 @@ export async function listBackupsFromDrive() {
     checksumMd5: f.md5Checksum || null,
     createdTime: f.createdTime,
     folderId,
+    accountIndex,
   }));
 }
 
 /**
- * Downloads an encrypted backup file from Google Drive to local storage.
+ * Downloads an encrypted backup file from Google Drive to local storage (Account 1 or 2).
  */
-export async function downloadBackupFromDrive(fileId, targetLocalPath) {
-  const drive = getDriveClient();
+export async function downloadBackupFromDrive(fileId, targetLocalPath, accountIndex = 1) {
+  const drive = getDriveClient(accountIndex);
 
   const fileMeta = await withRetry(() =>
     drive.files.get({
@@ -224,7 +243,7 @@ export async function downloadBackupFromDrive(fileId, targetLocalPath) {
     })
   );
 
-  console.log(`📥 Downloading backup "${fileMeta.data.name}" (${(parseInt(fileMeta.data.size || '0', 10) / 1024).toFixed(1)} KB) from Google Drive...`);
+  console.log(`📥 Downloading backup "${fileMeta.data.name}" (${(parseInt(fileMeta.data.size || '0', 10) / 1024).toFixed(1)} KB) from Google Drive Account ${accountIndex}...`);
 
   const destStream = fs.createWriteStream(targetLocalPath);
 
@@ -250,13 +269,98 @@ export async function downloadBackupFromDrive(fileId, targetLocalPath) {
     fileName: fileMeta.data.name,
     fileSizeBytes: downloadedStats.size,
     checksumMd5: fileMeta.data.md5Checksum || null,
+    accountIndex,
   };
 }
 
 /**
- * Deletes a specific backup file from Google Drive by file ID.
+ * Deletes a specific backup file from Google Drive by file ID (Account 1 or 2).
  */
-export async function deleteBackupFile(fileId) {
-  const drive = getDriveClient();
+export async function deleteBackupFile(fileId, accountIndex = 1) {
+  const drive = getDriveClient(accountIndex);
   await withRetry(() => drive.files.delete({ fileId }));
+}
+
+/**
+ * Tests Google Drive OAuth2 token validity without throwing unhandled exceptions.
+ * Detects whether the token is valid, missing, or expired with 'invalid_grant' for Account 1 or 2.
+ */
+export async function testDriveAuth(accountIndex = 1) {
+  const { clientId, clientSecret, refreshToken } = getDriveCredentials(accountIndex);
+  if (!clientId || !clientSecret || !refreshToken) {
+    return {
+      valid: false,
+      error: 'NOT_CONFIGURED',
+      message: `Google Drive Account ${accountIndex} is not configured.`,
+      accountIndex,
+    };
+  }
+
+  try {
+    const oauth2Client = new google.auth.OAuth2(
+      clientId,
+      clientSecret,
+      'http://localhost:3000/oauth2callback'
+    );
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    const tokenRes = await oauth2Client.getAccessToken();
+    if (!tokenRes?.token) {
+      return {
+        valid: false,
+        error: 'NO_TOKEN',
+        message: `Could not obtain Google access token for Account ${accountIndex}.`,
+        accountIndex,
+      };
+    }
+    return { valid: true, accountIndex };
+  } catch (err) {
+    const msg = err.message || '';
+    if (msg.includes('invalid_grant')) {
+      return {
+        valid: false,
+        error: 'invalid_grant',
+        message: `Google Drive Account ${accountIndex} authorization expired (invalid_grant).`,
+        accountIndex,
+      };
+    }
+    return { valid: false, error: 'AUTH_FAILED', message: msg, accountIndex };
+  }
+}
+
+/**
+ * Generates an OAuth2 consent URL for authorizing Google Drive access for Account 1 or 2.
+ */
+export function getGoogleDriveAuthUrl(accountIndex = 1, redirectUri = 'http://localhost:3000/oauth2callback') {
+  const { clientId, clientSecret } = getDriveCredentials(accountIndex);
+  if (!clientId || !clientSecret) {
+    throw new Error(`Google Client ID and Secret for Account ${accountIndex} must be configured in server/.env`);
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    redirectUri
+  );
+
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: SCOPES,
+    state: String(accountIndex),
+  });
+}
+
+/**
+ * Exchanges authorization code for OAuth2 tokens (access_token + refresh_token) for Account 1 or 2.
+ */
+export async function exchangeAuthCodeForTokens(code, accountIndex = 1, redirectUri = 'http://localhost:3000/oauth2callback') {
+  const { clientId, clientSecret } = getDriveCredentials(accountIndex);
+  const oauth2Client = new google.auth.OAuth2(
+    clientId,
+    clientSecret,
+    redirectUri
+  );
+
+  const { tokens } = await oauth2Client.getToken(code);
+  return tokens;
 }

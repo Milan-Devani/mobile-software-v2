@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import {
   Palette,
   Store,
@@ -36,6 +36,7 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { useDebounce } from '../../hooks/useDebounce';
 import { settingsService } from '../../services/settingsService';
+import { setShopProfile } from '../../store/settingsSlice';
 import { authService } from '../../services/authService';
 import { Card, LoadingSpinner, EmptyState, DetailSkeleton } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -54,11 +55,14 @@ import {
 } from '../../context/ThemeContext';
 
 // Toggle to control Database Backups section visibility in Settings
-const SHOW_BACKUP_SECTION = false;
+const SHOW_BACKUP_SECTION = true;
 
 export const Settings = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const [activeTab, setActiveTab] = useState('appearance'); // 'appearance' | 'shop' | 'users' | 'notifications'
+  const isAdminLike = ['admin', 'developer'].includes(user?.role_id);
+  const isDeveloper = user?.role_id === 'developer';
+  const [activeTab, setActiveTab] = useState('shop'); // 'appearance' | 'shop' | 'users' | 'notifications'
   const [loading, setLoading] = useState(true);
   const [shop, setShop] = useState({});
   const [notifications, setNotifications] = useState({});
@@ -95,10 +99,12 @@ export const Settings = () => {
 
   // Shop Logo & Instagram QR Upload state
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [isUploadingLogoDark, setIsUploadingLogoDark] = useState(false);
   const [isUploadingInstagramQr, setIsUploadingInstagramQr] = useState(false);
   const [instagramQrPreview, setInstagramQrPreview] = useState('');
   const [isGeneratingQr, setIsGeneratingQr] = useState(false);
   const logoInputRef = useRef(null);
+  const logoDarkInputRef = useRef(null);
   const instagramQrInputRef = useRef(null);
 
   // Automatically resolve Instagram QR preview from direct image OR auto-generate from profile link/handle
@@ -154,9 +160,9 @@ export const Settings = () => {
     if (!file) return;
 
     // Validate file type
-    const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/jpg'];
+    const validMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
     if (!validMimeTypes.includes(file.type)) {
-      toast.error('Invalid file type! Please upload PNG, JPG, WEBP, or SVG.');
+      toast.error('Invalid file type! Please upload PNG, JPG, or WEBP.');
       return;
     }
 
@@ -168,8 +174,12 @@ export const Settings = () => {
     }
 
     try {
-      if (fieldName === 'logo_url') {
-        setIsUploadingLogo(true);
+      if (fieldName === 'logo_url' || fieldName === 'logo_url_dark') {
+        if (fieldName === 'logo_url_dark') {
+          setIsUploadingLogoDark(true);
+        } else {
+          setIsUploadingLogo(true);
+        }
       } else {
         setIsUploadingInstagramQr(true);
       }
@@ -187,15 +197,19 @@ export const Settings = () => {
       }));
 
       toast.success(
-        fieldName === 'logo_url'
-          ? 'Shop logo uploaded successfully! Click "Save Shop Profile" to save.'
-          : 'Instagram QR code uploaded successfully! Click "Save Shop Profile" to save.'
+        fieldName === 'logo_url_dark'
+          ? 'Dark theme logo uploaded successfully! Click "Save Shop Profile" to save.'
+          : fieldName === 'logo_url'
+            ? 'Shop logo uploaded successfully! Click "Save Shop Profile" to save.'
+            : 'Instagram QR code uploaded successfully! Click "Save Shop Profile" to save.'
       );
     } catch (err) {
       console.error('Image upload failed:', err);
       toast.error(err.response?.data?.message || err.message || 'Failed to upload image. Please try again.');
     } finally {
-      if (fieldName === 'logo_url') {
+      if (fieldName === 'logo_url_dark') {
+        setIsUploadingLogoDark(false);
+      } else if (fieldName === 'logo_url') {
         setIsUploadingLogo(false);
       } else {
         setIsUploadingInstagramQr(false);
@@ -208,7 +222,13 @@ export const Settings = () => {
       ...prev,
       [fieldName]: '',
     }));
-    toast.success(fieldName === 'logo_url' ? 'Shop logo cleared' : 'Instagram QR cleared');
+    toast.success(
+      fieldName === 'logo_url_dark'
+        ? 'Dark theme logo cleared'
+        : fieldName === 'logo_url'
+          ? 'Shop logo cleared'
+          : 'Instagram QR cleared'
+    );
   };
 
   // Theme Context
@@ -266,6 +286,7 @@ export const Settings = () => {
     try {
       setIsSaving(true);
       await settingsService.updateShopProfile(shop);
+      dispatch(setShopProfile(shop));
       toast.success('Shop profile updated successfully!');
     } catch (err) {
       toast.error(err.message || 'Failed to update shop profile');
@@ -492,8 +513,12 @@ export const Settings = () => {
     }
   };
 
-  // Filter users list
-  const filteredUsers = usersList.filter((u) => {
+  // Filter users list (hide developer accounts from non-developer roles)
+  const visibleUsers = isDeveloper
+    ? usersList
+    : usersList.filter((u) => u.role_id !== 'developer');
+
+  const filteredUsers = visibleUsers.filter((u) => {
     const matchesSearch =
       !debouncedUserSearch ||
       u.full_name?.toLowerCase().includes(debouncedUserSearch.toLowerCase()) ||
@@ -589,18 +614,7 @@ export const Settings = () => {
 
       {/* Modern Segmented Navigation Tabs */}
       <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)] overflow-x-auto">
-        <button
-          type="button"
-          onClick={() => setActiveTab('appearance')}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
-            activeTab === 'appearance'
-              ? 'bg-apple-blue text-white shadow-xs'
-              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
-          }`}
-        >
-          <Palette className="w-4 h-4" />
-          <span>Appearance & Spatial UI</span>
-        </button>
+       
 
         <button
           type="button"
@@ -625,7 +639,7 @@ export const Settings = () => {
           }`}
         >
           <Users className="w-4 h-4" />
-          <span>Staff & Users ({usersList.length})</span>
+          <span>Staff & Users ({visibleUsers.length})</span>
         </button>
 
         <button
@@ -641,7 +655,20 @@ export const Settings = () => {
           <span>Notifications & WhatsApp</span>
         </button>
 
-        {SHOW_BACKUP_SECTION && user?.role_id === 'admin' && (
+         <button
+          type="button"
+          onClick={() => setActiveTab('appearance')}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer active:scale-98 ${
+            activeTab === 'appearance'
+              ? 'bg-apple-blue text-white shadow-xs'
+              : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-border)]/30'
+          }`}
+        >
+          <Palette className="w-4 h-4" />
+          <span>Appearance & Spatial UI</span>
+        </button>
+
+        {SHOW_BACKUP_SECTION && isAdminLike && (
           <button
             type="button"
             onClick={() => setActiveTab('backups')}
@@ -938,12 +965,12 @@ export const Settings = () => {
 
               {/* Branding Assets: Shop Logo & Instagram Profile QR Code */}
               <div className="sm:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl bg-[var(--spatial-bg-card-subtle)] border border-[var(--spatial-border)]">
-                {/* 1. Shop Logo Input & Upload */}
+                {/* 1. Shop Logo Input & Upload (White / Light Theme) */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
                       <ImageIcon className="w-3.5 h-3.5 text-sky-500" />
-                      <span>Shop Logo</span>
+                      <span>White / Light Theme Logo</span>
                     </label>
                     {shop.logo_url && (
                       <button
@@ -978,7 +1005,7 @@ export const Settings = () => {
                       <input
                         type="file"
                         ref={logoInputRef}
-                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1018,7 +1045,87 @@ export const Settings = () => {
                     </div>
                   </div>
                   <p className="text-[10px] text-[var(--spatial-text-muted)] leading-tight">
-                    PNG, JPG, WEBP, SVG (Max 5MB). Printed on sales bills, invoices & job sheets.
+                    PNG, JPG, WEBP (Max 5MB). Printed on sales bills, invoices & job sheets.
+                  </p>
+                </div>
+
+                {/* 1b. Dark Theme Logo Input & Upload */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-[var(--spatial-text-title)] uppercase flex items-center gap-1.5">
+                      <ImageIcon className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Dark Theme Logo</span>
+                    </label>
+                    {shop.logo_url_dark && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveImage('logo_url_dark')}
+                        className="text-[11px] font-semibold text-rose-500 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-3 h-3" /> Clear
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {shop.logo_url_dark ? (
+                        <img
+                          src={shop.logo_url_dark}
+                          alt="Dark Theme Logo"
+                          className="w-full h-full object-contain p-1"
+                          onError={(e) => { e.target.style.display = 'none'; }}
+                        />
+                      ) : (
+                        <ImageIcon className="w-6 h-6 text-[var(--spatial-text-muted)] opacity-40" />
+                      )}
+                    </div>
+
+                    <div className="flex-1 space-y-1.5">
+                      <input
+                        type="file"
+                        ref={logoDarkInputRef}
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) validateAndUploadImage(file, 'logo_url_dark');
+                          e.target.value = '';
+                        }}
+                      />
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={isUploadingLogoDark}
+                          onClick={() => logoDarkInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-apple-blue text-white hover:bg-apple-blue/90 transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
+                        >
+                          {isUploadingLogoDark ? (
+                            <>
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <span>Uploading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-3.5 h-3.5" />
+                              <span>Upload Dark Logo</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+
+                      <input
+                        type="text"
+                        placeholder="Or paste image URL (https://...)"
+                        value={shop.logo_url_dark || ''}
+                        onChange={(e) => setShop({ ...shop, logo_url_dark: e.target.value })}
+                        className="w-full px-2.5 py-1.5 spatial-input rounded-xl text-[11px] font-mono"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-[var(--spatial-text-muted)] leading-tight">
+                    Shown when the app is in dark mode. PNG, JPG, WEBP (Max 5MB).
                   </p>
                 </div>
 
@@ -1065,7 +1172,7 @@ export const Settings = () => {
                       <input
                         type="file"
                         ref={instagramQrInputRef}
-                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1139,10 +1246,10 @@ export const Settings = () => {
       {activeTab === 'users' && (
         <div key="users" className="spatial-tab-pane space-y-4">
           <Card
-            title={`Shop Staff & Technician Accounts (${usersList.length})`}
+            title={`Shop Staff & Technician Accounts (${visibleUsers.length})`}
             subtitle="Manage login credentials and authorization roles for technicians, front desk staff, and shop managers"
             action={
-              user?.role_id === 'admin' ? (
+              isAdminLike ? (
                 <Button size="sm" icon={Plus} onClick={() => setIsAddUserOpen(true)}>
                   Add New Staff
                 </Button>
@@ -1190,15 +1297,16 @@ export const Settings = () => {
                       setUserSelectedIds([]);
                     }}
                     options={[
-                      { value: 'ALL', label: `All Roles (${usersList.length})` },
+                      { value: 'ALL', label: `All Roles (${visibleUsers.length})` },
                       { value: 'admin', label: 'Admins' },
+                      { value: 'developer', label: 'Developers' },
                       { value: 'technician', label: 'Technicians' },
                       { value: 'staff', label: 'Front Desk Staff' },
                     ]}
                   />
                 </div>
 
-                {user?.role_id === 'admin' && (
+                {isAdminLike && (
                   <Button size="sm" icon={Plus} onClick={() => setIsAddUserOpen(true)} className="sm:hidden">
                     Add
                   </Button>
@@ -1212,7 +1320,7 @@ export const Settings = () => {
                 icon={Users}
                 title="No staff members found"
                 description="Create accounts for technicians and front desk employees to let them manage repairs."
-                actionLabel={user?.role_id === 'admin' ? 'Add First Staff Member' : null}
+                actionLabel={isAdminLike ? 'Add First Staff Member' : null}
                 onAction={() => setIsAddUserOpen(true)}
               />
             ) : (
@@ -1248,7 +1356,7 @@ export const Settings = () => {
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-400/20">
                               Active
                             </span>
-                            {user?.role_id === 'admin' && u.id !== user?.id && (
+                            {isAdminLike && u.id !== user?.id && (
                               <button
                                 type="button"
                                 onClick={() => handleDeleteUser(u)}
@@ -1343,7 +1451,7 @@ export const Settings = () => {
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                              {user?.role_id === 'admin' && u.id !== user?.id ? (
+                              {isAdminLike && u.id !== user?.id ? (
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteUser(u)}
@@ -1498,7 +1606,7 @@ export const Settings = () => {
                         {notifications.sender_email || notifications.brevo_sender || 'notifications@mobotech.com'}
                       </span>
                     </p>
-                    <button
+                    {/* <button
                       type="button"
                       onClick={() => {
                         setSenderEmailInput(notifications.sender_email || notifications.brevo_sender || '');
@@ -1509,7 +1617,7 @@ export const Settings = () => {
                     >
                       <Edit2 className="w-3 h-3" />
                       <span>Change Email</span>
-                    </button>
+                    </button> */}
                   </div>
                 ) : (
                   <form onSubmit={handleSaveSenderEmail} className="mt-2 flex flex-wrap items-center gap-2">
@@ -1583,7 +1691,7 @@ export const Settings = () => {
       {/* ==================================================================== */}
       {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY (HIDDEN FOR NOW)         */}
       {/* ==================================================================== */}
-      {SHOW_BACKUP_SECTION && activeTab === 'backups' && user?.role_id === 'admin' && (
+      {SHOW_BACKUP_SECTION && activeTab === 'backups' && isAdminLike && (
         <div key="backups" className="spatial-tab-pane">
           <BackupManagementTab />
         </div>
@@ -1667,6 +1775,7 @@ export const Settings = () => {
               options={[
                 { value: 'technician', label: 'Technician (Diagnosis, Parts, Repairs, QC Testing)' },
                 { value: 'staff', label: 'Staff / Reception (Customer Check-in, Job Sheets, Pickup, Payments)' },
+                { value: 'developer', label: 'Developer (Full System Access)' },
                 { value: 'admin', label: 'Admin / Shop Owner (Full System Access)' },
               ]}
             />

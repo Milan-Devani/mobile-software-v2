@@ -1,6 +1,45 @@
 import { db } from '../db/db.js';
 import { AppError } from '../middleware/errorHandler.js';
 
+const PHONE_MAX_CHARACTERS = 25;
+const PHONE_CHARACTERS_PATTERN = /^\+?[\d\s().-]+$/;
+const PHONE_ERROR_MESSAGE = 'Phone numbers must contain 6 to 15 digits.';
+
+const isValidPhoneNumber = (value) => {
+  if (typeof value !== 'string' && typeof value !== 'number') return false;
+
+  const phone = String(value).trim();
+  if (!phone || phone.length > PHONE_MAX_CHARACTERS) return false;
+  if (!PHONE_CHARACTERS_PATTERN.test(phone)) return false;
+
+  const digitCount = phone.replace(/\D/g, '').length;
+  return digitCount >= 6 && digitCount <= 15;
+};
+
+const assertValidPhone = (value) => {
+  if (!isValidPhoneNumber(value)) {
+    throw new AppError(PHONE_ERROR_MESSAGE, 400, 'INVALID_PHONE');
+  }
+};
+
+const validateChangedPhoneFields = (updates, existing) => {
+  const optionalFields = ['whatsapp_number', 'alternate_phone', 'alternate_whatsapp'];
+  const phoneFields = ['phone', ...optionalFields];
+
+  for (const field of phoneFields) {
+    if (!Object.prototype.hasOwnProperty.call(updates, field)) continue;
+    const currentValue = updates[field];
+    const existingValue = existing[field];
+    if (String(currentValue ?? '') === String(existingValue ?? '')) continue;
+
+    if (field === 'phone') {
+      assertValidPhone(currentValue);
+    } else if (currentValue !== undefined && currentValue !== null && String(currentValue).trim()) {
+      assertValidPhone(currentValue);
+    }
+  }
+};
+
 export const getCustomers = async (req, res, next) => {
   try {
     const { search = '', limit = 50, offset = 0, startDate = '', endDate = '' } = req.query;
@@ -94,6 +133,12 @@ export const createCustomer = async (req, res, next) => {
       throw new AppError('Customer Full Name and Phone Number are required.', 400, 'VALIDATION_ERROR');
     }
 
+    assertValidPhone(phone);
+    validateChangedPhoneFields(
+      { whatsapp_number, alternate_phone, alternate_whatsapp },
+      { whatsapp_number: '', alternate_phone: '', alternate_whatsapp: '' }
+    );
+
     const customer = await db.customers.create({
       full_name,
       phone,
@@ -127,6 +172,8 @@ export const updateCustomer = async (req, res, next) => {
     if (!existing) {
       throw new AppError('Customer not found.', 404, 'CUSTOMER_NOT_FOUND');
     }
+
+    validateChangedPhoneFields(req.body, existing);
 
     const updated = await db.customers.update(id, req.body);
 

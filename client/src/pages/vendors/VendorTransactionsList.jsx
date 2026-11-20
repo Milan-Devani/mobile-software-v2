@@ -478,9 +478,9 @@ export const VendorTransactionsList = () => {
             {/* Pagination Controls */}
             <div className="p-4 border-t border-[var(--spatial-border)]">
               <SpatialPagination
-                page={page}
+                currentPage={page}
                 pageSize={pageSize}
-                total={total}
+                totalItems={total}
                 onPageChange={(p) => {
                   const params = new URLSearchParams(searchParams);
                   params.set('page', String(p));

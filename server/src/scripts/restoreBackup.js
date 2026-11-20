@@ -2,6 +2,7 @@
 import readline from 'readline';
 import { listBackupsFromDrive } from '../services/googleDriveService.js';
 import { restoreDatabase } from '../services/restoreService.js';
+import { initDb } from '../db/db.js';
 import { env } from '../config/env.js';
 
 function ask(question) {
@@ -10,6 +11,7 @@ function ask(question) {
 }
 
 async function main() {
+  await initDb();
   console.log('================================================================');
   console.log('🚨 DATABASE RESTORE & DISASTER RECOVERY CLI WORKFLOW');
   console.log('================================================================\n');
@@ -56,13 +58,66 @@ async function main() {
     }
   }
 
+  // Decryption key (any of Owner / Shopkeeper / Developer). Empty = use server Owner key.
+  console.log('\nDecryption Key:');
+  console.log('  ℹ️  Enter the Owner (64-char hex), Shopkeeper, or Developer key.');
+  console.log('  ⚠️  NOTE: "AES-256-GCM" is the encryption algorithm, NOT a key.');
+  console.log('  👉 Press Enter (type nothing) to automatically use the configured Owner key.\n');
+  const decryptionKey = await ask('👉 Decryption key (press Enter for Owner key): ') || null;
+
   // Target database
+  const defaultTarget = env.DATABASE_URL || env.SUPABASE_URL;
   console.log('\nTarget Database:');
-  const targetUrlInput = await ask(`Enter target PostgreSQL connection string (Press Enter to use current DATABASE_URL): `);
-  const targetConnectionUrl = targetUrlInput || env.DATABASE_URL;
+  if (defaultTarget) {
+    console.log(`  ℹ️  Configured default: ${defaultTarget.replace(/:[^@:]*@/, ':****@')}`);
+    console.log('  👉 Press Enter to restore into this configured database (recommended).');
+  }
+  console.log('  ℹ️  Or enter an external PostgreSQL URI: postgresql://user:pass@host:5432/dbname\n');
+
+  let targetConnectionUrl = defaultTarget;
+  while (true) {
+    const promptText = defaultTarget
+      ? `Enter target database (Press Enter to use ${defaultTarget.replace(/:[^@:]*@/, ':****@')}): `
+      : `Enter target PostgreSQL connection string (postgresql://...): `;
+    const targetUrlInput = await ask(promptText);
+
+    if (!targetUrlInput) {
+      targetConnectionUrl = defaultTarget;
+      break;
+    }
+
+    // Allow Supabase project URL (it will use Supabase REST API)
+    if (targetUrlInput.includes('.supabase.co')) {
+      targetConnectionUrl = targetUrlInput;
+      console.log('  ✅ Selected Supabase API restore mode (HTTPS port 443).');
+      break;
+    }
+
+    // Other HTTP/HTTPS URLs (like dashboard pages)
+    if (targetUrlInput.startsWith('http://') || targetUrlInput.startsWith('https://')) {
+      if (defaultTarget) {
+        console.log(`  ℹ️  Defaulting to configured: ${defaultTarget}`);
+        targetConnectionUrl = defaultTarget;
+        break;
+      }
+      console.log('\n  ❌ Unrecognized URL format. Please provide a postgresql:// URI or press Enter to use default.');
+      continue;
+    }
+
+    if (!targetUrlInput.startsWith('postgresql://') && !targetUrlInput.startsWith('postgres://')) {
+      console.log('\n  ❌ Invalid format. Connection string must start with postgresql:// or postgres://');
+      if (defaultTarget) {
+        console.log(`  ✅ Or press Enter to use configured: ${defaultTarget}\n`);
+      }
+      continue;
+    }
+
+    targetConnectionUrl = targetUrlInput;
+    break;
+  }
 
   if (!targetConnectionUrl) {
-    console.error('❌ Target connection URL is required.');
+    console.error('❌ No target database configured. Please configure SUPABASE_URL or DATABASE_URL in your .env file.');
     process.exit(1);
   }
 
@@ -88,6 +143,7 @@ async function main() {
       targetConnectionUrl,
       confirmationPhrase: confirmation,
       takePreRestoreBackup: true,
+      decryptionKey,
     });
 
     console.log('\n================================================================');
@@ -95,6 +151,9 @@ async function main() {
     console.log('================================================================');
     console.log(`Tables restored: ${result.tablesRestored.join(', ')}`);
     console.log(`Total records:   ${result.recordCount}`);
+    if (result.assetsRestored !== undefined) {
+      console.log(`Assets restored:  ${result.assetsRestored} file(s) (logos & media)`);
+    }
     console.log(`Method used:     ${result.method}`);
   } catch (err) {
     console.error('\n❌ Restore failed:', err.message);

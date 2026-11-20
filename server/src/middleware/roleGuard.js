@@ -21,7 +21,7 @@ export const requireRoles = (allowedRoles = []) => {
   };
 };
 
-export const requireAdmin = requireRoles(['admin']);
-export const requireTechnicianOrAdmin = requireRoles(['admin', 'technician']);
-export const requireStaffOrAdmin = requireRoles(['admin', 'staff']);
-export const requireAnyRole = requireRoles(['admin', 'technician', 'staff']);
+export const requireAdmin = requireRoles(['admin', 'developer']);
+export const requireTechnicianOrAdmin = requireRoles(['admin', 'developer', 'technician']);
+export const requireStaffOrAdmin = requireRoles(['admin', 'developer', 'staff']);
+export const requireAnyRole = requireRoles(['admin', 'developer', 'technician', 'staff']);

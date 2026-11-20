@@ -107,7 +107,9 @@ export const Button = ({
       ) : Icon ? (
         <Icon className="w-4 h-4 shrink-0" />
       ) : null}
-      <span>{isBusy && loadingText ? loadingText : children}</span>
+      <span className="inline-flex items-center justify-center gap-1.5 leading-none">
+        {isBusy && loadingText ? loadingText : children}
+      </span>
     </button>
   );
 };

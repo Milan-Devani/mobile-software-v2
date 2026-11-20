@@ -153,7 +153,7 @@ export const WarrantyClaimHistoryCard = ({
             ? job.warranty_history.flatMap(h => h.replacement_parts || [])
             : []));
 
-  const canEdit = ['admin', 'technician', 'staff'].includes(user?.role_id);
+  const canEdit = ['admin', 'developer', 'technician', 'staff'].includes(user?.role_id);
   const activeClaimNumber = job.reopen_count || (allClaims.length > 0 ? allClaims[allClaims.length - 1].claim_number : 1);
 
   return (

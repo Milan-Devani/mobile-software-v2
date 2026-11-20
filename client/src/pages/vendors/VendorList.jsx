@@ -754,9 +754,9 @@ export const VendorList = () => {
             {/* Pagination Controls */}
             <div className="p-4 border-t border-[var(--spatial-border)]">
               <SpatialPagination
-                page={page}
+                currentPage={page}
                 pageSize={pageSize}
-                total={total}
+                totalItems={total}
                 onPageChange={(p) => setPage(p)}
                 onPageSizeChange={(s) => {
                   setPageSize(s);

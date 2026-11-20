@@ -18,7 +18,7 @@ import { setSearchQuery } from '../../store/jobSlice';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useTheme, SPATIAL_STYLES, THEME_MODES } from '../../context/ThemeContext';
 
-export const Topbar = ({ onToggleSidebar }) => {
+export const Topbar = ({ onToggleSidebar, sidebarCollapsed = false }) => {
   const { user } = useSelector((state) => state.auth);
   const [searchInput, setSearchInput] = useState('');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
@@ -93,7 +93,7 @@ export const Topbar = ({ onToggleSidebar }) => {
   };
 
   return (
-    <header className="h-16 spatial-topbar sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 print:hidden">
+    <header className={`h-16 spatial-topbar fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 sm:px-6 border-b border-[var(--spatial-border)] print:hidden transition-all duration-300 ${sidebarCollapsed ? 'lg:left-20' : 'lg:left-[192px]'}`}>
       {/* Left: Hamburger & Global Search */}
       <div className="flex items-center gap-3 flex-1 max-w-xl">
         <button
@@ -254,10 +254,18 @@ export const Topbar = ({ onToggleSidebar }) => {
         {/* 4. User Info */}
         <div className="flex items-center gap-2">
           <div className="text-right hidden md:block">
-            <p className="text-xs font-semibold text-[var(--spatial-text-title)] leading-tight tracking-tight">{user?.full_name}</p>
+            <p
+              title={`Login Mail ID: ${user?.email || 'Not available'}`}
+              className="text-xs font-semibold text-[var(--spatial-text-title)] leading-tight tracking-tight"
+            >
+              {user?.full_name}
+            </p>
             <p className="text-[10px] text-[var(--spatial-text-muted)] uppercase tracking-wider font-medium">{user?.role_id}</p>
           </div>
-          <div className="w-8 h-8 rounded-full bg-[#0071e3]/15 text-[#0071e3] dark:bg-[#0a84ff]/20 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 flex items-center justify-center font-bold text-xs uppercase shadow-xs">
+          <div
+            title={`Login Mail ID: ${user?.email || 'Not available'}`}
+            className="w-8 h-8 rounded-full bg-[#0071e3]/15 text-[#0071e3] dark:bg-[#0a84ff]/20 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 flex items-center justify-center font-bold text-xs uppercase shadow-xs"
+          >
             {user?.full_name ? user.full_name.charAt(0) : 'U'}
           </div>
         </div>

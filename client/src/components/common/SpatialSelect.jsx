@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Check, Search, X } from 'lucide-react';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export const SpatialSelect = ({
   options = [],
@@ -62,16 +63,17 @@ export const SpatialSelect = ({
   const isSearchEnabled = searchable || normalizedOptions.length > 7;
 
   // Filtered options
+  const debouncedSearch = useDebounce(search, 250);
   const filteredOptions = useMemo(() => {
-    if (!search.trim()) return normalizedOptions;
-    const q = search.toLowerCase();
+    if (!debouncedSearch.trim()) return normalizedOptions;
+    const q = debouncedSearch.toLowerCase();
     return normalizedOptions.filter((opt) => {
       const matchLabel = opt.label?.toLowerCase().includes(q);
       const matchSub = opt.subtitle?.toLowerCase().includes(q);
       const matchBadge = opt.badge?.toLowerCase().includes(q);
       return matchLabel || matchSub || matchBadge;
     });
-  }, [normalizedOptions, search]);
+  }, [normalizedOptions, debouncedSearch]);
 
   // Close on outside click
   useEffect(() => {

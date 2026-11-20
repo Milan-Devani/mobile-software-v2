@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { vendorService } from '../../services/vendorService';
 import { jobService } from '../../services/jobService';
 import { Modal } from '../common/Modal';
+import { useDebounce } from '../../hooks/useDebounce';
 
 /**
  * SendToVendorModal — shared by the Job Detail page and the Job List bulk bar.
@@ -20,6 +21,7 @@ export const SendToVendorModal = ({ open, onClose, jobId, jobIds = [], jobLabel 
   const [vendors, setVendors] = useState([]);
   const [loadingVendors, setLoadingVendors] = useState(false);
   const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
   const [vendorId, setVendorId] = useState('');
   const [estimatedCost, setEstimatedCost] = useState('');
   const [expectedBackDate, setExpectedBackDate] = useState('');
@@ -58,7 +60,7 @@ export const SendToVendorModal = ({ open, onClose, jobId, jobIds = [], jobLabel 
   }, [open]);
 
   const filteredVendors = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = debouncedSearch.trim().toLowerCase();
     if (!q) return vendors;
     return vendors.filter(
       (v) =>
@@ -67,7 +69,7 @@ export const SendToVendorModal = ({ open, onClose, jobId, jobIds = [], jobLabel 
         String(v.specialty || '').toLowerCase().includes(q) ||
         String(v.mobile || v.phone || '').includes(q),
     );
-  }, [vendors, search]);
+  }, [vendors, debouncedSearch]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -49,7 +49,8 @@ const STATUS_TABS = [
   { key: 'TESTING', label: 'Testing' },
   { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
   { key: 'DELIVERED', label: 'Delivered' },
-  { key: 'CANCELLED', label: 'Cancelled' },
+  { key: 'REJECTED', label: 'Estimate Rejected' },
+  { key: 'CANCELLED', label: 'Returned Unrepaired' },
 ];
 
 export const JobList = () => {
@@ -282,7 +283,7 @@ export const JobList = () => {
         TESTING: 'QC Testing',
         READY_FOR_PICKUP: 'Ready for Pickup',
         DELIVERED: 'Delivered / Completed',
-        CANCELLED: 'Cancelled',
+        CANCELLED: 'Returned Unrepaired',
       },
       inputPlaceholder: 'Select new lifecycle status',
       showCancelButton: true,
@@ -695,12 +696,18 @@ export const JobList = () => {
                 <tbody className="divide-y divide-[var(--spatial-border)]">
                   {jobs.map((job) => {
                     const isSelected = selectedIds.includes(job.id);
+                    const hasPendingBalance = Number(job.balance_due) > 0;
                     return (
                       <tr
                         key={job.id}
-                        onClick={() => navigate(`/jobs/${job.id}`)}
-                        className={`hover:bg-[var(--spatial-bg-card-subtle)]/70 transition-colors cursor-pointer ${isSelected ? 'bg-blue-500/[0.08]' : ''
-                          }`}
+                        onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
+                        className={`transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-500/[0.08]'
+                            : hasPendingBalance
+                              ? 'bg-rose-500/[0.07] hover:bg-rose-500/[0.14] dark:bg-rose-500/10 dark:hover:bg-rose-500/20'
+                              : 'hover:bg-[var(--spatial-bg-card-subtle)]/70'
+                        }`}
                       >
                         <td
                           className="w-10 px-4 py-3.5 text-center whitespace-nowrap"
@@ -810,7 +817,7 @@ export const JobList = () => {
                               );
                             }
 
-                            if (['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status)) {
+                            if (['CANCELLED', 'REJECTED'].includes(job.status)) {
                               return <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>;
                             }
 
@@ -843,11 +850,11 @@ export const JobList = () => {
                         <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-1">
                             {/* Reopen Job Sheet */}
-                            {['DELIVERED', 'CANCELLED', 'REJECTED'].includes(job.status) && (
+                            {['DELIVERED', 'REJECTED'].includes(job.status) && (
                               <button
                                 type="button"
                                 onClick={(e) => handleQuickReopen(e, job)}
-                                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                                className="inline-flex items-center justify-center p-1.5 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                                 title={job.status === 'DELIVERED' ? 'Reopen Job (Warranty Claim)' : 'Reopen Repair Job'}
                               >
                                 <RotateCcw className="w-4 h-4" />
@@ -858,7 +865,7 @@ export const JobList = () => {
                             <button
                               type="button"
                               onClick={(e) => handleResendCustomerInvoice(e, job)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center justify-center p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title={
                                 job.customer?.phone || job.customer?.whatsapp_number
                                   ? `Resend Invoice to ${job.customer?.phone || job.customer?.whatsapp_number}`
@@ -869,20 +876,20 @@ export const JobList = () => {
                             </button>
 
                             {/* Send Invoice to Direct / Custom Number (Opens Popup) */}
-                            <button
+                            {/* <button
                               type="button"
                               onClick={(e) => handleOpenDirectSendModal(e, job)}
                               className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Send Invoice to Direct Number (Custom Phone)"
                             >
                               <PhoneForwarded className="w-4 h-4" />
-                            </button>
+                            </button> */}
 
                             {/* Record Payment / Open Payment Ledger */}
                             <button
                               type="button"
                               onClick={() => navigate(`/jobs/${job.id}?tab=payments`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center justify-center p-1.5 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Record Payment / Open Payments Tab"
                             >
                               <IndianRupee className="w-4 h-4" />
@@ -892,14 +899,14 @@ export const JobList = () => {
                             <button
                               type="button"
                               onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
-                              className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center justify-center p-1.5 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Open Job Sheet (Parts & Estimate)"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
 
                             {/* Send to / Receive from Specialist Partner (migration 005) */}
-                            {!['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status) &&
+                            {/* {!['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status) &&
                               (vendorMap[job.id]?.at_vendor ? (
                                 <button
                                   type="button"
@@ -924,7 +931,7 @@ export const JobList = () => {
                                 >
                                   <Truck className="w-4 h-4" />
                                 </button>
-                              ))}
+                              ))} */}
 
                             {/* Delete Job Sheet */}
                             <button

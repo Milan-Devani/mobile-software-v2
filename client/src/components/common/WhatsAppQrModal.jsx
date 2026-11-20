@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { QrCode, CheckCircle, RefreshCw, Smartphone, LogOut, X, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { confirmDialog } from '../../utils/dialogs';
 
 export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
   const [loading, setLoading] = useState(true);
@@ -57,7 +58,13 @@ export const WhatsAppQrModal = ({ isOpen, onClose, onConnected }) => {
   };
 
   const handleDisconnect = async () => {
-    if (!window.confirm('Are you sure you want to unlink your WhatsApp device?')) return;
+    const ok = await confirmDialog({
+      title: 'Unlink WhatsApp device?',
+      text: 'The shop will stop sending WhatsApp notifications until a device is linked again.',
+      confirmText: 'Yes, unlink',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
       const token = localStorage.getItem('token');

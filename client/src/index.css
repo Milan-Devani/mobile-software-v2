@@ -362,6 +362,7 @@ select option {
   -webkit-backdrop-filter: var(--spatial-glass-blur);
   border-right: 1px solid var(--spatial-border);
   transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    width 300ms cubic-bezier(0.16, 1, 0.3, 1),
     background-color 200ms ease,
     border-color 200ms ease,
     opacity 200ms ease,

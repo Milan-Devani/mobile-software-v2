@@ -116,8 +116,8 @@ async function runTests() {
     const testDate = new Date('2026-10-21T02:00:00Z');
     const generatedFilename = generateBackupFilename(testDate);
     logTest(
-      'Filename matches standardized pattern supabase-backup-YYYY-MM-DD-HH-mm-ss.enc',
-      /^supabase-backup-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.enc$/.test(generatedFilename)
+      'Filename matches standardized pattern backup-DD-MM-YYYY-HH-mm-ss.enc',
+      /^backup-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}-\d{2}\.enc$/.test(generatedFilename)
     );
 
     const parsedDate = parseDateFromBackupFilename(generatedFilename);

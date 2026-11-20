@@ -5,6 +5,11 @@ import { customerService } from '../../services/customerService';
 import { Modal } from '../common/Modal';
 import { Button } from '../common/Button';
 import { SpatialSelect } from '../common/SpatialSelect';
+import {
+  isValidPhoneNumber,
+  MAX_PHONE_INPUT_LENGTH,
+  PHONE_NUMBER_VALIDATION_MESSAGE,
+} from '../../utils/phoneValidation';
 
 export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave }) => {
   const [formData, setFormData] = useState({
@@ -66,9 +71,18 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
       toast.error('Customer name is required');
       return;
     }
-    if (!formData.phone.trim() || formData.phone.trim().length < 6) {
-      toast.error('Valid phone number is required');
-      return;
+    const phoneFields = ['phone', 'whatsapp_number', 'alternate_phone', 'alternate_whatsapp'];
+    for (const field of phoneFields) {
+      const currentValue = String(formData[field] || '');
+      const originalValue = String(customer?.[field] || '');
+      if (currentValue === originalValue) continue;
+
+      const isRequired = field === 'phone';
+      if ((isRequired && !isValidPhoneNumber(currentValue)) ||
+          (!isRequired && currentValue.trim() && !isValidPhoneNumber(currentValue))) {
+        toast.error(PHONE_NUMBER_VALIDATION_MESSAGE);
+        return;
+      }
     }
     if (!formData.email.trim()) {
       toast.error('Email address (Mail ID) is required');
@@ -139,6 +153,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 type="tel"
                 name="phone"
                 required
+                maxLength={MAX_PHONE_INPUT_LENGTH}
                 placeholder="Primary phone number"
                 value={formData.phone}
                 onChange={handleChange}
@@ -170,6 +185,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                   type="tel"
                   name="whatsapp_number"
                   required={!sameAsPhone}
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Enter separate WhatsApp number"
                   value={formData.whatsapp_number}
                   onChange={handleChange}
@@ -206,6 +222,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 <input
                   type="tel"
                   name="alternate_phone"
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Family / Office phone"
                   value={formData.alternate_phone}
                   onChange={handleChange}
@@ -220,6 +237,7 @@ export const CustomerEditModal = ({ isOpen, onClose, customer, onSuccess, onSave
                 <input
                   type="tel"
                   name="alternate_whatsapp"
+                  maxLength={MAX_PHONE_INPUT_LENGTH}
                   placeholder="Where to send repair updates"
                   value={formData.alternate_whatsapp}
                   onChange={handleChange}

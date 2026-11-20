@@ -77,7 +77,6 @@ export const getDefaultTabForStatus = (status) => {
       return 'testing';
     case 'READY_FOR_PICKUP':
     case 'DELIVERED':
-    case 'RETURNED_UNREPAIRED':
       return 'payments';
     default:
       return 'overview';
@@ -94,8 +93,7 @@ const STATUS_OPTIONS = [
   { key: 'TESTING', label: 'QC Testing', desc: '16-point Quality Check checklist testing bench' },
   { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup', desc: 'All tests verified, packaged for customer pickup' },
   { key: 'DELIVERED', label: 'Delivered', desc: 'Device handed over to customer & invoice finalized' },
-  { key: 'RETURNED_UNREPAIRED', label: 'Returned Unrepaired', desc: 'Device returned to customer without repair' },
-  { key: 'CANCELLED', label: 'Cancelled', desc: 'Repair order cancelled and ticket closed' },
+  { key: 'CANCELLED', label: 'Returned Unrepaired', desc: 'Device returned to customer without repair' },
 ];
 
 export const JobDetail = () => {
@@ -124,6 +122,10 @@ export const JobDetail = () => {
   const [isReopenModalOpen, setIsReopenModalOpen] = useState(false);
   const [isChangeStatusModalOpen, setIsChangeStatusModalOpen] = useState(false);
   const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [isNotRepairedModalOpen, setIsNotRepairedModalOpen] = useState(false);
+  const [notRepairedReason, setNotRepairedReason] = useState('');
+  const [notRepairedAmount, setNotRepairedAmount] = useState('');
+  const [directTargetStatus, setDirectTargetStatus] = useState(null); // 'APPROVED' | 'IN_PROGRESS' | null
 
   // Send to Specialist Partner (migration 005) — additive, isolated state
   const [isSendToVendorOpen, setIsSendToVendorOpen] = useState(false);
@@ -224,11 +226,11 @@ export const JobDetail = () => {
   );
 
   const isEstimateRejected = Boolean(
-    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED' || job?.status === 'RETURNED_UNREPAIRED'
+    job?.status === 'REJECTED' || job?.approval_status === 'REJECTED'
   );
 
   const isJobCancelledOrReturned = Boolean(
-    isEstimateRejected || job?.status === 'CANCELLED' || job?.status === 'RETURNED_UNREPAIRED'
+    isEstimateRejected || job?.status === 'CANCELLED'
   );
 
   const allClaims = getAllWarrantyClaims(job);
@@ -521,8 +523,12 @@ export const JobDetail = () => {
     return Math.min(baseTotal, num);
   };
 
-  const handleSaveEstimate = async (e) => {
-    e.preventDefault();
+  const closeEstimateModal = () => {
+    setIsEstimateModalOpen(false);
+    setDirectTargetStatus(null);
+  };
+
+  const submitEstimate = async (targetStatus = null, sendNotification = true) => {
     try {
       setIsSaving(true);
       // Clean and filter valid items (either has text or price > 0)
@@ -547,7 +553,7 @@ export const JobDetail = () => {
         });
         setJob(res.data?.job || res.job);
         toast.success(res.message || 'Warranty replacement parts saved successfully (₹0 Free)!');
-        setIsEstimateModalOpen(false);
+        closeEstimateModal();
         fetchJobData();
         return;
       }
@@ -564,7 +570,7 @@ export const JobDetail = () => {
         ? Math.max(0, parseFloat(estimateForm.tax_rate) || 0)
         : 0;
 
-      const res = await jobService.saveEstimate(job.id, {
+      const payload = {
         labor_charge: laborTotal,
         discount: effectiveDiscount,
         discount_type: estimateForm.discount_type,
@@ -572,17 +578,42 @@ export const JobDetail = () => {
         tax_rate: effectiveTaxRate,
         notes: estimateForm.notes || '',
         items: validItems,
-        send_notification: true,
-      });
+        send_notification: sendNotification,
+      };
+      if (targetStatus) {
+        payload.target_status = targetStatus;
+      }
+
+      const res = await jobService.saveEstimate(job.id, payload);
       setJob(res.job);
-      toast.success('Repair estimate saved and sent to customer!');
-      setIsEstimateModalOpen(false);
+      closeEstimateModal();
+
+      if (targetStatus === 'APPROVED') {
+        toast.success('Final repair cost saved — job approved (no SMS/WhatsApp sent).');
+      } else if (targetStatus === 'IN_PROGRESS') {
+        toast.success('Final repair cost saved — repair started (no SMS/WhatsApp sent).');
+      } else {
+        toast.success('Repair estimate saved and sent to customer!');
+      }
     } catch (err) {
       toast.error(err.message);
     } finally {
       setIsSaving(false);
     }
   };
+
+  const handleSaveEstimate = (e) => {
+    e.preventDefault();
+    if (directTargetStatus) {
+      submitEstimate(directTargetStatus, false);
+    } else {
+      submitEstimate(null, true);
+    }
+  };
+
+  const handleDirectApprove = () => submitEstimate('APPROVED', false);
+
+  const handleDirectStartRepair = () => submitEstimate('IN_PROGRESS', false);
 
   const handleChangeStatusSubmit = async (e) => {
     e.preventDefault();
@@ -980,32 +1011,32 @@ export const JobDetail = () => {
   };
 
   const handleCancelJob = () => {
-    Swal.fire({
-      title: 'Cancel this Repair Job?',
-      text: 'Please enter the cancellation reason:',
-      input: 'text',
-      inputPlaceholder: 'Reason for cancellation...',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      confirmButtonText: 'Yes, Cancel Job',
-      showLoaderOnConfirm: true,
-      preConfirm: (reason) => {
-        if (!reason) {
-          Swal.showValidationMessage('Please provide a reason');
-        }
-        return reason;
-      },
-    }).then(async (result) => {
-      if (result.isConfirmed) {
-        try {
-          const updated = await jobService.cancelJob(job.id, result.value);
-          setJob((prev) => ({ ...prev, ...updated }));
-          toast.success('Job Sheet has been cancelled.');
-        } catch (err) {
-          toast.error(err.message);
-        }
-      }
-    });
+    setNotRepairedReason('');
+    setNotRepairedAmount(job?.total_amount ? Number(job.total_amount).toFixed(2) : '0.00');
+    setIsNotRepairedModalOpen(true);
+  };
+
+  const handleNotRepairedSubmit = async (e) => {
+    e.preventDefault();
+    if (!notRepairedReason.trim()) {
+      toast.error('Please provide a reason for marking this job as Returned Unrepaired.');
+      return;
+    }
+    try {
+      setIsSaving(true);
+      const amount = notRepairedAmount === '' ? 0 : Number(notRepairedAmount);
+      const updated = await jobService.cancelJob(job.id, {
+        reason: notRepairedReason.trim(),
+        amount: Number.isFinite(amount) && amount >= 0 ? amount : 0,
+      });
+      setJob((prev) => ({ ...prev, ...updated }));
+      setIsNotRepairedModalOpen(false);
+      toast.success('Job marked as Returned Unrepaired.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to mark job as Returned Unrepaired');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteJob = async () => {
@@ -1056,7 +1087,7 @@ export const JobDetail = () => {
   return (
     <div className={`space-y-6 ${isPrintInvoiceOpen || isPrintJobSheetOpen ? 'print:hidden' : ''}`}>
       {/* Top Bar Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-[1200px]:flex-col min-[1200px]:items-stretch">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/jobs')}
@@ -1092,12 +1123,14 @@ export const JobDetail = () => {
 
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
-          {['admin', 'staff'].includes(user?.role_id) && job.status !== 'DELIVERED' && (
+          {['admin', 'developer', 'staff'].includes(user?.role_id) && job.status !== 'DELIVERED' && (
             <Button
               variant="outline"
               size="sm"
               icon={SlidersHorizontal}
               className="bg-blue-500/10 border-[#0071e3]/30 text-[#0071e3] dark:text-[#0a84ff] hover:bg-blue-500/20 font-semibold transition-all active:scale-95"
+              disabled={job.status === 'CANCELLED'}
+              title={job.status === 'CANCELLED' ? 'Status change is disabled for Returned Unrepaired jobs.' : 'Change Job Status'}
               onClick={() => {
                 setSelectedStatus(job.status);
                 setStatusNotes('');
@@ -1115,6 +1148,8 @@ export const JobDetail = () => {
               size="sm"
               className="border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-semibold"
               icon={RotateCcw}
+              disabled={job.status === 'CANCELLED'}
+              title={job.status === 'CANCELLED' ? 'Returned Unrepaired jobs cannot be reopened.' : 'Reopen this job sheet'}
               onClick={handleOpenReopenModal}
             >
               Reopen Job {job.status === 'DELIVERED' && job.approval_status !== 'REJECTED' ? '(Warranty)' : ''}
@@ -1200,12 +1235,12 @@ export const JobDetail = () => {
               icon={Ban}
               onClick={handleCancelJob}
             >
-              Cancel
+              Returned Unrepaired
             </Button>
           )}
 
           {/* Send to / Receive from Specialist Partner (migration 005) */}
-          {!['DELIVERED', 'CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(job.status) && (
+          {!['DELIVERED', 'CANCELLED', 'REJECTED'].includes(job.status) && (
             vendorStatus?.at_vendor ? (
               <Button
                 variant="outline"
@@ -1519,7 +1554,7 @@ export const JobDetail = () => {
             title="Diagnostic Assessment"
             subtitle="Findings discovered by technician during inspection"
             action={
-              ['admin', 'technician'].includes(user?.role_id) && (
+              ['admin', 'developer', 'technician'].includes(user?.role_id) && (
                 <Button
                   size="sm"
                   onClick={() => setIsDiagnosisModalOpen(true)}
@@ -1547,7 +1582,7 @@ export const JobDetail = () => {
                   <p className="text-primary-950 dark:text-blue-100 font-semibold leading-relaxed text-sm">{job.diagnosis.recommended_solution}</p>
                 </div>
 
-                {job.diagnosis.internal_technician_notes && ['admin', 'technician'].includes(user?.role_id) && (
+                {job.diagnosis.internal_technician_notes && ['admin', 'developer', 'technician'].includes(user?.role_id) && (
                   <div className="p-3 bg-amber-50/60 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
                     <span className="text-[10px] uppercase font-bold text-amber-600 dark:text-amber-400 block mb-1">Internal Bench Notes</span>
                     <p className="italic text-slate-800 dark:text-amber-200">{job.diagnosis.internal_technician_notes}</p>
@@ -1574,7 +1609,7 @@ export const JobDetail = () => {
             title="Repair Estimate & Parts Quotation"
             subtitle="Includes labor charge, replacement parts, tax, and customer authorization status"
             action={
-              ['admin', 'technician'].includes(user?.role_id) && (
+              ['admin', 'developer', 'technician'].includes(user?.role_id) && (
                 <Button
                   size="sm"
                   onClick={handleOpenEstimateModal}
@@ -1732,7 +1767,7 @@ export const JobDetail = () => {
                             100% Free Rework • Pre-Authorized at ₹0.00
                           </span>
                         </div>
-                        {['admin', 'technician'].includes(user?.role_id) && (
+                        {['admin', 'developer', 'technician'].includes(user?.role_id) && (
                           <button
                             type="button"
                             onClick={handleOpenEstimateModal}
@@ -1755,7 +1790,7 @@ export const JobDetail = () => {
                                 <th className="px-4 py-2.5 text-center">Quantity</th>
                                 <th className="px-4 py-2.5 text-right">Unit Price</th>
                                 <th className="px-4 py-2.5 text-right">Total (Customer Billed)</th>
-                                {['admin', 'technician'].includes(user?.role_id) && (
+                                {['admin', 'developer', 'technician'].includes(user?.role_id) && (
                                   <th className="px-4 py-2.5 text-center w-16">Action</th>
                                 )}
                               </tr>
@@ -1794,7 +1829,7 @@ export const JobDetail = () => {
                                   <td className="px-4 py-2.5 text-right font-mono font-bold text-emerald-400">
                                     ₹0.00 (Free Rework)
                                   </td>
-                                  {['admin', 'technician'].includes(user?.role_id) && (
+                                  {['admin', 'developer', 'technician'].includes(user?.role_id) && (
                                     <td className="px-4 py-2.5 text-center">
                                       <button
                                         type="button"
@@ -1816,7 +1851,7 @@ export const JobDetail = () => {
                           <p className="text-slate-500 text-xs">
                             No replacement parts logged yet for Claim #{job.reopen_count || 1}. If any part was replaced during this rework, click below to record it.
                           </p>
-                          {['admin', 'technician'].includes(user?.role_id) && (
+                          {['admin', 'developer', 'technician'].includes(user?.role_id) && (
                             <Button
                               size="sm"
                               onClick={handleOpenEstimateModal}
@@ -1974,7 +2009,7 @@ export const JobDetail = () => {
             <QualityChecklist
               tests={job.tests || []}
               onSave={handleSaveTests}
-              readOnly={!['admin', 'technician'].includes(user?.role_id) || isJobClosed}
+              readOnly={!['admin', 'developer', 'technician'].includes(user?.role_id) || isJobClosed}
               isSaving={isSaving}
             />
           </Card>
@@ -1989,7 +2024,7 @@ export const JobDetail = () => {
             <div className="p-4 bg-white rounded-xl border border-slate-200">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] font-bold text-slate-500 uppercase">Total Repair Cost</p>
-                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'developer', 'staff'].includes(user?.role_id) && (
                   <button
                     type="button"
                     onClick={handleOpenEditCostModal}
@@ -2030,8 +2065,8 @@ export const JobDetail = () => {
               {isEstimateRejected && (
                 <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Estimate declined — {currSym}0.00 due</span>
               )}
-              {!isEstimateRejected && (job?.status === 'CANCELLED' || job?.status === 'RETURNED_UNREPAIRED') && (
-                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Job cancelled / returned — {currSym}0.00 due</span>
+              {!isEstimateRejected && job?.status === 'CANCELLED' && (
+                <span className="text-[10px] text-amber-600 font-semibold mt-0.5 block">Job not repaired / returned — {currSym}0.00 due</span>
               )}
             </div>
           </div>
@@ -2041,7 +2076,7 @@ export const JobDetail = () => {
             subtitle="Record transactions via Cash, Card, UPI, or Bank Transfer"
             action={
               <div className="flex items-center gap-2">
-                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'developer', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -2052,7 +2087,7 @@ export const JobDetail = () => {
                     Edit Total Cost
                   </Button>
                 )}
-                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'developer', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -2084,7 +2119,7 @@ export const JobDetail = () => {
                     Send Invoice
                   </Button>
                 )}
-                {!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) && (
+                {!isFreeWarranty && !isEstimateRejected && ['admin', 'developer', 'staff'].includes(user?.role_id) && (
                   <Button
                     size="sm"
                     icon={IndianRupee}
@@ -2139,7 +2174,7 @@ export const JobDetail = () => {
                 icon={IndianRupee}
                 title="No payments recorded"
                 description="Record customer deposit or final payment to settle invoice."
-                actionLabel={!isFreeWarranty && !isEstimateRejected && ['admin', 'staff'].includes(user?.role_id) ? "Record Payment" : null}
+                actionLabel={!isFreeWarranty && !isEstimateRejected && ['admin', 'developer', 'staff'].includes(user?.role_id) ? "Record Payment" : null}
                 onAction={() => {
                   setPaymentForm({
                     amount: Number(job.balance_due || 0) > 0 ? String(job.balance_due) : '',
@@ -2238,16 +2273,20 @@ export const JobDetail = () => {
       {/* MODAL 2: Estimate Modal */}
       <Modal
         isOpen={isEstimateModalOpen}
-        onClose={() => setIsEstimateModalOpen(false)}
+        onClose={closeEstimateModal}
         title={
-          isFreeWarranty
-            ? "Prepare Repair (Warranty Rework)"
-            : (job.estimate ? "Update Repair Estimate" : "Prepare Repair Estimate")
+          directTargetStatus
+            ? "Final Repair Cost"
+            : isFreeWarranty
+              ? "Prepare Repair (Warranty Rework)"
+              : (job.estimate ? "Update Repair Estimate" : "Prepare Repair Estimate")
         }
         subtitle={
-          isFreeWarranty
-            ? `Job #${job.job_number} • Claim #${job.reopen_count || 1} • 100% Free Rework (₹0.00 Customer Balance)`
-            : "Write required parts or repair details and applicable discounts"
+          directTargetStatus
+            ? `Job #${job.job_number} • Set the final repair cost and ${directTargetStatus === 'APPROVED' ? 'approve' : 'start repair'} directly — no SMS/WhatsApp notification`
+            : isFreeWarranty
+              ? `Job #${job.job_number} • Claim #${job.reopen_count || 1} • 100% Free Rework (₹0.00 Customer Balance)`
+              : "Write required parts or repair details and applicable discounts"
         }
         maxWidth="max-w-4xl"
       >
@@ -2743,18 +2782,56 @@ export const JobDetail = () => {
           })()}
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
-            <Button variant="outline" size="sm" onClick={() => setIsEstimateModalOpen(false)}>
+          <div className="flex flex-wrap items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
+            <Button variant="outline" size="sm" onClick={closeEstimateModal}>
               Cancel
             </Button>
             {isFreeWarranty ? (
               <Button type="submit" size="sm" icon={Wrench} loading={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
                 Prepare Repair (Save Warranty Parts)
               </Button>
-            ) : (
-              <Button type="submit" size="sm" icon={Send} loading={isSaving}>
-                Save & Send to Customer
+            ) : directTargetStatus ? (
+              <Button
+                type="submit"
+                size="sm"
+                icon={directTargetStatus === 'APPROVED' ? CheckCircle2 : Wrench}
+                loading={isSaving}
+                className={directTargetStatus === 'APPROVED'
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-semibold'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white font-semibold'}
+              >
+                {directTargetStatus === 'APPROVED' ? 'Save & Approve' : 'Save & Start Repair'}
               </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  icon={CheckCircle2}
+                  loading={isSaving}
+                  onClick={handleDirectApprove}
+                  title="Save final repair cost and approve directly (no SMS/WhatsApp notification)"
+                  className="text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 font-semibold"
+                >
+                  Save & Approve
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  icon={Wrench}
+                  loading={isSaving}
+                  onClick={handleDirectStartRepair}
+                  title="Save final repair cost and start repair directly (no SMS/WhatsApp notification)"
+                  className="text-indigo-600 dark:text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/10 font-semibold"
+                >
+                  Save & Start Repair
+                </Button>
+                <Button type="submit" size="sm" icon={Send} loading={isSaving}>
+                  Save & Send to Customer
+                </Button>
+              </>
             )}
           </div>
         </form>
@@ -3317,7 +3394,7 @@ export const JobDetail = () => {
                   ? 'Reopening Estimate-Declined Job'
                   : job.status === 'DELIVERED'
                     ? 'Customer Returning Within Warranty Period'
-                    : 'Reactivating Closed/Cancelled Repair Job'}
+                    : 'Reactivating Closed/Returned Unrepaired Repair Job'}
               </p>
               <p className="mt-0.5 opacity-90">
                 {job.approval_status === 'REJECTED'
@@ -3436,6 +3513,79 @@ export const JobDetail = () => {
         </form>
       </Modal>
 
+      {/* MARK AS NOT REPAIRED MODAL */}
+      <Modal
+        isOpen={isNotRepairedModalOpen}
+        onClose={() => setIsNotRepairedModalOpen(false)}
+        title="Mark as Returned Unrepaired"
+        subtitle={`Job #${job.job_number} • Device returned without repair`}
+        maxWidth="max-w-lg"
+        footer={
+          <div className="flex items-center justify-end gap-2.5 w-full">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsNotRepairedModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="not-repaired-form"
+              size="sm"
+              loading={isSaving}
+              icon={Ban}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-medium shadow-sm"
+            >
+              Mark Returned Unrepaired
+            </Button>
+          </div>
+        }
+      >
+        <form id="not-repaired-form" onSubmit={handleNotRepairedSubmit} className="space-y-4">
+          <div className="py-2.5 px-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-start gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-900 dark:text-amber-200">
+              The device could not be repaired and will be returned to the customer in original condition.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Reason <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              value={notRepairedReason}
+              onChange={(e) => setNotRepairedReason(e.target.value)}
+              rows={2}
+              placeholder="e.g. Motherboard beyond repair, no compatible parts available..."
+              className="w-full spatial-input rounded-xl px-3 py-2 text-xs resize-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+              Estimate Price Amount ({currSym})
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              max={MAX_CURRENCY_AMOUNT}
+              {...numberInputProps()}
+              placeholder="0.00"
+              value={notRepairedAmount}
+              onChange={(e) => setNotRepairedAmount(limitNumberValue(e.target.value, { max: MAX_CURRENCY_AMOUNT }))}
+              className="w-full px-3 py-2 spatial-input rounded-xl text-sm font-bold font-mono"
+            />
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+              Amount to be collected (if any). Set 0 when no repair work was performed — this amount becomes the customer&apos;s balance due.
+            </p>
+          </div>
+        </form>
+      </Modal>
+
       {/* CHANGE JOB STATUS (SHOP OWNER OVERRIDE) MODAL */}
       <Modal
         isOpen={isChangeStatusModalOpen}
@@ -3505,7 +3655,28 @@ export const JobDetail = () => {
                   <button
                     key={opt.key}
                     type="button"
-                    onClick={() => setSelectedStatus(opt.key)}
+                    onClick={() => {
+                      if (opt.key === 'CANCELLED') {
+                        if (job.status === 'CANCELLED') {
+                          toast.error('This job is already marked as Returned Unrepaired.');
+                          return;
+                        }
+                        setIsChangeStatusModalOpen(false);
+                        handleCancelJob();
+                        return;
+                      }
+                      if (opt.key === 'APPROVED' || opt.key === 'IN_PROGRESS') {
+                        if (!isFreeWarranty && ['DELIVERED', 'CANCELLED'].includes(job?.status)) {
+                          toast.error('Cannot set the final repair cost for this job status.');
+                          return;
+                        }
+                        setDirectTargetStatus(opt.key);
+                        setIsChangeStatusModalOpen(false);
+                        handleOpenEstimateModal();
+                      } else {
+                        setSelectedStatus(opt.key);
+                      }
+                    }}
                     className={`py-2 px-2.5 rounded-xl border text-left flex items-center justify-between gap-2 transition-all cursor-pointer group ${isSelected
                       ? 'border-apple-blue bg-apple-blue/10 ring-2 ring-apple-blue/30 shadow-xs'
                       : 'border-[var(--spatial-border)] bg-[var(--spatial-bg-card)] hover:border-[var(--spatial-border-hover)] hover:bg-[var(--spatial-bg-card-hover)]'

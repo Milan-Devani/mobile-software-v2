@@ -61,14 +61,22 @@ export const env = {
   // Database Connection URL (Direct/Pooler PostgreSQL for pg_dump/psql)
   DATABASE_URL: process.env.DATABASE_URL || '',
 
-  // Google Drive Backup (OAuth 2.0)
+  // Google Drive Backup (Account 1 - Primary)
   GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
   GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
   GOOGLE_REFRESH_TOKEN: process.env.GOOGLE_REFRESH_TOKEN || '',
   GOOGLE_DRIVE_FOLDER_ID: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
 
+  // Google Drive Backup (Account 2 - Secondary / Redundant)
+  GOOGLE_CLIENT_ID_2: process.env.GOOGLE_CLIENT_ID_2 || process.env.GOOGLE_CLIENT_ID || '',
+  GOOGLE_CLIENT_SECRET_2: process.env.GOOGLE_CLIENT_SECRET_2 || process.env.GOOGLE_CLIENT_SECRET || '',
+  GOOGLE_REFRESH_TOKEN_2: process.env.GOOGLE_REFRESH_TOKEN_2 || '',
+  GOOGLE_DRIVE_FOLDER_ID_2: process.env.GOOGLE_DRIVE_FOLDER_ID_2 || '',
+
   // Backup Security & Retention
   BACKUP_ENCRYPTION_KEY: process.env.BACKUP_ENCRYPTION_KEY || '',
+  SHOPKEEPER_KEY: process.env.SHOPKEEPER_KEY || '',
+  DEVELOPER_KEY: process.env.DEVELOPER_KEY || '',
   BACKUP_RETENTION_DAYS: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
   BACKUP_TEMP_DIR: process.env.BACKUP_TEMP_DIR || '',
   BACKUP_TIMEOUT_MS: parseInt(process.env.BACKUP_TIMEOUT_MS || '300000', 10),

@@ -45,6 +45,24 @@ export const getDynamicGreeting = () => {
   return "🌙 Hello";
 };
 
+// Derive a shareable Instagram profile URL from the stored QR value (link/handle),
+// returning an empty string when the stored value is a direct image (QR png/jpg/etc).
+const getInstagramProfileLink = (raw) => {
+  if (!raw) return "";
+  const value = String(raw).trim();
+  if (!value) return "";
+  const pathWithoutQuery = value.split("?")[0].toLowerCase();
+  const isDirectImage =
+    value.startsWith("data:image/") ||
+    value.includes("/uploads/") ||
+    value.includes("/api/upload") ||
+    /\.(png|jpe?g|webp|svg|gif|bmp)$/i.test(pathWithoutQuery);
+  if (isDirectImage) return "";
+  if (value.startsWith("@")) return `https://www.instagram.com/${value.slice(1)}/`;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return `https://${value}`;
+};
+
 export const dispatchNotification = async ({
   job,
   customer,
@@ -69,6 +87,7 @@ export const dispatchNotification = async ({
     shop?.address ||
     "Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006";
   const currSym = shop?.currency_symbol || "₹";
+  const instagramLink = getInstagramProfileLink(shop?.instagram_qr_url);
 
   // Resolve accurate live frontend URL (never relative, never asterisk)
   const resolveFrontendBase = () => {
@@ -409,9 +428,7 @@ export const dispatchNotification = async ({
           `✅ Device Delivered\n` +
           `✅ Payment Settled\n` +
           `💰 *Total Paid:* ${currSym}${Number(job.paid_amount || job.total_amount || 0).toFixed(2)}\n\n` +
-          (pdfPublicUrl
-            ? `📄 *View / Download Tax Invoice PDF:*\n${pdfPublicUrl}\n\n`
-            : `📄 *Your official tax invoice PDF is attached below.*\n\n`) +
+          `📄 *Your official tax invoice PDF is attached below.*\n\n` +
           `Thank you for trusting *${shopName}*.\n\n` +
           `We appreciate your business and look forward to serving you again! ❤️`;
         plainMessage = `${greeting} Thank you ${customerName}! Your device (${deviceFullName}) has been delivered and payment settled in full. Order #${job.job_number}. Total: ${currSym}${Number(job.total_amount || job.paid_amount || 0).toFixed(2)}. ${pdfPublicUrl ? `Download Tax Invoice: ${pdfPublicUrl}. ` : "Your official tax invoice PDF is attached. "}${shopName}`;
@@ -598,6 +615,50 @@ export const dispatchNotification = async ({
       `;
       break;
 
+    case "NOT_REPAIRED":
+      subject = `[${shopName}] We're Sorry — Repair Not Possible - Job #${job.job_number}`;
+      whatsappMessage =
+        `${greeting} *${customerName}*!\n\n` +
+        `😔 *We're Sorry — We Could Not Repair Your Device*\n\n` +
+        `We sincerely apologize for the inconvenience. Despite our best efforts, we were unable to repair your device:\n\n` +
+        `📱 *Device:* ${deviceFullName}\n` +
+        `🆔 *Job ID:* #${job.job_number}\n` +
+        (metadata?.reason ? `💬 *Reason:* "${metadata.reason}"\n` : "") +
+        `\nℹ️ *Important Information:*\n` +
+        `• No repair work has been performed on your device.\n` +
+        `• Your device is safely reassembled in its original intake condition.\n` +
+        `• Your device is *READY FOR RETURN PICKUP* at our service center.\n\n` +
+        `📍 *Address:* ${shopAddress}\n` +
+        `📞 *Contact:* ${shopPhone}\n\n` +
+        `*${shopName}*`;
+      plainMessage = `${greeting} ${customerName}, we're sorry but we were unable to repair your ${deviceFullName} (Job #${job.job_number}). Reason: "${metadata?.reason || "No reason specified"}". Your device is ready for return pickup. ${shopName}`;
+      emailHtml = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
+          <h2 style="color: #d97706; margin-bottom: 4px;">${shopName}</h2>
+          <p style="color: #64748b; font-size: 14px; margin-top: 0;">We're Sorry — Repair Not Possible</p>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p>${greeting}, <strong>${customerName}</strong>!</p>
+          <p>We sincerely apologize for the inconvenience. Despite our best efforts, we were unable to repair your device.</p>
+          <div style="background-color: #fffbeb; border: 1px solid #fde68a; padding: 12px 15px; border-radius: 8px; margin: 15px 0;">
+            <p style="margin: 0; color: #92400e; font-weight: bold; font-size: 13px;">✓ No Repair Conducted — Your Device Is Safe</p>
+            <p style="margin: 4px 0 0; color: #78350f; font-size: 12px;">Your device has been safely reassembled in its original intake condition and is ready for return pickup.</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 13px;">
+            <tr><td style="padding: 6px; color: #64748b;">Job Sheet:</td><td style="padding: 6px; font-weight: bold; font-family: monospace;">#${job.job_number}</td></tr>
+            <tr><td style="padding: 6px; color: #64748b;">Device:</td><td style="padding: 6px; font-weight: bold;">${deviceFullName}</td></tr>
+            ${metadata?.reason ? `<tr><td style="padding: 6px; color: #64748b;">Reason:</td><td style="padding: 6px; color: #b45309; font-style: italic;">"${metadata.reason}"</td></tr>` : ""}
+            <tr><td style="padding: 6px; color: #64748b;">Status:</td><td style="padding: 6px; font-weight: bold; color: #b45309;">Returned Unrepaired</td></tr>
+          </table>
+          <div style="background-color: #f8fafc; padding: 12px; border-radius: 6px; margin: 15px 0; font-size: 12px;">
+            <p style="margin: 0; font-weight: bold; color: #334155;">Pickup Location & Hours:</p>
+            <p style="margin: 4px 0 0 0; color: #475569;">${shopAddress}<br/>Phone: <strong>${shopPhone}</strong></p>
+          </div>
+          <hr style="border: 0; border-top: 1px solid #e2e8f0;" />
+          <p style="font-size: 12px; color: #94a3b8;">${shopName} • ${shopPhone}</p>
+        </div>
+      `;
+      break;
+
     default:
       subject = `[${shopName}] Update on Repair Job #${job.job_number}`;
       whatsappMessage =
@@ -610,6 +671,13 @@ export const dispatchNotification = async ({
         `*${shopName}*`;
       plainMessage = `${greeting} ${customerName}, your repair job #${job.job_number} status is now: ${job.status}. ${shopName}`;
       emailHtml = `<p>${greeting}, <strong>${customerName}</strong>!</p><p>Your repair job #${job.job_number} status is now: <strong>${job.status}</strong>.</p>`;
+  }
+
+  // Append Instagram profile link when configured (derived from the stored link/handle)
+  if (instagramLink) {
+    whatsappMessage = `${whatsappMessage}\n\n📸 *Follow us on Instagram:*\n${instagramLink}`;
+    plainMessage = `${plainMessage}\n\nFollow us on Instagram: ${instagramLink}`;
+    emailHtml = `${emailHtml}<p style="margin:16px 0 0; font-size:12px; color:#64748b;">📸 Follow us on Instagram: <a href="${instagramLink}" style="color:#E1306C;">${instagramLink}</a></p>`;
   }
 
   const results = [];

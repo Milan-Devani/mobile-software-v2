@@ -24,6 +24,8 @@ import VendorNavTabs from '../../components/vendors/VendorNavTabs';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
 import { vendorService } from '../../services/vendorService';
+import { errorDialog } from '../../utils/dialogs';
+import { useDebounce } from '../../hooks/useDebounce';
 import SpatialSelect from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 
@@ -55,6 +57,7 @@ export default function VendorPendingRepairs() {
 
   // Filters
   const [search, setSearch] = useState(searchParams.get('search') || '');
+  const debouncedSearch = useDebounce(search, 400);
   const [selectedVendor, setSelectedVendor] = useState(searchParams.get('vendorId') || 'ALL');
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || 'ALL');
   const [selectedFlow, setSelectedFlow] = useState(searchParams.get('flow') || 'SENT_TO_VENDOR');
@@ -91,7 +94,7 @@ export default function VendorPendingRepairs() {
       if (selectedVendor && selectedVendor !== 'ALL') params.vendorId = selectedVendor;
       if (selectedFlow && selectedFlow !== 'ALL') params.flowType = selectedFlow;
       if (selectedStatus && selectedStatus !== 'ALL') params.status = selectedStatus;
-      if (search.trim()) params.search = search.trim();
+      if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (startDate) params.startDate = startDate;
       if (endDate) params.endDate = endDate;
 
@@ -110,7 +113,7 @@ export default function VendorPendingRepairs() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedVendor, selectedFlow, selectedStatus, search, startDate, endDate]);
+  }, [selectedVendor, selectedFlow, selectedStatus, debouncedSearch, startDate, endDate]);
 
   useEffect(() => {
     fetchVendors();
@@ -123,12 +126,12 @@ export default function VendorPendingRepairs() {
   // Update query params in URL
   useEffect(() => {
     const params = {};
-    if (search) params.search = search;
+    if (debouncedSearch) params.search = debouncedSearch;
     if (selectedVendor !== 'ALL') params.vendorId = selectedVendor;
     if (selectedStatus !== 'ALL') params.status = selectedStatus;
     if (selectedFlow !== 'SENT_TO_VENDOR') params.flow = selectedFlow;
     setSearchParams(params, { replace: true });
-  }, [search, selectedVendor, selectedStatus, selectedFlow, setSearchParams]);
+  }, [debouncedSearch, selectedVendor, selectedStatus, selectedFlow, setSearchParams]);
 
   // Summary counts
   const summaryCounts = useMemo(() => {
@@ -157,7 +160,10 @@ export default function VendorPendingRepairs() {
       setStatusModalMobile(null);
       await fetchMobiles();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update status.');
+      errorDialog({
+        title: 'Could not update status',
+        text: err.response?.data?.message || err.message || 'Failed to update status.',
+      });
     } finally {
       setUpdatingStatus(false);
     }

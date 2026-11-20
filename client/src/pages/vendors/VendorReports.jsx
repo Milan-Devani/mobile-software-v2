@@ -24,6 +24,7 @@ import { vendorService } from '../../services/vendorService';
 import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { formatIndianCurrency } from '../../utils/billFormatters';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export default function VendorReports() {
   const navigate = useNavigate();
@@ -44,6 +45,7 @@ export default function VendorReports() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [flowFilter, setFlowFilter] = useState('ALL');
   const [imeiSearch, setImeiSearch] = useState('');
+  const debouncedImeiSearch = useDebounce(imeiSearch, 300);
 
   // Fetch vendors
   const fetchVendors = async () => {
@@ -93,8 +95,8 @@ export default function VendorReports() {
   // Filtered Mobiles for Mobile History tab
   const filteredMobiles = useMemo(() => {
     if (!reportData || !reportData.mobiles) return [];
-    if (!imeiSearch.trim()) return reportData.mobiles;
-    const term = imeiSearch.toLowerCase().trim();
+    if (!debouncedImeiSearch.trim()) return reportData.mobiles;
+    const term = debouncedImeiSearch.toLowerCase().trim();
     return reportData.mobiles.filter(
       (m) =>
         (m.imei || '').toLowerCase().includes(term) ||
@@ -103,7 +105,7 @@ export default function VendorReports() {
         (m.customer_name || '').toLowerCase().includes(term) ||
         (m.repair_problem || '').toLowerCase().includes(term)
     );
-  }, [reportData, imeiSearch]);
+  }, [reportData, debouncedImeiSearch]);
 
   // Vendor-wise breakdown computed from report data
   const vendorBreakdown = useMemo(() => {

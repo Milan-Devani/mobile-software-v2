@@ -23,6 +23,7 @@ import { SpatialSelect } from '../../components/common/SpatialSelect';
 import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
 import { VendorPaymentModal } from '../../components/vendors/VendorPaymentModal';
 import { formatIndianCurrency } from '../../utils/billFormatters';
+import { useDebounce } from '../../hooks/useDebounce';
 
 export default function VendorLedger() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,6 +35,7 @@ export default function VendorLedger() {
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
   const [statement, setStatement] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -92,8 +94,8 @@ export default function VendorLedger() {
   // Filter entries based on search term
   const filteredEntries = useMemo(() => {
     if (!statement || !statement.entries) return [];
-    if (!searchTerm.trim()) return statement.entries;
-    const term = searchTerm.toLowerCase();
+    if (!debouncedSearchTerm.trim()) return statement.entries;
+    const term = debouncedSearchTerm.toLowerCase();
     return statement.entries.filter(
       (entry) =>
         (entry.description || '').toLowerCase().includes(term) ||
@@ -101,7 +103,7 @@ export default function VendorLedger() {
         (entry.entry_type || '').toLowerCase().includes(term) ||
         (entry.payment_mode || '').toLowerCase().includes(term)
     );
-  }, [statement, searchTerm]);
+  }, [statement, debouncedSearchTerm]);
 
   // Active vendor profile
   const activeVendor = useMemo(() => {

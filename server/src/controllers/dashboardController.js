@@ -2,7 +2,9 @@ import { db } from '../db/db.js';
 
 export const getDashboardStats = async (req, res, next) => {
   try {
-    const { jobs } = await db.jobs.list({ limit: 5000 });
+    const { startDate, endDate } = req.query;
+    const { jobs } = await db.jobs.list({ limit: 5000, startDate, endDate });
+    const { sales } = await db.sales.list({ limit: 5000, startDate, endDate });
     const payments = await db.payments.listByJobId(''); // list all
     const allPayments = (await db.payments.listByJobId('')) || []; // or fetch all
     // Since payments in localDb is an array:
@@ -21,7 +23,6 @@ export const getDashboardStats = async (req, res, next) => {
       TESTING: 0,
       READY_FOR_PICKUP: 0,
       DELIVERED: 0,
-      RETURNED_UNREPAIRED: 0,
       CANCELLED: 0,
     };
 
@@ -35,7 +36,7 @@ export const getDashboardStats = async (req, res, next) => {
         counts[j.status] += 1;
       }
 
-      if (j.balance_due && j.balance_due > 0 && !['CANCELLED', 'REJECTED', 'RETURNED_UNREPAIRED'].includes(j.status)) {
+      if (j.balance_due && Number(j.balance_due) > 0 && !['CANCELLED', 'REJECTED'].includes(j.status)) {
         totalPendingPayments += Number(j.balance_due);
       }
 
@@ -59,6 +60,16 @@ export const getDashboardStats = async (req, res, next) => {
       }
     }
 
+    // Sales totals (sales invoices are collected in full at creation)
+    let salesCollected = 0;
+    let salesPending = 0;
+    for (const s of sales) {
+      salesCollected += Number(s.total_amount || 0);
+      if (s.balance_due && Number(s.balance_due) > 0) {
+        salesPending += Number(s.balance_due);
+      }
+    }
+
     // Recent 10 jobs
     const recentJobs = jobs.slice(0, 10);
 
@@ -72,7 +83,8 @@ export const getDashboardStats = async (req, res, next) => {
       { status: 'TESTING', label: 'Quality Testing', count: counts.TESTING, color: 'purple' },
       { status: 'READY_FOR_PICKUP', label: 'Ready for Pickup', count: counts.READY_FOR_PICKUP, color: 'emerald' },
       { status: 'DELIVERED', label: 'Delivered / Completed', count: counts.DELIVERED, color: 'teal' },
-      { status: 'CANCELLED', label: 'Cancelled / Returned', count: counts.CANCELLED + counts.REJECTED + (counts.RETURNED_UNREPAIRED || 0), color: 'rose' },
+      { status: 'REJECTED', label: 'Estimate Rejected', count: counts.REJECTED, color: 'rose' },
+      { status: 'CANCELLED', label: 'Returned Unrepaired', count: counts.CANCELLED, color: 'amber' },
     ];
 
     res.json({
@@ -88,10 +100,14 @@ export const getDashboardStats = async (req, res, next) => {
           ready_for_pickup: counts.READY_FOR_PICKUP,
           completed: counts.DELIVERED,
           cancelled: counts.CANCELLED,
-          pending_payments: parseFloat(totalPendingPayments.toFixed(2)),
+          returned_unrepaired: counts.CANCELLED || 0,
+          rejected: counts.REJECTED || 0,
+          pending_payments: parseFloat((totalPendingPayments + salesPending).toFixed(2)),
           today_jobs: todayJobsCount,
           today_revenue: parseFloat(todayRevenue.toFixed(2)),
-          total_revenue: parseFloat(totalRevenue.toFixed(2)),
+          total_revenue: parseFloat((totalRevenue + salesCollected).toFixed(2)),
+          repair_balance: parseFloat(totalRevenue.toFixed(2)),
+          sales_balance: parseFloat(salesCollected.toFixed(2)),
         },
         pipeline,
         recent_jobs: recentJobs,

@@ -72,8 +72,9 @@ export const jobService = {
     return res.data.job;
   },
 
-  cancelJob: async (id, reason) => {
-    const res = await api.post(`/jobs/${id}/cancel`, { reason });
+  cancelJob: async (id, payload) => {
+    const body = typeof payload === 'string' ? { reason: payload } : (payload || {});
+    const res = await api.post(`/jobs/${id}/cancel`, body);
     return res.data.job;
   },
 

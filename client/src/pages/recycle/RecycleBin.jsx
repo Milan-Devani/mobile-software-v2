@@ -24,6 +24,7 @@ import { Button } from '../../components/common/Button';
 import { SpatialPagination } from '../../components/common/SpatialPagination';
 import { useDebounce } from '../../hooks/useDebounce';
 import { recycleBinService } from '../../services/recycleBinService';
+import { confirmDialog } from '../../utils/dialogs';
 import { formatInvoiceDate } from '../../utils/billFormatters';
 
 const TABS = [
@@ -152,7 +153,12 @@ export const RecycleBin = () => {
   // Restore single
   const handleRestoreSingle = async (item, e) => {
     e?.stopPropagation();
-    if (!window.confirm(`Restore "${item.title}" back to active records?`)) return;
+    const okRestore = await confirmDialog({
+      title: 'Restore this record?',
+      text: `"${item.title}" will be moved back to its active section.`,
+      confirmText: 'Yes, restore',
+    });
+    if (!okRestore) return;
 
     try {
       setActionLoading(true);
@@ -171,7 +177,12 @@ export const RecycleBin = () => {
   const handleBulkRestore = async () => {
     if (selectedIds.length === 0) return;
     const count = selectedIds.length;
-    if (!window.confirm(`Restore ${count} selected item(s) back to their active sections?`)) return;
+    const okBulkRestore = await confirmDialog({
+      title: `Restore ${count} record(s)?`,
+      text: 'The selected records will be moved back to their active sections.',
+      confirmText: `Yes, restore ${count}`,
+    });
+    if (!okBulkRestore) return;
 
     try {
       setActionLoading(true);
@@ -189,11 +200,13 @@ export const RecycleBin = () => {
   // Delete permanently single
   const handleDeletePermanentlySingle = async (item, e) => {
     e?.stopPropagation();
-    if (
-      !window.confirm(
-        `PERMANENTLY DELETE "${item.title}"?\n\nThis record will be permanently erased immediately and CANNOT be recovered.`
-      )
-    ) {
+    const okDelete = await confirmDialog({
+      title: 'Permanently delete?',
+      text: `"${item.title}" will be erased immediately and CANNOT be recovered.`,
+      confirmText: 'Delete permanently',
+      danger: true,
+    });
+    if (!okDelete) {
       return;
     }
 
@@ -214,11 +227,13 @@ export const RecycleBin = () => {
   const handleBulkPermanentlyDelete = async () => {
     if (selectedIds.length === 0) return;
     const count = selectedIds.length;
-    if (
-      !window.confirm(
-        `PERMANENTLY DELETE ${count} SELECTED RECORD(S)?\n\nThese items will be permanently erased and CANNOT be recovered.`
-      )
-    ) {
+    const okBulkDelete = await confirmDialog({
+      title: `Permanently delete ${count} record(s)?`,
+      text: 'These items will be erased immediately and CANNOT be recovered.',
+      confirmText: `Delete ${count}`,
+      danger: true,
+    });
+    if (!okBulkDelete) {
       return;
     }
 
@@ -238,11 +253,13 @@ export const RecycleBin = () => {
   // Empty Recycle Bin
   const handleEmptyRecycleBin = async () => {
     const targetLabel = activeTab === 'ALL' ? 'ALL items' : `all ${activeTab} records`;
-    if (
-      !window.confirm(
-        `EMPTY RECYCLE BIN (${targetLabel.toUpperCase()})?\n\nAll matching records will be permanently erased immediately. This cannot be undone.`
-      )
-    ) {
+    const okEmpty = await confirmDialog({
+      title: 'Empty the recycle bin?',
+      text: `${targetLabel} will be permanently erased immediately. This cannot be undone.`,
+      confirmText: 'Empty bin',
+      danger: true,
+    });
+    if (!okEmpty) {
       return;
     }
 

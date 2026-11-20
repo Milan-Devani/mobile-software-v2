@@ -228,6 +228,8 @@ export const syncFromSupabase = async () => {
               if (!seedFallbackTables.has(tbl) || data.length > 0) {
                 if (tbl === 'repair_jobs') {
                   data.forEach((j) => {
+                    // Merge legacy "Returned Unrepaired" status into "Not Repaired" (CANCELLED)
+                    if (j.status === 'RETURNED_UNREPAIRED') j.status = 'CANCELLED';
                     if ((!j.warranty_parts || j.warranty_parts.length === 0) && Array.isArray(j.device_condition?.warranty_parts)) {
                       j.warranty_parts = j.device_condition.warranty_parts;
                     }
@@ -603,13 +605,17 @@ export const db = {
       return profile;
     },
     updateProfile: async (updates) => {
-      const { instagram_qr_url, ...validShopUpdates } = updates;
+      const { instagram_qr_url, logo_url_dark, ...validShopUpdates } = updates;
 
-      if (instagram_qr_url !== undefined) {
+      const currentExtra = (await db.settings.get('shop_profile_extra')) || {};
+      const extraUpdates = {};
+      if (instagram_qr_url !== undefined) extraUpdates.instagram_qr_url = instagram_qr_url;
+      if (logo_url_dark !== undefined) extraUpdates.logo_url_dark = logo_url_dark;
+      if (Object.keys(extraUpdates).length > 0) {
         await db.settings.set(
           'shop_profile_extra',
-          { instagram_qr_url },
-          'Shop profile extra fields including Instagram QR'
+          { ...currentExtra, ...extraUpdates },
+          'Shop profile extra fields (Instagram QR, dark theme logo)'
         );
       }
 
@@ -1039,6 +1045,7 @@ export const db = {
               .or(`id.eq.${id},job_number.eq.${id},approval_token.eq.${id}`)
               .maybeSingle();
             if (sbJob) {
+              if (sbJob.status === 'RETURNED_UNREPAIRED') sbJob.status = 'CANCELLED';
               localDb.repair_jobs = localDb.repair_jobs || [];
               localDb.repair_jobs.push(sbJob);
               job = sbJob;
@@ -2094,6 +2101,31 @@ export const db = {
     list: async ({ search = '', method = 'ALL', startDate = '', endDate = '', limit = 50, offset = 0 } = {}) => {
       let payments = [...(localDb.payments || [])];
 
+      // Merge "Sell & Invoice" (sales) entries into the unified payments ledger
+      const saleEntries = (localDb.sales || []).map((s) => {
+        const collected = Math.max(0, Number(s.total_amount || 0) - Number(s.balance_due || 0));
+        return {
+          id: s.id,
+          payment_number: s.invoice_number || 'SALE',
+          job_id: null,
+          customer_id: null,
+          source: 'SALE',
+          invoice_number: s.invoice_number || '',
+          job_number: s.invoice_number || 'N/A',
+          customer_name: s.customer_name || 'Walk-in Customer',
+          customer_phone: s.customer_phone || '',
+          device_model: (Array.isArray(s.items) && s.items.length > 0 && (s.items[0].name || s.items[0].item_name)) || 'Sale Invoice',
+          amount: parseFloat((collected > 0 ? collected : Number(s.total_amount || 0)).toFixed(2)),
+          payment_method: (s.payment_mode || 'CASH').toUpperCase(),
+          payment_status: 'COMPLETED',
+          transaction_reference: '',
+          notes: '',
+          paid_at: s.invoice_date || s.created_at,
+          created_at: s.created_at,
+        };
+      });
+      payments = [...payments, ...saleEntries];
+
       if (startDate) {
         const startObj = startDate.length === 10 ? new Date(`${startDate}T00:00:00`) : new Date(startDate);
         const startTime = startObj.getTime();
@@ -2120,11 +2152,15 @@ export const db = {
       }
 
       let populated = payments.map(p => {
+        if (p.source === 'SALE') {
+          return { ...p, source: 'SALE' };
+        }
         const job = (localDb.repair_jobs || []).find(j => j.id === p.job_id) || {};
         const customer = (localDb.customers || []).find(c => c.id === (p.customer_id || job.customer_id)) || {};
         const device = (localDb.devices || []).find(d => d.id === job.device_id) || {};
         return {
           ...p,
+          source: 'REPAIR',
           job_number: job.job_number || 'N/A',
           customer_name: customer.full_name || 'Walk-in Customer',
           customer_phone: customer.phone || '',
@@ -2674,6 +2710,11 @@ export const db = {
           (l.provider && l.provider.toLowerCase().includes(q))
         );
       }
+      // Enrich each log with its repair job number (for the reference column)
+      logs = logs.map((l) => {
+        const job = (localDb.repair_jobs || []).find((j) => j.id === l.job_id);
+        return { ...l, job_number: job?.job_number || '' };
+      });
       logs.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       const total = logs.length;
       const sliced = limit ? logs.slice(offset, offset + limit) : logs;
@@ -2769,6 +2810,8 @@ export const db = {
         filename,
         drive_file_id: null,
         drive_folder_id: null,
+        drive_file_id_2: null,
+        drive_folder_id_2: null,
         file_size_bytes: null,
         checksum_md5: null,
         duration_ms: null,
@@ -2784,7 +2827,15 @@ export const db = {
 
       if (isSupabaseConfigured()) {
         try {
-          const { data, error } = await getSupabase().from('backup_logs').insert(log).select().single();
+          let insertPayload = { ...log };
+          let { data, error } = await getSupabase().from('backup_logs').insert(insertPayload).select().single();
+          if (error && error.message?.includes('drive_file_id_2')) {
+            delete insertPayload.drive_file_id_2;
+            delete insertPayload.drive_folder_id_2;
+            const retry = await getSupabase().from('backup_logs').insert(insertPayload).select().single();
+            data = retry.data;
+            error = retry.error;
+          }
           if (!error && data) return data;
         } catch (err) {
           console.warn('⚠️ Supabase backup_logs insert fallback to local:', err.message);
@@ -2804,12 +2855,27 @@ export const db = {
 
       if (isSupabaseConfigured()) {
         try {
-          const { data, error } = await getSupabase()
+          let payload = { ...updates };
+          let { data, error } = await getSupabase()
             .from('backup_logs')
-            .update(updates)
+            .update(payload)
             .eq('id', id)
             .select()
             .single();
+
+          if (error && error.message?.includes('drive_file_id_2')) {
+            delete payload.drive_file_id_2;
+            delete payload.drive_folder_id_2;
+            const retryRes = await getSupabase()
+              .from('backup_logs')
+              .update(payload)
+              .eq('id', id)
+              .select()
+              .single();
+            data = retryRes.data;
+            error = retryRes.error;
+          }
+
           if (!error && data) return data;
         } catch (err) {
           console.warn('⚠️ Supabase backup_logs update fallback to local:', err.message);
@@ -2877,9 +2943,73 @@ export const db = {
       return all[0] || null;
     },
 
+    delete: async (id) => {
+      if (localDb.backup_logs) {
+        localDb.backup_logs = localDb.backup_logs.filter(b => b.id !== id);
+        saveLocalDb();
+      }
+      if (isSupabaseConfigured()) {
+        try {
+          await getSupabase().from('backup_logs').delete().eq('id', id);
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs delete error:', err.message);
+        }
+      }
+      return true;
+    },
+
+    deleteMany: async (ids) => {
+      if (!Array.isArray(ids) || ids.length === 0) return true;
+      const idSet = new Set(ids);
+      if (localDb.backup_logs) {
+        localDb.backup_logs = localDb.backup_logs.filter(b => !idSet.has(b.id));
+        saveLocalDb();
+      }
+      if (isSupabaseConfigured()) {
+        try {
+          await getSupabase().from('backup_logs').delete().in('id', ids);
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs deleteMany error:', err.message);
+        }
+      }
+      return true;
+    },
+
+    clearStaleJobs: async (maxAgeMinutes = 10) => {
+      const staleThreshold = new Date(Date.now() - maxAgeMinutes * 60 * 1000).toISOString();
+      const nowIso = new Date().toISOString();
+
+      if (localDb.backup_logs) {
+        localDb.backup_logs.forEach(b => {
+          if (['RUNNING', 'QUEUED'].includes(b.status) && b.started_at < staleThreshold) {
+            b.status = 'FAILED';
+            b.error_message = b.error_message || 'Backup job was interrupted or timed out.';
+            b.completed_at = b.completed_at || nowIso;
+          }
+        });
+        saveLocalDb();
+      }
+
+      if (isSupabaseConfigured()) {
+        try {
+          await getSupabase()
+            .from('backup_logs')
+            .update({
+              status: 'FAILED',
+              error_message: 'Backup job was interrupted or timed out.',
+              completed_at: nowIso,
+            })
+            .in('status', ['RUNNING', 'QUEUED'])
+            .lt('started_at', staleThreshold);
+        } catch (err) {
+          console.warn('⚠️ Supabase backup_logs clearStaleJobs error:', err.message);
+        }
+      }
+    },
+
     getRunningJob: async () => {
-      // 30 minute stale threshold
-      const staleThreshold = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      // 10 minute stale threshold
+      const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString();
 
       if (isSupabaseConfigured()) {
         try {
@@ -3612,6 +3742,67 @@ export const db = {
         redirected: all.filter(r => Boolean(r.google_redirected_at)).length,
       };
     },
+  },
+
+  /**
+   * Safely wipes all transactional business records (repair jobs, invoices, customers, inventory, etc.)
+   * while strictly preserving the Admin login accounts, shop branding, logos, and settings.
+   */
+  wipeTransactionalData: async () => {
+    console.log('🚨 [DB] Initiating transactional data wipe...');
+
+    const tablesToWipe = [
+      'invoice_items',
+      'invoices',
+      'sales',
+      'payments',
+      'repair_estimate_items',
+      'repair_estimates',
+      'repair_job_parts',
+      'repair_job_labor',
+      'diagnoses',
+      'repair_tests',
+      'job_status_history',
+      'attachments',
+      'repair_jobs',
+      'devices',
+      'customers',
+      'part_stock_movements',
+      'parts',
+      'vendor_payments',
+      'vendor_ledger',
+      'vendor_status_history',
+      'vendor_mobiles',
+      'vendor_transactions',
+      'vendors',
+      'notifications',
+      'notification_logs',
+      'recycle_bin',
+    ];
+
+    // 1. Wipe via Supabase if configured
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabase();
+      for (const table of tablesToWipe) {
+        try {
+          await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        } catch (err) {
+          console.warn(`⚠️ Supabase wipe note for "${table}":`, err.message);
+        }
+      }
+    }
+
+    // 2. Clear local memory mirror
+    if (localDb) {
+      for (const table of tablesToWipe) {
+        if (Array.isArray(localDb[table])) {
+          localDb[table] = [];
+        }
+      }
+    }
+
+    console.log('✅ [DB] Transactional data wiped successfully. Admin user, shop profile, and settings preserved.');
+    return { success: true, tablesWiped: tablesToWipe };
   },
 
   ...vendorDbMethods,
