@@ -10,6 +10,7 @@ import {
   downloadBackupFromDrive,
   deleteBackupFile,
 } from '../services/googleDriveService.js';
+import { saveDriveRefreshToken, hydrateDriveTokensFromDb } from '../services/driveTokenStore.js';
 import { db } from '../db/db.js';
 import { env } from '../config/env.js';
 
@@ -99,6 +100,9 @@ export async function getBackupStatus(req, res, next) {
       db.backup_logs.getRunningJob(),
       db.backup_logs.getLatest(),
     ]);
+
+    // Ensure DB-persisted refresh tokens are loaded into runtime env (survives restarts)
+    await hydrateDriveTokensFromDb();
 
     // Test Google Drive token health for Account 1 and Account 2
     const [driveAuthTest1, driveAuthTest2] = await Promise.all([
@@ -256,6 +260,11 @@ export async function exchangeGoogleAuthCodeEndpoint(req, res, next) {
     } else {
       env.GOOGLE_REFRESH_TOKEN = tokens.refresh_token;
     }
+
+    // Persist the refresh token into the database (settings table) so it
+    // survives server restarts and redeploys, even when reconnecting from
+    // a different machine (where server/.env is not reachable).
+    await saveDriveRefreshToken(accountIndex, tokens.refresh_token);
 
     return res.status(200).json({
       success: true,

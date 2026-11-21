@@ -16,6 +16,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { initDb } from './db/db.js';
+import { hydrateDriveTokensFromDb } from './services/driveTokenStore.js';
 import { errorHandler, AppError } from './middleware/errorHandler.js';
 import { apiRateLimiter } from './middleware/rateLimiter.js';
 
@@ -176,6 +177,10 @@ const startServer = async () => {
 
     await dbInitPromise;
     dbInitPromise = null;
+
+    // Load Google Drive refresh tokens persisted in the database into runtime
+    // env, so re-linking from any machine stays permanent across restarts.
+    await hydrateDriveTokensFromDb();
 
     // Auto-clear any interrupted backup jobs from prior process lifecycles so UI never starts up locked
     try {

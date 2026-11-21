@@ -173,7 +173,7 @@ export const Login = () => {
           </form>
 
           {/* Quick Demo Credential Pills */}
-          <div className="mt-6 pt-5 border-t border-[var(--spatial-border)]">
+          {/* <div className="mt-6 pt-5 border-t border-[var(--spatial-border)]">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--spatial-text-muted)] text-center mb-2.5">
               Quick Test Accounts
             </p>
@@ -203,7 +203,7 @@ export const Login = () => {
                 Intake / Desk
               </button>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
