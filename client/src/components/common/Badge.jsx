@@ -131,6 +131,11 @@ const STATUS_CONFIGS = {
     bg: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800/60',
     dot: 'bg-emerald-500'
   },
+  developer: {
+    label: 'Developer',
+    bg: 'bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-300 dark:border-cyan-800/60',
+    dot: 'bg-cyan-500'
+  },
 };
 
 export const Badge = ({ status, customLabel, size = 'md' }) => {

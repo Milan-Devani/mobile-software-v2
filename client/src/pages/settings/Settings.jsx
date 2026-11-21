@@ -1359,11 +1359,16 @@ export const Settings = () => {
                 <div className="grid grid-cols-1 gap-3 md:hidden">
                   {paginatedUsers.map((u) => {
                     const isSelected = userSelectedIds.includes(u.id);
+                    const isCurrentUser = u.id === user?.id;
                     return (
                       <div
                         key={u.id}
                         className={`p-3.5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] space-y-2.5 transition-colors ${
-                          isSelected ? 'bg-sky-500/10 border-sky-500/40' : ''
+                          isCurrentUser
+                            ? 'border-emerald-400/40 bg-emerald-500/10'
+                            : isSelected
+                              ? 'bg-sky-500/10 border-sky-500/40'
+                              : ''
                         }`}
                       >
                         <div className="flex items-center justify-between">
@@ -1378,7 +1383,12 @@ export const Settings = () => {
                               {u.full_name ? u.full_name.charAt(0) : 'U'}
                             </div>
                             <div>
-                              <p className="font-bold text-xs text-[var(--spatial-text-title)]">{u.full_name}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-bold text-xs text-[var(--spatial-text-title)]">{u.full_name}</p>
+                                {isCurrentUser && (
+                                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-400/30">You</span>
+                                )}
+                              </div>
                               <Badge status={u.role_id} size="sm" />
                             </div>
                           </div>
@@ -1441,13 +1451,16 @@ export const Settings = () => {
                     <tbody className="divide-y divide-[var(--spatial-border)]">
                       {paginatedUsers.map((u) => {
                         const isSelected = userSelectedIds.includes(u.id);
+                        const isCurrentUser = u.id === user?.id;
                         return (
                           <tr
                             key={u.id}
                             className={`transition-colors ${
-                              isSelected
-                                ? 'bg-sky-500/10'
-                                : 'hover:bg-[var(--spatial-bg-card-subtle)]'
+                              isCurrentUser
+                                ? 'bg-emerald-500/10 hover:bg-emerald-500/15'
+                                : isSelected
+                                  ? 'bg-sky-500/10'
+                                  : 'hover:bg-[var(--spatial-bg-card-subtle)]'
                             }`}
                           >
                             <td className="px-4 py-3.5 text-center whitespace-nowrap">
@@ -1464,6 +1477,9 @@ export const Settings = () => {
                                   {u.full_name ? u.full_name.charAt(0) : 'U'}
                                 </div>
                                 <span className="font-bold text-[var(--spatial-text-title)]">{u.full_name}</span>
+                                {isCurrentUser && (
+                                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-400/30">You</span>
+                                )}
                               </div>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">

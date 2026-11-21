@@ -12,16 +12,24 @@ import {
   ChevronDown,
   Check,
   X,
+  Mail,
+  Phone,
+  ShieldCheck,
+  CalendarDays,
 } from 'lucide-react';
 import { setSearchQuery } from '../../store/jobSlice';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useTheme, SPATIAL_STYLES, THEME_MODES } from '../../context/ThemeContext';
+import { Modal } from '../common/Modal';
+import { Badge } from '../common/Badge';
+import { formatDateWithMonthName } from '../../utils/dateFormatters';
 
 export const Topbar = ({ onToggleSidebar, sidebarCollapsed = false }) => {
   const { user } = useSelector((state) => state.auth);
   const [searchInput, setSearchInput] = useState('');
   const [styleMenuOpen, setStyleMenuOpen] = useState(false);
   const [themeMenuOpen, setThemeMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -251,24 +259,68 @@ export const Topbar = ({ onToggleSidebar, sidebarCollapsed = false }) => {
         <div className="h-5 w-px bg-[var(--spatial-border)] mx-1 hidden sm:block" />
 
         {/* 4. User Info */}
-        <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setProfileOpen(true)}
+          title={user?.email ? `Signed in as ${user.email}` : 'View account details'}
+          className="flex items-center gap-2 rounded-xl p-1 -m-1 hover:bg-[var(--spatial-bg-card-hover)] transition-colors cursor-pointer"
+        >
           <div className="text-right hidden md:block">
-            <p
-              title={`Login Mail ID: ${user?.email || 'Not available'}`}
-              className="text-xs font-semibold text-[var(--spatial-text-title)] leading-tight tracking-tight"
-            >
+            <p className="text-xs font-semibold text-[var(--spatial-text-title)] leading-tight tracking-tight">
               {user?.full_name}
             </p>
             <p className="text-[10px] text-[var(--spatial-text-muted)] uppercase tracking-wider font-medium">{user?.role_id}</p>
           </div>
-          <div
-            title={`Login Mail ID: ${user?.email || 'Not available'}`}
-            className="w-8 h-8 rounded-full bg-[#0071e3]/15 text-[#0071e3] dark:bg-[#0a84ff]/20 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 flex items-center justify-center font-bold text-xs uppercase shadow-xs"
-          >
+          <div className="w-8 h-8 rounded-full bg-[#0071e3]/15 text-[#0071e3] dark:bg-[#0a84ff]/20 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 flex items-center justify-center font-bold text-xs uppercase shadow-xs">
             {user?.full_name ? user.full_name.charAt(0) : 'U'}
           </div>
-        </div>
+        </button>
       </div>
+      {/* 5. My Account Modal */}
+      <Modal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        title="My Account"
+        subtitle="Signed-in user details"
+        size="md"
+      >
+        <div className="flex flex-col items-center text-center">
+          <div className="w-16 h-16 rounded-full bg-[#0071e3]/15 text-[#0071e3] dark:bg-[#0a84ff]/20 dark:text-[#0a84ff] border border-[#0071e3]/20 dark:border-[#0a84ff]/30 flex items-center justify-center font-bold text-2xl uppercase shadow-xs">
+            {user?.full_name ? user.full_name.charAt(0) : 'U'}
+          </div>
+          <h3 className="mt-3 text-base font-bold text-[var(--spatial-text-title)] tracking-tight">
+            {user?.full_name || 'Unknown User'}
+          </h3>
+          <div className="mt-1.5">
+            <Badge status={user?.role_id} />
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] divide-y divide-[var(--spatial-border)] text-xs">
+          <div className="flex items-center gap-3 px-3.5 py-2.5">
+            <Mail className="w-4 h-4 text-sky-400 shrink-0" />
+            <span className="text-[var(--spatial-text-muted)] w-24 shrink-0">Email</span>
+            <span className="font-mono text-[var(--spatial-text-title)] break-all">{user?.email || '—'}</span>
+          </div>
+          <div className="flex items-center gap-3 px-3.5 py-2.5">
+            <Phone className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="text-[var(--spatial-text-muted)] w-24 shrink-0">Phone</span>
+            <span className="font-mono text-[var(--spatial-text-title)]">{user?.phone || '—'}</span>
+          </div>
+          <div className="flex items-center gap-3 px-3.5 py-2.5">
+            <ShieldCheck className="w-4 h-4 text-violet-400 shrink-0" />
+            <span className="text-[var(--spatial-text-muted)] w-24 shrink-0">Status</span>
+            <span className={`font-semibold ${user?.is_active === false ? 'text-rose-400' : 'text-emerald-400'}`}>
+              {user?.is_active === false ? 'Disabled' : 'Active'}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 px-3.5 py-2.5">
+            <CalendarDays className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="text-[var(--spatial-text-muted)] w-24 shrink-0">Member Since</span>
+            <span className="text-[var(--spatial-text-title)]">{formatDateWithMonthName(user?.created_at) || '—'}</span>
+          </div>
+        </div>
+      </Modal>
     </header>
   );
 };
