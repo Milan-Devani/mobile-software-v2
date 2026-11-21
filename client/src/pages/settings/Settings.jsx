@@ -1248,11 +1248,27 @@ export const Settings = () => {
                   Standard Warranty Policy (Printed on Invoices & Job Sheets)
                 </label>
                 <textarea
-                  rows={2}
+                  rows={15}
                   value={shop.warranty_terms || ''}
                   onChange={(e) => setShop({ ...shop, warranty_terms: e.target.value })}
                   className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
                 />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
+                  TERMS AND CONDITIONS (Printed on all documents)
+                </label>
+                <textarea
+                  rows={15}
+                  value={shop.terms_conditions || ''}
+                  onChange={(e) => setShop({ ...shop, terms_conditions: e.target.value })}
+                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
+                  placeholder="Enter terms and conditions that should appear on invoices, job sheets, and all printable documents..."
+                />
+                <p className="text-[10px] text-[var(--spatial-text-muted)] mt-1">
+                  This text will be displayed on all printable documents including invoices and job sheets.
+                </p>
               </div>
             </div>
 

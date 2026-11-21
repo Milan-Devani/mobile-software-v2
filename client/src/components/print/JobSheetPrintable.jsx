@@ -265,6 +265,20 @@ export const JobSheetPrintable = ({ job, shop }) => {
     ? new Date(job.created_at).toLocaleString()
     : new Date().toLocaleString();
 
+  // Terms and Conditions Section
+  const renderTermsAndConditions = () => {
+    if (!shop?.terms_conditions) return null;
+
+    return (
+      <div className="mt-4 pt-2 border-t border-dashed border-gray-300">
+        <div className="text-xs font-bold uppercase mb-1">TERMS AND CONDITIONS</div>
+        <div className="text-[9px] leading-tight whitespace-pre-wrap">
+          {shop.terms_conditions}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white text-black font-sans print:p-0">
       {/* Embedded Print Styling to Force Single-Page Fit & Prevent Overflow */}

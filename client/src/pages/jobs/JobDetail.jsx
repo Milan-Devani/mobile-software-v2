@@ -37,6 +37,7 @@ import { invoiceService } from '../../services/invoiceService';
 import { notificationService } from '../../services/notificationService';
 import { settingsService } from '../../services/settingsService';
 import { copyTextToClipboard } from '../../utils/clipboard';
+import { formatDate, formatDateTime } from '../../utils/dateFormatters';
 import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../../utils/checklistConstants';
 import { MAX_CURRENCY_AMOUNT, limitNumberValue, numberInputProps } from '../../utils/numberInput';
 
@@ -1126,7 +1127,7 @@ export const JobDetail = () => {
               </span>
             </div>
             <p className="text-xs text-[var(--spatial-text-muted)] mt-0.5">
-              Intake Date: {new Date(job.created_at).toLocaleString()} • Technician: {job.technician?.full_name || 'Unassigned'}
+              Intake Date: {formatDateTime(job.created_at)} • Technician: {job.technician?.full_name || 'Unassigned'}
             </p>
           </div>
         </div>
@@ -1329,7 +1330,7 @@ export const JobDetail = () => {
             )}
             {job.reopened_at && (
               <span className="text-[11px] tabular-nums opacity-80 whitespace-nowrap">
-                Reopened: {new Date(job.reopened_at).toLocaleDateString()}
+                Reopened: {formatDate(job.reopened_at)}
               </span>
             )}
           </div>
@@ -1378,9 +1379,9 @@ export const JobDetail = () => {
                 </span>
               </p>
               <p className="text-[11px] text-[var(--spatial-text-muted)] mt-0.5">
-                Sent {vendorStatus.sent_date ? new Date(vendorStatus.sent_date).toLocaleDateString() : '—'}
+                Sent {vendorStatus.sent_date ? formatDate(vendorStatus.sent_date) : '—'}
                 {vendorStatus.expected_back_date
-                  ? ` · Expected back ${new Date(vendorStatus.expected_back_date).toLocaleDateString()}`
+                  ? ` · Expected back ${formatDate(vendorStatus.expected_back_date)}`
                   : ''}
                 {vendorStatus.chalan_number ? ` · Chalan ${vendorStatus.chalan_number}` : ''}
                 {Number(vendorStatus.estimated_cost) > 0
@@ -1654,7 +1655,7 @@ export const JobDetail = () => {
                       <Badge status={job.approval_status} />
                       {job.approval_decision_at && (
                         <span className="text-slate-500 font-mono text-[11px]">
-                          ({new Date(job.approval_decision_at).toLocaleString()})
+                          ({formatDateTime(job.approval_decision_at)})
                         </span>
                       )}
                     </div>
@@ -2171,7 +2172,7 @@ export const JobDetail = () => {
                           {currSym}{Number(p.amount).toFixed(2)}
                         </td>
                         <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] font-mono">
-                          {new Date(p.paid_at).toLocaleString()}
+                          {formatDateTime(p.paid_at)}
                         </td>
                         <td className="px-5 py-3.5 text-[var(--spatial-text-body)]">{p.notes || '—'}</td>
                       </tr>

@@ -12,7 +12,6 @@ import {
 import { Button } from "../common/Button";
 import { API_BASE_URL, authHeaders } from "../../services/api";
 import toast from "react-hot-toast";
-import QRCode from "qrcode";
 import { WhatsAppQrModal } from "../common/WhatsAppQrModal";
 import { copyTextToClipboard } from "../../utils/clipboard";
 import {
@@ -333,8 +332,7 @@ const SignatureStroke = () => (
 );
 
 export const InvoicePrintable = ({ invoice, job, shop }) => {
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  const [copied, setCopied] = useState(false);
+    const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState("page1"); // Page 2 disabled — only Page 1 is printed
   const printAreaRef = useRef(null);
 
@@ -387,21 +385,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const [showWaModal, setShowWaModal] = useState(false);
   const [waStatus, setWaStatus] = useState({ isConnected: false });
 
-  // Generate QR Code on mount
-  useEffect(() => {
-    if (!job) return;
-    const trackingUrl = `${window.location.origin}/repair/${job?.job_number || "INV"}/approval?token=${job?.approval_token || ""}`;
-    QRCode.toDataURL(trackingUrl, {
-      width: 120,
-      margin: 1,
-      color: {
-        dark: "#000000",
-        light: "#ffffff",
-      },
-    })
-      .then((url) => setQrDataUrl(url))
-      .catch((err) => console.error("QR code generation failed:", err));
-  }, [job]);
 
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
@@ -2237,31 +2220,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                       and are binding upon acceptance of the device.
                     </div>
                   </div>
-                  {qrDataUrl && (
-                    <div style={{ textAlign: "center", flexShrink: 0 }}>
-                      <img
-                        src={qrDataUrl}
-                        alt="Verify QR"
-                        style={{
-                          width: "48px",
-                          height: "48px",
-                          border: "1px solid #000",
-                          padding: "1px",
-                          display: "block",
-                        }}
-                      />
-                      <div
-                        style={{
-                          fontFamily: "monospace",
-                          fontSize: "9px",
-                          fontWeight: 700,
-                          marginTop: "1px",
-                        }}
-                      >
-                        SCAN TO TRACK
-                      </div>
-                    </div>
-                  )}
+                  {/* QR Code and tracking text removed per user request */}
                 </div>
               </div>
             </div>

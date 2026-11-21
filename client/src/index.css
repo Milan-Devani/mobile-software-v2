@@ -5,6 +5,13 @@
 @tailwind utilities;
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    GLOBAL INPUT NUMBER SPINNER HIDING
    Removes up/down stepper arrows from all type="number" inputs across all browsers
    ========================================================================== */
@@ -17,6 +24,13 @@ input[type=number]::-webkit-outer-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
   appearance: textfield;
+}
+
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
 }
 
 /* ==========================================================================
@@ -214,6 +228,13 @@ input[type=number] {
 }
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    BASE & SMOOTH TRANSITIONS
    ========================================================================== */
 
@@ -252,6 +273,13 @@ input[type=number] {
   h1 {
     letter-spacing: -0.028em;
   }
+}
+
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
 }
 
 /* ==========================================================================
@@ -620,6 +648,13 @@ select option:checked {
 }
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    DROPDOWN & SELECT SYSTEM (APPLE DESIGN SYSTEM)
    ========================================================================== */
 .spatial-dropdown-panel {
@@ -658,6 +693,13 @@ select option {
 .light select option {
   background-color: #ffffff;
   color: #1d1d1f;
+}
+
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
 }
 
 /* ==========================================================================
@@ -733,6 +775,13 @@ select option {
 
 .dark table tbody tr:hover {
   background-color: var(--spatial-table-row-hover);
+}
+
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
 }
 
 /* ==========================================================================
@@ -850,6 +899,13 @@ select option {
 }
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    PUBLIC CUSTOMER REVIEW PAGE: CLEAN WHITE APPLE GLASS THEME
    Ensures public review cards, inputs, and text never get overridden by dark mode
    ========================================================================== */
@@ -928,6 +984,13 @@ select option {
 }
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    UNIVERSAL FORM CONTROLS: CRISP OUTLINES & NEVER-CLIPPED FOCUS RINGS
    ========================================================================== */
 input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="color"]):not([type="range"]),
@@ -979,8 +1042,22 @@ textarea.focus\:ring-primary-500:focus {
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.3) !important;
 }
 
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 /* PRINT MEDIA STYLES FOR ALL INVOICES, BILLS & JOB SHEETS                   */
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 @media print {
   @page {
@@ -1084,6 +1161,13 @@ textarea.focus\:ring-primary-500:focus {
 }
 
 /* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
+/* ==========================================================================
    SWEETALERT2 SPATIAL THEME ADAPTATION
    Ensures alerts & confirmation dialogs match all spatial styles & light/dark modes
    ========================================================================== */
@@ -1177,8 +1261,22 @@ textarea.focus\:ring-primary-500:focus {
   background: var(--spatial-bg-card-hover) !important;
 }
 
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 /* APPLE SPATIAL SKELETON LOADER & SHIMMER ANIMATION                          */
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 @keyframes spatial-shimmer {
   0% {
@@ -1214,8 +1312,22 @@ textarea.focus\:ring-primary-500:focus {
   );
 }
 
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 /* FLUID PAGE & TAB TRANSITIONS (NO BLINK, ZERO JERK / JATKA)                 */
+/* ==========================================================================
+/* SERVER-ORDER SHEET BORDER RADIUS OVERRIDE */
+/* Force 2px corners for all server-order print components */
+.server-order-sheet * {
+  border-radius: 2px !important;
+}
+
 /* ========================================================================== */
 @keyframes spatial-page-enter {
   0% {

@@ -633,6 +633,7 @@ export const JobCreate = () => {
             </label>
             <textarea
               rows={3}
+              maxLength={100}
               placeholder="e.g. Mobile is not charging. Dropped yesterday and screen flickers with horizontal lines."
               {...register('customer_complaint')}
               className="w-full px-3.5 py-2.5 spatial-input rounded-xl text-xs leading-relaxed"
