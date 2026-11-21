@@ -159,6 +159,38 @@ async function runE2eTests() {
   console.log('\n====================================================');
   console.log('🎉 ALL AI REVIEW ASSISTANT E2E TESTS PASSED 100%!');
   console.log('====================================================');
+
+  // TEST 7: Multi-language (Hindi & Gujarati) generation
+  console.log('\n--- TEST 7: Multi-language Hindi & Gujarati Review Generation ---');
+  const hiRes = await generateReviewText({
+    rating: 5,
+    customerFeedback: 'Screen is working perfectly and looks brand new.',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 13',
+    problem: 'Broken glass and unresponsive touch',
+    servicePerformed: 'OLED Display & Touch Digitizer Replacement',
+    language: 'Hindi',
+  });
+  console.log('Hindi Success:', hiRes.success);
+  console.log('Hindi Review:\n', `"${hiRes.reviewText}"\n`);
+  if (!hiRes.success) throw new Error('Test 7a failed: Hindi generation failed');
+
+  const guRes = await generateReviewText({
+    rating: 5,
+    customerFeedback: 'Screen is working perfectly and looks brand new.',
+    deviceBrand: 'Apple',
+    deviceModel: 'iPhone 13',
+    problem: 'Broken glass and unresponsive touch',
+    servicePerformed: 'OLED Display & Touch Digitizer Replacement',
+    language: 'Gujarati',
+  });
+  console.log('Gujarati Success:', guRes.success);
+  console.log('Gujarati Review:\n', `"${guRes.reviewText}"\n`);
+  if (!guRes.success) throw new Error('Test 7b failed: Gujarati generation failed');
+
+  console.log('\n====================================================');
+  console.log('🎉 ALL AI REVIEW ASSISTANT E2E TESTS PASSED 100%!');
+  console.log('====================================================');
   process.exit(0);
 }
 

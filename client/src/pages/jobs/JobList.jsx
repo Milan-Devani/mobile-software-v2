@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Wrench,
   Search,
@@ -17,36 +17,36 @@ import {
   IndianRupee,
   Truck,
   PackageCheck,
-} from 'lucide-react';
-import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
-import { useDebounce } from '../../hooks/useDebounce';
-import { jobService } from '../../services/jobService';
-import { invoiceService } from '../../services/invoiceService';
-import { formatDate } from '../../utils/dateFormatters';
-import { Card, EmptyState, TableSkeleton } from '../../components/common/Card';
-import { Badge } from '../../components/common/Badge';
-import { Button } from '../../components/common/Button';
-import { SpatialPagination } from '../../components/common/SpatialPagination';
-import { BulkActionBar } from '../../components/common/BulkActionBar';
-import { SendToVendorModal } from '../../components/jobs/SendToVendorModal';
-import { ReceiveFromVendorModal } from '../../components/jobs/ReceiveFromVendorModal';
-import { SpatialSelect } from '../../components/common/SpatialSelect';
-import { SpatialDateFilter } from '../../components/common/SpatialDateFilter';
-import { useLatestRequest } from '../../hooks/useLatestRequest';
+} from "lucide-react";
+import toast from "react-hot-toast";
+import Swal from "sweetalert2";
+import { useDebounce } from "../../hooks/useDebounce";
+import { jobService } from "../../services/jobService";
+import { invoiceService } from "../../services/invoiceService";
+import { formatDate } from "../../utils/dateFormatters";
+import { Card, EmptyState, TableSkeleton } from "../../components/common/Card";
+import { Badge } from "../../components/common/Badge";
+import { Button } from "../../components/common/Button";
+import { SpatialPagination } from "../../components/common/SpatialPagination";
+import { BulkActionBar } from "../../components/common/BulkActionBar";
+import { SendToVendorModal } from "../../components/jobs/SendToVendorModal";
+import { ReceiveFromVendorModal } from "../../components/jobs/ReceiveFromVendorModal";
+import { SpatialSelect } from "../../components/common/SpatialSelect";
+import { SpatialDateFilter } from "../../components/common/SpatialDateFilter";
+import { useLatestRequest } from "../../hooks/useLatestRequest";
 
 const STATUS_TABS = [
-  { key: 'ALL', label: 'All Jobs' },
-  { key: 'RECEIVED', label: 'Received' },
-  { key: 'DIAGNOSING', label: 'Diagnosing' },
-  { key: 'ESTIMATE_SENT', label: 'Estimate Sent' },
-  { key: 'APPROVED', label: 'Approved' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'TESTING', label: 'Testing' },
-  { key: 'READY_FOR_PICKUP', label: 'Ready for Pickup' },
-  { key: 'DELIVERED', label: 'Delivered' },
-  { key: 'REJECTED', label: 'Estimate Rejected' },
-  { key: 'CANCELLED', label: 'Returned Unrepaired' },
+  { key: "ALL", label: "All Jobs" },
+  { key: "RECEIVED", label: "Received" },
+  { key: "DIAGNOSING", label: "Diagnosing" },
+  { key: "ESTIMATE_SENT", label: "Estimate Sent" },
+  { key: "APPROVED", label: "Approved" },
+  { key: "IN_PROGRESS", label: "In Progress" },
+  { key: "TESTING", label: "Testing" },
+  { key: "READY_FOR_PICKUP", label: "Ready for Pickup" },
+  { key: "DELIVERED", label: "Delivered" },
+  { key: "REJECTED", label: "Estimate Rejected" },
+  { key: "CANCELLED", label: "Returned Unrepaired" },
 ];
 
 export const JobList = () => {
@@ -67,18 +67,18 @@ export const JobList = () => {
   // Direct Number Send Invoice Modal State
   const [directSendJob, setDirectSendJob] = useState(null);
   const [isDirectSendOpen, setIsDirectSendOpen] = useState(false);
-  const [directPhone, setDirectPhone] = useState('');
+  const [directPhone, setDirectPhone] = useState("");
   const [isSendingDirect, setIsSendingDirect] = useState(false);
 
-  const currentStatus = searchParams.get('status') || 'ALL';
-  const currentSearch = searchParams.get('search') || '';
-  const currentSort = searchParams.get('sortBy') || 'created_at';
-  const currentDir = searchParams.get('sortDir') || 'desc';
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const pageSize = parseInt(searchParams.get('pageSize') || '10', 10);
-  const currentDatePreset = searchParams.get('datePreset') || 'ALL';
-  const currentStartDate = searchParams.get('startDate') || '';
-  const currentEndDate = searchParams.get('endDate') || '';
+  const currentStatus = searchParams.get("status") || "ALL";
+  const currentSearch = searchParams.get("search") || "";
+  const currentSort = searchParams.get("sortBy") || "created_at";
+  const currentDir = searchParams.get("sortDir") || "desc";
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const pageSize = parseInt(searchParams.get("pageSize") || "10", 10);
+  const currentDatePreset = searchParams.get("datePreset") || "ALL";
+  const currentStartDate = searchParams.get("startDate") || "";
+  const currentEndDate = searchParams.get("endDate") || "";
 
   const [searchInput, setSearchInput] = useState(currentSearch);
   const debouncedSearch = useDebounce(searchInput, 500);
@@ -94,11 +94,11 @@ export const JobList = () => {
     if (trimmed !== currentSearch) {
       const params = new URLSearchParams(searchParams);
       if (trimmed) {
-        params.set('search', trimmed);
+        params.set("search", trimmed);
       } else {
-        params.delete('search');
+        params.delete("search");
       }
-      params.set('page', '1');
+      params.set("page", "1");
       setSearchParams(params);
     }
   }, [debouncedSearch]);
@@ -114,7 +114,7 @@ export const JobList = () => {
         sortBy: currentSort,
         sortDir: currentDir,
       };
-      if (currentStatus !== 'ALL') {
+      if (currentStatus !== "ALL") {
         params.status = currentStatus;
       }
       if (currentSearch) {
@@ -133,7 +133,7 @@ export const JobList = () => {
       setTotal(res.total || 0);
     } catch {
       if (!isLatest()) return;
-      toast.error('Failed to load repair jobs');
+      toast.error("Failed to load repair jobs");
     } finally {
       if (isLatest()) setLoading(false);
     }
@@ -141,7 +141,16 @@ export const JobList = () => {
 
   useEffect(() => {
     fetchJobs();
-  }, [currentStatus, currentSearch, currentSort, currentDir, page, pageSize, currentStartDate, currentEndDate]);
+  }, [
+    currentStatus,
+    currentSearch,
+    currentSort,
+    currentDir,
+    page,
+    pageSize,
+    currentStartDate,
+    currentEndDate,
+  ]);
 
   // Load the Partner column data for the visible page (migration 005).
   // Fails silently — an unlinked/unmigrated DB simply shows no vendors.
@@ -167,48 +176,48 @@ export const JobList = () => {
 
   const handlePageChange = (newPage) => {
     const params = new URLSearchParams(searchParams);
-    params.set('page', String(newPage));
+    params.set("page", String(newPage));
     setSearchParams(params);
   };
 
   const handlePageSizeChange = (newSize) => {
     const params = new URLSearchParams(searchParams);
-    params.set('pageSize', String(newSize));
-    params.set('page', '1');
+    params.set("pageSize", String(newSize));
+    params.set("page", "1");
     setSearchParams(params);
   };
 
   const handleStatusChange = (status) => {
     const params = new URLSearchParams(searchParams);
-    if (status === 'ALL') {
-      params.delete('status');
+    if (status === "ALL") {
+      params.delete("status");
     } else {
-      params.set('status', status);
+      params.set("status", status);
     }
-    params.set('page', '1');
+    params.set("page", "1");
     setSearchParams(params);
   };
 
   const handleDateFilterChange = ({ preset, startDate, endDate }) => {
     const params = new URLSearchParams(searchParams);
-    if (!preset || preset === 'ALL') {
-      params.delete('datePreset');
-      params.delete('startDate');
-      params.delete('endDate');
+    if (!preset || preset === "ALL") {
+      params.delete("datePreset");
+      params.delete("startDate");
+      params.delete("endDate");
     } else {
-      params.set('datePreset', preset);
+      params.set("datePreset", preset);
       if (startDate) {
-        params.set('startDate', startDate);
+        params.set("startDate", startDate);
       } else {
-        params.delete('startDate');
+        params.delete("startDate");
       }
       if (endDate) {
-        params.set('endDate', endDate);
+        params.set("endDate", endDate);
       } else {
-        params.delete('endDate');
+        params.delete("endDate");
       }
     }
-    params.set('page', '1');
+    params.set("page", "1");
     setSearchParams(params);
   };
 
@@ -218,18 +227,19 @@ export const JobList = () => {
     if (trimmed !== currentSearch) {
       const params = new URLSearchParams(searchParams);
       if (trimmed) {
-        params.set('search', trimmed);
+        params.set("search", trimmed);
       } else {
-        params.delete('search');
+        params.delete("search");
       }
-      params.set('page', '1');
+      params.set("page", "1");
       setSearchParams(params);
     }
   };
 
   const toggleSelectAll = () => {
     const pageIds = jobs.map((j) => j.id);
-    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
+    const allSelected =
+      pageIds.length > 0 && pageIds.every((id) => selectedIds.includes(id));
     if (allSelected) {
       setSelectedIds(selectedIds.filter((id) => !pageIds.includes(id)));
     } else {
@@ -240,7 +250,7 @@ export const JobList = () => {
 
   const toggleSelectRow = (id) => {
     setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
   };
 
@@ -248,11 +258,11 @@ export const JobList = () => {
     if (selectedIds.length === 0) return;
     Swal.fire({
       title: `Delete ${selectedIds.length} Job Sheet(s)?`,
-      text: 'All selected repair jobs, diagnostics, estimates, and invoices will be permanently deleted.',
-      icon: 'warning',
+      text: "All selected repair jobs, diagnostics, estimates, and invoices will be permanently deleted.",
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonColor: '#64748b',
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#64748b",
       confirmButtonText: `Yes, Delete (${selectedIds.length}) Jobs`,
     }).then(async (result) => {
       if (result.isConfirmed) {
@@ -262,7 +272,7 @@ export const JobList = () => {
           setSelectedIds([]);
           fetchJobs();
         } catch (err) {
-          toast.error(err.message || 'Failed to delete jobs');
+          toast.error(err.message || "Failed to delete jobs");
         }
       }
     });
@@ -272,36 +282,41 @@ export const JobList = () => {
     if (selectedIds.length === 0) return;
     Swal.fire({
       title: `Update Status for ${selectedIds.length} Jobs`,
-      input: 'select',
+      input: "select",
       inputOptions: {
-        RECEIVED: 'Received / Intake',
-        DIAGNOSING: 'Diagnosing',
-        ESTIMATE_SENT: 'Estimate Sent',
-        APPROVED: 'Approved',
-        REJECTED: 'Estimate Rejected',
-        IN_PROGRESS: 'In Progress / Repairing',
-        TESTING: 'QC Testing',
-        READY_FOR_PICKUP: 'Ready for Pickup',
-        DELIVERED: 'Delivered / Completed',
-        CANCELLED: 'Returned Unrepaired',
+        RECEIVED: "Received / Intake",
+        DIAGNOSING: "Diagnosing",
+        ESTIMATE_SENT: "Estimate Sent",
+        APPROVED: "Approved",
+        REJECTED: "Estimate Rejected",
+        IN_PROGRESS: "In Progress / Repairing",
+        TESTING: "QC Testing",
+        READY_FOR_PICKUP: "Ready for Pickup",
+        DELIVERED: "Delivered / Completed",
+        CANCELLED: "Returned Unrepaired",
       },
-      inputPlaceholder: 'Select new lifecycle status',
+      inputPlaceholder: "Select new lifecycle status",
       showCancelButton: true,
-      confirmButtonText: 'Apply Status Update',
-      confirmButtonColor: '#0284c7',
-      cancelButtonColor: '#64748b',
+      confirmButtonText: "Apply Status Update",
+      confirmButtonColor: "#0284c7",
+      cancelButtonColor: "#64748b",
       inputValidator: (value) => {
-        if (!value) return 'Please choose a status';
+        if (!value) return "Please choose a status";
       },
     }).then(async (result) => {
       if (result.isConfirmed && result.value) {
         try {
-          const res = await jobService.bulkUpdateStatus(selectedIds, result.value);
-          toast.success(res.message || `Updated status for ${selectedIds.length} jobs`);
+          const res = await jobService.bulkUpdateStatus(
+            selectedIds,
+            result.value,
+          );
+          toast.success(
+            res.message || `Updated status for ${selectedIds.length} jobs`,
+          );
           setSelectedIds([]);
           fetchJobs();
         } catch (err) {
-          toast.error(err.message || 'Failed to update job status');
+          toast.error(err.message || "Failed to update job status");
         }
       }
     });
@@ -310,14 +325,14 @@ export const JobList = () => {
   const handleDeleteJob = (e, job) => {
     e.stopPropagation();
     Swal.fire({
-      title: 'Delete this Job Sheet?',
+      title: "Delete this Job Sheet?",
       text: `Are you sure you want to permanently delete Job #${job.job_number}? All diagnostic records, estimates, tests, invoices, and payments associated with this job will be removed.`,
-      icon: 'warning',
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: '#e11d48',
-      cancelButtonColor: '#64748b',
-      confirmButtonText: 'Yes, Delete Job',
-      cancelButtonText: 'Cancel'
+      confirmButtonColor: "#e11d48",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Delete Job",
+      cancelButtonText: "Cancel",
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
@@ -326,7 +341,7 @@ export const JobList = () => {
           setTotal((prev) => Math.max(0, prev - 1));
           toast.success(`Job #${job.job_number} deleted successfully.`);
         } catch (err) {
-          toast.error(err.message || 'Failed to delete job sheet');
+          toast.error(err.message || "Failed to delete job sheet");
         }
       }
     });
@@ -334,37 +349,39 @@ export const JobList = () => {
 
   const handleQuickReopen = async (e, job) => {
     e.stopPropagation();
-    const isDelivered = job.status === 'DELIVERED';
+    const isDelivered = job.status === "DELIVERED";
     const { value: reason } = await Swal.fire({
-      title: isDelivered ? `Reopen Job #${job.job_number} (Warranty)?` : `Reopen Job #${job.job_number}?`,
+      title: isDelivered
+        ? `Reopen Job #${job.job_number} (Warranty)?`
+        : `Reopen Job #${job.job_number}?`,
       text: isDelivered
-        ? 'Customer is returning within warranty period. Enter reported problem:'
-        : 'Enter reason to reactivate this repair job:',
-      input: 'textarea',
+        ? "Customer is returning within warranty period. Enter reported problem:"
+        : "Enter reason to reactivate this repair job:",
+      input: "textarea",
       inputPlaceholder: isDelivered
-        ? 'e.g. Screen touch unresponsive after 3 days of delivery...'
-        : 'e.g. Customer decided to proceed with repair...',
+        ? "e.g. Screen touch unresponsive after 3 days of delivery..."
+        : "e.g. Customer decided to proceed with repair...",
       inputValidator: (val) => {
         if (!val || !val.trim()) {
-          return 'Please provide a reason or warranty issue';
+          return "Please provide a reason or warranty issue";
         }
       },
       showCancelButton: true,
-      confirmButtonText: 'Yes, Reopen Job',
-      confirmButtonColor: '#d97706',
-      cancelButtonColor: '#64748b',
+      confirmButtonText: "Yes, Reopen Job",
+      confirmButtonColor: "#d97706",
+      cancelButtonColor: "#64748b",
     });
 
     if (reason) {
       try {
         const res = await jobService.reopenJob(job.id, {
           reason: reason.trim(),
-          target_status: 'DIAGNOSING',
+          target_status: "DIAGNOSING",
         });
-        toast.success(res.message || 'Job successfully reopened!');
+        toast.success(res.message || "Job successfully reopened!");
         fetchJobs();
       } catch (err) {
-        toast.error(err.message || 'Failed to reopen job');
+        toast.error(err.message || "Failed to reopen job");
       }
     }
   };
@@ -373,10 +390,12 @@ export const JobList = () => {
   const handleResendCustomerInvoice = async (e, job) => {
     e.stopPropagation();
     const phone = job.customer?.phone || job.customer?.whatsapp_number;
-    const customerName = job.customer?.full_name || 'Customer';
+    const customerName = job.customer?.full_name || "Customer";
 
     if (!phone) {
-      toast.error('No phone number recorded for this customer. Enter a number to send invoice.');
+      toast.error(
+        "No phone number recorded for this customer. Enter a number to send invoice.",
+      );
       handleOpenDirectSendModal(e, job);
       return;
     }
@@ -390,26 +409,33 @@ export const JobList = () => {
             <div style="font-weight: 600;">${customerName}</div>
             <div style="font-family: monospace; font-size: 14px; font-weight: bold; color: #10b981; margin-top: 2px;">📞 ${phone}</div>
             <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">
-              Device: ${job.device?.brand || ''} ${job.device?.model || 'Device'} • Total: ₹${Number(job.total_amount || 0).toLocaleString()}
+              Device: ${job.device?.brand || ""} ${job.device?.model || "Device"} • Total: ₹${Number(job.total_amount || 0).toLocaleString()}
             </div>
           </div>
           <p style="font-size: 11px; opacity: 0.7; margin: 0;">Dispatches via WhatsApp & Email with vector PDF invoice attached.</p>
         </div>
       `,
-      icon: 'question',
+      icon: "question",
       showCancelButton: true,
-      confirmButtonText: 'Yes, Send Invoice',
-      confirmButtonColor: '#10b981',
-      cancelButtonColor: '#64748b',
+      confirmButtonText: "Yes, Send Invoice",
+      confirmButtonColor: "#10b981",
+      cancelButtonColor: "#64748b",
     });
 
     if (result.isConfirmed) {
       const toastId = toast.loading(`Sending invoice to ${phone}...`);
       try {
-        await invoiceService.resendInvoice(job.id, ['EMAIL', 'WHATSAPP']);
-        toast.success(`Invoice sent to ${phone} successfully!`, { id: toastId });
+        await invoiceService.resendInvoice(job.id, ["EMAIL", "WHATSAPP"]);
+        toast.success(`Invoice sent to ${phone} successfully!`, {
+          id: toastId,
+        });
       } catch (err) {
-        toast.error(err.response?.data?.message || err.message || 'Failed to send invoice', { id: toastId });
+        toast.error(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to send invoice",
+          { id: toastId },
+        );
       }
     }
   };
@@ -418,14 +444,14 @@ export const JobList = () => {
   const handleOpenDirectSendModal = (e, job) => {
     e.stopPropagation();
     setDirectSendJob(job);
-    setDirectPhone(job.customer?.phone || job.customer?.whatsapp_number || '');
+    setDirectPhone(job.customer?.phone || job.customer?.whatsapp_number || "");
     setIsDirectSendOpen(true);
   };
 
   const handleCloseDirectSendModal = () => {
     setIsDirectSendOpen(false);
     setDirectSendJob(null);
-    setDirectPhone('');
+    setDirectPhone("");
   };
 
   // 3. Send invoice to custom typed number
@@ -433,23 +459,31 @@ export const JobList = () => {
     if (e) e.preventDefault();
     if (!directSendJob) return;
 
-    const cleanDigits = directPhone.replace(/\D/g, '');
+    const cleanDigits = directPhone.replace(/\D/g, "");
     if (cleanDigits.length < 10) {
-      toast.error('Please enter a valid mobile number (at least 10 digits)');
+      toast.error("Please enter a valid mobile number (at least 10 digits)");
       return;
     }
 
     try {
       setIsSendingDirect(true);
-      const toastId = toast.loading(`Dispatching invoice to ${directPhone.trim()}...`);
+      const toastId = toast.loading(
+        `Dispatching invoice to ${directPhone.trim()}...`,
+      );
       await invoiceService.resendInvoice(directSendJob.id, {
         targetPhone: directPhone.trim(),
-        channels: ['WHATSAPP'],
+        channels: ["WHATSAPP"],
       });
-      toast.success(`Invoice sent to ${directPhone.trim()} successfully!`, { id: toastId });
+      toast.success(`Invoice sent to ${directPhone.trim()} successfully!`, {
+        id: toastId,
+      });
       handleCloseDirectSendModal();
     } catch (err) {
-      toast.error(err.response?.data?.message || err.message || 'Failed to send invoice to direct number');
+      toast.error(
+        err.response?.data?.message ||
+          err.message ||
+          "Failed to send invoice to direct number",
+      );
     } finally {
       setIsSendingDirect(false);
     }
@@ -469,7 +503,7 @@ export const JobList = () => {
             Browse, search, and manage all active and archived service tickets
           </p>
         </div>
-        <Button icon={Plus} onClick={() => navigate('/jobs/new')}>
+        <Button icon={Plus} onClick={() => navigate("/jobs/new")}>
           Create Job Sheet
         </Button>
       </div>
@@ -484,10 +518,11 @@ export const JobList = () => {
               <button
                 key={tab.key}
                 onClick={() => handleStatusChange(tab.key)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${active
-                  ? 'bg-[#0071e3] text-white shadow-sm font-semibold'
-                  : 'text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]'
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all duration-150 cursor-pointer active:scale-95 ${
+                  active
+                    ? "bg-[#0071e3] text-white shadow-sm font-semibold"
+                    : "text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] hover:bg-[var(--spatial-bg-card-subtle)]"
+                }`}
               >
                 {tab.label}
               </button>
@@ -497,7 +532,10 @@ export const JobList = () => {
 
         {/* Search input, Date Filter & Sort */}
         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pt-0.5">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-md">
+          <form
+            onSubmit={handleSearchSubmit}
+            className="relative flex-1 max-w-md"
+          >
             <Search className="w-3.5 h-3.5 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
@@ -510,10 +548,10 @@ export const JobList = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setSearchInput('');
+                  setSearchInput("");
                   const params = new URLSearchParams(searchParams);
-                  params.delete('search');
-                  params.set('page', '1');
+                  params.delete("search");
+                  params.set("page", "1");
                   setSearchParams(params);
                 }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-md transition-colors cursor-pointer"
@@ -541,17 +579,17 @@ export const JobList = () => {
                 <SpatialSelect
                   value={`${currentSort}:${currentDir}`}
                   onChange={(val) => {
-                    const [sortBy, sortDir] = val.split(':');
+                    const [sortBy, sortDir] = val.split(":");
                     const params = new URLSearchParams(searchParams);
-                    params.set('sortBy', sortBy);
-                    params.set('sortDir', sortDir);
+                    params.set("sortBy", sortBy);
+                    params.set("sortDir", sortDir);
                     setSearchParams(params);
                   }}
                   options={[
-                    { value: 'created_at:desc', label: 'Newest First' },
-                    { value: 'created_at:asc', label: 'Oldest First' },
-                    { value: 'total_amount:desc', label: 'Highest Cost' },
-                    { value: 'total_amount:asc', label: 'Lowest Cost' },
+                    { value: "created_at:desc", label: "Newest First" },
+                    { value: "created_at:asc", label: "Oldest First" },
+                    { value: "total_amount:desc", label: "Highest Cost" },
+                    { value: "total_amount:asc", label: "Lowest Cost" },
                   ]}
                   size="sm"
                   searchable={false}
@@ -572,7 +610,7 @@ export const JobList = () => {
         deleteLabel={`Delete (${selectedIds.length})`}
         customActions={
           <>
-            <button
+            {/* <button
               type="button"
               onClick={() => {
                 const rows = (jobs || []).filter((j) => selectedIds.includes(j.id));
@@ -583,12 +621,16 @@ export const JobList = () => {
             >
               <Truck className="w-3.5 h-3.5 stroke-[2]" />
               <span>Send to Partner ({selectedIds.length})</span>
-            </button>
+            </button> */}
             <button
               type="button"
               onClick={() => {
-                const rows = (jobs || []).filter((j) => selectedIds.includes(j.id));
-                setReceiveRows(rows.length > 0 ? rows : selectedIds.map((id) => ({ id })));
+                const rows = (jobs || []).filter((j) =>
+                  selectedIds.includes(j.id),
+                );
+                setReceiveRows(
+                  rows.length > 0 ? rows : selectedIds.map((id) => ({ id })),
+                );
                 setIsReceiveOpen(true);
               }}
               className="px-3.5 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-[0.98] bg-emerald-600 hover:bg-emerald-700 text-white transition-all"
@@ -608,7 +650,12 @@ export const JobList = () => {
       >
         {loading ? (
           <div className="p-4">
-            <TableSkeleton rows={7} columns={9} showHeader={false} showPagination={false} />
+            <TableSkeleton
+              rows={7}
+              columns={9}
+              showHeader={false}
+              showPagination={false}
+            />
           </div>
         ) : jobs.length === 0 ? (
           <EmptyState
@@ -616,7 +663,7 @@ export const JobList = () => {
             title="No repair jobs found"
             description="No jobs match your search, date, or status criteria. Try clearing filters or create a new job."
             actionLabel="Create Job Sheet"
-            onAction={() => navigate('/jobs/new')}
+            onAction={() => navigate("/jobs/new")}
           />
         ) : (
           <div className="spatial-tab-pane">
@@ -627,7 +674,10 @@ export const JobList = () => {
                     <th className="w-10 px-4 py-3 text-center whitespace-nowrap">
                       <input
                         type="checkbox"
-                        checked={jobs.length > 0 && jobs.every((j) => selectedIds.includes(j.id))}
+                        checked={
+                          jobs.length > 0 &&
+                          jobs.every((j) => selectedIds.includes(j.id))
+                        }
                         onChange={toggleSelectAll}
                         aria-label="Select all on this page"
                         className="w-4 h-4 rounded text-[#0071e3] cursor-pointer accent-[#0071e3]"
@@ -635,17 +685,33 @@ export const JobList = () => {
                     </th>
                     <th className="px-5 py-3 whitespace-nowrap">Job Number</th>
                     <th className="px-5 py-3 whitespace-nowrap">Customer</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Customer Number</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Device & Model</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Complaint / Issue</th>
+                    <th className="px-5 py-3 whitespace-nowrap">
+                      Customer Number
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">
+                      Device & Model
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">
+                      Complaint / Issue
+                    </th>
                     <th className="px-5 py-3 whitespace-nowrap">Status</th>
                     <th className="px-5 py-3 whitespace-nowrap">Partner</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Warranty Claim</th>
-                    <th className="px-5 py-3 whitespace-nowrap">Warranty Status</th>
-                    <th className="px-5 py-3 text-right whitespace-nowrap">Estimate</th>
-                    <th className="px-5 py-3 text-right whitespace-nowrap">Balance</th>
+                    <th className="px-5 py-3 whitespace-nowrap">
+                      Warranty Claim
+                    </th>
+                    <th className="px-5 py-3 whitespace-nowrap">
+                      Warranty Status
+                    </th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">
+                      Estimate
+                    </th>
+                    <th className="px-5 py-3 text-right whitespace-nowrap">
+                      Balance
+                    </th>
                     <th className="px-5 py-3 whitespace-nowrap">Date</th>
-                    <th className="px-5 py-3 text-center whitespace-nowrap">Action</th>
+                    <th className="px-5 py-3 text-center whitespace-nowrap">
+                      Action
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--spatial-border)]">
@@ -658,10 +724,10 @@ export const JobList = () => {
                         onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
                         className={`transition-colors cursor-pointer ${
                           isSelected
-                            ? 'bg-blue-500/[0.08]'
+                            ? "bg-blue-500/[0.08]"
                             : hasPendingBalance
-                              ? 'bg-rose-500/[0.07] hover:bg-rose-500/[0.14] dark:bg-rose-500/10 dark:hover:bg-rose-500/20'
-                              : 'hover:bg-[var(--spatial-bg-card-subtle)]/70'
+                              ? "bg-rose-500/[0.07] hover:bg-rose-500/[0.14] dark:bg-rose-500/10 dark:hover:bg-rose-500/20"
+                              : "hover:bg-[var(--spatial-bg-card-subtle)]/70"
                         }`}
                       >
                         <td
@@ -681,19 +747,24 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className="font-medium text-[var(--spatial-text-title)]">
-                            {job.customer?.full_name || 'Walk-in Customer'}
+                            {job.customer?.full_name || "Walk-in Customer"}
                           </span>
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap tabular-nums text-[11px] text-[var(--spatial-text-body)]">
-                          {job.customer?.phone || job.customer?.whatsapp_number || '—'}
+                          {job.customer?.phone ||
+                            job.customer?.whatsapp_number ||
+                            "—"}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span className="font-medium text-[var(--spatial-text-title)]">
                             {job.device?.brand} {job.device?.model}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-[var(--spatial-text-body)] whitespace-nowrap max-w-sm truncate" title={job.customer_complaint}>
-                          {job.customer_complaint || '—'}
+                        <td
+                          className="px-5 py-3.5 text-[var(--spatial-text-body)] whitespace-nowrap max-w-sm truncate"
+                          title={job.customer_complaint}
+                        >
+                          {job.customer_complaint || "—"}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <Badge status={job.status} />
@@ -703,16 +774,22 @@ export const JobList = () => {
                           {(() => {
                             const v = vendorMap[job.id];
                             if (!v) {
-                              return <span className="text-[11px] text-[var(--spatial-text-muted)] opacity-40">—</span>;
+                              return (
+                                <span className="text-[11px] text-[var(--spatial-text-muted)] opacity-40">
+                                  —
+                                </span>
+                              );
                             }
                             if (v.at_vendor) {
                               return (
                                 <span
                                   className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-500/15 border border-violet-500/40 text-violet-700 dark:text-violet-300 text-[11px] font-semibold shadow-2xs"
-                                  title={`At ${v.vendor_name}${v.vendor_shop ? ' · ' + v.vendor_shop : ''}${v.status ? ' · ' + v.status : ''}`}
+                                  title={`At ${v.vendor_name}${v.vendor_shop ? " · " + v.vendor_shop : ""}${v.status ? " · " + v.status : ""}`}
                                 >
                                   <Truck className="w-3 h-3 shrink-0" />
-                                  <span className="max-w-[130px] truncate">{v.vendor_name}</span>
+                                  <span className="max-w-[130px] truncate">
+                                    {v.vendor_name}
+                                  </span>
                                 </span>
                               );
                             }
@@ -722,13 +799,16 @@ export const JobList = () => {
                                 title="Returned from partner"
                               >
                                 <PackageCheck className="w-3 h-3 shrink-0" />
-                                <span className="max-w-[110px] truncate">{v.vendor_name}</span>
+                                <span className="max-w-[110px] truncate">
+                                  {v.vendor_name}
+                                </span>
                               </span>
                             );
                           })()}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          {job.is_warranty_claim || (job.reopen_count && job.reopen_count > 0) ? (
+                          {job.is_warranty_claim ||
+                          (job.reopen_count && job.reopen_count > 0) ? (
                             <span
                               className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 whitespace-nowrap"
                               title={`Warranty Claim #${job.reopen_count || 1}`}
@@ -737,16 +817,20 @@ export const JobList = () => {
                               Warranty #{job.reopen_count || 1}
                             </span>
                           ) : (
-                            <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>
+                            <span className="text-[11px] text-[var(--spatial-text-muted)]">
+                              —
+                            </span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           {(() => {
-                            const totalDays = job.warranty_days !== undefined && job.warranty_days !== null
-                              ? Number(job.warranty_days)
-                              : 0;
+                            const totalDays =
+                              job.warranty_days !== undefined &&
+                              job.warranty_days !== null
+                                ? Number(job.warranty_days)
+                                : 0;
 
-                            if (job.status === 'DELIVERED') {
+                            if (job.status === "DELIVERED") {
                               if (totalDays <= 0) {
                                 return (
                                   <span className="text-[11px] text-[var(--spatial-text-muted)] font-normal">
@@ -754,9 +838,17 @@ export const JobList = () => {
                                   </span>
                                 );
                               }
-                              const deliveryDate = new Date(job.delivered_at || job.updated_at);
-                              const elapsed = Math.floor((new Date() - deliveryDate) / (1000 * 60 * 60 * 24));
-                              const remaining = Math.max(0, totalDays - elapsed);
+                              const deliveryDate = new Date(
+                                job.delivered_at || job.updated_at,
+                              );
+                              const elapsed = Math.floor(
+                                (new Date() - deliveryDate) /
+                                  (1000 * 60 * 60 * 24),
+                              );
+                              const remaining = Math.max(
+                                0,
+                                totalDays - elapsed,
+                              );
                               if (remaining > 0) {
                                 return (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 whitespace-nowrap">
@@ -772,11 +864,23 @@ export const JobList = () => {
                               );
                             }
 
-                            if (['CANCELLED', 'REJECTED'].includes(job.status)) {
-                              return <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>;
+                            if (
+                              ["CANCELLED", "REJECTED"].includes(job.status)
+                            ) {
+                              return (
+                                <span className="text-[11px] text-[var(--spatial-text-muted)]">
+                                  —
+                                </span>
+                              );
                             }
 
-                            const hasEstimateStage = ['ESTIMATE_SENT', 'APPROVED', 'IN_PROGRESS', 'TESTING', 'READY_FOR_PICKUP'].includes(job.status);
+                            const hasEstimateStage = [
+                              "ESTIMATE_SENT",
+                              "APPROVED",
+                              "IN_PROGRESS",
+                              "TESTING",
+                              "READY_FOR_PICKUP",
+                            ].includes(job.status);
                             if (totalDays > 0 && hasEstimateStage) {
                               return (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 font-medium whitespace-nowrap">
@@ -786,7 +890,11 @@ export const JobList = () => {
                               );
                             }
 
-                            return <span className="text-[11px] text-[var(--spatial-text-muted)]">—</span>;
+                            return (
+                              <span className="text-[11px] text-[var(--spatial-text-muted)]">
+                                —
+                              </span>
+                            );
                           })()}
                         </td>
                         <td className="px-5 py-3.5 text-right font-medium text-[var(--spatial-text-title)] whitespace-nowrap tabular-nums">
@@ -794,23 +902,34 @@ export const JobList = () => {
                         </td>
                         <td className="px-5 py-3.5 text-right font-semibold whitespace-nowrap tabular-nums">
                           {job.balance_due > 0 ? (
-                            <span className="text-rose-500 dark:text-rose-400">₹{Number(job.balance_due).toLocaleString()}</span>
+                            <span className="text-rose-500 dark:text-rose-400">
+                              ₹{Number(job.balance_due).toLocaleString()}
+                            </span>
                           ) : (
-                            <span className="text-emerald-600 dark:text-emerald-400">₹0</span>
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              ₹0
+                            </span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-[var(--spatial-text-muted)] whitespace-nowrap tabular-nums text-[11px]">
                           {formatDate(job.created_at)}
                         </td>
-                        <td className="px-5 py-3.5 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <td
+                          className="px-5 py-3.5 text-center whitespace-nowrap"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           <div className="flex items-center justify-center gap-1">
                             {/* Reopen Job Sheet */}
-                            {['DELIVERED', 'REJECTED'].includes(job.status) ? (
+                            {["DELIVERED", "REJECTED"].includes(job.status) ? (
                               <button
                                 type="button"
                                 onClick={(e) => handleQuickReopen(e, job)}
                                 className="inline-flex items-center justify-center w-7 h-7 text-[var(--spatial-text-muted)] hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
-                                title={job.status === 'DELIVERED' ? 'Reopen Job (Warranty Claim)' : 'Reopen Repair Job'}
+                                title={
+                                  job.status === "DELIVERED"
+                                    ? "Reopen Job (Warranty Claim)"
+                                    : "Reopen Repair Job"
+                                }
                               >
                                 <RotateCcw className="w-4 h-4" />
                               </button>
@@ -821,12 +940,15 @@ export const JobList = () => {
                             {/* Resend Invoice to Customer Number */}
                             <button
                               type="button"
-                              onClick={(e) => handleResendCustomerInvoice(e, job)}
+                              onClick={(e) =>
+                                handleResendCustomerInvoice(e, job)
+                              }
                               className="inline-flex items-center justify-center w-7 h-7 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title={
-                                job.customer?.phone || job.customer?.whatsapp_number
+                                job.customer?.phone ||
+                                job.customer?.whatsapp_number
                                   ? `Resend Invoice to ${job.customer?.phone || job.customer?.whatsapp_number}`
-                                  : 'Resend Invoice to Customer Number'
+                                  : "Resend Invoice to Customer Number"
                               }
                             >
                               <Send className="w-4 h-4" />
@@ -835,7 +957,9 @@ export const JobList = () => {
                             {/* Record Payment / Open Payment Ledger */}
                             <button
                               type="button"
-                              onClick={() => navigate(`/jobs/${job.id}?tab=payments`)}
+                              onClick={() =>
+                                navigate(`/jobs/${job.id}?tab=payments`)
+                              }
                               className="inline-flex items-center justify-center w-7 h-7 text-[var(--spatial-text-muted)] hover:text-emerald-500 hover:bg-emerald-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Record Payment / Open Payments Tab"
                             >
@@ -845,7 +969,9 @@ export const JobList = () => {
                             {/* View / Edit Job Sheet */}
                             <button
                               type="button"
-                              onClick={() => navigate(`/jobs/${job.id}?tab=estimate`)}
+                              onClick={() =>
+                                navigate(`/jobs/${job.id}?tab=estimate`)
+                              }
                               className="inline-flex items-center justify-center w-7 h-7 text-[var(--spatial-text-muted)] hover:text-[#0071e3] hover:bg-blue-500/10 rounded-lg transition-all active:scale-95 cursor-pointer"
                               title="Open Job Sheet (Parts & Estimate)"
                             >
@@ -874,133 +1000,161 @@ export const JobList = () => {
       </Card>
 
       {/* Direct Number Send Invoice Modal */}
-      {isDirectSendOpen && directSendJob && createPortal(
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={handleCloseDirectSendModal}
-          />
-          <div className="relative w-full max-w-md bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] rounded-2xl shadow-2xl p-5 sm:p-6 animate-in fade-in zoom-in duration-150">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-[var(--spatial-border)]">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
-                  <PhoneForwarded className="w-5 h-5" />
+      {isDirectSendOpen &&
+        directSendJob &&
+        createPortal(
+          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+            <div
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={handleCloseDirectSendModal}
+            />
+            <div className="relative w-full max-w-md bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] rounded-2xl shadow-2xl p-5 sm:p-6 animate-in fade-in zoom-in duration-150">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between pb-4 border-b border-[var(--spatial-border)]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 flex items-center justify-center">
+                    <PhoneForwarded className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-base">
+                      Send Invoice to Direct Number
+                    </h3>
+                    <p className="text-xs text-[var(--spatial-text-muted)]">
+                      Job #{directSendJob.job_number} •{" "}
+                      {directSendJob.customer?.full_name || "Walk-in Customer"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseDirectSendModal}
+                  className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
+                  title="Close"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Job Details Pill */}
+              <div className="mt-4 p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] flex items-center justify-between text-xs">
+                <div>
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">
+                    Device
+                  </span>
+                  <span className="font-medium text-[var(--spatial-text-title)]">
+                    {directSendJob.device?.brand}{" "}
+                    {directSendJob.device?.model || "Device"}
+                  </span>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-base">Send Invoice to Direct Number</h3>
-                  <p className="text-xs text-[var(--spatial-text-muted)]">
-                    Job #{directSendJob.job_number} • {directSendJob.customer?.full_name || 'Walk-in Customer'}
-                  </p>
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">
+                    Status
+                  </span>
+                  <Badge status={directSendJob.status} />
+                </div>
+                <div className="text-right">
+                  <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">
+                    Total Amount
+                  </span>
+                  <span className="font-semibold text-emerald-500">
+                    ₹{Number(directSendJob.total_amount || 0).toLocaleString()}
+                  </span>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleCloseDirectSendModal}
-                className="p-1.5 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] rounded-lg hover:bg-[var(--spatial-bg-card-subtle)] transition-colors cursor-pointer"
-                title="Close"
+
+              {/* Form */}
+              <form
+                onSubmit={handleSendDirectInvoice}
+                className="mt-4 space-y-4"
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Job Details Pill */}
-            <div className="mt-4 p-3 bg-[var(--spatial-bg-card-subtle)] rounded-xl border border-[var(--spatial-border)] flex items-center justify-between text-xs">
-              <div>
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Device</span>
-                <span className="font-medium text-[var(--spatial-text-title)]">
-                  {directSendJob.device?.brand} {directSendJob.device?.model || 'Device'}
-                </span>
-              </div>
-              <div>
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Status</span>
-                <Badge status={directSendJob.status} />
-              </div>
-              <div className="text-right">
-                <span className="text-[var(--spatial-text-muted)] block text-[10px] uppercase font-semibold">Total Amount</span>
-                <span className="font-semibold text-emerald-500">
-                  ₹{Number(directSendJob.total_amount || 0).toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Form */}
-            <form onSubmit={handleSendDirectInvoice} className="mt-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-[var(--spatial-text-title)] mb-1.5">
-                  Recipient Mobile / WhatsApp Number <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="tel"
-                    value={directPhone}
-                    onChange={(e) => setDirectPhone(e.target.value)}
-                    placeholder="Enter 10-digit phone number (e.g. 9876543210)"
-                    autoFocus
-                    className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
-                  />
-                </div>
-                <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
-                  Enter any direct phone number to dispatch this repair job's official invoice PDF & service details.
-                </p>
-
-                {/* Customer's saved numbers if available for quick filling */}
-                {(directSendJob.customer?.phone || directSendJob.customer?.whatsapp_number) && (
-                  <div className="flex items-center gap-2 mt-2 flex-wrap">
-                    <span className="text-[10px] text-[var(--spatial-text-muted)]">Saved:</span>
-                    {directSendJob.customer?.phone && (
-                      <button
-                        type="button"
-                        onClick={() => setDirectPhone(directSendJob.customer.phone)}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
-                        title="Click to copy saved customer phone"
-                      >
-                        {directSendJob.customer.phone}
-                      </button>
-                    )}
-                    {directSendJob.customer?.whatsapp_number && directSendJob.customer.whatsapp_number !== directSendJob.customer?.phone && (
-                      <button
-                        type="button"
-                        onClick={() => setDirectPhone(directSendJob.customer.whatsapp_number)}
-                        className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
-                        title="Click to copy saved WhatsApp number"
-                      >
-                        WA: {directSendJob.customer.whatsapp_number}
-                      </button>
-                    )}
+                <div>
+                  <label className="block text-xs font-medium text-[var(--spatial-text-title)] mb-1.5">
+                    Recipient Mobile / WhatsApp Number{" "}
+                    <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-[var(--spatial-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="tel"
+                      value={directPhone}
+                      onChange={(e) => setDirectPhone(e.target.value)}
+                      placeholder="Enter 10-digit phone number (e.g. 9876543210)"
+                      autoFocus
+                      className="w-full pl-9 pr-4 py-2.5 text-xs rounded-xl border border-[var(--spatial-border)] bg-[var(--spatial-bg-card-subtle)] text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-[#0071e3]/40"
+                    />
                   </div>
-                )}
-              </div>
+                  <p className="text-[11px] text-[var(--spatial-text-muted)] mt-1.5">
+                    Enter any direct phone number to dispatch this repair job's
+                    official invoice PDF & service details.
+                  </p>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--spatial-border)]">
-                <div className="flex items-center justify-end w-full gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCloseDirectSendModal}
-                    disabled={isSendingDirect}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    icon={Send}
-                    loading={isSendingDirect}
-                    disabled={!directPhone.trim() || isSendingDirect}
-                  >
-                    Send Invoice
-                  </Button>
+                  {/* Customer's saved numbers if available for quick filling */}
+                  {(directSendJob.customer?.phone ||
+                    directSendJob.customer?.whatsapp_number) && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <span className="text-[10px] text-[var(--spatial-text-muted)]">
+                        Saved:
+                      </span>
+                      {directSendJob.customer?.phone && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDirectPhone(directSendJob.customer.phone)
+                          }
+                          className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-blue-500/10 text-[#0071e3] dark:text-[#0a84ff] border border-blue-500/20 hover:bg-blue-500/20 transition-all cursor-pointer"
+                          title="Click to copy saved customer phone"
+                        >
+                          {directSendJob.customer.phone}
+                        </button>
+                      )}
+                      {directSendJob.customer?.whatsapp_number &&
+                        directSendJob.customer.whatsapp_number !==
+                          directSendJob.customer?.phone && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setDirectPhone(
+                                directSendJob.customer.whatsapp_number,
+                              )
+                            }
+                            className="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all cursor-pointer"
+                            title="Click to copy saved WhatsApp number"
+                          >
+                            WA: {directSendJob.customer.whatsapp_number}
+                          </button>
+                        )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            </form>
-          </div>
-        </div>,
-        document.body
-      )}
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--spatial-border)]">
+                  <div className="flex items-center justify-end w-full gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCloseDirectSendModal}
+                      disabled={isSendingDirect}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      icon={Send}
+                      loading={isSendingDirect}
+                      disabled={!directPhone.trim() || isSendingDirect}
+                    >
+                      Send Invoice
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>,
+          document.body,
+        )}
 
       {/* Send to Specialist Partner Modal (migration 005) */}
       {isSendToVendorOpen && (
@@ -1010,7 +1164,7 @@ export const JobList = () => {
           jobIds={sendToVendorRows.map((r) => r.id)}
           jobLabel={
             sendToVendorRows.length === 1
-              ? sendToVendorRows[0].job_number || ''
+              ? sendToVendorRows[0].job_number || ""
               : `${sendToVendorRows.length} jobs`
           }
           onSuccess={() => {
@@ -1026,9 +1180,15 @@ export const JobList = () => {
           open={isReceiveOpen}
           onClose={() => setIsReceiveOpen(false)}
           jobIds={receiveRows.map((r) => r.id)}
-          jobLabel={receiveRows.length === 1 ? receiveRows[0].job_number || '' : `${receiveRows.length} jobs`}
+          jobLabel={
+            receiveRows.length === 1
+              ? receiveRows[0].job_number || ""
+              : `${receiveRows.length} jobs`
+          }
           vendorName={
-            receiveRows.length === 1 ? vendorMap[receiveRows[0].id]?.vendor_name || '' : ''
+            receiveRows.length === 1
+              ? vendorMap[receiveRows[0].id]?.vendor_name || ""
+              : ""
           }
           onSuccess={() => {
             setSelectedIds([]);

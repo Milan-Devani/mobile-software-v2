@@ -28,11 +28,11 @@ router.post('/public/:token/continue', publicReviewRateLimiter, continuePublicGo
 // ==========================================
 // ADMIN MANAGEMENT ROUTES (AUTHENTICATED)
 // ==========================================
-router.get('/settings', authenticateToken, requireRoles(['admin', 'staff']), getReviewSettings);
+router.get('/settings', authenticateToken, requireRoles(['admin', 'developer', 'staff']), getReviewSettings);
 router.put('/settings', authenticateToken, requireAdmin, updateReviewSettings);
-router.get('/dashboard', authenticateToken, requireRoles(['admin', 'staff']), getReviewDashboard);
-router.get('/requests', authenticateToken, requireRoles(['admin', 'staff']), getReviewRequests);
-router.post('/requests/:id/retry', authenticateToken, requireRoles(['admin', 'staff']), retryReviewRequest);
+router.get('/dashboard', authenticateToken, requireRoles(['admin', 'developer', 'staff']), getReviewDashboard);
+router.get('/requests', authenticateToken, requireRoles(['admin', 'developer', 'staff']), getReviewRequests);
+router.post('/requests/:id/retry', authenticateToken, requireRoles(['admin', 'developer', 'staff']), retryReviewRequest);
 router.post('/requests/:id/revoke', authenticateToken, requireAdmin, revokeReviewRequest);
 
 export default router;

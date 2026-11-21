@@ -1264,16 +1264,17 @@ export const JobDetail = () => {
                 Receive Back
               </Button>
             ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Truck}
-                onClick={() => setIsSendToVendorOpen(true)}
-                title="Send this device to a specialist partner"
-                className="border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 font-medium"
-              >
-                Send to Partner
-              </Button>
+              // <Button
+              //   variant="outline"
+              //   size="sm"
+              //   icon={Truck}
+              //   onClick={() => setIsSendToVendorOpen(true)}
+              //   title="Send this device to a specialist partner"
+              //   className="border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 font-medium"
+              // >
+              //   Send to Partner
+              // </Button>
+              <></>
             )
           )}
 

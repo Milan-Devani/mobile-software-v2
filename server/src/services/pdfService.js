@@ -1,28 +1,34 @@
-import { getAllWarrantyClaims } from '../utils/warrantyUtils.js';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { spawn, execSync } from 'child_process';
-import QRCode from 'qrcode';
-import axios from 'axios';
-import { INWARD_CHECKLIST_CONFIG, resolveChecklistValue } from '../utils/checklistConstants.js';
+import { getAllWarrantyClaims } from "../utils/warrantyUtils.js";
+import fs from "fs";
+import path from "path";
+import os from "os";
+import { spawn, execSync } from "child_process";
+import QRCode from "qrcode";
+import axios from "axios";
+import {
+  INWARD_CHECKLIST_CONFIG,
+  resolveChecklistValue,
+} from "../utils/checklistConstants.js";
 
 /**
  * Converts local or remote image URLs to inlined base64 data URIs
  * so Chromium headless renders them immediately without network delays or local file resolution failures.
  */
 export async function imageSourceToDataUrl(source) {
-  if (!source || typeof source !== 'string') return '';
+  if (!source || typeof source !== "string") return "";
   const trimmed = source.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('data:image/')) return trimmed;
+  if (!trimmed) return "";
+  if (trimmed.startsWith("data:image/")) return trimmed;
 
   // 1. Check if it's a local upload in server/uploads or relative path
-  const uploadsDir = path.resolve(process.cwd(), 'uploads');
-  let localFilename = '';
-  if (trimmed.includes('/uploads/')) {
-    localFilename = trimmed.split('/uploads/')[1].split('?')[0];
-  } else if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+  const uploadsDir = path.resolve(process.cwd(), "uploads");
+  let localFilename = "";
+  if (trimmed.includes("/uploads/")) {
+    localFilename = trimmed.split("/uploads/")[1].split("?")[0];
+  } else if (
+    !trimmed.startsWith("http://") &&
+    !trimmed.startsWith("https://")
+  ) {
     localFilename = trimmed;
   }
 
@@ -32,68 +38,107 @@ export async function imageSourceToDataUrl(source) {
       try {
         const ext = path.extname(fullLocalPath).toLowerCase();
         const mimeMap = {
-          '.png': 'image/png',
-          '.jpg': 'image/jpeg',
-          '.jpeg': 'image/jpeg',
-          '.webp': 'image/webp',
-          '.svg': 'image/svg+xml',
-          '.gif': 'image/gif',
+          ".png": "image/png",
+          ".jpg": "image/jpeg",
+          ".jpeg": "image/jpeg",
+          ".webp": "image/webp",
+          ".svg": "image/svg+xml",
+          ".gif": "image/gif",
         };
-        const mime = mimeMap[ext] || 'image/png';
+        const mime = mimeMap[ext] || "image/png";
         const fileBuf = fs.readFileSync(fullLocalPath);
-        return `data:${mime};base64,${fileBuf.toString('base64')}`;
+        return `data:${mime};base64,${fileBuf.toString("base64")}`;
       } catch (err) {
-        console.warn('⚠️ Error reading local upload image:', err.message);
+        console.warn("⚠️ Error reading local upload image:", err.message);
       }
     }
   }
 
   // 2. If it's an HTTP/HTTPS URL, fetch it and convert to base64 Data URL
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
     try {
       const response = await axios.get(trimmed, {
-        responseType: 'arraybuffer',
+        responseType: "arraybuffer",
         timeout: 5000,
       });
-      const mime = response.headers['content-type'] || 'image/jpeg';
-      const b64 = Buffer.from(response.data).toString('base64');
+      const mime = response.headers["content-type"] || "image/jpeg";
+      const b64 = Buffer.from(response.data).toString("base64");
       return `data:${mime};base64,${b64}`;
     } catch (netErr) {
-      console.warn('⚠️ Error converting image URL to base64 for PDF:', trimmed, netErr.message);
+      console.warn(
+        "⚠️ Error converting image URL to base64 for PDF:",
+        trimmed,
+        netErr.message,
+      );
     }
   }
 
-  return '';
+  return "";
 }
 
 // Code 39 Barcode Generator for crisp vector barcodes in PDF
 const CODE39_PATTERNS = {
-  '0': '000110100', '1': '100100001', '2': '001100001', '3': '101100000',
-  '4': '000110001', '5': '100110000', '6': '001110000', '7': '000100101',
-  '8': '100100100', '9': '001100100', 'A': '100001001', 'B': '001001001',
-  'C': '101001000', 'D': '000011001', 'E': '100011000', 'F': '001011000',
-  'G': '000001101', 'H': '100001100', 'I': '001001100', 'J': '000011100',
-  'K': '100000011', 'L': '001000011', 'M': '101000010', 'N': '000010011',
-  'O': '100010010', 'P': '001010010', 'Q': '000000111', 'R': '100000110',
-  'S': '001000110', 'T': '000010110', 'U': '110000001', 'V': '011000001',
-  'W': '111000000', 'X': '010010001', 'Y': '110010000', 'Z': '011010000',
-  '-': '010000101', '.': '110000100', ' ': '011000100', '$': '010101000',
-  '/': '010100010', '+': '010001010', '%': '000101010', '*': '010010100'
+  0: "000110100",
+  1: "100100001",
+  2: "001100001",
+  3: "101100000",
+  4: "000110001",
+  5: "100110000",
+  6: "001110000",
+  7: "000100101",
+  8: "100100100",
+  9: "001100100",
+  A: "100001001",
+  B: "001001001",
+  C: "101001000",
+  D: "000011001",
+  E: "100011000",
+  F: "001011000",
+  G: "000001101",
+  H: "100001100",
+  I: "001001100",
+  J: "000011100",
+  K: "100000011",
+  L: "001000011",
+  M: "101000010",
+  N: "000010011",
+  O: "100010010",
+  P: "001010010",
+  Q: "000000111",
+  R: "100000110",
+  S: "001000110",
+  T: "000010110",
+  U: "110000001",
+  V: "011000001",
+  W: "111000000",
+  X: "010010001",
+  Y: "110010000",
+  Z: "011010000",
+  "-": "010000101",
+  ".": "110000100",
+  " ": "011000100",
+  $: "010101000",
+  "/": "010100010",
+  "+": "010001010",
+  "%": "000101010",
+  "*": "010010100",
 };
 
-function generateBarcodeSvg(val, height = 20, align = 'right') {
-  const clean = (val || 'REF12345').toUpperCase().replace(/[^A-Z0-9\-. $/+%]/g, '-');
+function generateBarcodeSvg(val, height = 20, align = "right") {
+  const clean = (val || "REF12345")
+    .toUpperCase()
+    .replace(/[^A-Z0-9\-. $/+%]/g, "-");
   const full = `*${clean}*`;
   let currentX = 0;
   const narrow = 1.0;
   const wide = 2.4;
   const interGap = 1.0;
-  let rects = '';
+  let rects = "";
   for (let i = 0; i < full.length; i++) {
-    const pattern = CODE39_PATTERNS[full[i]] || CODE39_PATTERNS['-'];
+    const pattern = CODE39_PATTERNS[full[i]] || CODE39_PATTERNS["-"];
     for (let p = 0; p < pattern.length; p++) {
       const isBar = p % 2 === 0;
-      const isWide = pattern[p] === '1';
+      const isWide = pattern[p] === "1";
       const w = isWide ? wide : narrow;
       if (isBar) {
         rects += `<rect x="${currentX}" y="0" width="${w}" height="${height}" fill="#000" shape-rendering="crispEdges"/>`;
@@ -104,7 +149,7 @@ function generateBarcodeSvg(val, height = 20, align = 'right') {
   }
   const totalW = Math.max(110, currentX);
   return `
-    <div style="display:inline-flex; flex-direction:column; align-items:${align === 'right' ? 'flex-end' : align === 'left' ? 'flex-start' : 'center'};">
+    <div style="display:inline-flex; flex-direction:column; align-items:${align === "right" ? "flex-end" : align === "left" ? "flex-start" : "center"};">
       <svg viewBox="0 0 ${totalW} ${height}" style="height:${height}px; width:auto; max-width:160px; display:block;" shape-rendering="crispEdges">
         ${rects}
       </svg>
@@ -121,7 +166,8 @@ function generateBarcodeSvg(val, height = 20, align = 'right') {
 let cachedBrowserBinary = null;
 
 function findBrowserBinary() {
-  if (cachedBrowserBinary && fs.existsSync(cachedBrowserBinary)) return cachedBrowserBinary;
+  if (cachedBrowserBinary && fs.existsSync(cachedBrowserBinary))
+    return cachedBrowserBinary;
   cachedBrowserBinary = locateBrowserBinary();
   return cachedBrowserBinary;
 }
@@ -130,15 +176,15 @@ function locateBrowserBinary() {
   const candidatePaths = [
     process.env.CHROME_BIN,
     process.env.PUPPETEER_EXECUTABLE_PATH,
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    '/usr/bin/chromium',
-    '/usr/bin/chromium-browser',
-    '/snap/bin/chromium',
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+    "/snap/bin/chromium",
   ].filter(Boolean);
 
   for (const p of candidatePaths) {
@@ -146,9 +192,12 @@ function locateBrowserBinary() {
   }
 
   // Check 'which' command on Linux / Unix systems
-  if (process.platform !== 'win32') {
+  if (process.platform !== "win32") {
     try {
-      const whichOutput = execSync('which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || which chrome || which chrome-headless-shell || true', { encoding: 'utf8' }).trim();
+      const whichOutput = execSync(
+        "which google-chrome || which google-chrome-stable || which chromium || which chromium-browser || which chrome || which chrome-headless-shell || true",
+        { encoding: "utf8" },
+      ).trim();
       if (whichOutput && fs.existsSync(whichOutput)) {
         return whichOutput;
       }
@@ -158,25 +207,25 @@ function locateBrowserBinary() {
   // Look for Chrome installed via @puppeteer/browsers in standard project and cache directories
   const homeDir = os.homedir();
   const searchRoots = [
-    path.join(process.cwd(), 'chrome'),
-    path.join(process.cwd(), 'server', 'chrome'),
-    path.join(process.cwd(), '.cache'),
-    path.join(homeDir, '.cache'),
-    path.join(homeDir, '.cache', 'puppeteer'),
-    '/opt/render/.cache',
-    '/opt/render/project/src/server/chrome',
-    '/opt/render/project/src/chrome',
-    '/tmp',
+    path.join(process.cwd(), "chrome"),
+    path.join(process.cwd(), "server", "chrome"),
+    path.join(process.cwd(), ".cache"),
+    path.join(homeDir, ".cache"),
+    path.join(homeDir, ".cache", "puppeteer"),
+    "/opt/render/.cache",
+    "/opt/render/project/src/server/chrome",
+    "/opt/render/project/src/chrome",
+    "/tmp",
   ];
 
   const binaryNames = new Set([
-    'chrome',
-    'chrome.exe',
-    'chrome-headless-shell',
-    'chrome-headless-shell.exe',
-    'chromium',
-    'chromium-browser',
-    'msedge.exe',
+    "chrome",
+    "chrome.exe",
+    "chrome-headless-shell",
+    "chrome-headless-shell.exe",
+    "chromium",
+    "chromium-browser",
+    "msedge.exe",
   ]);
 
   for (const root of searchRoots) {
@@ -189,20 +238,22 @@ function locateBrowserBinary() {
           for (const ent of entries) {
             const fullP = path.join(cur, ent.name);
             if (ent.isDirectory()) {
-              if (!['node_modules', '.git'].includes(ent.name)) {
+              if (!["node_modules", ".git"].includes(ent.name)) {
                 stack.push(fullP);
               }
             } else if (ent.isFile() && binaryNames.has(ent.name)) {
               if (fs.existsSync(fullP)) {
-                if (process.platform !== 'win32') {
-                  try { fs.chmodSync(fullP, 0o755); } catch (_) {}
+                if (process.platform !== "win32") {
+                  try {
+                    fs.chmodSync(fullP, 0o755);
+                  } catch (_) {}
                 }
                 return fullP;
               }
             }
           }
         }
-      } catch (e) { }
+      } catch (e) {}
     }
   }
 
@@ -215,7 +266,7 @@ function runBrowserProcessAsync(browserBinary, args, timeout = 30000) {
     let timer = null;
     try {
       const child = spawn(browserBinary, args, {
-        stdio: 'ignore',
+        stdio: "ignore",
         windowsHide: true,
       });
 
@@ -223,13 +274,13 @@ function runBrowserProcessAsync(browserBinary, args, timeout = 30000) {
         if (!settled) {
           settled = true;
           try {
-            child.kill('SIGKILL');
+            child.kill("SIGKILL");
           } catch (_) {}
           resolve(false);
         }
       }, timeout);
 
-      child.on('error', () => {
+      child.on("error", () => {
         if (!settled) {
           settled = true;
           if (timer) clearTimeout(timer);
@@ -237,7 +288,7 @@ function runBrowserProcessAsync(browserBinary, args, timeout = 30000) {
         }
       });
 
-      child.on('close', (code) => {
+      child.on("close", (code) => {
         if (!settled) {
           settled = true;
           if (timer) clearTimeout(timer);
@@ -254,45 +305,63 @@ function runBrowserProcessAsync(browserBinary, args, timeout = 30000) {
 /**
  * Universal headless HTML to PDF converter with Linux container compatibility (non-blocking)
  */
-async function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout = 30000) {
+async function convertHtmlToPdfWithBrowser(
+  browserBinary,
+  htmlContent,
+  timeout = 30000,
+) {
   const tempId = `pdf_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
   const tmpDir = os.tmpdir();
   const profileDir = path.join(tmpDir, `chrome_profile_${tempId}`);
   const htmlPath = path.join(tmpDir, `${tempId}.html`);
   const pdfPath = path.join(tmpDir, `${tempId}.pdf`);
 
-  await fs.promises.writeFile(htmlPath, htmlContent, 'utf8');
+  await fs.promises.writeFile(htmlPath, htmlContent, "utf8");
 
   try {
     const baseArgs = [
-      '--disable-gpu',
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-software-rasterizer',
-      '--no-pdf-header-footer',
+      "--disable-gpu",
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-software-rasterizer",
+      "--no-pdf-header-footer",
       `--user-data-dir=${profileDir}`,
       `--print-to-pdf=${pdfPath}`,
       htmlPath,
     ];
 
     // Try modern headless first (non-blocking child process)
-    await runBrowserProcessAsync(browserBinary, ['--headless=new', ...baseArgs], timeout);
+    await runBrowserProcessAsync(
+      browserBinary,
+      ["--headless=new", ...baseArgs],
+      timeout,
+    );
 
     if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
       // Fallback to legacy headless mode if needed
-      await runBrowserProcessAsync(browserBinary, ['--headless', ...baseArgs], timeout);
+      await runBrowserProcessAsync(
+        browserBinary,
+        ["--headless", ...baseArgs],
+        timeout,
+      );
     }
 
     if (!fs.existsSync(pdfPath) || fs.statSync(pdfPath).size === 0) {
-      throw new Error('Chromium headless failed to produce PDF output file');
+      throw new Error("Chromium headless failed to produce PDF output file");
     }
 
     return await fs.promises.readFile(pdfPath);
   } finally {
-    try { await fs.promises.unlink(htmlPath); } catch (e) { }
-    try { await fs.promises.unlink(pdfPath); } catch (e) { }
-    try { await fs.promises.rm(profileDir, { recursive: true, force: true }); } catch (e) { }
+    try {
+      await fs.promises.unlink(htmlPath);
+    } catch (e) {}
+    try {
+      await fs.promises.unlink(pdfPath);
+    } catch (e) {}
+    try {
+      await fs.promises.rm(profileDir, { recursive: true, force: true });
+    } catch (e) {}
   }
 }
 
@@ -300,172 +369,377 @@ async function convertHtmlToPdfWithBrowser(browserBinary, htmlContent, timeout =
  * Clean vector PDF fallback generator
  * Generates valid standard PDF 1.4 document when Chromium is unavailable or fails on host
  */
-export function generateFallbackVectorPdfBuffer({ type = 'JOB_SHEET', docNumber, dateStr, shop, customer, device, items = [], totals, complaint, warrantyText }) {
-  const sanitize = (s) => String(s || '').replace(/[()\\\r\n]/g, ' ').slice(0, 85);
+export function generateFallbackVectorPdfBuffer({
+  type = "JOB_SHEET",
+  docNumber,
+  dateStr,
+  shop,
+  customer,
+  device,
+  items = [],
+  totals,
+  complaint,
+  warrantyText,
+}) {
+  const sanitize = (s) =>
+    String(s || "")
+      .replace(/[()\\\r\n]/g, " ")
+      .slice(0, 85);
   const streams = [];
   const add = (cmd) => streams.push(cmd);
 
   // Shop Header
-  add('BT /F2 16 Tf 40 800 Td (' + sanitize(shop?.name || 'MoboTech Mobile Care') + ') Tj ET');
-  add('BT /F1 9 Tf 40 786 Td (' + sanitize(shop?.address || 'Surat, Gujarat') + ' | Tel: ' + sanitize(shop?.phone || '080000 24439') + ') Tj ET');
-  add('0.75 w 40 774 m 555 774 l S');
+  add(
+    "BT /F2 16 Tf 40 800 Td (" +
+      sanitize(shop?.name || "MoboTech Mobile Care") +
+      ") Tj ET",
+  );
+  add(
+    "BT /F1 9 Tf 40 786 Td (" +
+      sanitize(shop?.address || "Surat, Gujarat") +
+      " | Tel: " +
+      sanitize(shop?.phone || "080000 24439") +
+      ") Tj ET",
+  );
+  add("0.75 w 40 774 m 555 774 l S");
 
-  if (type === 'JOB_SHEET') {
+  if (type === "JOB_SHEET") {
     // Title Box
-    add('BT /F2 12 Tf 40 755 Td (SERVICE ORDER / JOB SHEET) Tj ET');
-    add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
-    add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
+    add("BT /F2 12 Tf 40 755 Td (SERVICE ORDER / JOB SHEET) Tj ET");
+    add("BT /F3 11 Tf 380 755 Td (Ref #: " + sanitize(docNumber) + ") Tj ET");
+    add(
+      "BT /F1 9 Tf 380 742 Td (Date: " +
+        sanitize(dateStr || new Date().toLocaleDateString("en-IN")) +
+        ") Tj ET",
+    );
 
     // 1. Customer Information Box
-    add('0.5 w 40 670 515 62 re S');
-    add('BT /F2 9.5 Tf 48 718 Td (1. CUSTOMER INFORMATION) Tj ET');
-    add('0.25 w 40 712 m 555 712 l S');
-    add('BT /F1 8.5 Tf 48 698 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
-    add('BT /F1 8.5 Tf 220 698 Td (Primary Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
-    add('BT /F1 8.5 Tf 380 698 Td (WhatsApp: ' + sanitize(customer?.whatsapp_number || customer?.phone || 'N/A') + ') Tj ET');
-    add('BT /F1 8.5 Tf 48 682 Td (Email: ' + sanitize(customer?.email || 'N/A') + ') Tj ET');
-    add('BT /F1 8.5 Tf 220 682 Td (Alt Contact: ' + sanitize(customer?.alternate_phone || customer?.alternate_whatsapp || 'N/A') + ') Tj ET');
-    add('BT /F1 8.5 Tf 380 682 Td (City: ' + sanitize(customer?.city || 'Surat') + ') Tj ET');
+    add("0.5 w 40 670 515 62 re S");
+    add("BT /F2 9.5 Tf 48 718 Td (1. CUSTOMER INFORMATION) Tj ET");
+    add("0.25 w 40 712 m 555 712 l S");
+    add(
+      "BT /F1 8.5 Tf 48 698 Td (Name: " +
+        sanitize(customer?.full_name || "Customer") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 220 698 Td (Primary Phone: " +
+        sanitize(customer?.phone || "N/A") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 380 698 Td (WhatsApp: " +
+        sanitize(customer?.whatsapp_number || customer?.phone || "N/A") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 48 682 Td (Email: " +
+        sanitize(customer?.email || "N/A") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 220 682 Td (Alt Contact: " +
+        sanitize(
+          customer?.alternate_phone || customer?.alternate_whatsapp || "N/A",
+        ) +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 380 682 Td (City: " +
+        sanitize(customer?.city || "Surat") +
+        ") Tj ET",
+    );
 
     // 2. Device Specifications & Intake Condition Box
-    add('0.5 w 40 588 515 74 re S');
-    add('BT /F2 9.5 Tf 48 648 Td (2. DEVICE SPECIFICATIONS & INTAKE CONDITION) Tj ET');
-    add('0.25 w 40 642 m 555 642 l S');
-    add('BT /F1 8.5 Tf 48 628 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Smartphone')) + ') Tj ET');
-    add('BT /F1 8.5 Tf 220 628 Td (Color/Storage: ' + sanitize((device?.color || 'Standard') + ' ' + (device?.storage_capacity || '')) + ') Tj ET');
-    add('BT /F1 8.5 Tf 380 628 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
-    add('BT /F1 8.5 Tf 48 612 Td (Passcode: ' + sanitize(device?.passcode || 'None') + ') Tj ET');
-    add('BT /F1 8.5 Tf 220 612 Td (Screen State: ' + sanitize(device?.screen_condition || 'Intact') + ') Tj ET');
-    add('BT /F1 8.5 Tf 380 612 Td (Liquid Damage: ' + sanitize(device?.water_damage ? 'YES' : 'NO') + ') Tj ET');
-    add('BT /F1 8.5 Tf 48 596 Td (Cosmetic / Body: ' + sanitize(device?.cosmetic_condition || 'Wear And Tear') + ') Tj ET');
+    add("0.5 w 40 588 515 74 re S");
+    add(
+      "BT /F2 9.5 Tf 48 648 Td (2. DEVICE SPECIFICATIONS & INTAKE CONDITION) Tj ET",
+    );
+    add("0.25 w 40 642 m 555 642 l S");
+    add(
+      "BT /F1 8.5 Tf 48 628 Td (Device: " +
+        sanitize(
+          (device?.brand || "") + " " + (device?.model || "Smartphone"),
+        ) +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 220 628 Td (Color/Storage: " +
+        sanitize(
+          (device?.color || "Standard") +
+            " " +
+            (device?.storage_capacity || ""),
+        ) +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 380 628 Td (IMEI/Serial: " +
+        sanitize(device?.imei || device?.serial_number || "N/A") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 48 612 Td (Passcode: " +
+        sanitize(device?.passcode || "None") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 220 612 Td (Screen State: " +
+        sanitize(device?.screen_condition || "Intact") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 380 612 Td (Liquid Damage: " +
+        sanitize(device?.water_damage ? "YES" : "NO") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 8.5 Tf 48 596 Td (Cosmetic / Body: " +
+        sanitize(device?.cosmetic_condition || "Wear And Tear") +
+        ") Tj ET",
+    );
 
     // 3. Fault Diagnosis & Repair Estimate (3 Columns, NO Shop Warranty Coverage)
-    add('0.5 w 40 496 515 84 re S');
-    add('BT /F2 9.5 Tf 48 566 Td (3. FAULT DIAGNOSIS & REPAIR ESTIMATE) Tj ET');
-    add('0.25 w 40 560 m 555 560 l S');
-    add('BT /F1 8.5 Tf 48 546 Td (Customer Reported Fault: "' + sanitize(complaint || 'Diagnostic Assessment') + '") Tj ET');
-    add('0.25 w 40 538 m 555 538 l S');
+    add("0.5 w 40 496 515 84 re S");
+    add("BT /F2 9.5 Tf 48 566 Td (3. FAULT DIAGNOSIS & REPAIR ESTIMATE) Tj ET");
+    add("0.25 w 40 560 m 555 560 l S");
+    add(
+      'BT /F1 8.5 Tf 48 546 Td (Customer Reported Fault: "' +
+        sanitize(complaint || "Diagnostic Assessment") +
+        '") Tj ET',
+    );
+    add("0.25 w 40 538 m 555 538 l S");
 
     // 3 Financial Columns
-    add('0.25 w 211 496 m 211 538 l S');
-    add('0.25 w 383 496 m 383 538 l S');
-    add('BT /F1 8 Tf 48 524 Td (ESTIMATED TOTAL) Tj ET');
-    add('BT /F2 11 Tf 48 506 Td (Rs. ' + Number(totals?.total || 0).toFixed(2) + ') Tj ET');
-    add('BT /F1 8 Tf 218 524 Td (ADVANCE DEPOSIT) Tj ET');
-    add('BT /F2 11 Tf 218 506 Td (Rs. ' + Number(totals?.paid || 0).toFixed(2) + ') Tj ET');
-    add('BT /F1 8 Tf 390 524 Td (REMAINING DUE) Tj ET');
-    add('BT /F2 11 Tf 390 506 Td (Rs. ' + Number(totals?.balance || 0).toFixed(2) + ') Tj ET');
+    add("0.25 w 211 496 m 211 538 l S");
+    add("0.25 w 383 496 m 383 538 l S");
+    add("BT /F1 8 Tf 48 524 Td (ESTIMATED TOTAL) Tj ET");
+    add(
+      "BT /F2 11 Tf 48 506 Td (Rs. " +
+        Number(totals?.total || 0).toFixed(2) +
+        ") Tj ET",
+    );
+    add("BT /F1 8 Tf 218 524 Td (ADVANCE DEPOSIT) Tj ET");
+    add(
+      "BT /F2 11 Tf 218 506 Td (Rs. " +
+        Number(totals?.paid || 0).toFixed(2) +
+        ") Tj ET",
+    );
+    add("BT /F1 8 Tf 390 524 Td (REMAINING DUE) Tj ET");
+    add(
+      "BT /F2 11 Tf 390 506 Td (Rs. " +
+        Number(totals?.balance || 0).toFixed(2) +
+        ") Tj ET",
+    );
 
     // 4. Terms & Conditions Box
-    add('0.5 w 40 240 515 248 re S');
-    add('BT /F2 9.5 Tf 48 474 Td (4. AFTERMARKET REPAIR SHOP TERMS & CONDITIONS) Tj ET');
-    add('0.25 w 40 468 m 555 468 l S');
-    add('BT /F1 7.5 Tf 48 454 Td (1. Estimate & Concealed Faults: Charges are estimates based on preliminary visual inspection.) Tj ET');
-    add('BT /F1 7.5 Tf 48 438 Td (2. Data Backup Disclaimer: Customer is solely responsible for data backup. Shop not liable for data loss.) Tj ET');
-    add('BT /F1 7.5 Tf 48 422 Td (3. Quality Replacement Components: Premium OEM-grade / aftermarket replacement parts are fitted.) Tj ET');
-    add('BT /F1 7.5 Tf 48 406 Td (4. Liquid & Impact Vulnerability: Devices with prior immersion or severe impact have stressed circuits.) Tj ET');
-    add('BT /F1 7.5 Tf 48 390 Td (5. Passcode & Testing: Passcode/PIN is requested strictly to verify post-repair hardware functions.) Tj ET');
-    add('BT /F1 7.5 Tf 48 374 Td (6. Delivery on Claim Slip: This Service Order sheet must be produced at pickup with dues settled.) Tj ET');
-    add('BT /F1 7.5 Tf 48 358 Td (7. Limited Shop Warranty: Standard limited shop warranty covers replaced hardware components only.) Tj ET');
-    add('BT /F1 7.5 Tf 48 342 Td (8. Uncollected Devices: Devices unclaimed for > 30 days after notice may be recycled to recover costs.) Tj ET');
+    add("0.5 w 40 240 515 248 re S");
+    add(
+      "BT /F2 9.5 Tf 48 474 Td (4. AFTERMARKET REPAIR SHOP TERMS & CONDITIONS) Tj ET",
+    );
+    add("0.25 w 40 468 m 555 468 l S");
+    add(
+      "BT /F1 7.5 Tf 48 454 Td (1. Estimate & Concealed Faults: Charges are estimates based on preliminary visual inspection.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 438 Td (2. Data Backup Disclaimer: Customer is solely responsible for data backup. Shop not liable for data loss.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 422 Td (3. Quality Replacement Components: Premium OEM-grade / aftermarket replacement parts are fitted.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 406 Td (4. Liquid & Impact Vulnerability: Devices with prior immersion or severe impact have stressed circuits.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 390 Td (5. Passcode & Testing: Passcode/PIN is requested strictly to verify post-repair hardware functions.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 374 Td (6. Delivery on Claim Slip: This Service Order sheet must be produced at pickup with dues settled.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 358 Td (7. Limited Shop Warranty: Standard limited shop warranty covers replaced hardware components only.) Tj ET",
+    );
+    add(
+      "BT /F1 7.5 Tf 48 342 Td (8. Uncollected Devices: Devices unclaimed for > 30 days after notice may be recycled to recover costs.) Tj ET",
+    );
 
     // 5. Signatures Box
-    add('0.5 w 40 120 250 100 re S');
-    add('BT /F1 7.5 Tf 48 206 Td (I verify device intake specifications and authorize repair:) Tj ET');
-    add('0.25 w 40 160 m 290 160 l S');
-    add('BT /F2 9 Tf 48 138 Td (Customer Signature) Tj ET');
+    add("0.5 w 40 120 250 100 re S");
+    add(
+      "BT /F1 7.5 Tf 48 206 Td (I verify device intake specifications and authorize repair:) Tj ET",
+    );
+    add("0.25 w 40 160 m 290 160 l S");
+    add("BT /F2 9 Tf 48 138 Td (Customer Signature) Tj ET");
 
-    add('0.5 w 305 120 250 100 re S');
-    add('BT /F1 7.5 Tf 313 206 Td (Device checked into workbench by authorized technician:) Tj ET');
-    add('0.25 w 305 160 m 555 160 l S');
-    add('BT /F2 9 Tf 313 138 Td (Authorized Technician / Workshop Seal) Tj ET');
+    add("0.5 w 305 120 250 100 re S");
+    add(
+      "BT /F1 7.5 Tf 313 206 Td (Device checked into workbench by authorized technician:) Tj ET",
+    );
+    add("0.25 w 305 160 m 555 160 l S");
+    add("BT /F2 9 Tf 313 138 Td (Authorized Technician / Workshop Seal) Tj ET");
   } else {
     // Title Box for Invoices
-    const title = 'TAX INVOICE & DELIVERY RECEIPT';
-    add('BT /F2 12 Tf 40 755 Td (' + title + ') Tj ET');
-    add('BT /F3 11 Tf 380 755 Td (Ref #: ' + sanitize(docNumber) + ') Tj ET');
-    add('BT /F1 9 Tf 380 742 Td (Date: ' + sanitize(dateStr || new Date().toLocaleDateString('en-IN')) + ') Tj ET');
+    const title = "TAX INVOICE & DELIVERY RECEIPT";
+    add("BT /F2 12 Tf 40 755 Td (" + title + ") Tj ET");
+    add("BT /F3 11 Tf 380 755 Td (Ref #: " + sanitize(docNumber) + ") Tj ET");
+    add(
+      "BT /F1 9 Tf 380 742 Td (Date: " +
+        sanitize(dateStr || new Date().toLocaleDateString("en-IN")) +
+        ") Tj ET",
+    );
 
     // Customer Box
-    add('0.5 w 40 680 250 50 re S');
-    add('BT /F2 10 Tf 48 718 Td (CUSTOMER DETAILS) Tj ET');
-    add('BT /F1 9 Tf 48 704 Td (Name: ' + sanitize(customer?.full_name || 'Customer') + ') Tj ET');
-    add('BT /F1 9 Tf 48 690 Td (Phone: ' + sanitize(customer?.phone || 'N/A') + ') Tj ET');
+    add("0.5 w 40 680 250 50 re S");
+    add("BT /F2 10 Tf 48 718 Td (CUSTOMER DETAILS) Tj ET");
+    add(
+      "BT /F1 9 Tf 48 704 Td (Name: " +
+        sanitize(customer?.full_name || "Customer") +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 9 Tf 48 690 Td (Phone: " +
+        sanitize(customer?.phone || "N/A") +
+        ") Tj ET",
+    );
 
     // Device Box
-    add('0.5 w 300 680 255 50 re S');
-    add('BT /F2 10 Tf 308 718 Td (DEVICE SPECIFICATIONS) Tj ET');
-    add('BT /F1 9 Tf 308 704 Td (Device: ' + sanitize((device?.brand || '') + ' ' + (device?.model || 'Handset')) + ') Tj ET');
-    add('BT /F1 9 Tf 308 690 Td (IMEI/Serial: ' + sanitize(device?.imei || device?.serial_number || 'N/A') + ') Tj ET');
+    add("0.5 w 300 680 255 50 re S");
+    add("BT /F2 10 Tf 308 718 Td (DEVICE SPECIFICATIONS) Tj ET");
+    add(
+      "BT /F1 9 Tf 308 704 Td (Device: " +
+        sanitize((device?.brand || "") + " " + (device?.model || "Handset")) +
+        ") Tj ET",
+    );
+    add(
+      "BT /F1 9 Tf 308 690 Td (IMEI/Serial: " +
+        sanitize(device?.imei || device?.serial_number || "N/A") +
+        ") Tj ET",
+    );
 
     // Line Items Header
-    add('0.5 w 40 660 m 555 660 l S');
-    add('BT /F2 10 Tf 40 648 Td (#   Description                                         Warranty        Qty       Amount) Tj ET');
-    add('0.5 w 40 642 m 555 642 l S');
+    add("0.5 w 40 660 m 555 660 l S");
+    add(
+      "BT /F2 10 Tf 40 648 Td (#   Description                                         Warranty        Qty       Amount) Tj ET",
+    );
+    add("0.5 w 40 642 m 555 642 l S");
 
     let curY = 628;
-    const list = (items && items.length > 0)
-      ? items
-      : [{ item_name: complaint || 'Service / Diagnosis', quantity: 1, warranty: warrantyText || '30 Days', total_price: totals?.total || 0 }];
+    const list =
+      items && items.length > 0
+        ? items
+        : [
+            {
+              item_name: complaint || "Service / Diagnosis",
+              quantity: 1,
+              warranty: warrantyText || "30 Days",
+              total_price: totals?.total || 0,
+            },
+          ];
 
     list.slice(0, 10).forEach((it, idx) => {
-      const desc = sanitize(it.item_name || 'Repair Service').padEnd(42).slice(0, 42);
-      const war = sanitize(it.warranty || warrantyText || '30 Days').padEnd(14).slice(0, 14);
+      const desc = sanitize(it.item_name || "Repair Service")
+        .padEnd(42)
+        .slice(0, 42);
+      const war = sanitize(it.warranty || warrantyText || "30 Days")
+        .padEnd(14)
+        .slice(0, 14);
       const qty = String(it.quantity || 1).padEnd(8);
-      const amt = ('Rs. ' + Number(it.total_price || 0).toFixed(2));
-      add('BT /F1 9 Tf 40 ' + curY + ' Td (' + (idx + 1) + '   ' + desc + '  ' + war + '  ' + qty + '  ' + amt + ') Tj ET');
+      const amt = "Rs. " + Number(it.total_price || 0).toFixed(2);
+      add(
+        "BT /F1 9 Tf 40 " +
+          curY +
+          " Td (" +
+          (idx + 1) +
+          "   " +
+          desc +
+          "  " +
+          war +
+          "  " +
+          qty +
+          "  " +
+          amt +
+          ") Tj ET",
+      );
       curY -= 16;
     });
 
-    add('0.5 w 40 ' + (curY + 6) + ' m 555 ' + (curY + 6) + ' l S');
+    add("0.5 w 40 " + (curY + 6) + " m 555 " + (curY + 6) + " l S");
     curY -= 10;
 
     // Totals
     if (totals) {
-      add('BT /F2 11 Tf 360 ' + curY + ' Td (Total Amount: Rs. ' + Number(totals.total || 0).toFixed(2) + ') Tj ET');
+      add(
+        "BT /F2 11 Tf 360 " +
+          curY +
+          " Td (Total Amount: Rs. " +
+          Number(totals.total || 0).toFixed(2) +
+          ") Tj ET",
+      );
       curY -= 16;
-      add('BT /F1 10 Tf 360 ' + curY + ' Td (Amount Paid: Rs. ' + Number(totals.paid || 0).toFixed(2) + ') Tj ET');
+      add(
+        "BT /F1 10 Tf 360 " +
+          curY +
+          " Td (Amount Paid: Rs. " +
+          Number(totals.paid || 0).toFixed(2) +
+          ") Tj ET",
+      );
       curY -= 16;
-      add('BT /F2 11 Tf 360 ' + curY + ' Td (Balance Due: Rs. ' + Number(totals.balance || 0).toFixed(2) + ') Tj ET');
+      add(
+        "BT /F2 11 Tf 360 " +
+          curY +
+          " Td (Balance Due: Rs. " +
+          Number(totals.balance || 0).toFixed(2) +
+          ") Tj ET",
+      );
       curY -= 25;
     }
 
     // Terms & Signatures
-    add('BT /F1 8 Tf 40 100 Td (* All hardware repairs subject to technical verification. Backup customer data prior to service.) Tj ET');
-    add('0.5 w 40 60 m 200 60 l S');
-    add('BT /F2 9 Tf 40 48 Td (Authorized Signatory) Tj ET');
-    add('0.5 w 395 60 m 555 60 l S');
-    add('BT /F2 9 Tf 395 48 Td (Customer Signature) Tj ET');
+    add(
+      "BT /F1 8 Tf 40 100 Td (* All hardware repairs subject to technical verification. Backup customer data prior to service.) Tj ET",
+    );
+    add("0.5 w 40 60 m 200 60 l S");
+    add("BT /F2 9 Tf 40 48 Td (Authorized Signatory) Tj ET");
+    add("0.5 w 395 60 m 555 60 l S");
+    add("BT /F2 9 Tf 395 48 Td (Customer Signature) Tj ET");
+
+    // Custom Terms & Conditions (from Shop Settings) — appended below signatures
+    if (shop?.terms_conditions && shop.terms_conditions.trim()) {
+      const customTerms = sanitize(shop.terms_conditions).slice(0, 200);
+      add("BT /F1 7 Tf 40 30 Td (Custom Terms: " + customTerms + ") Tj ET");
+    }
   }
 
-  const streamContent = 'q\n' + streams.join('\n') + '\nQ';
+  const streamContent = "q\n" + streams.join("\n") + "\nQ";
   const streamLen = Buffer.byteLength(streamContent);
 
-  const pdf = '%PDF-1.4\n' +
-    '1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n' +
-    '2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n' +
-    '3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >> endobj\n' +
-    '4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n' +
-    '5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n' +
-    '6 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >> endobj\n' +
-    '7 0 obj << /Length ' + streamLen + ' >>\nstream\n' + streamContent + '\nendstream\nendobj\n' +
-    'xref\n0 8\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000262 00000 n \n0000000336 00000 n \n0000000415 00000 n \n0000000492 00000 n \n' +
-    'trailer << /Size 8 /Root 1 0 R >>\nstartxref\n' + (580 + streamLen) + '\n%%EOF';
+  const pdf =
+    "%PDF-1.4\n" +
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n" +
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n" +
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /Font << /F1 4 0 R /F2 5 0 R /F3 6 0 R >> >> /Contents 7 0 R >> endobj\n" +
+    "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n" +
+    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n" +
+    "6 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold >> endobj\n" +
+    "7 0 obj << /Length " +
+    streamLen +
+    " >>\nstream\n" +
+    streamContent +
+    "\nendstream\nendobj\n" +
+    "xref\n0 8\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000262 00000 n \n0000000336 00000 n \n0000000415 00000 n \n0000000492 00000 n \n" +
+    "trailer << /Size 8 /Root 1 0 R >>\nstartxref\n" +
+    (580 + streamLen) +
+    "\n%%EOF";
 
-  return Buffer.from(pdf, 'utf8');
+  return Buffer.from(pdf, "utf8");
 }
 
-export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl = '' }) {
+export async function generateInvoicePdfBuffer({
+  job,
+  invoice,
+  shop,
+  trackingUrl = "",
+}) {
   const browserBinary = findBrowserBinary();
-
-  // Generate QR code data URL
-  let qrDataUrl = '';
-  try {
-    const qrTarget = trackingUrl || `https://mobotech.com/track/${job.job_number}`;
-    qrDataUrl = await QRCode.toDataURL(qrTarget, { width: 120, margin: 1, color: { dark: '#000000', light: '#ffffff' } });
-  } catch (e) {
-    console.error('QR code generation warning:', e);
-  }
 
   // Convert shop logo to inline base64 Data URL so Chromium headless embeds it reliably
   const shopLogoDataUrl = await imageSourceToDataUrl(shop?.logo_url);
@@ -473,21 +747,24 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const dev = job.device || {};
   const cust = job.customer || {};
   const cond = job.device_condition || {};
-  const baseItems = invoice?.items || job.estimate?.items || job.estimate_items || [];
-  const warrantyParts = (Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0)
-    ? job.warranty_parts
-    : (Array.isArray(job.device_condition?.warranty_parts) && job.device_condition.warranty_parts.length > 0
-      ? job.device_condition.warranty_parts
-      : (Array.isArray(job.warranty_history)
-        ? job.warranty_history.flatMap(h => h.replacement_parts || [])
-        : []));
+  const baseItems =
+    invoice?.items || job.estimate?.items || job.estimate_items || [];
+  const warrantyParts =
+    Array.isArray(job.warranty_parts) && job.warranty_parts.length > 0
+      ? job.warranty_parts
+      : Array.isArray(job.device_condition?.warranty_parts) &&
+          job.device_condition.warranty_parts.length > 0
+        ? job.device_condition.warranty_parts
+        : Array.isArray(job.warranty_history)
+          ? job.warranty_history.flatMap((h) => h.replacement_parts || [])
+          : [];
   const items = [
     ...baseItems,
     ...warrantyParts.map((wp, idx) => ({
       id: wp.id || `wp-${idx}`,
-      item_name: `${wp.item_name || wp.part_name || 'Replacement Component'} (Warranty Claim #${wp.claim_number || 1} Free Replacement)`,
-      warranty: wp.warranty || wp.warranty_period || '30 Days',
-      item_type: 'PART',
+      item_name: `${wp.item_name || wp.part_name || "Replacement Component"} (Warranty Claim #${wp.claim_number || 1} Free Replacement)`,
+      warranty: wp.warranty || wp.warranty_period || "30 Days",
+      item_type: "PART",
       quantity: wp.quantity || 1,
       unit_price: 0,
       total_price: 0,
@@ -496,19 +773,35 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   ];
   const payments = job.payments || [];
   const shopObj = {
-    name: shop?.name || 'Mobotech mobile care',
-    address: shop?.address || 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar',
-    city: shop?.city || 'Surat',
-    state: shop?.state || 'Gujarat',
-    postal_code: shop?.postal_code || '395006',
-    phone: shop?.phone || '080000 24439',
-    email: shop?.email || 'support@mobotech.com',
-    timings: shop?.timings || 'Mon - Sat: 10:30 AM to 06:30 PM',
+    name: shop?.name || "Mobotech mobile care",
+    address:
+      shop?.address ||
+      "Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar",
+    city: shop?.city || "Surat",
+    state: shop?.state || "Gujarat",
+    postal_code: shop?.postal_code || "395006",
+    phone: shop?.phone || "080000 24439",
+    email: shop?.email || "support@mobotech.com",
+    timings: shop?.timings || "Mon - Sat: 10:30 AM to 06:30 PM",
+    terms_conditions: shop?.terms_conditions || "",
   };
 
   const d = job.created_at ? new Date(job.created_at) : new Date();
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const inwardDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const inwardDate = `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}`;
   const inwardDateStr = inwardDate;
   const allWarrantyClaims = getAllWarrantyClaims(job);
 
@@ -517,19 +810,20 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     job.warranty_same_issue ||
     job.warranty_free_rework ||
     (job.reopen_count && job.reopen_count > 0) ||
-    allWarrantyClaims.length > 0
+    allWarrantyClaims.length > 0,
   );
 
   const extractDays = (val) => {
     if (!val) return null;
-    const num = parseInt(String(val).replace(/[^0-9]/g, ''), 10);
+    const num = parseInt(String(val).replace(/[^0-9]/g, ""), 10);
     return !isNaN(num) && num > 0 ? num : null;
   };
 
   const itemWarrantyDays = (items || [])
     .map((it) => extractDays(it.warranty))
     .filter(Boolean);
-  const maxItemDays = itemWarrantyDays.length > 0 ? Math.max(...itemWarrantyDays) : null;
+  const maxItemDays =
+    itemWarrantyDays.length > 0 ? Math.max(...itemWarrantyDays) : null;
 
   const resolvedWarrantyDays =
     extractDays(job.warranty_days) ||
@@ -540,26 +834,35 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
   const hasRepairWarranty = Boolean(
     isWarrantyClaim ||
     resolvedWarrantyDays ||
-    (invoice?.warranty_period && !invoice.warranty_period.toLowerCase().includes('out of warranty') && !invoice.warranty_period.toLowerCase().includes('none')) ||
-    (job.warranty_days && Number(job.warranty_days) > 0)
+    (invoice?.warranty_period &&
+      !invoice.warranty_period.toLowerCase().includes("out of warranty") &&
+      !invoice.warranty_period.toLowerCase().includes("none")) ||
+    (job.warranty_days && Number(job.warranty_days) > 0),
   );
 
-  const warrantyDaysText = resolvedWarrantyDays ? `${resolvedWarrantyDays} Days` : (invoice?.warranty_period || '30 Days');
+  const warrantyDaysText = resolvedWarrantyDays
+    ? `${resolvedWarrantyDays} Days`
+    : invoice?.warranty_period || "30 Days";
 
   const sigD = invoice?.issued_at ? new Date(invoice.issued_at) : new Date();
-  const sigDate = `(${String(sigD.getDate()).padStart(2, '0')}-${String(sigD.getMonth() + 1).padStart(2, '0')}-${sigD.getFullYear()} ${String(sigD.getHours()).padStart(2, '0')}:${String(sigD.getMinutes()).padStart(2, '0')})`;
-  const techName = job.technician?.full_name || 'Jaimini Patel';
+  const sigDate = `(${String(sigD.getDate()).padStart(2, "0")}-${String(sigD.getMonth() + 1).padStart(2, "0")}-${sigD.getFullYear()} ${String(sigD.getHours()).padStart(2, "0")}:${String(sigD.getMinutes()).padStart(2, "0")})`;
+  const techName = job.technician?.full_name || "Jaimini Patel";
 
   const rawAccessories = job.accessories_received || [];
   let actualReceivedAccessories = [];
   if (Array.isArray(rawAccessories)) {
     actualReceivedAccessories = rawAccessories.filter(Boolean);
-  } else if (typeof rawAccessories === 'string' && rawAccessories.trim()) {
+  } else if (typeof rawAccessories === "string" && rawAccessories.trim()) {
     try {
       const parsed = JSON.parse(rawAccessories);
-      actualReceivedAccessories = Array.isArray(parsed) ? parsed.filter(Boolean) : [rawAccessories];
+      actualReceivedAccessories = Array.isArray(parsed)
+        ? parsed.filter(Boolean)
+        : [rawAccessories];
     } catch {
-      actualReceivedAccessories = rawAccessories.split(',').map((s) => s.trim()).filter(Boolean);
+      actualReceivedAccessories = rawAccessories
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
     }
   }
 
@@ -568,9 +871,14 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     val: resolveChecklistValue(item.key, cond),
   }));
 
-  const paidViaSummary = payments.length > 0
-    ? payments.map((p) => `${p.payment_method} (₹${Number(p.amount).toFixed(2)})`).join(', ')
-    : 'CASH (₹' + Number(invoice?.paid_amount || job.paid_amount || 0).toFixed(2) + ')';
+  const paidViaSummary =
+    payments.length > 0
+      ? payments
+          .map((p) => `${p.payment_method} (₹${Number(p.amount).toFixed(2)})`)
+          .join(", ")
+      : "CASH (₹" +
+        Number(invoice?.paid_amount || job.paid_amount || 0).toFixed(2) +
+        ")";
 
   const htmlContent = `<!DOCTYPE html>
 <html>
@@ -674,11 +982,14 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
     <!-- Top Header -->
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:4px;">
       <div style="display:flex; align-items:center; gap:8px;">
-        ${shopLogoDataUrl ? `
+        ${
+          shopLogoDataUrl
+            ? `
           <div style="width:150px; max-width:150px; height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
             <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
           </div>
-        ` : `
+        `
+            : `
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
             <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
             <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
@@ -686,9 +997,10 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
           </svg>
           <div>
             <div style="font-size:22px; font-weight:900; line-height:1; letter-spacing:-0.5px;">${shopObj.name.toLowerCase()}</div>
-            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">${shop?.tagline || 'mobile care'}</div>
+            <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:#1e293b;">${shop?.tagline || "mobile care"}</div>
           </div>
-        `}
+        `
+        }
       </div>
       <div style="text-align:right;">
         <div style="font-size:22px; font-weight:900; line-height:1.1;">Service Record</div>
@@ -707,15 +1019,15 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Service Details</div>
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:2px;">
               <span style="font-weight:700; font-size:11.5px;">Reference ID:</span>
-              ${generateBarcodeSvg(invoice?.invoice_number || job.job_number, 20, 'right')}
+              ${generateBarcodeSvg(invoice?.invoice_number || job.job_number, 20, "right")}
             </div>
             <div style="display:flex; justify-content:space-between; align-items:start; margin-bottom:2px;">
               <span style="font-weight:700; font-size:11.5px;">Serial Number:</span>
-              ${generateBarcodeSvg(dev.imei || dev.serial_number || '789654123654789', 20, 'right')}
+              ${generateBarcodeSvg(dev.imei || dev.serial_number || "789654123654789", 20, "right")}
             </div>
             <div style="font-size:11px; padding-top:2px; border-top:1px solid #cbd5e1; line-height:1.25;">
               <div>Service Mode: <b>Carry in</b></div>
-              ${hasRepairWarranty ? `<div>Warranty Status: <b style="${isWarrantyClaim ? 'color:#166534;' : ''}">${isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</b></div>` : ''}
+              ${hasRepairWarranty ? `<div>Warranty Status: <b style="${isWarrantyClaim ? "color:#166534;" : ""}">${isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</b></div>` : ""}
               <div>Date of Device Inward: <b>${inwardDate}</b></div>
             </div>
           </div>
@@ -725,21 +1037,21 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <div style="font-weight:700; font-size:12px; text-transform:uppercase; margin-bottom:2px;">Customer Details</div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Name : </span>
-              <b style="font-size:12px;">${cust.full_name || 'Walk-in Customer'}</b>
+              <b style="font-size:12px;">${cust.full_name || "Walk-in Customer"}</b>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Address : </span>
-              <span style="font-size:11px;">${cust.address || (cust.city ? `${cust.city}, ${cust.state || 'Gujarat'}, India` : '—')}</span>
+              <span style="font-size:11px;">${cust.address || (cust.city ? `${cust.city}, ${cust.state || "Gujarat"}, India` : "—")}</span>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Contact Number : </span>
-              <b style="font-size:11px;">${cust.phone || '—'}</b>
+              <b style="font-size:11px;">${cust.phone || "—"}</b>
             </div>
             <div style="margin-bottom:1.5px;">
               <span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Mail ID : </span>
-              <b style="font-size:11px;">${cust.email || '—'}</b>
+              <b style="font-size:11px;">${cust.email || "—"}</b>
             </div>
-            ${cust.alternate_phone ? `<div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Alternate Contact : </span><b style="font-size:11px;">${cust.alternate_phone}</b></div>` : ''}
+            ${cust.alternate_phone ? `<div><span style="font-size:10.5px; text-transform:uppercase; font-weight:700;">Alternate Contact : </span><b style="font-size:11px;">${cust.alternate_phone}</b></div>` : ""}
           </div>
 
           <!-- Product Details -->
@@ -747,24 +1059,30 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Product Details</div>
             <div style="display:flex; margin-bottom:2px;">
               <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px;">Model Name:</span>
-              <span style="width:50%; font-weight:700; font-size:12px;">${dev.model || (dev.brand ? `${dev.brand} ${dev.model}` : 'iPhone 14 Pro')}</span>
+              <span style="width:50%; font-weight:700; font-size:12px;">${dev.model || (dev.brand ? `${dev.brand} ${dev.model}` : "iPhone 14 Pro")}</span>
             </div>
             <div style="display:flex; align-items:flex-start; margin-bottom:2px;">
               <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px; padding-top:2px;">IMEI / Serial Number:</span>
-              <div style="width:50%;">${generateBarcodeSvg(dev.imei || dev.serial_number || '789654123654789', 18, 'left')}</div>
+              <div style="width:50%;">${generateBarcodeSvg(dev.imei || dev.serial_number || "789654123654789", 18, "left")}</div>
             </div>
-            ${hasRepairWarranty ? `
+            ${
+              hasRepairWarranty
+                ? `
             <div style="display:flex;">
               <span style="width:50%; font-weight:700; text-transform:uppercase; font-size:11px;">Warranty Status:</span>
               <span style="width:50%; font-weight:700; font-size:12px; color:#166534;">${isWarrantyClaim ? `Under Warranty (${warrantyDaysText} - Free Rework)` : `Under Warranty (${warrantyDaysText})`}</span>
-            </div>` : ''}
+            </div>`
+                : ""
+            }
           </div>
 
           <!-- Issue Reported & All Warranty Claims Table -->
           <div style="padding:4px 6px; font-size:11px;">
-            ${allWarrantyClaims.length > 0 ? `
+            ${
+              allWarrantyClaims.length > 0
+                ? `
             <div style="font-weight:700; font-size:11.5px; text-transform:uppercase; margin-bottom:2px; display:flex; justify-content:space-between; align-items:center;">
-              <span>Service & Warranty Claim History (${allWarrantyClaims.length} Claim${allWarrantyClaims.length > 1 ? 's' : ''}):</span>
+              <span>Service & Warranty Claim History (${allWarrantyClaims.length} Claim${allWarrantyClaims.length > 1 ? "s" : ""}):</span>
               <span style="color:#166534; font-size:10px; font-weight:700;">100% Free Rework (₹0 Due)</span>
             </div>
             <table style="width:100%; border-collapse:collapse; border:1px solid #000; font-size:10px;">
@@ -782,60 +1100,88 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
                     <div style="font-size:9px; color:#64748b; font-weight:500;">${inwardDateStr}</div>
                   </td>
                   <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top;">
-                    • ${job.customer_complaint || 'display not working'}
+                    • ${job.customer_complaint || "display not working"}
                   </td>
                   <td style="padding:2px 4px; vertical-align:top;">
-                    • ${job.diagnosis?.recommended_solution || 'Replace display / hardware component service'}
+                    • ${job.diagnosis?.recommended_solution || "Replace display / hardware component service"}
                   </td>
                 </tr>
-                ${allWarrantyClaims.map((c, cIdx) => `
-                  <tr style="border-bottom:${cIdx === allWarrantyClaims.length - 1 ? 'none' : '1px solid #cbd5e1'}; background:${cIdx % 2 === 0 ? '#fefce8' : '#f0fdf4'};">
+                ${allWarrantyClaims
+                  .map(
+                    (c, cIdx) => `
+                  <tr style="border-bottom:${cIdx === allWarrantyClaims.length - 1 ? "none" : "1px solid #cbd5e1"}; background:${cIdx % 2 === 0 ? "#fefce8" : "#f0fdf4"};">
                     <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top; font-weight:700; color:#854d0e;">
                       Warranty Claim #${c.claim_number}
                       <div style="font-size:9px; color:#166534; font-weight:700;">
-                        ${c.is_free_rework ? '✓ 100% Free' : 'Chargeable'}
+                        ${c.is_free_rework ? "✓ 100% Free" : "Chargeable"}
                       </div>
-                      ${c.claimed_at ? `
+                      ${
+                        c.claimed_at
+                          ? `
                         <div style="font-size:9px; color:#64748b; font-weight:500;">
-                          ${new Date(c.claimed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                          ${c.days_after_delivery !== null && c.days_after_delivery !== undefined ? ` • Day ${c.days_after_delivery}` : ''}
+                          ${new Date(c.claimed_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
+                          ${c.days_after_delivery !== null && c.days_after_delivery !== undefined ? ` • Day ${c.days_after_delivery}` : ""}
                         </div>
-                      ` : ''}
+                      `
+                          : ""
+                      }
                     </td>
                     <td style="border-right:1px solid #000; padding:2px 4px; vertical-align:top; color:#854d0e; font-weight:600;">
-                      • ${c.warranty_issue || 'Warranty issue reported'}
+                      • ${c.warranty_issue || "Warranty issue reported"}
                     </td>
                     <td style="padding:2px 4px; vertical-align:top; color:#166534; font-weight:600;">
                       ${(() => {
-      const claimWp = warrantyParts.filter(
-        p => Number(p.claim_number) === Number(c.claim_number) || warrantyParts.length === 1
-      );
-      const rawReason = (c.rework_reason || '').trim();
-      const isBoilerplate = !rawReason ||
-        rawReason.toLowerCase().includes('same issue rework / part replacement authorized') ||
-        rawReason.toLowerCase().includes('technical inspection verified') ||
-        rawReason.toLowerCase().includes('free rework / replacement under warranty') ||
-        rawReason.toLowerCase().includes('free warranty rework') ||
-        rawReason.toLowerCase().includes('technical diagnosis & free component rework') ||
-        rawReason.toLowerCase().includes('authorized at') ||
-        rawReason.toLowerCase() === 'free rework' ||
-        rawReason.toLowerCase() === 'same issue rework';
-      const customReason = !isBoilerplate ? rawReason : null;
+                        const claimWp = warrantyParts.filter(
+                          (p) =>
+                            Number(p.claim_number) === Number(c.claim_number) ||
+                            warrantyParts.length === 1,
+                        );
+                        const rawReason = (c.rework_reason || "").trim();
+                        const isBoilerplate =
+                          !rawReason ||
+                          rawReason
+                            .toLowerCase()
+                            .includes(
+                              "same issue rework / part replacement authorized",
+                            ) ||
+                          rawReason
+                            .toLowerCase()
+                            .includes("technical inspection verified") ||
+                          rawReason
+                            .toLowerCase()
+                            .includes(
+                              "free rework / replacement under warranty",
+                            ) ||
+                          rawReason
+                            .toLowerCase()
+                            .includes("free warranty rework") ||
+                          rawReason
+                            .toLowerCase()
+                            .includes(
+                              "technical diagnosis & free component rework",
+                            ) ||
+                          rawReason.toLowerCase().includes("authorized at") ||
+                          rawReason.toLowerCase() === "free rework" ||
+                          rawReason.toLowerCase() === "same issue rework";
+                        const customReason = !isBoilerplate ? rawReason : null;
 
-      if (claimWp.length > 0) {
-        return `
-                            ${customReason ? `<div>• ${customReason}</div>` : ''}
-                            ${claimWp.map(wp => `<div>• ${wp.item_name}</div>`).join('')}
+                        if (claimWp.length > 0) {
+                          return `
+                            ${customReason ? `<div>• ${customReason}</div>` : ""}
+                            ${claimWp.map((wp) => `<div>• ${wp.item_name}</div>`).join("")}
                           `;
-      }
-      return `<div>• ${customReason || 'Same issue rework'}</div>`;
-    })()}
+                        }
+                        return `<div>• ${customReason || "Same issue rework"}</div>`;
+                      })()}
                     </td>
                   </tr>
-                `).join('')}
+                `,
+                  )
+                  .join("")}
               </tbody>
             </table>
-            ` : `
+            `
+                : `
             <div style="font-weight:700; font-size:12.5px; text-transform:uppercase; margin-bottom:2px;">Issue Reported by Customer:</div>
             <div style="border:1px solid #000;">
               <div style="display:flex; background:#f1f5f9; border-bottom:1px solid #000; font-weight:700; padding:1px 3px;">
@@ -843,11 +1189,12 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
                 <span style="width:65%;">Description</span>
               </div>
               <div style="display:flex; padding:2px 3px;">
-                <span style="width:35%; font-weight:700;">${job.service_type || 'Screen / Display Replacement'}</span>
-                <span style="width:65%; font-weight:600;">• ${job.customer_complaint || 'display not working'}</span>
+                <span style="width:35%; font-weight:700;">${job.service_type || "Screen / Display Replacement"}</span>
+                <span style="width:65%; font-weight:600;">• ${job.customer_complaint || "display not working"}</span>
               </div>
             </div>
-            `}
+            `
+            }
           </div>
         </div>
 
@@ -859,15 +1206,15 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
               <span>Checklist</span>
               <span>Inward Check</span>
             </div>
-            ${checklistRows.map((r) => `<div class="checklist-row"><span>${r.label}</span><b>${r.val}</b></div>`).join('')}
+            ${checklistRows.map((r) => `<div class="checklist-row"><span>${r.label}</span><b>${r.val}</b></div>`).join("")}
           </div>
 
           <!-- Cosmetic Condition of Product -->
           <div style="padding:3.5px 6px; border-bottom:1px solid #000; font-size:11px;">
             <div style="font-weight:700; font-size:11.5px; text-transform:uppercase; margin-bottom:2px;">Cosmetic Condition of Product:</div>
             <div style="border:1px solid #000; background:#f8fafc; padding:2.5px 4px; font-weight:700; font-size:11px;">
-              ${dev.cosmetic_condition || cond.body || 'Wear And Tear'}
-              ${cond.notes ? `<div style="font-size:10px; font-weight:500; font-style:italic; margin-top:2px; color:#334155;">Note: ${cond.notes}</div>` : ''}
+              ${dev.cosmetic_condition || cond.body || "Wear And Tear"}
+              ${cond.notes ? `<div style="font-size:10px; font-weight:500; font-style:italic; margin-top:2px; color:#334155;">Note: ${cond.notes}</div>` : ""}
             </div>
           </div>
 
@@ -878,15 +1225,23 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
                 <span>Accessories Received</span>
                 <span>Status</span>
               </div>
-              ${actualReceivedAccessories.length > 0 ? actualReceivedAccessories.map(acc => `
+              ${
+                actualReceivedAccessories.length > 0
+                  ? actualReceivedAccessories
+                      .map(
+                        (acc) => `
                 <div class="checklist-row"><span>${acc}</span><b>Received</b></div>
-              `).join('') : `
+              `,
+                      )
+                      .join("")
+                  : `
                 <div class="checklist-row" style="color:#64748b; font-style:italic;"><span>None / Handset Only</span><b>None</b></div>
-              `}
+              `
+              }
             </div>
             <div style="padding:2.5px 5px; background:#f8fafc; border-top:1px solid #cbd5e1; display:flex; justify-content:space-between; font-size:11px;">
               <b>Device Passcode / PIN:</b>
-              <b style="font-family:monospace; font-size:12px;">${dev.passcode || '789654'}</b>
+              <b style="font-family:monospace; font-size:12px;">${dev.passcode || "789654"}</b>
             </div>
           </div>
         </div>
@@ -896,7 +1251,7 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
       <div style="padding:4px 6px;" class="border-b">
         <div style="display:flex; justify-content:space-between; font-weight:700; margin-bottom:3px;">
           <span style="font-size:12.5px; text-transform:uppercase;">Tax Invoice & Repair Charges</span>
-          <span style="font-family:monospace; font-size:11.5px;">Invoice No: ${invoice?.invoice_number || 'INV-2026-000001'}</span>
+          <span style="font-family:monospace; font-size:11.5px;">Invoice No: ${invoice?.invoice_number || "INV-2026-000001"}</span>
         </div>
         <table class="items-table">
           <thead>
@@ -911,39 +1266,47 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
             </tr>
           </thead>
           <tbody>
-            ${items.length > 0 ? items.map((it, idx) => `
+            ${
+              items.length > 0
+                ? items
+                    .map(
+                      (it, idx) => `
               <tr>
                 <td style="text-align:center; font-family:monospace;">${idx + 1}</td>
                 <td><b>${it.item_name}</b></td>
-                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${it.warranty || invoice?.warranty_period || '—'}</td>
-                <td style="text-align:center; font-family:monospace;">${it.item_type || 'PART'}</td>
+                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${it.warranty || invoice?.warranty_period || "—"}</td>
+                <td style="text-align:center; font-family:monospace;">${it.item_type || "PART"}</td>
                 <td style="text-align:center; font-family:monospace;">${it.quantity || 1}</td>
                 <td style="text-align:right; font-family:monospace;">${Number(it.unit_price).toFixed(2)}</td>
                 <td style="text-align:right; font-family:monospace; font-weight:700;">${Number(it.total_price).toFixed(2)}</td>
               </tr>
-            `).join('') : `
+            `,
+                    )
+                    .join("")
+                : `
               <tr>
                 <td style="text-align:center;">1</td>
                 <td><b>Standard Diagnostic / Service Fee</b></td>
-                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : 'As per line items')}</td>
+                <td style="text-align:center; font-size:10px; font-weight:700; color:#0369a1;">${invoice?.warranty_period || (job.warranty_days ? `${job.warranty_days} Days` : "As per line items")}</td>
                 <td style="text-align:center;">SERVICE</td>
                 <td style="text-align:center;">1</td>
                 <td style="text-align:right;">${Number(job.total_amount || 0).toFixed(2)}</td>
                 <td style="text-align:right; font-weight:700;">${Number(job.total_amount || 0).toFixed(2)}</td>
               </tr>
-            `}
+            `
+            }
           </tbody>
         </table>
 
         <!-- Totals Grid -->
         <div style="display:flex; justify-content:space-between; margin-top:4px; font-size:11.5px;">
           <div style="line-height:1.35;">
-            <div>Payment Status: <b>${job.payment_status || 'SETTLED'}</b></div>
+            <div>Payment Status: <b>${job.payment_status || "SETTLED"}</b></div>
             <div>Paid Via: ${paidViaSummary}</div>
           </div>
           <div style="width:230px; font-family:monospace; font-size:11.5px; line-height:1.3;">
             <div style="display:flex; justify-content:space-between;"><span>Subtotal:</span><b>₹${Number(invoice?.subtotal || job.subtotal || 0).toFixed(2)}</b></div>
-            ${Number(invoice?.discount || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Discount Applied${invoice?.discount_type === 'PERCENTAGE' && invoice?.discount_value ? ` (${invoice.discount_value}%)` : ''}:</span><b>-₹${Number(invoice.discount).toFixed(2)}</b></div>` : ''}
+            ${Number(invoice?.discount || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>Discount Applied${invoice?.discount_type === "PERCENTAGE" && invoice?.discount_value ? ` (${invoice.discount_value}%)` : ""}:</span><b>-₹${Number(invoice.discount).toFixed(2)}</b></div>` : ""}
             ${Number(invoice?.tax_amount || 0) > 0 || Number(invoice?.tax_rate || 0) > 0 ? `<div style="display:flex; justify-content:space-between;"><span>GST / Tax (${invoice?.tax_rate ?? 18}%):</span><b>₹${Number(invoice?.tax_amount || 0).toFixed(2)}</b></div>` : `<div style="display:flex; justify-content:space-between; color:#666;"><span>GST / Tax:</span><b>Nil (₹0.00)</b></div>`}
             <div style="display:flex; justify-content:space-between; border-top:1px solid #000; padding-top:2px; font-weight:900; font-size:12.5px;"><span>Total Invoice Amount:</span><span>₹${Number(invoice?.total_amount || job.total_amount || 0).toFixed(2)}</span></div>
             <div style="display:flex; justify-content:space-between; font-weight:700;"><span>Amount Paid:</span><span>₹${Number(invoice?.paid_amount || job.paid_amount || 0).toFixed(2)}</span></div>
@@ -954,26 +1317,17 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
 
       <!-- Terms & Conditions Summary on Page 1 -->
       <div style="padding:4px 6px; display:flex; justify-content:space-between; align-items:flex-start;">
-        <div style="flex:1; padding-right:10px;">
+
+        ${
+          shopObj.terms_conditions
+            ? `
+        <div style="padding:4px 6px; margin-top:4px;">
           <div style="font-weight:700; font-size:12px; text-transform:uppercase; margin-bottom:2px;">Terms and Conditions:</div>
-          <ul style="margin:0; padding-left:14px; font-size:10px; line-height:1.25; color:#000;">
-            <li>Subject to Engineer’s physical & internal diagnostic inspection.</li>
-            <li>Quality program repairs will not cover all defective parts on non-chargeable basis. Only parts covered under quality program will be covered as non-chargeable post inspection.</li>
-            <li>Mobotech mobile care receives customer devices without opening; full diagnostics follow standard testing procedures.</li>
-            <li>Repair cannot be cancelled once approved. Non-approved estimates are returned as-is.</li>
-            <li><b>DATA WARNING: Storage contents may be deleted/reformatted during repair. Customer must backup data before service. Mobotech is not responsible for data loss.</b></li>
-            <li>Unclaimed devices after 30 days of notification are subject to disposal/auction to recover costs.</li>
-          </ul>
-          <div style="font-size:9.5px; font-weight:700; font-style:italic; margin-top:2px; padding-left:14px;">
-            * Note: The above terms &amp; conditions apply to this repair and are binding upon acceptance of the device.
-          </div>
+          <div style="font-size:10px; line-height:1.25; color:#000; white-space:pre-wrap; word-break:break-word;">${shopObj.terms_conditions}</div>
         </div>
-        ${qrDataUrl ? `
-          <div style="text-align:center; shrink:0;">
-            <img src="${qrDataUrl}" style="width:48px; height:48px; border:1px solid #000; padding:1px; display:block;" />
-            <div style="font-family:monospace; font-size:9px; font-weight:700; margin-top:1px;">SCAN TO TRACK</div>
-          </div>
-        ` : ''}
+        `
+            : ""
+        }
       </div>
     </div>
   </div>
@@ -995,32 +1349,38 @@ export async function generateInvoicePdfBuffer({ job, invoice, shop, trackingUrl
       <div style="height:20px;"></div>
       <div style="border-top:1px solid #000; padding-top:1px;">
         <div style="font-weight:700; font-size:12.5px;">Customer's Signature</div>
-        <div style="font-size:11px;">(${cust.full_name || 'Walk-in Customer'})</div>
+        <div style="font-size:11px;">(${cust.full_name || "Walk-in Customer"})</div>
       </div>
     </div>
   </div>
 </div>
 
-${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
-   To restore, remove the surrounding comment markers below. */ ''}
+${
+  /* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
+   To restore, remove the surrounding comment markers below. */ ""
+}
 <!-- PAGE 2: COMPLETE TERMS AND CONDITIONS CONTINUATION -->
 <div class="page" style="display:none;">
   <div>
     <!-- Page 2 Header -->
     <div style="display:flex; justify-content:space-between; align-items:center; padding-bottom:3px; border-bottom:1px solid #000;">
       <div style="display:flex; align-items:center; gap:8px;">
-        ${shopLogoDataUrl ? `
+        ${
+          shopLogoDataUrl
+            ? `
           <div style="width:150px; max-width:150px; height:48px; border-radius:4px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
             <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
           </div>
-        ` : `
+        `
+            : `
           <svg width="26" height="26" viewBox="0 0 32 32" fill="none">
             <rect x="3" y="3" width="26" height="26" rx="6" stroke="#000" stroke-width="2.5" />
             <path d="M9 22V10L16 17L23 10V22" stroke="#000" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
             <circle cx="16" cy="7" r="1.5" fill="#000" />
           </svg>
           <span style="font-size:20px; font-weight:900;">${shopObj.name.toLowerCase()}</span>
-        `}
+        `
+        }
       </div>
       <div style="text-align:right;">
         <div style="font-size:19px; font-weight:900;">Service Record</div>
@@ -1075,7 +1435,7 @@ ${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
       <div style="height:20px;"></div>
       <div style="border-top:1px solid #000; padding-top:1px;">
         <div style="font-weight:700; font-size:12.5px;">Customer's Signature</div>
-        <div style="font-size:11px;">(${cust.full_name || 'Walk-in Customer'})</div>
+        <div style="font-size:11px;">(${cust.full_name || "Walk-in Customer"})</div>
       </div>
     </div>
   </div>
@@ -1089,13 +1449,16 @@ ${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
     try {
       return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
-      console.warn('⚠️ Headless Chromium Invoice PDF print warning:', browserErr.message);
+      console.warn(
+        "⚠️ Headless Chromium Invoice PDF print warning:",
+        browserErr.message,
+      );
     }
   }
 
   // 2. Resilient vector PDF fallback (ensures PDF buffer is always generated)
   return generateFallbackVectorPdfBuffer({
-    type: 'INVOICE',
+    type: "INVOICE",
     docNumber: invoice?.invoice_number || job.job_number,
     dateStr: inwardDateStr,
     shop: shopObj,
@@ -1113,37 +1476,70 @@ ${/* PAGE 2 DISABLED — only Page 1 is rendered in the downloaded invoice PDF.
 
 // Indian Currency and Number to Words formatters for Sales Bills
 function formatInr(num) {
-  if (num === null || num === undefined || isNaN(num)) return '0.00';
+  if (num === null || num === undefined || isNaN(num)) return "0.00";
   const val = parseFloat(num);
   const isNeg = val < 0;
-  const [intPart, decPart] = Math.abs(val).toFixed(2).split('.');
+  const [intPart, decPart] = Math.abs(val).toFixed(2).split(".");
   let lastThree = intPart.substring(intPart.length - 3);
   const otherNumbers = intPart.substring(0, intPart.length - 3);
-  if (otherNumbers !== '') lastThree = ',' + lastThree;
-  const formattedInt = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ',') + lastThree;
-  return `${isNeg ? '-' : ''}${formattedInt}.${decPart}`;
+  if (otherNumbers !== "") lastThree = "," + lastThree;
+  const formattedInt =
+    otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+  return `${isNeg ? "-" : ""}${formattedInt}.${decPart}`;
 }
 
 function saleNumberToWords(amount) {
-  if (!amount || isNaN(amount) || amount === 0) return 'ZERO RUPEES ONLY';
-  const a = ['', 'ONE ', 'TWO ', 'THREE ', 'FOUR ', 'FIVE ', 'SIX ', 'SEVEN ', 'EIGHT ', 'NINE ',
-    'TEN ', 'ELEVEN ', 'TWELVE ', 'THIRTEEN ', 'FOURTEEN ', 'FIFTEEN ', 'SIXTEEN ', 'SEVENTEEN ', 'EIGHTEEN ', 'NINETEEN '];
-  const b = ['', '', 'TWENTY ', 'THIRTY ', 'FORTY ', 'FIFTY ', 'SIXTY ', 'SEVENTY ', 'EIGHTY ', 'NINETY '];
+  if (!amount || isNaN(amount) || amount === 0) return "ZERO RUPEES ONLY";
+  const a = [
+    "",
+    "ONE ",
+    "TWO ",
+    "THREE ",
+    "FOUR ",
+    "FIVE ",
+    "SIX ",
+    "SEVEN ",
+    "EIGHT ",
+    "NINE ",
+    "TEN ",
+    "ELEVEN ",
+    "TWELVE ",
+    "THIRTEEN ",
+    "FOURTEEN ",
+    "FIFTEEN ",
+    "SIXTEEN ",
+    "SEVENTEEN ",
+    "EIGHTEEN ",
+    "NINETEEN ",
+  ];
+  const b = [
+    "",
+    "",
+    "TWENTY ",
+    "THIRTY ",
+    "FORTY ",
+    "FIFTY ",
+    "SIXTY ",
+    "SEVENTY ",
+    "EIGHTY ",
+    "NINETY ",
+  ];
   const intAmount = Math.floor(Math.abs(amount));
-  const numStr = ('000000000' + intAmount).slice(-9);
+  const numStr = ("000000000" + intAmount).slice(-9);
   const crore = parseInt(numStr.slice(0, 2), 10);
   const lakh = parseInt(numStr.slice(2, 4), 10);
   const thousand = parseInt(numStr.slice(4, 6), 10);
   const hundred = parseInt(numStr.slice(6, 7), 10);
   const rest = parseInt(numStr.slice(7, 9), 10);
-  let words = '';
-  const getTwo = (n) => (n === 0 ? '' : n < 20 ? a[n] : b[Math.floor(n / 10)] + a[n % 10]);
-  if (crore > 0) words += getTwo(crore) + 'CRORE ';
-  if (lakh > 0) words += getTwo(lakh) + 'LAKH ';
-  if (thousand > 0) words += getTwo(thousand) + 'THOUSAND ';
-  if (hundred > 0) words += a[hundred] + 'HUNDRED ';
+  let words = "";
+  const getTwo = (n) =>
+    n === 0 ? "" : n < 20 ? a[n] : b[Math.floor(n / 10)] + a[n % 10];
+  if (crore > 0) words += getTwo(crore) + "CRORE ";
+  if (lakh > 0) words += getTwo(lakh) + "LAKH ";
+  if (thousand > 0) words += getTwo(thousand) + "THOUSAND ";
+  if (hundred > 0) words += a[hundred] + "HUNDRED ";
   if (rest > 0) {
-    if (words !== '') words += 'AND ';
+    if (words !== "") words += "AND ";
     words += getTwo(rest);
   }
   return `${words.trim()} RUPEES ONLY`;
@@ -1152,71 +1548,87 @@ function saleNumberToWords(amount) {
 export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   const browserBinary = findBrowserBinary();
 
-  const shopName = shop?.name || shop?.shop_name || 'Shree Mobile Shop';
-  const shopAddress = shop?.address || 'G/456, Basant Lok Comm., Vasant Vihar, Tardeo Road, Maharashtra - 400001';
-  const shopPhone = shop?.phone || 'Ph. 111 2222 3333';
-  const shopTaxNo = shop?.tax_number || '26CORPP3939N1ZA';
-  const shopLogoRaw = (shop?.logo_url || '').trim();
-  const instagramQrRaw = (shop?.instagram_qr_url || '').trim();
+  const shopName = shop?.name || shop?.shop_name || "Shree Mobile Shop";
+  const shopAddress =
+    shop?.address ||
+    "G/456, Basant Lok Comm., Vasant Vihar, Tardeo Road, Maharashtra - 400001";
+  const shopPhone = shop?.phone || "Ph. 111 2222 3333";
+  const shopTaxNo = shop?.tax_number || "26CORPP3939N1ZA";
+  const shopLogoRaw = (shop?.logo_url || "").trim();
+  const instagramQrRaw = (shop?.instagram_qr_url || "").trim();
 
   // Convert shop logo to inline base64 Data URL so Chromium headless embeds it reliably
   const shopLogoDataUrl = await imageSourceToDataUrl(shopLogoRaw);
 
-  const invoiceNumber = sale?.invoice_no_seq || sale?.invoice_number || '47';
-  const invoiceDate = sale?.invoice_date ? String(sale.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0];
+  const invoiceNumber = sale?.invoice_no_seq || sale?.invoice_number || "47";
+  const invoiceDate = sale?.invoice_date
+    ? String(sale.invoice_date).split("T")[0]
+    : new Date().toISOString().split("T")[0];
   const grandTotal = parseFloat(sale?.total_amount) || 0;
   const taxableAmount = parseFloat(sale?.taxable_amount) || 0;
   const totalTax = parseFloat(sale?.total_tax) || 0;
   const gstEnabled = sale?.gst_enabled !== false;
-  const isIgst = sale?.gst_type !== 'CGST_SGST';
+  const isIgst = sale?.gst_type !== "CGST_SGST";
   const totalInWords = saleNumberToWords(grandTotal);
 
   // Generate Instagram QR Code Data URL if configured
-  let instagramQrDataUrl = '';
+  let instagramQrDataUrl = "";
   if (instagramQrRaw) {
-    const pathWithoutQuery = instagramQrRaw.split('?')[0].toLowerCase();
+    const pathWithoutQuery = instagramQrRaw.split("?")[0].toLowerCase();
     const isDirectImage =
-      instagramQrRaw.startsWith('data:image/') ||
-      instagramQrRaw.includes('/uploads/') ||
-      instagramQrRaw.includes('/api/upload') ||
+      instagramQrRaw.startsWith("data:image/") ||
+      instagramQrRaw.includes("/uploads/") ||
+      instagramQrRaw.includes("/api/upload") ||
       /\.(png|jpe?g|webp|svg|gif|bmp)$/i.test(pathWithoutQuery);
 
     if (isDirectImage) {
       instagramQrDataUrl = await imageSourceToDataUrl(instagramQrRaw);
     } else {
       let targetLink = instagramQrRaw;
-      if (targetLink.startsWith('@')) {
+      if (targetLink.startsWith("@")) {
         targetLink = `https://www.instagram.com/${targetLink.slice(1)}/`;
-      } else if (!targetLink.startsWith('http://') && !targetLink.startsWith('https://')) {
+      } else if (
+        !targetLink.startsWith("http://") &&
+        !targetLink.startsWith("https://")
+      ) {
         targetLink = `https://${targetLink}`;
       }
       try {
         instagramQrDataUrl = await QRCode.toDataURL(targetLink, {
           width: 160,
           margin: 1,
-          color: { dark: '#000000', light: '#ffffff' },
+          color: { dark: "#000000", light: "#ffffff" },
         });
       } catch (err) {
-        console.warn('⚠️ Instagram QR generation warning:', err.message);
+        console.warn("⚠️ Instagram QR generation warning:", err.message);
       }
     }
   }
 
   const items = sale?.items || [];
-  const totalQty = items.reduce((sum, it) => sum + (parseInt(it.quantity, 10) || 1), 0);
+  const totalQty = items.reduce(
+    (sum, it) => sum + (parseInt(it.quantity, 10) || 1),
+    0,
+  );
 
   const cleanWarrantyText = (w) => {
-    if (!w) return '-';
+    if (!w) return "-";
     const str = String(w).trim();
-    if (!str || str.toLowerCase() === 'no warranty' || str.toLowerCase() === 'no' || str.toLowerCase() === 'none' || str === '-') {
-      return '-';
+    if (
+      !str ||
+      str.toLowerCase() === "no warranty" ||
+      str.toLowerCase() === "no" ||
+      str.toLowerCase() === "none" ||
+      str === "-"
+    ) {
+      return "-";
     }
     const cleaned = str
-      .replace(/\b(brand|testing)\s+warranty\b/gi, '')
-      .replace(/\b(warranty|replacement)\b/gi, '')
-      .replace(/\s+/g, ' ')
+      .replace(/\b(brand|testing)\s+warranty\b/gi, "")
+      .replace(/\b(warranty|replacement)\b/gi, "")
+      .replace(/\s+/g, " ")
       .trim();
-    return cleaned || '-';
+    return cleaned || "-";
   };
 
   const htmlContent = `<!DOCTYPE html>
@@ -1293,11 +1705,14 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
   <div style="display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:6px;">
     <!-- Left: Logo & Shop Details -->
     <div style="display:flex; align-items:flex-start; gap:10px; max-width:60%;">
-      ${shopLogoDataUrl ? `
+      ${
+        shopLogoDataUrl
+          ? `
         <div style="width:150px; max-width:150px; height:48px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; background:#fff;">
           <img src="${shopLogoDataUrl}" alt="${shopName}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
         </div>
-      ` : `
+      `
+          : `
         <div style="display:flex; flex-direction:column; align-items:center; flex-shrink:0;">
           <div style="width:42px; height:46px; border-radius:6px; background:#0ea5e9; display:flex; align-items:center; justify-content:center; color:#fff; transform:rotate(-8deg);">
             <svg style="width:24px; height:24px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1308,9 +1723,10 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
           <span style="font-size:7px; font-weight:900; text-transform:uppercase; margin-top:2px;">PHONE SHOP</span>
           <span style="font-size:6px; color:#64748b; text-transform:uppercase;">SLOGAN HERE</span>
         </div>
-      `}
+      `
+      }
       <div>
-        ${shopLogoDataUrl ? '' : `<h1 style="font-size:20px; font-weight:900; color:#000000; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>`}
+        ${shopLogoDataUrl ? "" : `<h1 style="font-size:20px; font-weight:900; color:#000000; margin:0 0 2px 0; line-height:1.1;">${shopName}</h1>`}
         <p style="font-size:10.5px; color:#000000; margin:0 0 2px 0; line-height:1.2;">${shopAddress}</p>
         <p style="font-size:10.5px; font-weight:700; color:#000000; margin:0;">${shopPhone}</p>
       </div>
@@ -1318,7 +1734,9 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 
     <!-- Right: Instagram QR Code if configured (Preserved Instagram color #E1306C) -->
     <div style="text-align:right; max-width:40%; display:flex; flex-direction:column; align-items:flex-end;">
-      ${instagramQrDataUrl ? `
+      ${
+        instagramQrDataUrl
+          ? `
         <div style="display:flex; align-items:center; gap:8px; border:1px solid #000000; border-radius:6px; padding:4px 6px; background:#f8fafc;">
           <div style="text-align:right;">
             <div style="font-size:10px; font-weight:800; color:#E1306C; display:flex; align-items:center; justify-content:flex-end; gap:3px;">
@@ -1331,7 +1749,9 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
         </div>
         <img src="${instagramQrDataUrl}" style="width:48px; height:48px; border:1px solid #000000; border-radius:4px; padding:1px; background:#fff;" />
       </div>
-    ` : ''}
+    `
+          : ""
+      }
     </div>
   </div>
 
@@ -1347,10 +1767,10 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
     <!-- Header: GSTIN, TAX INVOICE, ORIGINAL FOR RECIPIENT -->
     <div class="border-b-black" style="display:flex; justify-content:space-between; align-items:center; padding:5px 10px;">
       <div style="font-size:11px; font-weight:700; width:33%; color:#000000;">
-        ${gstEnabled ? `GSTIN : ${shopTaxNo}` : `REG : ${shopTaxNo || 'RETAIL'}`}
+        ${gstEnabled ? `GSTIN : ${shopTaxNo}` : `REG : ${shopTaxNo || "RETAIL"}`}
       </div>
       <div style="font-size:16px; font-weight:900; color:#000000; text-align:center; width:34%; text-transform:uppercase; letter-spacing:0.5px;">
-        ${gstEnabled ? 'TAX INVOICE' : 'RETAIL INVOICE'}
+        ${gstEnabled ? "TAX INVOICE" : "RETAIL INVOICE"}
       </div>
       <div style="font-size:10px; font-weight:700; text-align:right; width:33%; text-transform:uppercase; color:#000000;">
         ORIGINAL FOR RECIPIENT
@@ -1365,12 +1785,12 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
           Customer Detail
         </div>
         <table style="width:100%; font-size:10.5px; border-collapse:collapse;">
-          <tr><td style="width:85px; font-weight:700;">Name</td><td>: <b>${sale.customer_name || 'Customer'}</b></td></tr>
-          <tr><td style="font-weight:700;">Address</td><td>: ${sale.customer_address || 'Surat'}</td></tr>
-          <tr><td style="font-weight:700;">PHONE</td><td>: ${sale.customer_phone || '-'}</td></tr>
-          ${sale.customer_email ? `<tr><td style="font-weight:700;">Mail ID</td><td>: ${sale.customer_email}</td></tr>` : ''}
-          ${sale.customer_gstin ? `<tr><td style="font-weight:700;">GSTIN</td><td>: ${sale.customer_gstin}</td></tr>` : ''}
-          <tr><td style="font-weight:700;">Place of Supply</td><td>: ${sale.place_of_supply || 'Gujarat'}</td></tr>
+          <tr><td style="width:85px; font-weight:700;">Name</td><td>: <b>${sale.customer_name || "Customer"}</b></td></tr>
+          <tr><td style="font-weight:700;">Address</td><td>: ${sale.customer_address || "Surat"}</td></tr>
+          <tr><td style="font-weight:700;">PHONE</td><td>: ${sale.customer_phone || "-"}</td></tr>
+          ${sale.customer_email ? `<tr><td style="font-weight:700;">Mail ID</td><td>: ${sale.customer_email}</td></tr>` : ""}
+          ${sale.customer_gstin ? `<tr><td style="font-weight:700;">GSTIN</td><td>: ${sale.customer_gstin}</td></tr>` : ""}
+          <tr><td style="font-weight:700;">Place of Supply</td><td>: ${sale.place_of_supply || "Gujarat"}</td></tr>
         </table>
       </div>
 
@@ -1379,7 +1799,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
         <table style="width:100%; font-size:10.5px; border-collapse:collapse; margin-top:15px;">
           <tr><td style="width:90px; font-weight:700;">Invoice No.</td><td>: <b>${invoiceNumber}</b></td></tr>
           <tr><td style="font-weight:700;">Invoice Date</td><td>: ${invoiceDate}</td></tr>
-          <tr><td style="font-weight:700;">Payment Mode</td><td>: <b>${sale.payment_mode || 'CASH'}</b></td></tr>
+          <tr><td style="font-weight:700;">Payment Mode</td><td>: <b>${sale.payment_mode || "CASH"}</b></td></tr>
           <tr><td style="font-weight:700;">Payment Status</td><td>: <span style="color:#059669; font-weight:700;">PAID</span></td></tr>
         </table>
       </div>
@@ -1390,47 +1810,59 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
       <thead>
         <tr>
           <th style="width:6%; text-align:center;">No.</th>
-          <th style="width:${gstEnabled ? '38%' : '40%'}; text-align:left;">Name of Product</th>
-          <th style="width:${gstEnabled ? '14%' : '12%'}; text-align:center;">Warranty</th>
-          <th style="width:${gstEnabled ? '7%' : '8%'}; text-align:center;">Qty</th>
-          <th style="width:${gstEnabled ? '11%' : '14%'}; text-align:right;">Rate</th>
-          ${gstEnabled ? `<th style="width:11%; text-align:center; padding:0;">
-            <div style="border-bottom:1px solid #000000; padding:1px 0;">${isIgst ? 'IGST' : 'CGST / SGST'}</div>
+          <th style="width:${gstEnabled ? "38%" : "40%"}; text-align:left;">Name of Product</th>
+          <th style="width:${gstEnabled ? "14%" : "12%"}; text-align:center;">Warranty</th>
+          <th style="width:${gstEnabled ? "7%" : "8%"}; text-align:center;">Qty</th>
+          <th style="width:${gstEnabled ? "11%" : "14%"}; text-align:right;">Rate</th>
+          ${
+            gstEnabled
+              ? `<th style="width:11%; text-align:center; padding:0;">
+            <div style="border-bottom:1px solid #000000; padding:1px 0;">${isIgst ? "IGST" : "CGST / SGST"}</div>
             <div style="display:flex; font-size:9px;">
               <span style="width:35%; border-right:1px solid #000000;">%</span>
               <span style="width:65%;">Amount</span>
             </div>
-          </th>` : ''}
-          <th style="width:${gstEnabled ? '13%' : '20%'}; text-align:right;">Total</th>
+          </th>`
+              : ""
+          }
+          <th style="width:${gstEnabled ? "13%" : "20%"}; text-align:right;">Total</th>
         </tr>
       </thead>
       <tbody>
-        ${items.map((it, idx) => `
+        ${items
+          .map(
+            (it, idx) => `
           <tr style="border-bottom:1px solid #000000; vertical-align:top;">
             <td style="text-align:center; color:#000000;">${it.sr_no || idx + 1}</td>
             <td>
-              <div style="font-weight:700; font-size:10.5px; color:#000000;">${it.name || it.item_name || 'Product'}</div>
-              ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#000000; font-family:monospace; margin-top:1px;">${it.imei.startsWith('IMEI') ? it.imei : `IMEI: ${it.imei}`}</div>` : ''}
+              <div style="font-weight:700; font-size:10.5px; color:#000000;">${it.name || it.item_name || "Product"}</div>
+              ${it.imei ? `<div style="font-style:italic; font-size:9.5px; color:#000000; font-family:monospace; margin-top:1px;">${it.imei.startsWith("IMEI") ? it.imei : `IMEI: ${it.imei}`}</div>` : ""}
             </td>
             <td style="text-align:center; font-weight:600; color:#000000;">${cleanWarrantyText(it.warranty)}</td>
             <td style="text-align:center; font-weight:700; color:#000000;">${it.quantity || 1}</td>
             <td style="text-align:right; font-family:monospace; color:#000000;">${formatInr(it.rate)}</td>
-            ${gstEnabled ? `
+            ${
+              gstEnabled
+                ? `
               <td style="padding:0; font-family:monospace; color:#000000;">
                 <div style="display:flex; height:100%;">
                   <span style="width:40%; text-align:center; border-right:1px solid #000000; padding:3px 1px;">${(parseFloat(it.gst_rate) || 18).toFixed(1)}</span>
                   <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(it.gst_amount)}</span>
                 </div>
               </td>
-            ` : ''}
+            `
+                : ""
+            }
             <td style="text-align:right; font-weight:700; font-family:monospace; color:#000000;">${formatInr(it.total)}</td>
           </tr>
-        `).join('')}
+        `,
+          )
+          .join("")}
 
         <!-- Filler Height Row dynamically scaled for Full A4 Page Height with 48px margins -->
         <tr style="height:${Math.max(25, Math.round(360 - (items.length - 1) * 36))}px;">
           <td></td><td></td><td></td><td></td><td></td>
-          ${gstEnabled ? `<td><div style="display:flex; height:100%;"><span style="width:40%; border-right:1px solid #000000;"></span><span style="width:60%;"></span></div></td>` : ''}
+          ${gstEnabled ? `<td><div style="display:flex; height:100%;"><span style="width:40%; border-right:1px solid #000000;"></span><span style="width:60%;"></span></div></td>` : ""}
           <td></td>
         </tr>
       </tbody>
@@ -1439,14 +1871,18 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
           <td colspan="3" style="text-align:right; text-transform:uppercase;">TOTAL</td>
           <td style="text-align:center;">${totalQty}</td>
           <td></td>
-          ${gstEnabled ? `
+          ${
+            gstEnabled
+              ? `
             <td style="padding:0; font-family:monospace;">
               <div style="display:flex;">
                 <span style="width:40%; border-right:1px solid #000000;"></span>
                 <span style="width:60%; text-align:right; padding:3px 4px;">${formatInr(totalTax)}</span>
               </div>
             </td>
-          ` : ''}
+          `
+              : ""
+          }
           <td style="text-align:right; font-weight:900; font-family:monospace;">${formatInr(grandTotal)}</td>
         </tr>
       </tfoot>
@@ -1474,52 +1910,52 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
 
         <!-- Row 2: Words Text (left) vs Financial Breakdown Rows (right) -->
         ${(() => {
-      const breakdown = [];
-      if (sale.discount_amount > 0) {
-        breakdown.push(`
+          const breakdown = [];
+          if (sale.discount_amount > 0) {
+            breakdown.push(`
               <div style="display:flex; justify-content:space-between; padding:2px 10px; font-size:9.5px; color:#000000; background:#ffffff;">
-                <span style="font-weight:600; color:#000000;">Less : Discount ${sale.discount_type === 'percentage' ? `(${sale.discount_value}%)` : ''}</span>
+                <span style="font-weight:600; color:#000000;">Less : Discount ${sale.discount_type === "percentage" ? `(${sale.discount_value}%)` : ""}</span>
                 <span style="font-family:monospace; font-weight:700; color:#000000;">-${formatInr(sale.discount_amount)}</span>
               </div>
             `);
-      }
-      if (gstEnabled) {
-        if (isIgst) {
-          breakdown.push(`
+          }
+          if (gstEnabled) {
+            if (isIgst) {
+              breakdown.push(`
                 <div style="display:flex; justify-content:space-between; padding:3px 10px;">
                   <span style="font-weight:700;">Add : IGST (${sale.gst_rate}%)</span>
                   <span style="font-family:monospace;">${formatInr(totalTax)}</span>
                 </div>
               `);
-        } else {
-          breakdown.push(`
+            } else {
+              breakdown.push(`
                 <div style="display:flex; justify-content:space-between; padding:2px 10px;">
                   <span style="font-weight:700;">Add : CGST (${(sale.cgst_rate || 9).toFixed(1)}%)</span>
                   <span style="font-family:monospace;">${formatInr(sale.cgst_amount || totalTax / 2)}</span>
                 </div>
               `);
-          breakdown.push(`
+              breakdown.push(`
                 <div style="display:flex; justify-content:space-between; padding:2px 10px;">
                   <span style="font-weight:700;">Add : SGST (${(sale.sgst_rate || 9).toFixed(1)}%)</span>
                   <span style="font-family:monospace;">${formatInr(sale.sgst_amount || totalTax / 2)}</span>
                 </div>
               `);
-        }
-        breakdown.push(`
+            }
+            breakdown.push(`
               <div style="display:flex; justify-content:space-between; padding:3px 10px; font-weight:700;">
                 <span>Total Tax</span>
                 <span style="font-family:monospace;">${formatInr(totalTax)}</span>
               </div>
             `);
-      }
-      breakdown.push(`
+          }
+          breakdown.push(`
             <div style="display:flex; justify-content:space-between; padding:5px 10px; background:#f8fafc; font-size:11.5px; font-weight:900;">
               <span>Total Amount After Tax</span>
               <span style="color:#000000; font-family:monospace;">₹${formatInr(grandTotal)}</span>
             </div>
           `);
 
-      return `
+          return `
             <tr style="border-bottom:1px solid #000000;">
               <td style="width:58%; border-right:1.5px solid #000000; padding:6px 8px; font-weight:700; text-transform:uppercase; vertical-align:middle; color:#000000;">
                 ${totalInWords}
@@ -1529,7 +1965,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
               </td>
             </tr>
           `;
-    })()}
+        })()}
 
         <!-- Row 3: Terms and Conditions Header vs (E & O.E.) Full Width -->
         <tr style="border-bottom:1px solid #000000;">
@@ -1555,7 +1991,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
             <div>3. Physical damage, liquid damage, misuse and unauthorized repairs are not covered under warranty.</div>
             <div>4. Customers are advised to back up their data before repair; the shop is not responsible for data loss.</div>
             <div>5. Returns, replacements and refunds are subject to the applicable shop policy and Indian consumer protection laws.</div>
-            ${sale?.notes ? `<div style="font-weight:700; color:#000000; margin-top:2px;">Note: ${sale.notes}</div>` : ''}
+            ${sale?.notes ? `<div style="font-weight:700; color:#000000; margin-top:2px;">Note: ${sale.notes}</div>` : ""}
           </td>
         </tr>
       </tbody>
@@ -1569,21 +2005,27 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
     try {
       return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
-      console.warn('⚠️ Headless Chromium Sale Invoice PDF print warning:', browserErr.message);
+      console.warn(
+        "⚠️ Headless Chromium Sale Invoice PDF print warning:",
+        browserErr.message,
+      );
     }
   }
 
   return generateFallbackVectorPdfBuffer({
-    type: 'INVOICE',
+    type: "INVOICE",
     docNumber: invoiceNumber,
     dateStr: invoiceDate,
     shop: { name: shopName, address: shopAddress, phone: shopPhone },
-    customer: { full_name: sale?.customer_name || 'Retail Customer', phone: sale?.customer_phone || '' },
-    device: { brand: 'Mobile Accessories / Handset', model: '' },
+    customer: {
+      full_name: sale?.customer_name || "Retail Customer",
+      phone: sale?.customer_phone || "",
+    },
+    device: { brand: "Mobile Accessories / Handset", model: "" },
     items: (sale?.items || []).map((it) => ({
-      item_name: it.item_name || 'Item',
+      item_name: it.item_name || "Item",
       quantity: it.quantity || 1,
-      warranty: it.warranty || 'N/A',
+      warranty: it.warranty || "N/A",
       total_price: it.total || it.unit_price || 0,
     })),
     totals: {
@@ -1591,7 +2033,7 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
       paid: grandTotal,
       balance: 0,
     },
-    warrantyText: 'Sale Item Warranty',
+    warrantyText: "Sale Item Warranty",
   });
 }
 
@@ -1599,48 +2041,59 @@ export async function generateSaleInvoicePdfBuffer({ sale, shop }) {
  * Generates an official vector PDF buffer for the Service Order / Job Sheet (Intake Receipt)
  * matching JobSheetPrintable styling on a single A4 page.
  */
-export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' }) {
+export async function generateJobSheetPdfBuffer({
+  job,
+  shop,
+  trackingUrl = "",
+}) {
   const browserBinary = findBrowserBinary();
 
   const shopObj = shop || {
-    name: 'Mobotech mobile care',
-    tagline: 'Professional Smartphone & Tablet Repair Services',
-    address: 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006',
-    phone: '080000 24439',
-    email: 'support@mobotech.com',
+    name: "Mobotech mobile care",
+    tagline: "Professional Smartphone & Tablet Repair Services",
+    address:
+      "Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006",
+    phone: "080000 24439",
+    email: "support@mobotech.com",
   };
+  shopObj.terms_conditions = shopObj.terms_conditions || "";
 
-  const shopLogoDataUrl = await imageSourceToDataUrl(shopObj.logo_url || shopObj.logo);
+  const shopLogoDataUrl = await imageSourceToDataUrl(
+    shopObj.logo_url || shopObj.logo,
+  );
 
   const dev = job.device || {};
   const cust = job.customer || {};
   const cond = job.device_condition || {};
   const accessories = Array.isArray(job.accessories_received)
     ? job.accessories_received
-    : (typeof job.accessories_received === 'string'
-        ? job.accessories_received.split(',').map(s => s.trim()).filter(Boolean)
-        : []);
+    : typeof job.accessories_received === "string"
+      ? job.accessories_received
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [];
 
   const createDateStr = job.created_at
-    ? new Date(job.created_at).toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
+    ? new Date(job.created_at).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
       })
-    : new Date().toLocaleDateString('en-IN', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
+    : new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
       });
 
-  const barcodeSvg = generateBarcodeSvg(job.job_number || 'JOB', 22, 'center');
-  const currencySymbol = shopObj.currency_symbol || '₹';
+  const barcodeSvg = generateBarcodeSvg(job.job_number || "JOB", 22, "center");
+  const currencySymbol = shopObj.currency_symbol || "₹";
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Service Order Sheet #${job.job_number || ''}</title>
+  <title>Service Order Sheet #${job.job_number || ""}</title>
   <style>
     @page {
       size: A4 portrait;
@@ -1765,27 +2218,31 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
       <!-- Left: Shop Info -->
       <div style="width:62%; padding-right:8px;">
         <div style="display:flex; align-items:center; gap:8px;">
-          ${shopLogoDataUrl ? `
+          ${
+            shopLogoDataUrl
+              ? `
             <div style="width:150px; max-width:150px; height:48px; border-radius:3px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:#fff; flex-shrink:0;">
               <img src="${shopLogoDataUrl}" alt="${shopObj.name}" style="width:100%; max-width:150px; max-height:100%; object-fit:contain; display:block;" />
             </div>
-          ` : `
+          `
+              : `
             <div style="width:32px; height:32px; background:#000; color:#fff; border-radius:3px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px;">
               M
             </div>
             <div>
               <div style="font-size:14px; font-weight:900; text-transform:uppercase; line-height:1; color:#000;">
-                ${shopObj.name || 'Mobotech mobile care'}
+                ${shopObj.name || "Mobotech mobile care"}
               </div>
               <div style="font-size:8px; color:#475569; font-weight:500; margin-top:2px;">
-                ${shopObj.tagline || 'Professional Smartphone & Tablet Repair Services'}
+                ${shopObj.tagline || "Professional Smartphone & Tablet Repair Services"}
               </div>
             </div>
-          `}
+          `
+          }
         </div>
         <div style="font-size:8px; color:#334155; margin-top:4px; line-height:1.2;">
-          <div><b>Address:</b> ${shopObj.address || 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006'}</div>
-          <div><b>Phone:</b> ${shopObj.phone || '080000 24439'} ${shopObj.email ? `• <b>Email:</b> ${shopObj.email}` : ''}</div>
+          <div><b>Address:</b> ${shopObj.address || "Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar, Surat, Gujarat 395006"}</div>
+          <div><b>Phone:</b> ${shopObj.phone || "080000 24439"} ${shopObj.email ? `• <b>Email:</b> ${shopObj.email}` : ""}</div>
         </div>
       </div>
 
@@ -1797,7 +2254,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
         ${barcodeSvg}
         <div style="font-size:7.5px; color:#475569; margin-top:2px;">
           Intake Date: <b style="font-family:monospace; color:#000;">${createDateStr}</b>
-          ${job.technician?.full_name ? ` • Tech: <b style="color:#000;">${job.technician.full_name}</b>` : ''}
+          ${job.technician?.full_name ? ` • Tech: <b style="color:#000;">${job.technician.full_name}</b>` : ""}
         </div>
       </div>
     </div>
@@ -1806,47 +2263,47 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
     <div class="box">
       <div class="box-header">
         <span>Customer Information</span>
-        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Code: ${cust.customer_code || 'CUST'}</span>
+        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Code: ${cust.customer_code || "CUST"}</span>
       </div>
       <div class="grid-4">
         <div class="cell">
           <span class="label">Customer Name</span>
-          <span class="val-bold" style="text-transform:uppercase;">${cust.full_name || 'N/A'}</span>
+          <span class="val-bold" style="text-transform:uppercase;">${cust.full_name || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">Primary Phone</span>
-          <span class="val-bold" style="font-family:monospace;">${cust.phone || 'N/A'}</span>
+          <span class="val-bold" style="font-family:monospace;">${cust.phone || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">Primary WhatsApp</span>
-          <span class="val" style="font-family:monospace;">${cust.whatsapp_number || cust.phone || 'N/A'}</span>
+          <span class="val" style="font-family:monospace;">${cust.whatsapp_number || cust.phone || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">Customer Type</span>
-          <span class="val">${cust.user_type || 'End User'}</span>
+          <span class="val">${cust.user_type || "End User"}</span>
         </div>
       </div>
       <div class="grid-4 border-top">
         <div class="cell">
           <span class="label">Email (Mail ID)</span>
-          <span class="val">${cust.email || 'N/A'}</span>
+          <span class="val">${cust.email || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">Alternate Contact</span>
-          <span class="val" style="font-family:monospace;">${cust.alternate_phone || 'N/A'}</span>
+          <span class="val" style="font-family:monospace;">${cust.alternate_phone || "N/A"}</span>
         </div>
         <div class="cell" style="background:#f0fdf4;">
           <span class="label" style="color:#166534;">Alt WhatsApp (In-Repair)</span>
-          <span class="val-bold" style="font-family:monospace; color:#14532d;">${cust.alternate_whatsapp || cust.alternate_phone || 'N/A'}</span>
+          <span class="val-bold" style="font-family:monospace; color:#14532d;">${cust.alternate_whatsapp || cust.alternate_phone || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">City / Area</span>
-          <span class="val" style="text-transform:uppercase;">${cust.city || 'Surat'}${cust.state ? `, ${cust.state}` : ''}</span>
+          <span class="val" style="text-transform:uppercase;">${cust.city || "Surat"}${cust.state ? `, ${cust.state}` : ""}</span>
         </div>
       </div>
       <div class="border-top" style="padding:2px 5px; background:#f8fafc; font-size:8px;">
         <span style="font-weight:700; color:#64748b; text-transform:uppercase; margin-right:4px;">Address:</span>
-        <span style="color:#000;">${cust.address || (cust.city ? `${cust.city}${cust.state ? ', ' + cust.state : ''}` : 'Local Walk-In / Surat, Gujarat')}</span>
+        <span style="color:#000;">${cust.address || (cust.city ? `${cust.city}${cust.state ? ", " + cust.state : ""}` : "Local Walk-In / Surat, Gujarat")}</span>
       </div>
     </div>
 
@@ -1854,44 +2311,44 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
     <div class="box">
       <div class="box-header">
         <span>Device Details & Intake Inspection Condition</span>
-        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Status: ${job.status || 'RECEIVED'}</span>
+        <span style="font-family:monospace; font-weight:normal; color:#64748b;">Status: ${job.status || "RECEIVED"}</span>
       </div>
       <div class="grid-4">
         <div class="cell">
           <span class="label">Device Brand & Model</span>
-          <span class="val-bold" style="text-transform:uppercase;">${dev.brand ? `${dev.brand} ` : ''}${dev.model || 'Smartphone'}</span>
+          <span class="val-bold" style="text-transform:uppercase;">${dev.brand ? `${dev.brand} ` : ""}${dev.model || "Smartphone"}</span>
         </div>
         <div class="cell">
           <span class="label">Color / Storage</span>
-          <span class="val">${dev.color || 'Standard'} ${dev.storage_capacity ? `• ${dev.storage_capacity}` : ''}</span>
+          <span class="val">${dev.color || "Standard"} ${dev.storage_capacity ? `• ${dev.storage_capacity}` : ""}</span>
         </div>
         <div class="cell">
           <span class="label">IMEI / Serial Number</span>
-          <span class="val-bold" style="font-family:monospace;">${dev.imei || dev.serial_number || 'N/A'}</span>
+          <span class="val-bold" style="font-family:monospace;">${dev.imei || dev.serial_number || "N/A"}</span>
         </div>
         <div class="cell">
           <span class="label">Passcode / Pattern (Testing)</span>
-          <span class="val-bold" style="font-family:monospace; background:#f1f5f9; padding:0 3px; border-radius:2px;">${dev.passcode || 'None'}</span>
+          <span class="val-bold" style="font-family:monospace; background:#f1f5f9; padding:0 3px; border-radius:2px;">${dev.passcode || "None"}</span>
         </div>
       </div>
       <div class="grid-4 border-top">
         <div class="cell">
           <span class="label">Screen State at Intake</span>
-          <span class="val-bold">${cond.screen || 'Intact'}</span>
+          <span class="val-bold">${cond.screen || "Intact"}</span>
         </div>
         <div class="cell">
           <span class="label">Body / Frame Cosmetic</span>
-          <span class="val-bold">${dev.cosmetic_condition || cond.body || 'Wear And Tear'}</span>
+          <span class="val-bold">${dev.cosmetic_condition || cond.body || "Wear And Tear"}</span>
         </div>
         <div class="cell">
           <span class="label">Liquid / Water Damage</span>
-          <span class="val-bold" style="color:${cond.water_damage ? '#b91c1c' : '#15803d'};">
-            ${cond.water_damage ? 'YES (Liquid Damage Detected)' : 'NO'}
+          <span class="val-bold" style="color:${cond.water_damage ? "#b91c1c" : "#15803d"};">
+            ${cond.water_damage ? "YES (Liquid Damage Detected)" : "NO"}
           </span>
         </div>
         <div class="cell">
           <span class="label">Charging / Port State</span>
-          <span class="val-bold">${cond.charging_port || 'Normal'}</span>
+          <span class="val-bold">${cond.charging_port || "Normal"}</span>
         </div>
       </div>
 
@@ -1901,7 +2358,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
           Inward Inspection Checklist (14-Point)
         </div>
         <div class="checklist-grid">
-          ${INWARD_CHECKLIST_CONFIG.map(item => {
+          ${INWARD_CHECKLIST_CONFIG.map((item) => {
             const val = resolveChecklistValue(item.key, cond);
             return `
               <div class="checklist-item">
@@ -1909,7 +2366,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
                 <strong style="font-family:monospace; color:#000; flex-shrink:0;">${val}</strong>
               </div>
             `;
-          }).join('')}
+          }).join("")}
         </div>
       </div>
 
@@ -1918,12 +2375,16 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
         <div>
           <span style="font-weight:700; color:#64748b; text-transform:uppercase; margin-right:4px;">Accessories Received:</span>
           <span style="font-weight:600; color:#000;">
-            ${accessories.length > 0 ? accessories.join(', ') : 'Device Only (No accessories handed in)'}
+            ${accessories.length > 0 ? accessories.join(", ") : "Device Only (No accessories handed in)"}
           </span>
         </div>
-        ${cond.notes ? `
+        ${
+          cond.notes
+            ? `
           <div style="font-style:italic; color:#475569; font-size:7.5px;">Notes: ${cond.notes}</div>
-        ` : ''}
+        `
+            : ""
+        }
       </div>
     </div>
 
@@ -1935,11 +2396,11 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
       <div style="display:grid; grid-template-columns:35% 65%;">
         <div class="cell">
           <span class="label">Repair Job Category</span>
-          <span class="val-bold" style="text-transform:uppercase;">${job.service_type || 'Hardware Component Repair'}</span>
+          <span class="val-bold" style="text-transform:uppercase;">${job.service_type || "Hardware Component Repair"}</span>
         </div>
         <div class="cell">
           <span class="label">Customer Reported Fault</span>
-          <span class="val-bold" style="font-size:9.5px;">"${job.customer_complaint || 'Diagnostic Assessment'}"</span>
+          <span class="val-bold" style="font-size:9.5px;">"${job.customer_complaint || "Diagnostic Assessment"}"</span>
         </div>
       </div>
       <div class="grid-3 border-top" style="background:#f8fafc;">
@@ -1983,6 +2444,16 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
           <p><strong>8. Uncollected Devices:</strong> Handsets left unclaimed for more than 30 days following completion notification will incur storage fees or may be disposed of to recover service and parts costs.</p>
         </div>
       </div>
+      ${
+        shopObj.terms_conditions
+          ? `
+      <div style="margin-top:4px; padding-top:3px; border-top:1px solid #cbd5e1;">
+        <div style="font-size:7.5px; font-weight:700; text-transform:uppercase; color:#000; margin-bottom:2px;">Additional Terms & Conditions:</div>
+        <div style="font-size:7px; line-height:1.25; color:#1e293b; white-space:pre-wrap; word-break:break-word;">${shopObj.terms_conditions}</div>
+      </div>
+      `
+          : ""
+      }
     </div>
 
     <!-- 5. SIGNATURES -->
@@ -2005,7 +2476,7 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
         </p>
         <div style="border-top:1px solid #000; padding-top:1px; display:flex; justify-content:space-between; align-items:center;">
           <strong style="font-size:8px; color:#000;">Authorized Technician / Workshop Seal</strong>
-          <span style="font-size:7.5px; font-family:monospace; color:#64748b;">Staff: ${job.technician?.full_name || 'Workbench'}</span>
+          <span style="font-size:7.5px; font-family:monospace; color:#64748b;">Staff: ${job.technician?.full_name || "Workbench"}</span>
         </div>
       </div>
     </div>
@@ -2018,13 +2489,16 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
     try {
       return await convertHtmlToPdfWithBrowser(browserBinary, htmlContent);
     } catch (browserErr) {
-      console.warn('⚠️ Headless Chromium Job Sheet PDF print warning:', browserErr.message);
+      console.warn(
+        "⚠️ Headless Chromium Job Sheet PDF print warning:",
+        browserErr.message,
+      );
     }
   }
 
   // 2. Resilient vector PDF fallback (ensures PDF buffer is always generated)
   return generateFallbackVectorPdfBuffer({
-    type: 'JOB_SHEET',
+    type: "JOB_SHEET",
     docNumber: job.job_number,
     dateStr: createDateStr,
     shop: shopObj,
@@ -2032,9 +2506,9 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
     device: dev,
     complaint: job.customer_complaint,
     items: (job.estimate?.items || job.estimate_items || []).map((it) => ({
-      item_name: it.item_name || 'Estimated Repair Part/Service',
+      item_name: it.item_name || "Estimated Repair Part/Service",
       quantity: it.quantity || 1,
-      warranty: it.warranty || '30 Days',
+      warranty: it.warranty || "30 Days",
       total_price: it.total_price || 0,
     })),
     totals: {
@@ -2042,8 +2516,6 @@ export async function generateJobSheetPdfBuffer({ job, shop, trackingUrl = '' })
       paid: Number(job.paid_amount || 0),
       balance: Number(job.balance_due || job.total_amount || 0),
     },
-    warrantyText: job.warranty_days ? `${job.warranty_days} Days` : '30 Days',
+    warrantyText: job.warranty_days ? `${job.warranty_days} Days` : "30 Days",
   });
 }
-
-

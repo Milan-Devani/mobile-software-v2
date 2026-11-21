@@ -3786,6 +3786,7 @@ export const db = {
         sent: all.filter(r => r.invitation_status === 'SENT').length,
         pending: all.filter(r => r.invitation_status === 'PENDING').length,
         failed: all.filter(r => r.invitation_status === 'FAILED').length,
+        awaiting_rating: all.filter(r => !r.rating).length,
         opened: all.filter(r => Boolean(r.review_page_opened_at)).length,
         redirected: all.filter(r => Boolean(r.google_redirected_at)).length,
       };
@@ -3807,6 +3808,7 @@ export const db = {
         sent: all.filter(r => r.invitation_status === 'SENT').length,
         pending: all.filter(r => r.invitation_status === 'PENDING').length,
         failed: all.filter(r => r.invitation_status === 'FAILED').length,
+        awaiting_rating: all.filter(r => !r.rating).length,
         opened: all.filter(r => Boolean(r.review_page_opened_at)).length,
         redirected: all.filter(r => Boolean(r.google_redirected_at)).length,
       };

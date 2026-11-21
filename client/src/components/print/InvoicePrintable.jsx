@@ -18,7 +18,7 @@ import {
   INWARD_CHECKLIST_CONFIG,
   resolveChecklistValue,
 } from "../../utils/checklistConstants";
-import { getGreeting } from '../../utils/greeting';
+import { getGreeting } from "../../utils/greeting";
 
 // Code 39 Barcode Generator for crisp vector barcodes in PDF and Print
 const CODE39_PATTERNS = {
@@ -332,7 +332,7 @@ const SignatureStroke = () => (
 );
 
 export const InvoicePrintable = ({ invoice, job, shop }) => {
-    const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState("page1"); // Page 2 disabled — only Page 1 is printed
   const printAreaRef = useRef(null);
 
@@ -384,7 +384,6 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
   const [isSendingWa, setIsSendingWa] = useState(false);
   const [showWaModal, setShowWaModal] = useState(false);
   const [waStatus, setWaStatus] = useState({ isConnected: false });
-
 
   // Check Baileys WhatsApp connection status on mount
   useEffect(() => {
@@ -476,10 +475,13 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
         netErr.message,
       );
       toast.dismiss(toastId);
-      toast("Server PDF unavailable — opening browser Print / Save as PDF instead.", {
-        icon: "ℹ️",
-        duration: 4000,
-      });
+      toast(
+        "Server PDF unavailable — opening browser Print / Save as PDF instead.",
+        {
+          icon: "ℹ️",
+          duration: 4000,
+        },
+      );
 
       // 2. Fallback: browser's native vector pipeline via Print dialog.
       // Deferred so the button's spinner is released BEFORE the blocking
@@ -1020,7 +1022,9 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
               <Smartphone className="w-3.5 h-3.5" />
               <span>
                 {waStatus?.isConnected
-                  ? (waStatus.user?.phone ? `Linked (+${waStatus.user.phone})` : "Linked")
+                  ? waStatus.user?.phone
+                    ? `Linked (+${waStatus.user.phone})`
+                    : "Linked"
                   : "Link WhatsApp (QR)"}
               </span>
             </button>
@@ -1273,9 +1277,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                         >
                           Contact Number :{" "}
                         </span>
-                        <b style={{ fontSize: "11px" }}>
-                          {cust.phone || "—"}
-                        </b>
+                        <b style={{ fontSize: "11px" }}>{cust.phone || "—"}</b>
                       </div>
                       <div style={{ marginBottom: "1.5px" }}>
                         <span
@@ -1287,9 +1289,7 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                         >
                           Mail ID :{" "}
                         </span>
-                        <b style={{ fontSize: "11px" }}>
-                          {cust.email || "—"}
-                        </b>
+                        <b style={{ fontSize: "11px" }}>{cust.email || "—"}</b>
                       </div>
                       {cust.alternate_phone && (
                         <div>
@@ -2147,15 +2147,16 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                 </div>
 
                 {/* Terms & Conditions Summary on Page 1 */}
-                <div
-                  style={{
-                    padding: "4px 6px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  <div style={{ flex: 1, paddingRight: "10px" }}>
+
+                {/* Custom Terms & Conditions (from Shop Settings) */}
+                {shop?.terms_conditions && (
+                  <div
+                    style={{
+                      padding: "4px 6px",
+                      marginTop: "4px",
+                      borderTop: "1px solid #000",
+                    }}
+                  >
                     <div
                       style={{
                         fontWeight: 700,
@@ -2166,62 +2167,19 @@ export const InvoicePrintable = ({ invoice, job, shop }) => {
                     >
                       Terms and Conditions:
                     </div>
-                    <ul
+                    <div
                       style={{
-                        margin: 0,
-                        paddingLeft: "14px",
                         fontSize: "10px",
                         lineHeight: 1.25,
                         color: "#000",
+                        whiteSpace: "pre-wrap",
+                        wordBreak: "break-word",
                       }}
                     >
-                      <li>
-                        Subject to Engineer’s physical & internal diagnostic
-                        inspection.
-                      </li>
-                      <li>
-                        Quality program repairs will not cover all defective
-                        parts on non-chargeable basis. Only parts covered under
-                        quality program will be covered as non-chargeable post
-                        inspection.
-                      </li>
-                      <li>
-                        Mobotech mobile care receives customer devices without
-                        opening; full diagnostics follow standard testing
-                        procedures.
-                      </li>
-                      <li>
-                        Repair cannot be cancelled once approved. Non-approved
-                        estimates are returned as-is.
-                      </li>
-                      <li>
-                        <b>
-                          DATA WARNING: Storage contents may be
-                          deleted/reformatted during repair. Customer must
-                          backup data before service. Mobotech is not
-                          responsible for data loss.
-                        </b>
-                      </li>
-                      <li>
-                        Unclaimed devices after 30 days of notification are
-                        subject to disposal/auction to recover costs.
-                      </li>
-                    </ul>
-                    <div
-                      style={{
-                        fontSize: "9.5px",
-                        fontWeight: 700,
-                        fontStyle: "italic",
-                        marginTop: "2px",
-                        paddingLeft: "14px",
-                      }}
-                    >
-                      * Note: The above terms &amp; conditions apply to this repair
-                      and are binding upon acceptance of the device.
+                      {shop.terms_conditions}
                     </div>
                   </div>
-                  {/* QR Code and tracking text removed per user request */}
-                </div>
+                )}
               </div>
             </div>
 

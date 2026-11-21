@@ -48,11 +48,17 @@ const backupFileUploader = multer({
     fileSize: 150 * 1024 * 1024, // 150 MB limit
   },
   fileFilter: (req, file, cb) => {
-    const isEnc = file.originalname && file.originalname.toLowerCase().endsWith('.enc');
-    if (isEnc || file.mimetype === 'application/octet-stream') {
+    const name = (file.originalname || '').toLowerCase();
+    const isAllowedExt = name.endsWith('.sql') || name.endsWith('.enc');
+    const isAllowedMime =
+      file.mimetype === 'application/sql' ||
+      file.mimetype === 'text/plain' ||
+      file.mimetype === 'text/x-sql' ||
+      file.mimetype === 'application/octet-stream';
+    if (isAllowedExt || isAllowedMime) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Please upload a valid .enc encrypted backup file.'), false);
+      cb(new Error('Invalid file type. Please upload a valid .sql backup or legacy .enc file.'), false);
     }
   },
 });

@@ -8,7 +8,7 @@ const { Client: PgClient } = pkg;
 import { env } from '../config/env.js';
 import { db } from '../db/db.js';
 import { getSupabase, isSupabaseConfigured } from '../config/supabase.js';
-import { encryptFileToFileMultiRecipient, RECIPIENT_IDS } from './encryptionService.js';
+// Encryption has been removed — backups are stored as plaintext SQL archives.
 import {
   uploadBackupToDrive,
   listBackupsFromDrive,
@@ -19,12 +19,12 @@ import { appendStorageAssetsToDump } from './assetBackupService.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BACKUP_FILENAME_REGEX_NEW = /^backup-(\d{2})-(\d{2})-(\d{4})-(\d{2})-(\d{2})-(\d{2})\.enc$/;
-const BACKUP_FILENAME_REGEX_LEGACY = /^supabase-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.enc$/;
+const BACKUP_FILENAME_REGEX_NEW = /^backup-(\d{2})-(\d{2})-(\d{4})-(\d{2})-(\d{2})-(\d{2})\.(sql|enc)$/;
+const BACKUP_FILENAME_REGEX_LEGACY = /^supabase-backup-(\d{4})-(\d{2})-(\d{2})-(\d{2})-(\d{2})-(\d{2})\.(sql|enc)$/;
 
 /**
- * Generates standardized timestamped filename: backup-DD-MM-YYYY-HH-mm-ss.enc
- * (The legacy "supabase-backup-YYYY-MM-DD-HH-mm-ss.enc" format remains supported for parsing/restore.)
+ * Generates standardized timestamped filename: backup-DD-MM-YYYY-HH-mm-ss.sql
+ * (The legacy "supabase-backup-YYYY-MM-DD-HH-mm-ss.sql" format remains supported for parsing/restore.)
  */
 export function generateBackupFilename(date = new Date()) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -34,7 +34,7 @@ export function generateBackupFilename(date = new Date()) {
   const HH = pad(date.getHours());
   const mm = pad(date.getMinutes());
   const ss = pad(date.getSeconds());
-  return `backup-${dd}-${MM}-${yyyy}-${HH}-${mm}-${ss}.enc`;
+  return `backup-${dd}-${MM}-${yyyy}-${HH}-${mm}-${ss}.sql`;
 }
 
 /**
@@ -440,10 +440,6 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
   }
 
   // 2. Validate essential configurations
-  if (!env.BACKUP_ENCRYPTION_KEY) {
-    throw new Error('BACKUP_ENCRYPTION_KEY is not configured. Set a secure 32-byte key in environment variables.');
-  }
-
   const fileName = generateBackupFilename(new Date());
 
   // 3. Register running job record
@@ -460,7 +456,6 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
   }
 
   const rawSqlPath = path.join(tempDir, `dump-${logRecord.id}.sql`);
-  const encFilePath = path.join(tempDir, fileName);
 
   try {
     console.log(`====================================================`);
@@ -480,39 +475,28 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
       console.warn('⚠️ Asset bundling warning (continuing with database dump):', assetErr.message);
     }
 
-    // 5. Encrypt with AES-256-GCM multi-recipient key wrapping + Gzip compression.
-    //    Any one of the configured keys (Owner / Shopkeeper / Developer) can decrypt.
-    const backupRecipients = [
-      { id: RECIPIENT_IDS.OWNER, key: env.BACKUP_ENCRYPTION_KEY },
-      ...(env.SHOPKEEPER_KEY ? [{ id: RECIPIENT_IDS.SHOPKEEPER, key: env.SHOPKEEPER_KEY }] : []),
-      ...(env.DEVELOPER_KEY ? [{ id: RECIPIENT_IDS.DEVELOPER, key: env.DEVELOPER_KEY }] : []),
-    ];
-    console.log(`🔐 Encrypting dump with AES-256-GCM authenticated cipher (${backupRecipients.length} recipient key${backupRecipients.length === 1 ? '' : 's'})...`);
-    const encResult = await encryptFileToFileMultiRecipient(rawSqlPath, encFilePath, backupRecipients);
-    console.log(`🔒 Encryption complete. Encrypted archive size: ${(encResult.fileSizeBytes / 1024).toFixed(1)} KB`);
+    const finalStats = await fs.promises.stat(rawSqlPath);
 
-    // Immediately remove unencrypted plaintext dump
-    try { await fs.promises.unlink(rawSqlPath); } catch (_) {}
-
-    // 6. Permanently preserve encrypted archive in server/backups directory so data is NEVER lost
+    // 5. The SQL dump is already the final unencrypted backup archive — copy it directly to the
+    //    persistent local backup directory so data is NEVER lost.
     const localBackupsDir = path.resolve(__dirname, '../../backups');
     if (!fs.existsSync(localBackupsDir)) {
       fs.mkdirSync(localBackupsDir, { recursive: true });
     }
     const persistentLocalPath = path.join(localBackupsDir, fileName);
-    await fs.promises.copyFile(encFilePath, persistentLocalPath);
-    console.log(`💾 Encrypted backup archive preserved locally at: ${persistentLocalPath}`);
+    await fs.promises.copyFile(rawSqlPath, persistentLocalPath);
+    console.log(`💾 Backup archive preserved locally at: ${persistentLocalPath}`);
 
     // Prune expired local backups older than retention policy
     await cleanupLocalBackups(localBackupsDir, env.BACKUP_RETENTION_DAYS);
 
-    // 7. Upload encrypted archive to personal Google Drive (Account 1 - Primary)
+    // 6. Upload plain SQL archive to personal Google Drive (Account 1 - Primary)
     let uploadResult1 = null;
     let driveWarning1 = null;
 
     if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN) {
       try {
-        uploadResult1 = await uploadBackupToDrive(encFilePath, fileName, 1);
+        uploadResult1 = await uploadBackupToDrive(rawSqlPath, fileName, 1);
       } catch (gErr) {
         if (gErr.message?.includes('invalid_grant')) {
           driveWarning1 = 'Google Drive Account 1 OAuth token expired (invalid_grant). Backup safely stored locally on server. Please reconnect Account 1 in Settings.';
@@ -526,13 +510,13 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
       console.warn(`⚠️ ${driveWarning1}`);
     }
 
-    // 7b. Upload encrypted archive to secondary Google Drive (Account 2 - Secondary / Redundant)
+    // 6b. Upload plain SQL archive to secondary Google Drive (Account 2 - Secondary / Redundant)
     let uploadResult2 = null;
     let driveWarning2 = null;
 
     if (env.GOOGLE_REFRESH_TOKEN_2) {
       try {
-        uploadResult2 = await uploadBackupToDrive(encFilePath, fileName, 2);
+        uploadResult2 = await uploadBackupToDrive(rawSqlPath, fileName, 2);
       } catch (gErr2) {
         if (gErr2.message?.includes('invalid_grant')) {
           driveWarning2 = 'Google Drive Account 2 OAuth token expired (invalid_grant). Please reconnect Account 2 in Settings.';
@@ -543,10 +527,10 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
       }
     }
 
-    // 8. Cleanup temporary file in os.tmpdir
-    try { await fs.promises.unlink(encFilePath); } catch (_) {}
+    // 7. Cleanup temporary file in os.tmpdir
+    try { await fs.promises.unlink(rawSqlPath); } catch (_) {}
 
-    // 9. Run retention policy cleanup on Google Drive if upload succeeded
+    // 8. Run retention policy cleanup on Google Drive if upload succeeded
     if (uploadResult1) {
       console.log(`🧹 Running Google Drive Account 1 backup retention cleanup (retention: ${env.BACKUP_RETENTION_DAYS} days)...`);
       await cleanupExpiredBackups(env.BACKUP_RETENTION_DAYS, 1);
@@ -559,15 +543,15 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
     const durationMs = Date.now() - startTime;
     const combinedWarning = [driveWarning1, driveWarning2].filter(Boolean).join(' | ');
 
-    // 10. Mark job completed in database
+    // 9. Mark job completed in database
     const completedLog = await db.backup_logs.update(logRecord.id, {
       status: 'COMPLETED',
       drive_file_id: uploadResult1?.fileId || null,
       drive_folder_id: uploadResult1?.folderId || null,
       drive_file_id_2: uploadResult2?.fileId || null,
       drive_folder_id_2: uploadResult2?.folderId || null,
-      file_size_bytes: encResult.fileSizeBytes,
-      checksum_md5: uploadResult1?.checksumMd5 || uploadResult2?.checksumMd5 || encResult.authTagHex || null,
+      file_size_bytes: finalStats.size,
+      checksum_md5: uploadResult1?.checksumMd5 || uploadResult2?.checksumMd5 || null,
       duration_ms: durationMs,
       error_message: combinedWarning || null,
       completed_at: new Date().toISOString(),
@@ -585,7 +569,7 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
       console.log(`   Local File:      ${persistentLocalPath}`);
       if (combinedWarning) console.log(`   Notice:          ${combinedWarning}`);
     }
-    console.log(`   Archive Size:    ${(encResult.fileSizeBytes / 1024).toFixed(1)} KB`);
+    console.log(`   Archive Size:    ${(finalStats.size / 1024).toFixed(1)} KB`);
     console.log(`====================================================`);
 
     return completedLog;

@@ -54,13 +54,7 @@ export const BackupManagementTab = () => {
   const pollIntervalRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  // Backup key management (Shopkeeper / Developer — Owner is the default AES-256-GCM key)
-  const [shopkeeperKeyInput, setShopkeeperKeyInput] = useState("");
-  const [developerKeyInput, setDeveloperKeyInput] = useState("");
-  const [isSavingKeys, setIsSavingKeys] = useState(false);
-  const [showShopkeeperKey, setShowShopkeeperKey] = useState(false);
-  const [showDeveloperKey, setShowDeveloperKey] = useState(false);
-  // Optional decryption key to use when restoring (any recipient key)
+  // Optional decryption key to use when restoring legacy .enc files
   const [restoreDecryptionKey, setRestoreDecryptionKey] = useState("");
   const [showRestoreKey, setShowRestoreKey] = useState(false);
 
@@ -157,7 +151,7 @@ export const BackupManagementTab = () => {
 
     Swal.fire({
       title: "Start Database Backup?",
-      text: "A full logical dump of your Supabase database will be created, encrypted with AES-256-GCM, and uploaded to your Google Drive backup folder.",
+      text: "A full logical SQL dump (.sql) of your Supabase database will be created and uploaded to your Google Drive backup folder.",
       icon: "question",
       showCancelButton: true,
       confirmButtonText: "Yes, Start Backup",
@@ -191,64 +185,6 @@ export const BackupManagementTab = () => {
     });
   };
 
-  const generateKey = () => {
-    const bytes = new Uint8Array(32);
-    window.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-  };
-
-  const validateKeyInput = (value) => {
-    const clean = String(value || "").trim();
-    if (clean === "") return { valid: true, error: null };
-    if (/^[0-9a-fA-F]{64}$/.test(clean)) return { valid: true, error: null };
-    if (clean.length >= 8) return { valid: true, error: null };
-    return {
-      valid: false,
-      error: "Must be 64 hex characters (256-bit) or at least 8 characters.",
-    };
-  };
-
-  const handleSaveKeys = async () => {
-    const shopkeeperCheck = validateKeyInput(shopkeeperKeyInput);
-    const developerCheck = validateKeyInput(developerKeyInput);
-
-    if (!shopkeeperCheck.valid || !developerCheck.valid) {
-      toast.error(
-        shopkeeperCheck.error ||
-          developerCheck.error ||
-          "One or more keys are invalid. Please fix them and try again.",
-      );
-      return;
-    }
-
-    try {
-      setIsSavingKeys(true);
-      const payload = {};
-      if (shopkeeperKeyInput.trim())
-        payload.shopkeeper_key = shopkeeperKeyInput.trim();
-      if (developerKeyInput.trim())
-        payload.developer_key = developerKeyInput.trim();
-
-      if (Object.keys(payload).length === 0) {
-        toast.error("Enter at least one key to save.");
-        return;
-      }
-
-      const res = await backupService.saveBackupKeys(payload);
-      toast.success(res?.message || "Backup keys saved successfully.");
-      setShopkeeperKeyInput("");
-      setDeveloperKeyInput("");
-      await fetchStatusAndHistory(true);
-    } catch (err) {
-      toast.error(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to save backup keys.",
-      );
-    } finally {
-      setIsSavingKeys(false);
-    }
-  };
 
   const copyRestoreCommand = async () => {
     await copyTextToClipboard("node server/src/scripts/restoreBackup.js");
@@ -274,9 +210,10 @@ export const BackupManagementTab = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.name.toLowerCase().endsWith(".enc")) {
+    const lower = file.name.toLowerCase();
+    if (!lower.endsWith(".sql") && !lower.endsWith(".enc")) {
       toast.error(
-        "Invalid file type. Please upload a .enc encrypted backup archive.",
+        "Invalid file type. Please upload a .sql backup or legacy .enc file.",
       );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
@@ -287,12 +224,13 @@ export const BackupManagementTab = () => {
 
   const handleRestoreUploadedFile = async () => {
     if (!selectedFile) {
-      toast.error("Please select a .enc backup file to restore.");
+      toast.error("Please select a .sql or .enc backup file to restore.");
       return;
     }
 
-    if (!restoreDecryptionKey.trim()) {
-      toast.error("Decryption key is required to restore this backup file.");
+    const isLegacyEnc = selectedFile.name.toLowerCase().endsWith(".enc");
+    if (isLegacyEnc && !restoreDecryptionKey.trim()) {
+      toast.error("Decryption key is required to restore legacy .enc backup files.");
       return;
     }
 
@@ -887,7 +825,7 @@ export const BackupManagementTab = () => {
               )}
             </div>
             <p className="text-xs text-[var(--spatial-text-muted)] mt-1">
-              Encrypted with AES-256-GCM and securely stored in your personal
+              Automated unencrypted SQL backups synced securely to your personal
               Google Drive folder.
             </p>
           </div>
@@ -990,29 +928,22 @@ export const BackupManagementTab = () => {
 
       {/* Grid: 4 Summary Cards (Crisp High-Contrast Theme Adaptive) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Encryption & Security */}
+        {/* Card 1: Storage Format */}
         <div className="p-4 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shadow-sm space-y-2 hover:border-[var(--spatial-border-hover)] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
-              Encryption
+              <Database className="w-4 h-4 text-emerald-500 dark:text-emerald-400" />
+              Format
             </span>
-            {status?.hasEncryptionKey ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                AES-256-GCM
-              </span>
-            ) : (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                Missing Key
-              </span>
-            )}
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+              Plaintext SQL
+            </span>
           </div>
           <p className="text-xs font-semibold text-[var(--spatial-text-title)]">
-            Authenticated Cipher
+            Standard SQL Dump
           </p>
           <p className="text-[11px] text-[var(--spatial-text-muted)] leading-relaxed">
-            Encrypted before leaving server. Plaintext dumps are never uploaded
-            or stored in the cloud.
+            Clean unencrypted .sql file with bundled assets. Directly executable in Supabase SQL Editor.
           </p>
         </div>
 
@@ -1135,130 +1066,6 @@ export const BackupManagementTab = () => {
         </div>
       </div>
 
-      {/* Backup Encryption Keys (Multi-recipient) */}
-      <Card
-        title="Backup Encryption Keys"
-        subtitle="Shopkeeper and Developer keys can also decrypt backups alongside the default Owner key (AES-256-GCM). Leave a field blank to keep its current value unchanged."
-      >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Shopkeeper Key */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-bold text-[var(--spatial-text-title)]">
-                  Shopkeeper Key
-                </label>
-                {status?.hasShopkeeperKey ? (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                    Configured
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/15 text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]">
-                    Optional
-                  </span>
-                )}
-              </div>
-              <div className="relative">
-                <input
-                  type={showShopkeeperKey ? "text" : "password"}
-                  value={shopkeeperKeyInput}
-                  onChange={(e) => setShopkeeperKeyInput(e.target.value)}
-                  placeholder="64-char hex or 8+ char passphrase"
-                  autoComplete="off"
-                  className="w-full px-3 py-2 pr-10 rounded-xl bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-sky-500/40"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowShopkeeperKey((v) => !v)}
-                  title={showShopkeeperKey ? "Hide key" : "Show key"}
-                  className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] cursor-pointer"
-                >
-                  {showShopkeeperKey ? (
-                    <EyeOff className="w-4 h-4" />
-                  ) : (
-                    <Eye className="w-4 h-4" />
-                  )}
-                </button>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShopkeeperKeyInput(generateKey())}
-                className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
-              >
-                Generate new key
-              </button>
-            </div>
-
-            {/* Developer Key */}
-            {isDeveloper && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-xs font-bold text-[var(--spatial-text-title)]">
-                    Developer Key
-                  </label>
-                  {status?.hasDeveloperKey ? (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
-                      Configured
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-500/15 text-[var(--spatial-text-muted)] border border-[var(--spatial-border)]">
-                      Optional
-                    </span>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    type={showDeveloperKey ? "text" : "password"}
-                    value={developerKeyInput}
-                    onChange={(e) => setDeveloperKeyInput(e.target.value)}
-                    placeholder="64-char hex or 8+ char passphrase"
-                    autoComplete="off"
-                    className="w-full px-3 py-2 pr-10 rounded-xl bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-sky-500/40"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowDeveloperKey((v) => !v)}
-                    title={showDeveloperKey ? "Hide key" : "Show key"}
-                    className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] cursor-pointer"
-                  >
-                    {showDeveloperKey ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setDeveloperKeyInput(generateKey())}
-                  className="text-[11px] font-semibold text-sky-600 dark:text-sky-400 hover:underline cursor-pointer"
-                >
-                  Generate new key
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-1">
-            <p className="text-[11px] text-[var(--spatial-text-muted)] leading-relaxed">
-              Keys are 256-bit AES-256-GCM credentials. A valid key is a
-              64-character hex string or a passphrase of at least 8 characters.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Check}
-              onClick={handleSaveKeys}
-              loading={isSavingKeys}
-              loadingText="Saving..."
-              className="shrink-0"
-            >
-              Save Keys
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       {/* Latest Backup Details */}
       {latest && (
         <Card
@@ -1280,7 +1087,9 @@ export const BackupManagementTab = () => {
                 }
                 className="text-xs"
               >
-                Download Archive (.enc)
+                {(latest.filename || latest.file_name)?.endsWith(".sql")
+                  ? "Download SQL Archive (.sql)"
+                  : "Download Archive (.enc)"}
               </Button>
             )
           }
@@ -1609,7 +1418,7 @@ export const BackupManagementTab = () => {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept=".enc,application/octet-stream"
+              accept=".sql,.enc,application/sql,text/plain,application/octet-stream"
               className="hidden"
             />
             <div className="flex flex-col items-center justify-center gap-2">
@@ -1633,52 +1442,58 @@ export const BackupManagementTab = () => {
               ) : (
                 <div className="space-y-1">
                   <p className="text-xs font-semibold text-[var(--spatial-text-title)]">
-                    Click to select or drag & drop encrypted backup file (
+                    Click to select or drag & drop backup file (
+                    <span className="font-mono text-emerald-500">.sql</span> or{" "}
                     <span className="font-mono text-sky-500">.enc</span>)
                   </p>
                   <p className="text-[11px] text-[var(--spatial-text-muted)]">
-                    Supports AES-256-GCM encrypted database archives up to 150
-                    MB
+                    Supports unencrypted .sql archives and legacy .enc files up to 150 MB
                   </p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-[var(--spatial-text-title)]">
-              Decryption Key (required)
-            </label>
-            <div className="relative">
-              <input
-                type={showRestoreKey ? "text" : "password"}
-                value={restoreDecryptionKey}
-                onChange={(e) => setRestoreDecryptionKey(e.target.value)}
-                placeholder="Enter Decryption Key"
-                autoComplete="off"
-                className="w-full px-3 py-2 pr-10 rounded-xl bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-sky-500/40"
-              />
-              <button
-                type="button"
-                onClick={() => setShowRestoreKey((v) => !v)}
-                title={showRestoreKey ? "Hide key" : "Show key"}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] cursor-pointer"
-              >
-                {showRestoreKey ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-              </button>
+          {selectedFile?.name?.toLowerCase().endsWith(".enc") ? (
+            <div className="space-y-1.5 animate-in fade-in duration-200">
+              <label className="text-xs font-bold text-[var(--spatial-text-title)]">
+                Decryption Key (required for legacy .enc file)
+              </label>
+              <div className="relative">
+                <input
+                  type={showRestoreKey ? "text" : "password"}
+                  value={restoreDecryptionKey}
+                  onChange={(e) => setRestoreDecryptionKey(e.target.value)}
+                  placeholder="Enter Decryption Key"
+                  autoComplete="off"
+                  className="w-full px-3 py-2 pr-10 rounded-xl bg-[var(--spatial-input-bg)] border border-[var(--spatial-border)] text-sm font-mono text-[var(--spatial-text-title)] focus:outline-none focus:ring-2 focus:ring-sky-500/40"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRestoreKey((v) => !v)}
+                  title={showRestoreKey ? "Hide key" : "Show key"}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] cursor-pointer"
+                >
+                  {showRestoreKey ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
+          ) : selectedFile ? (
+            <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>Unencrypted plaintext SQL archive detected. No decryption key required.</span>
+            </div>
+          ) : null}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2 text-[11px] text-[var(--spatial-text-muted)]">
               <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
               <span>
-                Automatic safety snapshot taken before restore. Decrypted
-                securely in-memory.
+                Automatic safety snapshot taken before restore. Clean & verified execution.
               </span>
             </div>
 

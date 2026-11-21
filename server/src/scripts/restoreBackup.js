@@ -25,8 +25,10 @@ async function main() {
 
   const mode = await ask('Restore from (1) Google Drive, or (2) Local .enc file? [1/2]: ');
 
+  let selectedFileName = null;
   if (mode === '2') {
-    localPath = await ask('Enter absolute or relative path to local .enc file: ');
+    localPath = await ask('Enter absolute or relative path to local backup file (.sql or .enc): ');
+    selectedFileName = localPath;
   } else {
     console.log('🔍 Fetching available backups from Google Drive...');
     try {
@@ -51,19 +53,25 @@ async function main() {
       }
 
       driveFileId = backups[selectedIndex].id;
-      console.log(`✅ Selected backup: "${backups[selectedIndex].name}" (ID: ${driveFileId})`);
+      selectedFileName = backups[selectedIndex].name;
+      console.log(`✅ Selected backup: "${selectedFileName}" (ID: ${driveFileId})`);
     } catch (err) {
       console.error('❌ Failed to list backups from Google Drive:', err.message);
       process.exit(1);
     }
   }
 
-  // Decryption key (any of Owner / Shopkeeper / Developer). Empty = use server Owner key.
-  console.log('\nDecryption Key:');
-  console.log('  ℹ️  Enter the Owner (64-char hex), Shopkeeper, or Developer key.');
-  console.log('  ⚠️  NOTE: "AES-256-GCM" is the encryption algorithm, NOT a key.');
-  console.log('  👉 Press Enter (type nothing) to automatically use the configured Owner key.\n');
-  const decryptionKey = await ask('👉 Decryption key (press Enter for Owner key): ') || null;
+  // Decryption key — only required for legacy .enc files
+  let decryptionKey = null;
+  const isEncryptedFile = (selectedFileName && selectedFileName.endsWith('.enc'));
+  if (isEncryptedFile) {
+    console.log('\nDecryption Key:');
+    console.log('  ℹ️  Enter the Owner (64-char hex), Shopkeeper, or Developer key.');
+    console.log('  👉 Press Enter (type nothing) to automatically use the configured Owner key.\n');
+    decryptionKey = await ask('👉 Decryption key (press Enter for Owner key): ') || null;
+  } else {
+    console.log('\n📄 Selected backup is unencrypted plaintext SQL (.sql). Decryption bypassed.');
+  }
 
   // Target database
   const defaultTarget = env.DATABASE_URL || env.SUPABASE_URL;

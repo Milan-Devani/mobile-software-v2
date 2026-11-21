@@ -694,7 +694,7 @@ export const Settings = () => {
           <span>Appearance & Spatial UI</span>
         </button>
 
-        {SHOW_BACKUP_SECTION && isAdminLike && (
+        {SHOW_BACKUP_SECTION && isDeveloper && (
           <button
             type="button"
             onClick={() => setActiveTab('backups')}
@@ -1245,18 +1245,6 @@ export const Settings = () => {
 
               <div className="sm:col-span-2">
                 <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
-                  Standard Warranty Policy (Printed on Invoices & Job Sheets)
-                </label>
-                <textarea
-                  rows={15}
-                  value={shop.warranty_terms || ''}
-                  onChange={(e) => setShop({ ...shop, warranty_terms: e.target.value })}
-                  className="w-full px-3 py-2 spatial-input rounded-xl text-xs"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
                   TERMS AND CONDITIONS (Printed on all documents)
                 </label>
                 <textarea
@@ -1733,7 +1721,7 @@ export const Settings = () => {
       {/* ==================================================================== */}
       {/* TAB 5: DATABASE BACKUPS & DISASTER RECOVERY (HIDDEN FOR NOW)         */}
       {/* ==================================================================== */}
-      {SHOW_BACKUP_SECTION && activeTab === 'backups' && isAdminLike && (
+      {SHOW_BACKUP_SECTION && activeTab === 'backups' && isDeveloper && (
         <div key="backups" className="spatial-tab-pane">
           <BackupManagementTab />
         </div>

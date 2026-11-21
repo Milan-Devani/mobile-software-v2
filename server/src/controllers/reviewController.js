@@ -228,7 +228,7 @@ export const getPublicReviewPage = async (req, res, next) => {
 export const generatePublicAiReview = async (req, res, next) => {
   try {
     const { token } = req.params;
-    const { rating, customerFeedback, previousDraft, regenerate } = req.body;
+    const { rating, customerFeedback, previousDraft, regenerate, language } = req.body;
 
     const reviewRequest = await db.reviewRequests.findByToken(token);
     if (!reviewRequest) {
@@ -262,6 +262,7 @@ export const generatePublicAiReview = async (req, res, next) => {
       deviceModel: job?.device?.model || '',
       problem: job?.customer_complaint || '',
       servicePerformed: job?.diagnoses?.[0]?.diagnosis || 'repair service',
+      language: language || 'English',
     });
 
     if (!aiResult.success) {

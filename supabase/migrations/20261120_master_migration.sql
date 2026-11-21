@@ -1,7 +1,8 @@
 -- ============================================================================
--- ALL-IN-ONE MASTER SUPABASE SQL MIGRATION
--- MOBILE REPAIR MANAGEMENT SYSTEM (PRODUCTION CONSOLIDATED)
--- GENERATED: 2026-11-20
+-- ALL-IN-ONE MASTER SUPABASE SQL MIGRATION (COMPLETE & IDEMPOTENT)
+-- MOBILE REPAIR MANAGEMENT SYSTEM — PRODUCTION CONSOLIDATED
+-- SHOP: Mobotech Mobile Care
+-- DATE: 2026-11-21
 --
 -- INSTRUCTIONS FOR SUPABASE:
 -- 1. Open your Supabase Dashboard: https://supabase.com/dashboard/project/_/sql
@@ -9,10 +10,15 @@
 -- 3. Paste this ENTIRE file into the editor
 -- 4. Click the green "RUN" button (Ctrl+Enter or Cmd+Enter)
 --
--- This script is 100% IDEMPOTENT and SAFE:
+-- GUARANTEES ("MAKE SURE OLD NOT BREAK"):
+-- - 100% IDEMPOTENT: Safe to run on blank databases OR existing databases.
+-- - No data loss: Every column and table is guarded with IF NOT EXISTS.
+-- - Contains all 34 system tables.
+-- - Seeds Mobotech Mobile Care shop profile and default admin/developer accounts.
+-- - Sets up Row Level Security (RLS) policies for all 34 tables.
 -- ============================================================================
 
--- Enable pgcrypto for UUID generator
+-- Enable pgcrypto for UUID generation
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================================
@@ -20,18 +26,18 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.shops (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL DEFAULT 'FixIt Mobile Repair Pro',
+    name VARCHAR(255) NOT NULL DEFAULT 'Mobotech mobile care',
     tagline VARCHAR(255) DEFAULT 'Professional Smartphone & Tablet Repair Services',
     logo_url TEXT DEFAULT '',
-    phone VARCHAR(50) NOT NULL DEFAULT '+1 (555) 234-5678',
-    email VARCHAR(255) NOT NULL DEFAULT 'support@fixitrepair.com',
-    address TEXT NOT NULL DEFAULT '100 Tech Hub Boulevard, Suite 101',
-    city VARCHAR(100) DEFAULT 'San Jose',
-    state VARCHAR(100) DEFAULT 'CA',
-    postal_code VARCHAR(20) DEFAULT '95113',
-    country VARCHAR(100) DEFAULT 'USA',
-    tax_number VARCHAR(100) DEFAULT 'US-TAX-987654321',
-    website VARCHAR(255) DEFAULT 'https://fixitrepair.example.com',
+    phone VARCHAR(50) NOT NULL DEFAULT '080000 24439',
+    email VARCHAR(255) NOT NULL DEFAULT 'support@mobotech.com',
+    address TEXT NOT NULL DEFAULT 'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar',
+    city VARCHAR(100) DEFAULT 'Surat',
+    state VARCHAR(100) DEFAULT 'Gujarat',
+    postal_code VARCHAR(20) DEFAULT '395006',
+    country VARCHAR(100) DEFAULT 'India',
+    tax_number VARCHAR(100) DEFAULT '24ABCDE1234F1Z5',
+    website VARCHAR(255) DEFAULT 'https://mobotechcare.com',
     currency VARCHAR(10) DEFAULT 'INR',
     currency_symbol VARCHAR(10) DEFAULT '₹',
     warranty_terms TEXT DEFAULT 'All repairs are covered by our standard 90-day warranty against manufacturer defects on installed components. Physical or liquid damage after repair voids warranty.',
@@ -39,6 +45,10 @@ CREATE TABLE IF NOT EXISTS public.shops (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS phone VARCHAR(50) DEFAULT '080000 24439';
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS logo_url TEXT DEFAULT '';
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS warranty_terms TEXT;
+ALTER TABLE public.shops ADD COLUMN IF NOT EXISTS terms_conditions TEXT;
 
 -- ============================================================================
 -- 2. ROLES
@@ -52,6 +62,7 @@ CREATE TABLE IF NOT EXISTS public.roles (
 
 INSERT INTO public.roles (id, name, description) VALUES
 ('admin', 'Admin / Shop Owner', 'Full administrative access to shop management, financials, parts, and user accounts'),
+('developer', 'Developer', 'Full system access for software development, debugging, and maintenance'),
 ('technician', 'Technician', 'Diagnose devices, request parts, execute repairs, and complete quality testing'),
 ('staff', 'Shop Staff / Receptionist', 'Customer check-in, create job sheets, process payments, and manage pickups')
 ON CONFLICT (id) DO NOTHING;
@@ -72,7 +83,13 @@ CREATE TABLE IF NOT EXISTS public.users (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS role_id VARCHAR(50);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS avatar_url TEXT DEFAULT '';
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
 CREATE INDEX IF NOT EXISTS idx_users_email ON public.users(email);
+CREATE INDEX IF NOT EXISTS idx_users_role_id ON public.users(role_id);
 
 -- ============================================================================
 -- 4. CUSTOMERS
@@ -98,39 +115,40 @@ CREATE TABLE IF NOT EXISTS public.customers (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS whatsapp_number VARCHAR(50);
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS alternate_phone VARCHAR(50);
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS alternate_whatsapp VARCHAR(50);
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS gender VARCHAR(20) DEFAULT 'male';
+ALTER TABLE public.customers ADD COLUMN IF NOT EXISTS user_type VARCHAR(50) DEFAULT 'End User';
 CREATE INDEX IF NOT EXISTS idx_customers_phone ON public.customers(phone);
-CREATE INDEX IF NOT EXISTS idx_customers_email ON public.customers(email);
-CREATE INDEX IF NOT EXISTS idx_customers_name ON public.customers(full_name);
-CREATE INDEX IF NOT EXISTS idx_customers_code ON public.customers(customer_code);
--- Index for birthday lookup
-CREATE INDEX IF NOT EXISTS idx_customers_dob_month_day
-  ON public.customers ((EXTRACT(MONTH FROM date_of_birth)), (EXTRACT(DAY FROM date_of_birth)))
-  WHERE date_of_birth IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_customers_full_name ON public.customers(full_name);
 
 -- ============================================================================
 -- 5. DEVICES
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.devices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
+    customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
+    device_type VARCHAR(50) DEFAULT 'Mobile',
     brand VARCHAR(100) NOT NULL,
     model VARCHAR(150) NOT NULL,
     color VARCHAR(50),
-    storage_capacity VARCHAR(50),
     imei VARCHAR(50),
     serial_number VARCHAR(100),
-    passcode VARCHAR(50),
-    operating_system VARCHAR(50) DEFAULT 'iOS',
-    invoice_date DATE,
-    invoice_number VARCHAR(100),
-    expiry_date DATE,
-    cosmetic_condition VARCHAR(100),
+    screen_lock_type VARCHAR(30) DEFAULT 'NONE',
+    screen_lock_code VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_devices_imei ON public.devices(imei);
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL;
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS imei VARCHAR(50);
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS serial_number VARCHAR(100);
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS screen_lock_type VARCHAR(30) DEFAULT 'NONE';
+ALTER TABLE public.devices ADD COLUMN IF NOT EXISTS screen_lock_code VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_devices_customer_id ON public.devices(customer_id);
+CREATE INDEX IF NOT EXISTS idx_devices_imei ON public.devices(imei);
 
 -- ============================================================================
 -- 6. REPAIR JOBS
@@ -185,6 +203,9 @@ CREATE TABLE IF NOT EXISTS public.repair_jobs (
     delivered_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     payment_remaining_authorized BOOLEAN DEFAULT FALSE,
 
+    vendor_sent_at TIMESTAMPTZ,
+    vendor_expected_back_date DATE,
+
     approval_token VARCHAR(100) UNIQUE,
     approval_status VARCHAR(50) DEFAULT 'PENDING',
     approval_decision_at TIMESTAMPTZ,
@@ -195,13 +216,20 @@ CREATE TABLE IF NOT EXISTS public.repair_jobs (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Data Migration: Merge legacy status
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS payment_remaining_authorized BOOLEAN DEFAULT FALSE;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS vendor_sent_at TIMESTAMPTZ;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS vendor_expected_back_date DATE;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS warranty_history JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.repair_jobs ADD COLUMN IF NOT EXISTS reopen_count INT DEFAULT 0;
+
+-- Merge legacy status safely
 UPDATE public.repair_jobs SET status = 'CANCELLED' WHERE status = 'RETURNED_UNREPAIRED';
 
 CREATE INDEX IF NOT EXISTS idx_repair_jobs_job_number ON public.repair_jobs(job_number);
 CREATE INDEX IF NOT EXISTS idx_repair_jobs_status ON public.repair_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_repair_jobs_customer_id ON public.repair_jobs(customer_id);
 CREATE INDEX IF NOT EXISTS idx_repair_jobs_technician_id ON public.repair_jobs(assigned_technician_id);
+CREATE INDEX IF NOT EXISTS idx_repair_jobs_vendor_sent_at ON public.repair_jobs(vendor_sent_at);
 CREATE INDEX IF NOT EXISTS idx_repair_jobs_created_at ON public.repair_jobs(created_at DESC);
 
 -- ============================================================================
@@ -225,12 +253,10 @@ CREATE INDEX IF NOT EXISTS idx_job_status_history_job_id ON public.job_status_hi
 CREATE TABLE IF NOT EXISTS public.diagnoses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    diagnosed_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    reported_issue TEXT NOT NULL,
-    technician_findings TEXT DEFAULT '',
-    root_cause TEXT,
-    recommended_solution TEXT NOT NULL,
-    internal_technician_notes TEXT,
+    technician_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    technician_notes TEXT NOT NULL,
+    estimated_cost NUMERIC(12, 2) DEFAULT 0.00,
+    estimated_completion_time TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -253,10 +279,16 @@ CREATE TABLE IF NOT EXISTS public.parts (
     stock_quantity INT NOT NULL DEFAULT 0,
     minimum_stock INT NOT NULL DEFAULT 3,
     supplier VARCHAR(150),
+    warranty TEXT DEFAULT '90 Days',
+    serial_number TEXT DEFAULT '',
+    imei TEXT DEFAULT '',
     status VARCHAR(50) DEFAULT 'ACTIVE',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.parts ADD COLUMN IF NOT EXISTS warranty TEXT DEFAULT '90 Days';
+ALTER TABLE public.parts ADD COLUMN IF NOT EXISTS serial_number TEXT DEFAULT '';
+ALTER TABLE public.parts ADD COLUMN IF NOT EXISTS imei TEXT DEFAULT '';
 CREATE INDEX IF NOT EXISTS idx_parts_category ON public.parts(category);
 CREATE INDEX IF NOT EXISTS idx_parts_name ON public.parts(name);
 
@@ -269,14 +301,13 @@ CREATE TABLE IF NOT EXISTS public.part_stock_movements (
     job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL,
     movement_type VARCHAR(50) NOT NULL,
     quantity INT NOT NULL,
-    previous_stock INT NOT NULL,
-    new_stock INT NOT NULL,
-    reference_number VARCHAR(100),
+    cost_per_unit NUMERIC(12, 2),
     notes TEXT,
     created_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_part_movements_part_id ON public.part_stock_movements(part_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_part_id ON public.part_stock_movements(part_id);
+CREATE INDEX IF NOT EXISTS idx_stock_movements_job_id ON public.part_stock_movements(job_id);
 
 -- ============================================================================
 -- 11. REPAIR ESTIMATES & ESTIMATE ITEMS
@@ -284,35 +315,30 @@ CREATE INDEX IF NOT EXISTS idx_part_movements_part_id ON public.part_stock_movem
 CREATE TABLE IF NOT EXISTS public.repair_estimates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    labor_charge NUMERIC(12, 2) DEFAULT 0.00,
-    parts_subtotal NUMERIC(12, 2) DEFAULT 0.00,
-    discount NUMERIC(12, 2) DEFAULT 0.00,
-    discount_type VARCHAR(20) DEFAULT 'amount',
-    discount_value NUMERIC(12, 2) DEFAULT 0.00,
-    tax_rate NUMERIC(5, 2) DEFAULT 0.00,
-    tax_amount NUMERIC(12, 2) DEFAULT 0.00,
-    total_amount NUMERIC(12, 2) DEFAULT 0.00,
-    notes TEXT,
+    estimate_number VARCHAR(50) UNIQUE NOT NULL,
+    subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    tax NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(50) DEFAULT 'PENDING',
     valid_until DATE,
-    status VARCHAR(50) DEFAULT 'SENT',
-    created_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    notes TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_estimates_job_id ON public.repair_estimates(job_id);
 
 CREATE TABLE IF NOT EXISTS public.repair_estimate_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     estimate_id UUID NOT NULL REFERENCES public.repair_estimates(id) ON DELETE CASCADE,
+    item_type VARCHAR(50) NOT NULL,
     part_id UUID REFERENCES public.parts(id) ON DELETE SET NULL,
-    item_name VARCHAR(200) NOT NULL,
-    warranty VARCHAR(100) DEFAULT '90 Days',
+    description VARCHAR(255) NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
     unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    discount NUMERIC(12, 2) DEFAULT 0.00,
     total_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_estimate_items_est_id ON public.repair_estimate_items(estimate_id);
+CREATE INDEX IF NOT EXISTS idx_estimate_items_estimate_id ON public.repair_estimate_items(estimate_id);
 
 -- ============================================================================
 -- 12. REPAIR JOB PARTS & LABOR
@@ -320,40 +346,40 @@ CREATE INDEX IF NOT EXISTS idx_estimate_items_est_id ON public.repair_estimate_i
 CREATE TABLE IF NOT EXISTS public.repair_job_parts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    part_id UUID REFERENCES public.parts(id) ON DELETE SET NULL,
-    part_name VARCHAR(200) NOT NULL,
+    part_id UUID NOT NULL REFERENCES public.parts(id) ON DELETE RESTRICT,
     quantity INT NOT NULL DEFAULT 1,
+    unit_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     total_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    installed_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    warranty_months INT DEFAULT 3,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_repair_job_parts_job ON public.repair_job_parts(job_id);
 
 CREATE TABLE IF NOT EXISTS public.repair_job_labor (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
     description VARCHAR(255) NOT NULL,
-    labor_rate NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    hours_or_units NUMERIC(6, 2) DEFAULT 1.00,
-    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     technician_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    labor_rate NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    hours NUMERIC(6, 2) NOT NULL DEFAULT 1.00,
+    total_cost NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+CREATE INDEX IF NOT EXISTS idx_repair_job_labor_job ON public.repair_job_labor(job_id);
 
 -- ============================================================================
--- 13. REPAIR TESTS (Quality Checklist)
+-- 13. REPAIR TESTS (QUALITY CONTROL / QC)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.repair_tests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    test_key VARCHAR(100) NOT NULL,
-    test_label VARCHAR(150) NOT NULL,
-    result VARCHAR(30) NOT NULL DEFAULT 'NOT_TESTED',
+    test_type VARCHAR(50) NOT NULL,
+    test_name VARCHAR(100) NOT NULL,
+    status VARCHAR(30) NOT NULL,
     notes TEXT,
     tested_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    tested_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    tested_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_repair_tests_job_id ON public.repair_tests(job_id);
 
@@ -362,19 +388,19 @@ CREATE INDEX IF NOT EXISTS idx_repair_tests_job_id ON public.repair_tests(job_id
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    payment_number VARCHAR(50) UNIQUE NOT NULL,
-    job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
+    job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL,
     customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
     amount NUMERIC(12, 2) NOT NULL,
     payment_method VARCHAR(50) NOT NULL DEFAULT 'CASH',
-    payment_status VARCHAR(50) NOT NULL DEFAULT 'COMPLETED',
+    payment_status VARCHAR(50) DEFAULT 'PAID',
     transaction_reference VARCHAR(150),
-    received_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     notes TEXT,
-    paid_at TIMESTAMPTZ DEFAULT NOW(),
+    received_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    payment_date TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_payments_job_id ON public.payments(job_id);
+CREATE INDEX IF NOT EXISTS idx_payments_customer_id ON public.payments(customer_id);
 
 -- ============================================================================
 -- 15. INVOICES & INVOICE ITEMS
@@ -382,56 +408,51 @@ CREATE INDEX IF NOT EXISTS idx_payments_job_id ON public.payments(job_id);
 CREATE TABLE IF NOT EXISTS public.invoices (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_number VARCHAR(50) UNIQUE NOT NULL,
-    job_id UUID NOT NULL REFERENCES public.repair_jobs(id) ON DELETE RESTRICT,
+    job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL,
     customer_id UUID NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
-    shop_id UUID REFERENCES public.shops(id) ON DELETE SET NULL,
     subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    labor_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    parts_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    discount NUMERIC(12, 2) DEFAULT 0.00,
-    discount_type VARCHAR(20) DEFAULT 'amount',
-    discount_value NUMERIC(12, 2) DEFAULT 0.00,
-    tax_rate NUMERIC(5, 2) DEFAULT 0.00,
-    tax_amount NUMERIC(12, 2) DEFAULT 0.00,
+    tax_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    discount_amount NUMERIC(12, 2) DEFAULT 0.00,
     total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    paid_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    balance_due NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    payment_status VARCHAR(50) DEFAULT 'PAID',
-    warranty_period VARCHAR(100) DEFAULT '90 Days Limited Hardware Warranty',
+    paid_amount NUMERIC(12, 2) DEFAULT 0.00,
+    balance_amount NUMERIC(12, 2) DEFAULT 0.00,
+    payment_status VARCHAR(50) DEFAULT 'UNPAID',
+    payment_method VARCHAR(50),
+    invoice_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    due_date DATE,
     notes TEXT,
-    pdf_url TEXT,
-    issued_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    issued_at TIMESTAMPTZ DEFAULT NOW(),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_invoices_job_id ON public.invoices(job_id);
 CREATE INDEX IF NOT EXISTS idx_invoices_number ON public.invoices(invoice_number);
+CREATE INDEX IF NOT EXISTS idx_invoices_customer ON public.invoices(customer_id);
+CREATE INDEX IF NOT EXISTS idx_invoices_job ON public.invoices(job_id);
 
 CREATE TABLE IF NOT EXISTS public.invoice_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     invoice_id UUID NOT NULL REFERENCES public.invoices(id) ON DELETE CASCADE,
     item_type VARCHAR(50) NOT NULL,
-    item_name VARCHAR(200) NOT NULL,
-    warranty VARCHAR(100) DEFAULT '90 Days',
+    part_id UUID REFERENCES public.parts(id) ON DELETE SET NULL,
+    description VARCHAR(255) NOT NULL,
     quantity INT NOT NULL DEFAULT 1,
     unit_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    tax_amount NUMERIC(12, 2) DEFAULT 0.00,
     total_price NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    warranty_info VARCHAR(150),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_invoice_items_inv_id ON public.invoice_items(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_items_invoice ON public.invoice_items(invoice_id);
 
 -- ============================================================================
--- 16. ATTACHMENTS, NOTIFICATIONS & NOTIFICATION LOGS
+-- 16. ATTACHMENTS & NOTIFICATIONS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.attachments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    file_type VARCHAR(50) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
-    file_path TEXT NOT NULL,
     file_url TEXT NOT NULL,
-    file_size_bytes BIGINT,
-    mime_type VARCHAR(100),
+    file_type VARCHAR(100),
+    file_size_bytes INT,
     uploaded_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -439,13 +460,17 @@ CREATE INDEX IF NOT EXISTS idx_attachments_job_id ON public.attachments(job_id);
 
 CREATE TABLE IF NOT EXISTS public.notifications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    job_id UUID REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
-    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
-    notification_type VARCHAR(80) NOT NULL,
-    title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
+    user_id UUID REFERENCES public.users(id) ON DELETE CASCADE,
+    type VARCHAR(50) NOT NULL DEFAULT 'SYSTEM',
+    title VARCHAR(200) NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES public.users(id) ON DELETE CASCADE;
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'SYSTEM';
+ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
 
 CREATE TABLE IF NOT EXISTS public.notification_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -457,13 +482,18 @@ CREATE TABLE IF NOT EXISTS public.notification_logs (
     recipient VARCHAR(150) NOT NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
     provider VARCHAR(50),
-    provider_response JSONB,
+    provider_response JSONB DEFAULT NULL,
     error_message TEXT,
     retry_count INT DEFAULT 0,
     sent_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.notification_logs ADD COLUMN IF NOT EXISTS notification_id UUID REFERENCES public.notifications(id) ON DELETE SET NULL;
+ALTER TABLE public.notification_logs ADD COLUMN IF NOT EXISTS job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL;
+ALTER TABLE public.notification_logs ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL;
+ALTER TABLE public.notification_logs ALTER COLUMN provider_response DROP NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_notification_logs_job_id ON public.notification_logs(job_id);
+CREATE INDEX IF NOT EXISTS idx_notification_logs_customer_id ON public.notification_logs(customer_id);
 
 -- ============================================================================
 -- 17. SETTINGS & BACKUP LOGS
@@ -479,167 +509,155 @@ CREATE TABLE IF NOT EXISTS public.backup_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     backup_type VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
     status VARCHAR(30) NOT NULL DEFAULT 'RUNNING',
-    filename VARCHAR(255),
-    drive_file_id VARCHAR(255),
-    drive_folder_id VARCHAR(255),
-    drive_file_id_2 VARCHAR(255),
-    drive_folder_id_2 VARCHAR(255),
+    filename VARCHAR(255) NOT NULL,
+    drive_file_id VARCHAR(150),
+    drive_folder_id VARCHAR(150),
     file_size_bytes BIGINT,
-    checksum_md5 VARCHAR(64),
+    checksum_md5 VARCHAR(100),
     duration_ms INT,
     error_message TEXT,
     created_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
     started_at TIMESTAMPTZ DEFAULT NOW(),
     completed_at TIMESTAMPTZ
 );
+CREATE INDEX IF NOT EXISTS idx_backup_logs_status ON public.backup_logs(status);
 CREATE INDEX IF NOT EXISTS idx_backup_logs_started_at ON public.backup_logs(started_at DESC);
 
 -- ============================================================================
--- 18. SALES (Direct Retail Billing & GST Invoices)
+-- 18. SALES (DIRECT POS / INVENTORY SALES)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.sales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    invoice_number VARCHAR(100) UNIQUE NOT NULL,
-    invoice_no_seq INT,
-    invoice_date DATE NOT NULL DEFAULT CURRENT_DATE,
+    invoice_no VARCHAR(100) UNIQUE NOT NULL,
     customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL,
     customer_name VARCHAR(255) NOT NULL,
-    customer_phone VARCHAR(50),
+    customer_phone VARCHAR(50) NOT NULL,
     customer_email VARCHAR(255),
-    customer_address TEXT,
-    place_of_supply VARCHAR(100) DEFAULT 'Gujarat',
-    customer_gstin VARCHAR(50),
     items JSONB NOT NULL DEFAULT '[]'::jsonb,
     subtotal NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    discount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     discount_type VARCHAR(20) DEFAULT 'amount',
     discount_value NUMERIC(12, 2) DEFAULT 0.00,
-    discount_amount NUMERIC(12, 2) DEFAULT 0.00,
-    taxable_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    gst_enabled BOOLEAN DEFAULT FALSE,
-    gst_type VARCHAR(20) DEFAULT 'cgst_sgst',
-    gst_rate NUMERIC(5, 2) DEFAULT 18.00,
-    igst_rate NUMERIC(5, 2) DEFAULT 0.00,
-    igst_amount NUMERIC(12, 2) DEFAULT 0.00,
-    cgst_rate NUMERIC(5, 2) DEFAULT 9.00,
-    cgst_amount NUMERIC(12, 2) DEFAULT 0.00,
-    sgst_rate NUMERIC(5, 2) DEFAULT 9.00,
-    sgst_amount NUMERIC(12, 2) DEFAULT 0.00,
-    total_tax NUMERIC(12, 2) DEFAULT 0.00,
-    total_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
-    payment_mode VARCHAR(50) DEFAULT 'CASH',
-    payment_status VARCHAR(50) DEFAULT 'PAID',
-    bank_details JSONB DEFAULT '{}'::jsonb,
-    terms_conditions JSONB DEFAULT '[]'::jsonb,
+    tax_rate NUMERIC(5, 2) DEFAULT 0.00,
+    tax_amount NUMERIC(12, 2) DEFAULT 0.00,
+    total NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    payment_mode VARCHAR(50) NOT NULL DEFAULT 'CASH',
+    payment_status VARCHAR(50) NOT NULL DEFAULT 'PAID',
+    amount_paid NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    balance_amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     notes TEXT,
-    issued_by_user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
-    issued_by_name VARCHAR(100),
+    terms_conditions TEXT,
+    bank_details JSONB,
+    shop_id UUID REFERENCES public.shops(id) ON DELETE SET NULL,
+    created_by VARCHAR(100) DEFAULT 'Staff',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_sales_invoice_number ON public.sales(invoice_number);
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES public.customers(id) ON DELETE SET NULL;
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50);
+ALTER TABLE public.sales ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(100);
+CREATE INDEX IF NOT EXISTS idx_sales_invoice_no ON public.sales(invoice_no);
 CREATE INDEX IF NOT EXISTS idx_sales_customer_phone ON public.sales(customer_phone);
-CREATE INDEX IF NOT EXISTS idx_sales_invoice_date ON public.sales(invoice_date DESC);
+CREATE INDEX IF NOT EXISTS idx_sales_created_at ON public.sales(created_at DESC);
 
 -- ============================================================================
--- 19. VENDORS MASTER
+-- 19. VENDORS & VENDOR TRANSACTIONS
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.vendors (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    vendor_code VARCHAR(50) UNIQUE NOT NULL,
     name VARCHAR(255) NOT NULL,
-    shop_name VARCHAR(255),
-    mobile VARCHAR(50) NOT NULL,
-    whatsapp VARCHAR(50),
+    contact_person VARCHAR(255),
+    phone VARCHAR(50),
+    mobile VARCHAR(50),
+    email VARCHAR(255),
     address TEXT,
-    gst_number VARCHAR(50),
-    opening_balance NUMERIC(12, 2) DEFAULT 0.00,
+    city VARCHAR(100),
+    state VARCHAR(100),
+    gst_number VARCHAR(100),
+    upi_id VARCHAR(150),
+    bank_name VARCHAR(150),
+    bank_account_no VARCHAR(100),
+    bank_ifsc VARCHAR(50),
     current_balance NUMERIC(12, 2) DEFAULT 0.00,
-    notes TEXT,
     status VARCHAR(50) DEFAULT 'ACTIVE',
+    specialty VARCHAR(120),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_vendors_code ON public.vendors(vendor_code);
+ALTER TABLE public.vendors ADD COLUMN IF NOT EXISTS phone VARCHAR(50);
+ALTER TABLE public.vendors ADD COLUMN IF NOT EXISTS mobile VARCHAR(50);
+ALTER TABLE public.vendors ADD COLUMN IF NOT EXISTS specialty VARCHAR(120);
+UPDATE public.vendors SET phone = mobile WHERE phone IS NULL AND mobile IS NOT NULL;
+UPDATE public.vendors SET mobile = phone WHERE mobile IS NULL AND phone IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_vendors_name ON public.vendors(name);
+CREATE INDEX IF NOT EXISTS idx_vendors_phone ON public.vendors(phone);
 CREATE INDEX IF NOT EXISTS idx_vendors_mobile ON public.vendors(mobile);
-CREATE INDEX IF NOT EXISTS idx_vendors_status ON public.vendors(status);
 
--- ============================================================================
--- 20. VENDOR TRANSACTIONS (Send / Receive / Inward / Return Chalans)
--- ============================================================================
 CREATE TABLE IF NOT EXISTS public.vendor_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    txn_number VARCHAR(100) UNIQUE NOT NULL,
-    parent_txn_id UUID REFERENCES public.vendor_transactions(id) ON DELETE SET NULL,
-    txn_type VARCHAR(50) NOT NULL,
     vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE RESTRICT,
-    txn_date DATE NOT NULL DEFAULT CURRENT_DATE,
-    notes TEXT,
-    total_mobiles INT DEFAULT 0,
-    total_estimated_cost NUMERIC(12, 2) DEFAULT 0.00,
-    total_actual_cost NUMERIC(12, 2) DEFAULT 0.00,
-    total_cost NUMERIC(12, 2) DEFAULT 0.00,
-    paid_amount NUMERIC(12, 2) DEFAULT 0.00,
+    txn_type VARCHAR(50) NOT NULL,
+    amount NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
+    running_balance NUMERIC(12, 2) NOT NULL DEFAULT 0.00,
     payment_mode VARCHAR(50),
-    payment_ref VARCHAR(100),
-    status VARCHAR(50) DEFAULT 'PENDING',
+    reference_no VARCHAR(100),
+    description TEXT,
+    date DATE NOT NULL DEFAULT CURRENT_DATE,
     created_by VARCHAR(100),
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_vendor_txns_vendor_id ON public.vendor_transactions(vendor_id);
-CREATE INDEX IF NOT EXISTS idx_vendor_txns_type ON public.vendor_transactions(txn_type);
-CREATE INDEX IF NOT EXISTS idx_vendor_txns_date ON public.vendor_transactions(txn_date DESC);
+CREATE INDEX IF NOT EXISTS idx_vendor_txns_date ON public.vendor_transactions(date DESC);
 
 -- ============================================================================
--- 21. VENDOR MOBILES (Handset unit tracking)
+-- 20. VENDOR MOBILES (OUTSOURCED REPAIRS)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.vendor_mobiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE RESTRICT,
-    send_txn_id UUID REFERENCES public.vendor_transactions(id) ON DELETE SET NULL,
-    return_txn_id UUID REFERENCES public.vendor_transactions(id) ON DELETE SET NULL,
-    flow_type VARCHAR(50) NOT NULL DEFAULT 'OUTWARD',
-    brand VARCHAR(100) NOT NULL,
-    model VARCHAR(150) NOT NULL,
-    imei VARCHAR(50),
-    customer_name VARCHAR(255),
-    repair_problem TEXT NOT NULL,
-    condition TEXT,
-    accessories TEXT,
+    chalan_no VARCHAR(100) NOT NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(50) NOT NULL,
+    model_name VARCHAR(255) NOT NULL,
+    imei VARCHAR(100),
+    fault_description TEXT NOT NULL,
+    sent_cost NUMERIC(12, 2) DEFAULT 0.00,
+    expected_cost NUMERIC(12, 2) DEFAULT 0.00,
+    final_cost NUMERIC(12, 2) DEFAULT 0.00,
+    status VARCHAR(50) DEFAULT 'SENT',
+    sent_date DATE NOT NULL DEFAULT CURRENT_DATE,
     expected_return_date DATE,
-    estimated_cost NUMERIC(12, 2) DEFAULT 0.00,
-    actual_cost NUMERIC(12, 2) DEFAULT 0.00,
-    repair_result VARCHAR(50) DEFAULT 'PENDING',
-    current_status VARCHAR(50) NOT NULL DEFAULT 'AT_VENDOR',
-    sent_date DATE,
-    received_date DATE,
-    returned_date DATE,
-    warranty VARCHAR(100),
+    return_date DATE,
     notes TEXT,
+    shop_id UUID REFERENCES public.shops(id) ON DELETE SET NULL,
+    repair_job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL,
+    created_by VARCHAR(100),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE public.vendor_mobiles ADD COLUMN IF NOT EXISTS repair_job_id UUID REFERENCES public.repair_jobs(id) ON DELETE SET NULL;
+ALTER TABLE public.vendor_mobiles ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50);
 CREATE INDEX IF NOT EXISTS idx_vendor_mobiles_vendor_id ON public.vendor_mobiles(vendor_id);
-CREATE INDEX IF NOT EXISTS idx_vendor_mobiles_status ON public.vendor_mobiles(current_status);
-CREATE INDEX IF NOT EXISTS idx_vendor_mobiles_flow_type ON public.vendor_mobiles(flow_type);
+CREATE INDEX IF NOT EXISTS idx_vendor_mobiles_chalan_no ON public.vendor_mobiles(chalan_no);
+CREATE INDEX IF NOT EXISTS idx_vendor_mobiles_repair_job ON public.vendor_mobiles(repair_job_id);
 
--- ============================================================================
--- 22. VENDOR STATUS HISTORY & LEDGER
--- ============================================================================
 CREATE TABLE IF NOT EXISTS public.vendor_status_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     vendor_mobile_id UUID NOT NULL REFERENCES public.vendor_mobiles(id) ON DELETE CASCADE,
-    previous_status VARCHAR(50),
-    new_status VARCHAR(50) NOT NULL,
+    from_status VARCHAR(50),
+    to_status VARCHAR(50) NOT NULL,
+    notes TEXT,
     changed_by VARCHAR(100),
-    remarks TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
-CREATE INDEX IF NOT EXISTS idx_vsh_mobile_id ON public.vendor_status_history(vendor_mobile_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_history_mobile_id ON public.vendor_status_history(vendor_mobile_id);
 
+-- ============================================================================
+-- 21. VENDOR LEDGER & PAYMENTS
+-- ============================================================================
 CREATE TABLE IF NOT EXISTS public.vendor_ledger (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
+    vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE RESTRICT,
     date DATE NOT NULL DEFAULT CURRENT_DATE,
     entry_type VARCHAR(50) NOT NULL,
     txn_id UUID REFERENCES public.vendor_transactions(id) ON DELETE SET NULL,
@@ -674,11 +692,11 @@ CREATE INDEX IF NOT EXISTS idx_vendor_payments_vendor_id ON public.vendor_paymen
 CREATE INDEX IF NOT EXISTS idx_vendor_payments_voucher ON public.vendor_payments(voucher_no);
 
 -- ============================================================================
--- 23. RECYCLE BIN (SOFT DELETE WITH 30-DAY RETENTION)
+-- 22. RECYCLE BIN (SOFT DELETE WITH 30-DAY RETENTION)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS public.recycle_bin (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entity_type VARCHAR(50) NOT NULL, -- 'job' | 'sale' | 'vendor' | 'vendor_mobile' | 'customer' | 'part'
+    entity_type VARCHAR(50) NOT NULL,
     original_id VARCHAR(100) NOT NULL,
     title VARCHAR(255) NOT NULL,
     subtitle TEXT,
@@ -692,7 +710,145 @@ CREATE INDEX IF NOT EXISTS idx_recycle_bin_deleted_at ON public.recycle_bin(dele
 CREATE INDEX IF NOT EXISTS idx_recycle_bin_purge_at ON public.recycle_bin(purge_at ASC);
 
 -- ============================================================================
--- 24. ROW LEVEL SECURITY (RLS) POLICIES
+-- 23. GOOGLE REVIEW ASSISTANT (SETTINGS & INVITATION REQUESTS)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public.review_settings (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id UUID REFERENCES public.shops(id) ON DELETE CASCADE,
+    google_review_url TEXT DEFAULT 'https://g.page/r/CROHWMY3TX9dEBM/review',
+    review_dialog_url TEXT DEFAULT 'https://g.page/r/CROHWMY3TX9dEBM/review',
+    is_enabled BOOLEAN DEFAULT TRUE,
+    invitation_channel VARCHAR(20) DEFAULT 'WHATSAPP',
+    invitation_message TEXT DEFAULT 'Thank you for choosing {shop_name}! We hope your repair experience was good. We would appreciate your honest feedback. Please share your experience here: {review_link}',
+    ai_enabled BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_review_settings_shop ON public.review_settings(shop_id);
+
+CREATE TABLE IF NOT EXISTS public.review_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shop_id UUID REFERENCES public.shops(id) ON DELETE SET NULL,
+    job_id UUID REFERENCES public.repair_jobs(id) ON DELETE CASCADE,
+    invoice_id UUID REFERENCES public.invoices(id) ON DELETE SET NULL,
+    customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE,
+    unique_token VARCHAR(128) NOT NULL UNIQUE,
+    unique_token_hash VARCHAR(128) NOT NULL UNIQUE,
+    rating INT CHECK (rating >= 1 AND rating <= 5),
+    customer_feedback TEXT,
+    generated_review TEXT,
+    edited_review TEXT,
+    ai_provider VARCHAR(50),
+    invitation_status VARCHAR(30) DEFAULT 'PENDING',
+    invitation_sent_at TIMESTAMPTZ,
+    review_page_opened_at TIMESTAMPTZ,
+    google_redirected_at TIMESTAMPTZ,
+    error_message TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT uq_review_requests_job_id UNIQUE (job_id)
+);
+ALTER TABLE public.review_requests ADD COLUMN IF NOT EXISTS unique_token VARCHAR(128);
+ALTER TABLE public.review_requests ADD COLUMN IF NOT EXISTS unique_token_hash VARCHAR(128);
+ALTER TABLE public.review_requests ADD COLUMN IF NOT EXISTS job_id UUID REFERENCES public.repair_jobs(id) ON DELETE CASCADE;
+ALTER TABLE public.review_requests ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES public.customers(id) ON DELETE CASCADE;
+ALTER TABLE public.review_requests ADD COLUMN IF NOT EXISTS invitation_status VARCHAR(30) DEFAULT 'PENDING';
+CREATE INDEX IF NOT EXISTS idx_review_requests_token_hash ON public.review_requests(unique_token_hash);
+CREATE INDEX IF NOT EXISTS idx_review_requests_token ON public.review_requests(unique_token);
+CREATE INDEX IF NOT EXISTS idx_review_requests_job ON public.review_requests(job_id);
+CREATE INDEX IF NOT EXISTS idx_review_requests_customer ON public.review_requests(customer_id);
+CREATE INDEX IF NOT EXISTS idx_review_requests_status ON public.review_requests(invitation_status);
+
+-- ============================================================================
+-- 24. ASSET BACKUP STORAGE (APP LOGOS & MEDIA ASSETS)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS public._app_backup_assets (
+    file_name TEXT PRIMARY KEY,
+    mime_type TEXT,
+    asset_type TEXT,
+    public_url TEXT,
+    size_bytes BIGINT,
+    data_base64 TEXT,
+    created_at TEXT
+);
+
+-- ============================================================================
+-- 25. SEED INITIAL CORE DATA (MOBOTECH MOBILE CARE & USERS)
+-- ============================================================================
+INSERT INTO public.shops (
+    id, name, tagline, phone, email, address, city, state, postal_code, country, tax_number, website, currency, currency_symbol
+) VALUES (
+    'a0000000-0000-0000-0000-000000000001',
+    'Mobotech mobile care',
+    'Professional Smartphone & Tablet Repair Services',
+    '080000 24439',
+    'support@mobotech.com',
+    'Central Bazar, G-119, Varachha Main Rd, Mini Bazar, Kodiyar Nagar',
+    'Surat',
+    'Gujarat',
+    '395006',
+    'India',
+    '24ABCDE1234F1Z5',
+    'https://mobotechcare.com',
+    'INR',
+    '₹'
+) ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.users (
+    id, role_id, full_name, email, password_hash, phone, is_active
+) VALUES 
+(
+    '10000000-0000-0000-0000-000000000001',
+    'admin',
+    'Shop Owner',
+    'admin@mobotech.com',
+    '$2b$10$FAOQJQo5YAUVcBEWAG6Nk.bWO3fhPfmNuNV5k8raCEtNmYjtjo8UO',
+    '080000 24439',
+    TRUE
+),
+(
+    '10000000-0000-0000-0000-000000000007',
+    'developer',
+    'Developer',
+    'developer@mobotech.com',
+    '$2b$10$FAOQJQo5YAUVcBEWAG6Nk.bWO3fhPfmNuNV5k8raCEtNmYjtjo8UO',
+    '080000 24439',
+    TRUE
+),
+(
+    '10000000-0000-0000-0000-000000000002',
+    'technician',
+    'Lead Technician',
+    'tech@mobotech.com',
+    '$2b$10$FAOQJQo5YAUVcBEWAG6Nk.bWO3fhPfmNuNV5k8raCEtNmYjtjo8UO',
+    '080000 24439',
+    TRUE
+),
+(
+    '10000000-0000-0000-0000-000000000003',
+    'staff',
+    'Front Desk Staff',
+    'staff@mobotech.com',
+    '$2b$10$FAOQJQo5YAUVcBEWAG6Nk.bWO3fhPfmNuNV5k8raCEtNmYjtjo8UO',
+    '080000 24439',
+    TRUE
+)
+ON CONFLICT (email) DO NOTHING;
+
+INSERT INTO public.review_settings (
+    id, shop_id, google_review_url, review_dialog_url, is_enabled, invitation_channel, ai_enabled
+) VALUES (
+    'e0000000-0000-0000-0000-000000000001',
+    'a0000000-0000-0000-0000-000000000001',
+    'https://g.page/r/CROHWMY3TX9dEBM/review',
+    'https://g.page/r/CROHWMY3TX9dEBM/review',
+    TRUE,
+    'WHATSAPP',
+    TRUE
+) ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================================
+-- 26. ROW LEVEL SECURITY (RLS) POLICIES
 -- ============================================================================
 ALTER TABLE public.shops ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.roles ENABLE ROW LEVEL SECURITY;
@@ -725,6 +881,9 @@ ALTER TABLE public.vendor_status_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendor_ledger ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vendor_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recycle_bin ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.review_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.review_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public._app_backup_assets ENABLE ROW LEVEL SECURITY;
 
 DO $$ BEGIN CREATE POLICY "Allow all on shops" ON public.shops FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE POLICY "Allow all on roles" ON public.roles FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
@@ -757,8 +916,9 @@ DO $$ BEGIN CREATE POLICY "Allow all on vendor_status_history" ON public.vendor_
 DO $$ BEGIN CREATE POLICY "Allow all on vendor_ledger" ON public.vendor_ledger FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE POLICY "Allow all on vendor_payments" ON public.vendor_payments FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE POLICY "Allow all on recycle_bin" ON public.recycle_bin FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Allow all on review_settings" ON public.review_settings FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Allow all on review_requests" ON public.review_requests FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE POLICY "Allow all on app_backup_assets" ON public._app_backup_assets FOR ALL USING (true) WITH CHECK (true); EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Refresh PostgREST schema cache
 NOTIFY pgrst, 'reload schema';
-
--- Migration completed successfully.

@@ -47,7 +47,7 @@ export const NextActionBanner = ({
             textColor: 'text-emerald-950 dark:text-emerald-200',
             btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
             action: onStartRepair,
-            canPerform: ['admin', 'technician'].includes(userRole),
+            canPerform: ['admin', 'developer', 'technician'].includes(userRole),
           };
         }
         return {
@@ -59,7 +59,7 @@ export const NextActionBanner = ({
           textColor: 'text-sky-900',
           btnClass: 'bg-sky-600 hover:bg-sky-700 text-white',
           action: onStartDiagnosis,
-          canPerform: ['admin', 'technician'].includes(userRole),
+          canPerform: ['admin', 'developer', 'technician'].includes(userRole),
         };
 
       case 'DIAGNOSING':
@@ -74,7 +74,7 @@ export const NextActionBanner = ({
             textColor: 'text-emerald-950 dark:text-emerald-200',
             btnClass: hasWarrantyParts ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm',
             action: hasWarrantyParts ? onStartRepair : onOpenEstimateModal,
-            canPerform: ['admin', 'technician'].includes(userRole),
+            canPerform: ['admin', 'developer', 'technician'].includes(userRole),
           };
         }
         return {
@@ -86,7 +86,7 @@ export const NextActionBanner = ({
           textColor: 'text-indigo-900',
           btnClass: 'bg-indigo-600 hover:bg-indigo-700 text-white',
           action: onOpenEstimateModal,
-          canPerform: ['admin', 'technician'].includes(userRole),
+          canPerform: ['admin', 'developer', 'technician'].includes(userRole),
         };
 
       case 'ESTIMATE_SENT':
@@ -101,7 +101,7 @@ export const NextActionBanner = ({
             textColor: 'text-emerald-950 dark:text-emerald-200',
             btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
             action: onStartRepair,
-            canPerform: ['admin', 'technician'].includes(userRole),
+            canPerform: ['admin', 'developer', 'technician'].includes(userRole),
           };
         }
         return {
@@ -130,7 +130,7 @@ export const NextActionBanner = ({
           textColor: isFreeWarranty ? 'text-emerald-950 dark:text-emerald-200' : 'text-blue-900',
           btnClass: 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm',
           action: onStartRepair,
-          canPerform: ['admin', 'technician'].includes(userRole),
+          canPerform: ['admin', 'developer', 'technician'].includes(userRole),
         };
 
       case 'IN_PROGRESS':
@@ -143,7 +143,7 @@ export const NextActionBanner = ({
           textColor: 'text-purple-900',
           btnClass: 'bg-purple-600 hover:bg-purple-700 text-white',
           action: onCompleteRepair,
-          canPerform: ['admin', 'technician'].includes(userRole),
+          canPerform: ['admin', 'developer', 'technician'].includes(userRole),
         };
 
       case 'TESTING':
@@ -156,7 +156,7 @@ export const NextActionBanner = ({
           textColor: 'text-fuchsia-900',
           btnClass: 'bg-fuchsia-600 hover:bg-fuchsia-700 text-white',
           action: onMarkReadyForPickup,
-          canPerform: ['admin', 'technician'].includes(userRole),
+          canPerform: ['admin', 'developer', 'technician'].includes(userRole),
         };
 
       case 'READY_FOR_PICKUP':
@@ -173,7 +173,7 @@ export const NextActionBanner = ({
           textColor: 'text-emerald-900',
           btnClass: 'bg-emerald-600 hover:bg-emerald-700 text-white',
           action: onOpenPickupModal,
-          canPerform: ['admin', 'staff'].includes(userRole),
+          canPerform: ['admin', 'developer', 'staff'].includes(userRole),
         };
 
       case 'DELIVERED': {
@@ -219,7 +219,7 @@ export const NextActionBanner = ({
           textColor: 'text-rose-900',
           btnClass: 'bg-rose-600 hover:bg-rose-700 text-white',
           action: onOpenPickupModal,
-          canPerform: ['admin', 'staff'].includes(userRole),
+          canPerform: ['admin', 'developer', 'staff'].includes(userRole),
         };
 
       case 'CANCELLED':
@@ -255,7 +255,7 @@ export const NextActionBanner = ({
           <div className="flex items-center gap-2 flex-wrap mb-1">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--spatial-text-muted)]">CURRENT STATUS:</span>
             <Badge status={status} size="sm" />
-            {['admin', 'staff'].includes(userRole) && onChangeStatus && (
+            {['admin', 'developer', 'staff'].includes(userRole) && onChangeStatus && (
               <button
                 type="button"
                 onClick={onChangeStatus}

@@ -40,6 +40,7 @@ export const GoogleReviewsManagement = () => {
     sent: 0,
     pending: 0,
     failed: 0,
+    awaiting_rating: 0,
     opened: 0,
     redirected: 0,
   });
@@ -219,7 +220,7 @@ export const GoogleReviewsManagement = () => {
       </div>
 
       {/* 6 Key Telemetry Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 xl:grid-cols-7 gap-3">
         {/* Total */}
         <div className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shadow-xs">
           <div className="flex items-center justify-between text-slate-400 mb-2">
@@ -254,6 +255,18 @@ export const GoogleReviewsManagement = () => {
             {stats.pending}
           </div>
           <p className="text-[10px] text-[var(--spatial-text-muted)] mt-0.5">In Queue</p>
+        </div>
+
+        {/* Awaiting Rating */}
+        <div className="p-4 rounded-2xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shadow-xs">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-violet-400">Awaiting Rating</span>
+            <Star className="w-4 h-4 text-violet-400" />
+          </div>
+          <div className="text-xl font-bold text-violet-400 font-mono">
+            {stats.awaiting_rating ?? 0}
+          </div>
+          <p className="text-[10px] text-[var(--spatial-text-muted)] mt-0.5">No star rating yet</p>
         </div>
 
         {/* Failed */}
@@ -449,7 +462,7 @@ export const GoogleReviewsManagement = () => {
                           </div>
                         ) : (
                           <span className="text-[11px] text-[var(--spatial-text-muted)] italic">
-                            Pending
+                            Awaiting Rating
                           </span>
                         )}
                       </td>

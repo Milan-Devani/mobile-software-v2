@@ -68,13 +68,21 @@ const cleanReviewOutput = (rawText, maxWords = 55) => {
 /**
  * Build a structured, honest prompt adhering strictly to Google Review policies
  */
-const buildReviewPrompt = ({ rating, customerFeedback, previousDraft, regenerate, deviceBrand, deviceModel, problem, servicePerformed }) => {
+const buildReviewPrompt = ({ rating, customerFeedback, previousDraft, regenerate, deviceBrand, deviceModel, problem, servicePerformed, language = 'English' }) => {
   const stars = Math.min(5, Math.max(1, parseInt(rating || 5, 10)));
   const device = `${deviceBrand || ''} ${deviceModel || ''}`.trim() || 'phone';
   const issue = problem || 'device issue';
   const service = servicePerformed || 'repair service';
   const feedback = (customerFeedback || '').trim();
   const prev = (previousDraft || '').trim();
+
+  let languageInstruction = 'Write the review in English.';
+  const langLower = (language || 'English').toLowerCase();
+  if (langLower.includes('hindi') || langLower === 'hi') {
+    languageInstruction = 'Write the review in Hindi language (using Devanagari script).';
+  } else if (langLower.includes('gujarati') || langLower === 'gu') {
+    languageInstruction = 'Write the review in Gujarati language (using Gujarati script). Use Kathiyawadi tone/dialect, which is warm, colloquial, and friendly, as commonly spoken in the Saurashtra region.';
+  }
 
   const variationPrompt = (regenerate && prev)
     ? `\nVARIATION INSTRUCTION:
@@ -90,9 +98,10 @@ DEVICE: ${device}
 REPORTED PROBLEM: ${issue}
 SERVICE DONE: ${service}
 CUSTOMER'S OWN WORDS/FEEDBACK: ${feedback ? `"${feedback}"` : "None provided"}
+${languageInstruction}
 ${variationPrompt}
 STRICT GUIDELINES:
-1. Write in FIRST PERSON ("I", "my") as the customer who got their device serviced.
+1. Write in FIRST PERSON ("I", "my" or equivalent in the specified language) as the customer who got their device serviced.
 2. LENGTH: Exactly 25 to 50 words. Be short, natural, and conversational.
 3. TONE:
    - If 5 stars: Genuinely pleased and appreciative of getting the phone fixed.
@@ -291,6 +300,7 @@ export const generateReviewText = async ({
   deviceModel = '',
   problem = '',
   servicePerformed = '',
+  language = 'English',
 }) => {
   const prompt = buildReviewPrompt({
     rating,
@@ -301,6 +311,7 @@ export const generateReviewText = async ({
     deviceModel,
     problem,
     servicePerformed,
+    language,
   });
 
   const timeout = env.AI_REQUEST_TIMEOUT || 20000;

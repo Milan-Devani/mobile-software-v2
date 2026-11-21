@@ -36,16 +36,7 @@ export async function triggerManualBackup(req, res, next) {
       });
     }
 
-    // 2. Validate configuration (Encryption key is mandatory)
-    if (!env.BACKUP_ENCRYPTION_KEY) {
-      return res.status(400).json({
-        success: false,
-        message: 'BACKUP_ENCRYPTION_KEY is not configured on the server. Please set it in server environment variables.',
-        code: 'ENCRYPTION_KEY_MISSING',
-      });
-    }
-
-    // 3. Initiate backup asynchronously in the background
+    // 2. Initiate backup asynchronously in the background (no encryption key required)
     const backupPromise = runBackup({
       backupType: 'MANUAL',
       userId: req.user?.id || null,
@@ -161,8 +152,8 @@ export async function downloadBackupArchive(req, res, next) {
   try {
     const { filename } = req.params;
 
-    if (!filename || !/^(supabase-)?backup-[\d-]+\.enc$/.test(filename)) {
-      return res.status(400).json({ success: false, message: 'Invalid backup filename format.' });
+    if (!filename || !/^(supabase-)?backup-[\d-]+\.(sql|enc)$/.test(filename)) {
+      return res.status(400).json({ success: false, message: 'Invalid backup filename format. Expected .sql or .enc' });
     }
 
     const localBackupsDir = path.resolve(__dirname, '../../backups');

@@ -413,11 +413,6 @@ export async function restoreDatabase({
     targetConnectionUrl = env.SUPABASE_URL;
   }
 
-  const effectiveDecryptionKey = decryptionKey || env.BACKUP_ENCRYPTION_KEY;
-  if (!effectiveDecryptionKey) {
-    throw new Error('A decryption key is required to decrypt the backup archive (Owner, Shopkeeper, or Developer key).');
-  }
-
   // 2. Critical Safeguard: Pre-restore backup of the target database before any destructive restore
   if (takePreRestoreBackup) {
     console.log('🛡️ Safeguard: Creating pre-restore snapshot of target database before restore begins...');
@@ -434,51 +429,77 @@ export async function restoreDatabase({
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  const encTempPath = path.join(tempDir, `restore-${Date.now()}.enc`);
+  const downloadedTempPath = path.join(tempDir, `downloaded-${Date.now()}.tmp`);
   const decryptedSqlPath = path.join(tempDir, `restore-${Date.now()}.sql`);
 
   try {
-    // 3. Obtain encrypted file (either from Google Drive or local path)
-    let sourceEncPath = localEncryptedFilePath;
+    // 3. Obtain backup archive (either from Google Drive or local path)
+    let sourceFilePath = localEncryptedFilePath;
     if (driveFileId) {
       console.log(`📥 Downloading backup archive from Google Drive [${driveFileId}]...`);
-      await downloadBackupFromDrive(driveFileId, encTempPath);
-      sourceEncPath = encTempPath;
+      await downloadBackupFromDrive(driveFileId, downloadedTempPath);
+      sourceFilePath = downloadedTempPath;
     }
 
-    if (!sourceEncPath || !fs.existsSync(sourceEncPath)) {
-      throw new Error('Source encrypted backup file was not found.');
+    if (!sourceFilePath || !fs.existsSync(sourceFilePath)) {
+      throw new Error('Source backup file was not found.');
     }
 
-    // 4. Decrypt and verify AES-256-GCM authentication tag & integrity
-    console.log(`🔐 Decrypting and verifying archive integrity...`);
-    try {
-      await decryptFileToFile(sourceEncPath, decryptedSqlPath, effectiveDecryptionKey);
-    } catch (decryptErr) {
-      throw new AppError(
-        decryptErr.message || 'Failed to decrypt the backup archive. Please check the decryption key and try again.',
-        400,
-        'DECRYPTION_FAILED'
-      );
+    // Determine if the archive is encrypted (.enc / ROSBKP header) or clean unencrypted SQL (.sql)
+    let isEncrypted = false;
+    if (sourceFilePath.endsWith('.enc')) {
+      isEncrypted = true;
+    } else if (!sourceFilePath.endsWith('.sql')) {
+      try {
+        const fd = await fs.promises.open(sourceFilePath, 'r');
+        const buf = Buffer.alloc(8);
+        await fd.read(buf, 0, 8, 0);
+        await fd.close();
+        isEncrypted = buf.toString('utf8', 0, 6) === 'ROSBKP';
+      } catch (_) {
+        isEncrypted = false;
+      }
     }
-    console.log(`✅ Decryption and archive integrity verified.`);
+
+    let sqlDumpPath = sourceFilePath;
+
+    if (isEncrypted) {
+      const effectiveDecryptionKey = decryptionKey || env.BACKUP_ENCRYPTION_KEY;
+      if (!effectiveDecryptionKey) {
+        throw new Error('This is a legacy encrypted backup (.enc). A decryption key is required to restore it (Owner, Shopkeeper, or Developer key).');
+      }
+      console.log(`🔐 Decrypting and verifying legacy encrypted archive integrity...`);
+      try {
+        await decryptFileToFile(sourceFilePath, decryptedSqlPath, effectiveDecryptionKey);
+        sqlDumpPath = decryptedSqlPath;
+      } catch (decryptErr) {
+        throw new AppError(
+          decryptErr.message || 'Failed to decrypt the backup archive. Please check the decryption key and try again.',
+          400,
+          'DECRYPTION_FAILED'
+        );
+      }
+      console.log(`✅ Decryption and archive integrity verified.`);
+    } else {
+      console.log(`📄 Backup archive is unencrypted plaintext SQL (.sql). Decryption bypassed.`);
+    }
 
     // 5. Inspect SQL dump
-    const inspection = await inspectSqlDump(decryptedSqlPath);
+    const inspection = await inspectSqlDump(sqlDumpPath);
     console.log(`📋 SQL Dump Inspection: ${inspection.tables.length} tables found (${inspection.tables.join(', ')}), ${inspection.insertCount + inspection.copyCount} records.`);
 
     if (inspection.tables.length === 0) {
-      throw new Error('Inspection failed: Decrypted archive does not contain recognizable SQL table data.');
+      throw new Error('Inspection failed: Archive does not contain recognizable SQL table data.');
     }
 
     // 6. Execute restore into target database
     console.log(`🚀 Restoring database into target connection...`);
-    const result = await executeSqlRestore(targetConnectionUrl, decryptedSqlPath);
+    const result = await executeSqlRestore(targetConnectionUrl, sqlDumpPath);
 
     // 6b. Restore embedded logos, QR codes, and media assets to uploads and Supabase Storage
     let assetRestoreResult = { restoredCount: 0 };
     try {
-      assetRestoreResult = await restoreStorageAssetsFromDump(decryptedSqlPath);
+      assetRestoreResult = await restoreStorageAssetsFromDump(sqlDumpPath);
     } catch (assetErr) {
       console.warn('⚠️ Embedded asset restore warning:', assetErr.message);
     }
@@ -493,12 +514,12 @@ export async function restoreDatabase({
       method: result.method,
     };
   } finally {
-    // 7. Secure cleanup of temporary decrypted plaintext and downloaded files
+    // 7. Secure cleanup of temporary decrypted and downloaded files
     if (fs.existsSync(decryptedSqlPath)) {
       try { await fs.promises.unlink(decryptedSqlPath); } catch (_) {}
     }
-    if (fs.existsSync(encTempPath)) {
-      try { await fs.promises.unlink(encTempPath); } catch (_) {}
+    if (fs.existsSync(downloadedTempPath)) {
+      try { await fs.promises.unlink(downloadedTempPath); } catch (_) {}
     }
   }
 }

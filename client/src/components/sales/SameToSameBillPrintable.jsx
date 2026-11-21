@@ -884,11 +884,17 @@ export const SameToSameBillPrintable = ({
                         backgroundColor: "#ffffff",
                       }}
                     >
-                      <p>1. Customers must check the device condition, model, IMEI and accessories before accepting delivery.</p>
-                      <p>2. Repair warranty, if applicable, covers only the repaired or replaced parts as mentioned on the invoice.</p>
-                      <p>3. Physical damage, liquid damage, misuse and unauthorized repairs are not covered under warranty.</p>
-                      <p>4. Customers are advised to back up their data before repair; the shop is not responsible for data loss.</p>
-                      <p>5. Returns, replacements and refunds are subject to the applicable shop policy and Indian consumer protection laws.</p>
+                      {shopData?.terms_conditions ? (
+                        <div className="whitespace-pre-wrap">{shopData.terms_conditions}</div>
+                      ) : (
+                        <>
+                          <p>1. Customers must check the device condition, model, IMEI and accessories before accepting delivery.</p>
+                          <p>2. Repair warranty, if applicable, covers only the repaired or replaced parts as mentioned on the invoice.</p>
+                          <p>3. Physical damage, liquid damage, misuse and unauthorized repairs are not covered under warranty.</p>
+                          <p>4. Customers are advised to back up their data before repair; the shop is not responsible for data loss.</p>
+                          <p>5. Returns, replacements and refunds are subject to the applicable shop policy and Indian consumer protection laws.</p>
+                        </>
+                      )}
                       {sale?.notes && (
                         <p className="font-semibold text-black mt-1">
                           Note: {sale.notes}

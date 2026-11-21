@@ -54,6 +54,7 @@ export const CustomerReviewPage = () => {
   const [rating, setRating] = useState(5);
   const [reviewText, setReviewText] = useState("");
   const [lastGeneratedText, setLastGeneratedText] = useState("");
+  const [language, setLanguage] = useState("English"); // English | Hindi | Gujarati
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
@@ -124,6 +125,7 @@ export const CustomerReviewPage = () => {
         customerFeedback: isCustomFeedback ? reviewText.trim() : "",
         previousDraft: prevDraft,
         regenerate: Boolean(prevDraft),
+        language,
       });
 
       if (res.reviewText) {
@@ -245,7 +247,7 @@ export const CustomerReviewPage = () => {
   };
 
   return (
-    <div className="public-review-page min-h-screen bg-gradient-to-br from-[#eef5fc] via-[#f7faff] to-[#edf4fc] text-slate-800 py-8 pt-5 px-4 sm:px-6 relative overflow-hidden selection:bg-sky-500 selection:text-white">
+    <div className="public-review-page min-h-screen bg-gradient-to-br from-[#eef5fc] via-[#f7faff] to-[#edf4fc] text-slate-800 py-3 sm:py-6 px-3 sm:px-6 relative overflow-hidden selection:bg-sky-500 selection:text-white flex flex-col justify-between">
       {/* Ethereal fluid ribbon waves & ambient blooms matching image 19 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute -top-32 -left-32 w-96 h-96 rounded-full bg-sky-200/35 blur-3xl" />
@@ -294,7 +296,7 @@ export const CustomerReviewPage = () => {
         </svg>
       </div>
 
-      <div className="max-w-xl mx-auto space-y-3 sm:space-y-4 relative z-10">
+      <div className="max-w-xl mx-auto w-full space-y-2 sm:space-y-3 relative z-10 my-auto">
         {/* Brand Header */}
         <div className="text-center space-y-1 pb-0.5">
           {shop?.logo_url && !logoError ? (
@@ -329,7 +331,7 @@ export const CustomerReviewPage = () => {
         </div>
 
         {/* Card 1: REPAIR COMPLETED matching mobile image 20 */}
-        <div className="public-review-card rounded-[22px] sm:rounded-[28px] p-4 sm:p-5 flex items-center justify-between gap-2.5 sm:gap-3">
+        <div className="public-review-card rounded-[22px] sm:rounded-[28px] p-2 sm:p-3 flex items-center justify-between gap-2.5 sm:gap-3">
           <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-br from-[#1ea2ff] via-[#006ee6] to-[#0052cc] flex items-center justify-center text-white shadow-[0_4px_14px_rgba(0,110,255,0.35),inset_0_1.5px_1px_rgba(255,255,255,0.6)] shrink-0">
               <Check className="w-5 h-5 sm:w-6 sm:h-6 stroke-[3]" />
@@ -360,7 +362,7 @@ export const CustomerReviewPage = () => {
         </div>
 
         {/* Card 2: Rating Selection matching mobile image 20 */}
-        <div className="public-review-card rounded-[22px] sm:rounded-[28px] p-4 sm:p-6 space-y-2.5 sm:space-y-3">
+        <div className="public-review-card rounded-[22px] sm:rounded-[28px] p-2 sm:p-4 space-y-2.5 sm:space-y-3">
           <div className="flex items-center justify-center gap-2 sm:gap-4 py-0.5 sm:py-1">
             {/* Laurel branches on desktop, clean centered stars on mobile matching image 20 */}
             <div className="hidden sm:block">
@@ -402,63 +404,84 @@ export const CustomerReviewPage = () => {
           </div>
         </div>
 
-        {/* Card 3: Unified Review Input Card matching mobile image 20 */}
-        <div className="public-review-card rounded-[22px] sm:rounded-[28px] p-4 sm:p-5 space-y-3">
-          {/* Header Row: Separate rows on mobile (Row 1: prompt text, Row 2: action buttons), inline row on desktop */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 sm:gap-3">
-            <div className="flex items-start gap-2 min-w-0 flex-1 w-full sm:w-auto">
-              <MessageSquare className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-[#0066ee] stroke-[2.2] shrink-0 mt-0.5" />
-              <p className="text-[11.5px] sm:text-xs text-[#0066ee] leading-snug">
-                Type your thoughts or tap Generate to let AI craft your review
-                draft.
-              </p>
-            </div>
+        {/* Card 3: Unified Review Input Card */}
+        <div className="public-review-card rounded-[20px] sm:rounded-[28px] p-2.5 sm:p-4 space-y-2.5">
+          {/* Instruction header */}
+          <div className="flex items-center gap-2">
+            <MessageSquare className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#0066ee] stroke-[2.2] shrink-0" />
+            <p className="text-[11px] sm:text-xs text-[#0066ee] leading-tight">
+              Type your thoughts or pick language & tap Generate for AI draft.
+            </p>
+          </div>
 
-            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0 pt-0.5 sm:pt-0">
-              {reviewText.trim() && (
-                <button
-                  type="button"
-                  onClick={handleCopyReview}
-                  className="h-7 sm:h-8 px-3 rounded-full bg-white hover:bg-slate-50 text-slate-700 text-[11px] sm:text-xs font-semibold border border-slate-200 shadow-2xs transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                      <span className="text-emerald-600 font-bold">
-                        Copied!
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy</span>
-                    </>
-                  )}
-                </button>
-              )}
+          {/* Action & Language Toolbar */}
+          {ai_enabled && (
+            <div className="flex items-center justify-between gap-2">
+              {/* Language Selector */}
+              <div className="flex items-center gap-0.5 sm:gap-1 rounded-full bg-sky-50 border border-sky-200/80 p-0.5 sm:p-1 shadow-2xs shrink-0">
+                {[
+                  { key: "English", label: "English" },
+                  { key: "Hindi", label: "हिन्दी" },
+                  { key: "Gujarati", label: "ગુજરાતી" },
+                ].map((lang) => (
+                  <button
+                    key={lang.key}
+                    type="button"
+                    onClick={() => setLanguage(lang.key)}
+                    className={`h-6 sm:h-7 px-2 sm:px-3 rounded-full text-[10px] sm:text-[11px] font-bold transition-all cursor-pointer shrink-0 ${
+                      language === lang.key
+                        ? "bg-gradient-to-r from-[#0099ff] to-[#0055ff] text-white shadow-sm"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-white/60"
+                    }`}
+                  >
+                    {lang.label}
+                  </button>
+                ))}
+              </div>
 
-              {ai_enabled && (
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0">
+                {reviewText.trim() && (
+                  <button
+                    type="button"
+                    onClick={handleCopyReview}
+                    className="h-7 sm:h-8 px-2.5 sm:px-3.5 rounded-full bg-white hover:bg-slate-50 text-slate-700 text-[11px] sm:text-[11.5px] font-semibold border border-slate-200 shadow-2xs transition-all active:scale-95 flex items-center justify-center gap-1 cursor-pointer shrink-0"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-600 stroke-[2.5]" />
+                        <span className="text-emerald-600 font-bold">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
+
                 <button
                   type="button"
                   onClick={handleGenerateAiReview}
                   disabled={isGenerating}
-                  className="h-7 sm:h-8 px-3.5 rounded-full bg-gradient-to-r from-[#0099ff] via-[#0077ff] to-[#0055ff] hover:from-[#0088ee] hover:to-[#0048e0] text-white text-[11px] sm:text-xs font-bold shadow-md shadow-blue-500/25 flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
+                  className="h-7 sm:h-8 px-3 sm:px-4 rounded-full bg-gradient-to-r from-[#0099ff] via-[#0077ff] to-[#0055ff] hover:from-[#0088ee] hover:to-[#0048e0] text-white text-[11px] sm:text-[11.5px] font-bold shadow-md shadow-blue-500/25 flex items-center justify-center gap-1 transition-all active:scale-95 disabled:opacity-50 cursor-pointer shrink-0"
                 >
                   {isGenerating ? (
                     <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <RefreshCw className="w-3 h-3 sm:w-3.5 sm:h-3.5 animate-spin" />
                       <span>Writing...</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{reviewText ? "Regenerate" : "Generate"}</span>
+                      <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span>{reviewText ? "Regen" : "Generate"}</span>
                     </>
                   )}
                 </button>
-              )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Highlighted Inner Text Box Well */}
           <div className="rounded-[18px] sm:rounded-2xl bg-white border-2 border-sky-300/85 p-3.5 sm:p-4 shadow-[0_4px_20px_rgba(0,110,255,0.08),inset_0_1px_2px_rgba(255,255,255,1)] focus-within:border-sky-500 focus-within:ring-3 focus-within:ring-sky-500/20 transition-all">
@@ -486,7 +509,7 @@ export const CustomerReviewPage = () => {
             type="button"
             onClick={handleContinueToGoogle}
             disabled={redirecting}
-            className="w-full py-3.5 sm:py-4 px-6 rounded-full bg-gradient-to-r from-[#0099ff] via-[#0066ff] to-[#4338ca] hover:from-[#0088ee] hover:to-[#3730a3] text-white font-bold text-sm sm:text-base shadow-[0_12px_28px_-6px_rgba(0,102,255,0.45),inset_0_1.5px_1.5px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 relative overflow-hidden"
+            className="w-full py-3.5 sm:py-3 px-6 rounded-full bg-gradient-to-r from-[#0099ff] via-[#0066ff] to-[#4338ca] hover:from-[#0088ee] hover:to-[#3730a3] text-white font-bold text-sm sm:text-base shadow-[0_12px_28px_-6px_rgba(0,102,255,0.45),inset_0_1.5px_1.5px_rgba(255,255,255,0.7),inset_0_-2px_4px_rgba(0,0,0,0.12)] flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50 relative overflow-hidden"
           >
             {/* Luminous gloss highlight curve on button */}
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top_left,rgba(255,255,255,0.35),transparent_60%)]" />
@@ -521,7 +544,7 @@ export const CustomerReviewPage = () => {
         </div>
 
         {/* Footer matching mobile image 20 */}
-        <div className="text-center text-xs text-slate-400 pt-1 pb-6 font-medium">
+        <div className="text-center text-xs text-slate-400 pb-6 font-medium">
           Powered by {shop.name || "Mobotech mobile care"} ❤️
         </div>
       </div>
