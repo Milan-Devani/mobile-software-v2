@@ -58,7 +58,8 @@ const getInstagramProfileLink = (raw) => {
     value.includes("/api/upload") ||
     /\.(png|jpe?g|webp|svg|gif|bmp)$/i.test(pathWithoutQuery);
   if (isDirectImage) return "";
-  if (value.startsWith("@")) return `https://www.instagram.com/${value.slice(1)}/`;
+  if (value.startsWith("@"))
+    return `https://www.instagram.com/${value.slice(1)}/`;
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
   return `https://${value}`;
 };
@@ -939,9 +940,7 @@ export const dispatchSaleInvoiceNotification = async ({ sale, shop }) => {
       : "") +
     `• Total Paid: ₹${Number(sale.total_amount).toFixed(2)}\n` +
     `• Payment Mode: ${sale.payment_mode || "CASH"}\n\n` +
-    (salePdfPublicUrl
-      ? `📄 *Download Official PDF Bill:*\n${salePdfPublicUrl}\n\n`
-      : `📄 *Your official PDF bill is attached below.*\n\n`) +
+    `📄 *Your official PDF bill is attached below.*\n\n` +
     `We appreciate your business and look forward to serving you again! ❤️\n\n` +
     `*${shopName}*`;
 

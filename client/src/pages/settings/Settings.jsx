@@ -26,6 +26,8 @@ import {
   Upload,
   Image as ImageIcon,
   Send,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import toast from 'react-hot-toast';
@@ -82,6 +84,7 @@ export const Settings = () => {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserName, setNewUserName] = useState('');
   const [newUserPassword, setNewUserPassword] = useState('');
+  const [showNewUserPassword, setShowNewUserPassword] = useState(false);
   const [newUserPhone, setNewUserPhone] = useState('');
   const [newUserRole, setNewUserRole] = useState('technician');
 
@@ -460,6 +463,7 @@ export const Settings = () => {
       setNewUserName('');
       setNewUserEmail('');
       setNewUserPassword('');
+      setShowNewUserPassword(false);
       setNewUserPhone('');
       setNewUserRole('technician');
       fetchSettings();
@@ -1748,7 +1752,10 @@ export const Settings = () => {
       {/* ==================================================================== */}
       <Modal
         isOpen={isAddUserOpen}
-        onClose={() => setIsAddUserOpen(false)}
+        onClose={() => {
+          setIsAddUserOpen(false);
+          setShowNewUserPassword(false);
+        }}
         title="Add Shop Staff / Technician Account"
         subtitle="Create login account for an employee or technician"
       >
@@ -1800,15 +1807,26 @@ export const Settings = () => {
             <label className="block text-xs font-bold text-[var(--spatial-text-title)] uppercase mb-1">
               Initial Password *
             </label>
-            <input
-              type="password"
-              required
-              minLength={6}
-              placeholder="••••••••"
-              value={newUserPassword}
-              onChange={(e) => setNewUserPassword(e.target.value)}
-              className="w-full px-3 py-2 spatial-input rounded-xl text-xs font-mono"
-            />
+            <div className="relative">
+              <input
+                type={showNewUserPassword ? 'text' : 'password'}
+                required
+                minLength={6}
+                placeholder="••••••••"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+                className="w-full px-3 pr-10 py-2 spatial-input rounded-xl text-xs font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewUserPassword((prev) => !prev)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--spatial-text-muted)] hover:text-[var(--spatial-text-title)] transition-colors cursor-pointer"
+                tabIndex={-1}
+                title={showNewUserPassword ? 'Hide password' : 'Show password'}
+              >
+                {showNewUserPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
 
           <div>
@@ -1828,7 +1846,14 @@ export const Settings = () => {
           </div>
 
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[var(--spatial-border)]">
-            <Button variant="outline" size="sm" onClick={() => setIsAddUserOpen(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setIsAddUserOpen(false);
+                setShowNewUserPassword(false);
+              }}
+            >
               Cancel
             </Button>
             <Button type="submit" size="sm" loading={isSaving}>

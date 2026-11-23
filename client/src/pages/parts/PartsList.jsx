@@ -409,10 +409,7 @@ export const PartsList = () => {
     (c.name || "").toLowerCase().includes(categorySearch.toLowerCase().trim()),
   );
 
-  const paginatedCategories = filteredCategories.slice(
-    (categoryPage - 1) * categoryPageSize,
-    categoryPage * categoryPageSize,
-  );
+  const paginatedCategories = filteredCategories;
 
   const toggleSelectAllCategories = () => {
     const pageNames = filteredCategories.map((c) => c.name);
@@ -1085,11 +1082,6 @@ export const PartsList = () => {
           {/* Categories Table Card */}
           <Card
             title={`Categories Catalog (${filteredCategories.length})`}
-            subtitle={
-              categoryViewMode === "items"
-                ? undefined
-                : `Showing page ${categoryPage} of ${Math.max(1, Math.ceil(filteredCategories.length / categoryPageSize))} (${filteredCategories.length} categories)`
-            }
             bodyClassName="p-0"
           >
             {loadingCategories ? (
@@ -1602,22 +1594,6 @@ export const PartsList = () => {
                     </table>
                   </div>
                 )}
-
-                {/* Pagination Controls for Categories (Cards & Table) */}
-                {categoryViewMode !== "items" &&
-                  filteredCategories.length > 0 && (
-                    <SpatialPagination
-                      currentPage={categoryPage}
-                      pageSize={categoryPageSize}
-                      totalItems={filteredCategories.length}
-                      onPageChange={setCategoryPage}
-                      onPageSizeChange={(newSize) => {
-                        setCategoryPageSize(newSize);
-                        setCategoryPage(1);
-                      }}
-                      pageSizeOptions={[10, 15, 20]}
-                    />
-                  )}
               </div>
             )}
           </Card>
