@@ -281,6 +281,67 @@ export async function deleteBackupFile(fileId, accountIndex = 1) {
   await withRetry(() => drive.files.delete({ fileId }));
 }
 
+const DRIVE_PROFILE_CACHE_TTL_MS = 10 * 60 * 1000;
+const driveProfileCache = new Map();
+
+/**
+ * Clears cached Google Drive profile metadata for an account (e.g. after re-linking).
+ */
+export function invalidateDriveProfileCache(accountIndex = 1) {
+  const prefix = `${Number(accountIndex)}:`;
+  for (const key of driveProfileCache.keys()) {
+    if (key.startsWith(prefix)) {
+      driveProfileCache.delete(key);
+    }
+  }
+}
+
+/**
+ * Fetches the connected Google Drive user's email & display name via drive.about.get.
+ * Uses a 10-minute in-memory cache keyed by account + refresh token and NEVER throws,
+ * ensuring auth checks and backups keep working even if the profile lookup fails.
+ */
+export async function getDriveAccountInfo(accountIndex = 1, oauth2ClientOverride = null) {
+  const { clientId, clientSecret, refreshToken } = getDriveCredentials(accountIndex);
+  if (!oauth2ClientOverride && (!clientId || !clientSecret || !refreshToken)) {
+    return { email: null, displayName: null };
+  }
+
+  const cacheKey = `${Number(accountIndex)}:${refreshToken || 'override'}`;
+  const cached = driveProfileCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < DRIVE_PROFILE_CACHE_TTL_MS) {
+    return { email: cached.email, displayName: cached.displayName };
+  }
+
+  try {
+    const authClient =
+      oauth2ClientOverride ||
+      (() => {
+        const client = new google.auth.OAuth2(
+          clientId,
+          clientSecret,
+          'http://localhost:3000/oauth2callback'
+        );
+        client.setCredentials({ refresh_token: refreshToken });
+        return client;
+      })();
+
+    const drive = google.drive({ version: 'v3', auth: authClient });
+    const res = await drive.about.get({
+      fields: 'user(emailAddress,displayName)',
+    });
+    const email = res?.data?.user?.emailAddress || null;
+    const displayName = res?.data?.user?.displayName || null;
+
+    if (email) {
+      driveProfileCache.set(cacheKey, { email, displayName, fetchedAt: Date.now() });
+    }
+    return { email, displayName };
+  } catch (_) {
+    return { email: null, displayName: null };
+  }
+}
+
 /**
  * Tests Google Drive OAuth2 token validity without throwing unhandled exceptions.
  * Detects whether the token is valid, missing, or expired with 'invalid_grant' for Account 1 or 2.
@@ -312,7 +373,13 @@ export async function testDriveAuth(accountIndex = 1) {
         accountIndex,
       };
     }
-    return { valid: true, accountIndex };
+    const profile = await getDriveAccountInfo(accountIndex, oauth2Client);
+    return {
+      valid: true,
+      accountIndex,
+      email: profile.email,
+      displayName: profile.displayName,
+    };
   } catch (err) {
     const msg = err.message || '';
     if (msg.includes('invalid_grant')) {

@@ -20,6 +20,7 @@ import {
   UploadCloud,
   FileArchive,
   RotateCcw,
+  Mail,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import Swal from "sweetalert2";
@@ -702,9 +703,15 @@ export const BackupManagementTab = () => {
         toast.loading(`Connecting ${accountLabel}...`, {
           id: "gdrive-connect",
         });
-        await backupService.exchangeGoogleAuthCode(authCode.trim(), account);
+        const exchangeRes = await backupService.exchangeGoogleAuthCode(
+          authCode.trim(),
+          account,
+        );
+        const connectedEmail = exchangeRes?.email || exchangeRes?.data?.email;
         toast.success(
-          `${accountLabel} connected successfully! Future backups will sync automatically.`,
+          connectedEmail
+            ? `${accountLabel} (${connectedEmail}) connected successfully! Future backups will sync automatically.`
+            : `${accountLabel} connected successfully! Future backups will sync automatically.`,
           { id: "gdrive-connect" },
         );
         fetchStatusAndHistory(true);
@@ -975,6 +982,23 @@ export const BackupManagementTab = () => {
           <p className="text-xs font-semibold text-[var(--spatial-text-title)]">
             Primary Cloud Backup
           </p>
+          {status?.googleDriveEmail && (
+            <div
+              className={`inline-flex max-w-full items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium border ${
+                status?.googleDriveStatus === "CONNECTED"
+                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                  : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25"
+              }`}
+              title={status.googleDriveEmail}
+            >
+              <Mail className="w-3 h-3 shrink-0" />
+              <span className="truncate">
+                {status?.googleDriveStatus === "EXPIRED"
+                  ? `Last linked: ${status.googleDriveEmail}`
+                  : status.googleDriveEmail}
+              </span>
+            </div>
+          )}
           <p className="text-[11px] text-[var(--spatial-text-muted)] leading-relaxed">
             Personal Google Drive folder. Retention prunes archives older than{" "}
             {status?.retentionDays || 30} days.
@@ -1024,6 +1048,23 @@ export const BackupManagementTab = () => {
             <p className="text-xs font-semibold text-[var(--spatial-text-title)]">
               Redundant Cloud Backup
             </p>
+            {status?.googleDriveEmail2 && (
+              <div
+                className={`inline-flex max-w-full items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-medium border ${
+                  status?.googleDriveStatus2 === "CONNECTED"
+                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25"
+                    : "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/25"
+                }`}
+                title={status.googleDriveEmail2}
+              >
+                <Mail className="w-3 h-3 shrink-0" />
+                <span className="truncate">
+                  {status?.googleDriveStatus2 === "EXPIRED"
+                    ? `Last linked: ${status.googleDriveEmail2}`
+                    : status.googleDriveEmail2}
+                </span>
+              </div>
+            )}
             <p className="text-[11px] text-[var(--spatial-text-muted)] leading-relaxed">
               Secondary account for dual-cloud redundancy. Both drives receive
               identical encrypted archives.

@@ -11,6 +11,8 @@ import { env } from '../config/env.js';
 
 const KEY_ACCOUNT_1 = 'google_drive_refresh_token';
 const KEY_ACCOUNT_2 = 'google_drive_refresh_token_2';
+const KEY_EMAIL_1 = 'google_drive_email';
+const KEY_EMAIL_2 = 'google_drive_email_2';
 
 /**
  * Persists a Google Drive refresh token for Account 1 or 2 into the database.
@@ -28,6 +30,41 @@ export async function saveDriveRefreshToken(accountIndex, refreshToken) {
     );
   } catch (err) {
     console.warn(`⚠️ Failed to persist Google Drive refresh token (Account ${label}) to DB:`, err.message);
+  }
+}
+
+/**
+ * Persists the connected Google Drive account email for Account 1 or 2 into the database
+ * so it remains visible in the UI even if the token later expires or before a live fetch completes.
+ */
+export async function saveDriveAccountEmail(accountIndex, email) {
+  const cleaned = typeof email === 'string' ? email.trim() : '';
+  if (!cleaned) return;
+  const isSecond = Number(accountIndex) === 2;
+  const key = isSecond ? KEY_EMAIL_2 : KEY_EMAIL_1;
+  const label = isSecond ? 2 : 1;
+  try {
+    await db.settings.set(
+      key,
+      cleaned,
+      `Connected Google Drive email (Account ${label})`,
+    );
+  } catch (err) {
+    console.warn(`⚠️ Failed to persist Google Drive email (Account ${label}) to DB:`, err.message);
+  }
+}
+
+/**
+ * Reads the last saved Google Drive account email for Account 1 or 2 from the database.
+ */
+export async function getSavedDriveAccountEmail(accountIndex) {
+  const isSecond = Number(accountIndex) === 2;
+  const key = isSecond ? KEY_EMAIL_2 : KEY_EMAIL_1;
+  try {
+    const val = await db.settings.get(key);
+    return typeof val === 'string' && val.trim() ? val.trim() : null;
+  } catch (_) {
+    return null;
   }
 }
 

@@ -5,12 +5,19 @@ import { runBackup } from '../services/backupService.js';
 import { restoreDatabase } from '../services/restoreService.js';
 import {
   testDriveAuth,
+  getDriveAccountInfo,
+  invalidateDriveProfileCache,
   getGoogleDriveAuthUrl,
   exchangeAuthCodeForTokens,
   downloadBackupFromDrive,
   deleteBackupFile,
 } from '../services/googleDriveService.js';
-import { saveDriveRefreshToken, hydrateDriveTokensFromDb } from '../services/driveTokenStore.js';
+import {
+  saveDriveRefreshToken,
+  saveDriveAccountEmail,
+  getSavedDriveAccountEmail,
+  hydrateDriveTokensFromDb,
+} from '../services/driveTokenStore.js';
 import { db } from '../db/db.js';
 import { env } from '../config/env.js';
 
@@ -105,10 +112,30 @@ export async function getBackupStatus(req, res, next) {
     await hydrateDriveTokensFromDb();
 
     // Test Google Drive token health for Account 1 and Account 2
-    const [driveAuthTest1, driveAuthTest2] = await Promise.all([
+    const [driveAuthTest1, driveAuthTest2, savedEmail1, savedEmail2] = await Promise.all([
       testDriveAuth(1),
       testDriveAuth(2),
+      getSavedDriveAccountEmail(1),
+      getSavedDriveAccountEmail(2),
     ]);
+
+    const hasGoogleDrive = Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN);
+    const hasGoogleDrive2 = Boolean(env.GOOGLE_REFRESH_TOKEN_2);
+
+    const googleDriveEmail = driveAuthTest1.valid
+      ? (driveAuthTest1.email || savedEmail1 || null)
+      : (hasGoogleDrive ? savedEmail1 : null);
+    const googleDriveEmail2 = driveAuthTest2.valid
+      ? (driveAuthTest2.email || savedEmail2 || null)
+      : (hasGoogleDrive2 ? savedEmail2 : null);
+
+    // Persist newly discovered live email(s) to DB settings in the background (non-blocking)
+    if (driveAuthTest1.valid && driveAuthTest1.email && driveAuthTest1.email !== savedEmail1) {
+      saveDriveAccountEmail(1, driveAuthTest1.email).catch(() => {});
+    }
+    if (driveAuthTest2.valid && driveAuthTest2.email && driveAuthTest2.email !== savedEmail2) {
+      saveDriveAccountEmail(2, driveAuthTest2.email).catch(() => {});
+    }
 
     return res.status(200).json({
       success: true,
@@ -122,7 +149,7 @@ export async function getBackupStatus(req, res, next) {
         hasShopkeeperKey: Boolean(env.SHOPKEEPER_KEY),
         hasDeveloperKey: Boolean(env.DEVELOPER_KEY),
         // Primary Account 1
-        hasGoogleDrive: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && env.GOOGLE_REFRESH_TOKEN),
+        hasGoogleDrive,
         googleDriveStatus: driveAuthTest1.valid
           ? 'CONNECTED'
           : driveAuthTest1.error === 'invalid_grant'
@@ -131,8 +158,9 @@ export async function getBackupStatus(req, res, next) {
               ? 'ERROR'
               : 'NOT_CONFIGURED',
         googleDriveError: driveAuthTest1.valid ? null : driveAuthTest1.message,
+        googleDriveEmail,
         // Secondary Account 2
-        hasGoogleDrive2: Boolean(env.GOOGLE_REFRESH_TOKEN_2),
+        hasGoogleDrive2,
         googleDriveStatus2: driveAuthTest2.valid
           ? 'CONNECTED'
           : driveAuthTest2.error === 'invalid_grant'
@@ -141,6 +169,7 @@ export async function getBackupStatus(req, res, next) {
               ? 'ERROR'
               : 'NOT_CONFIGURED',
         googleDriveError2: driveAuthTest2.valid ? null : driveAuthTest2.message,
+        googleDriveEmail2,
         hasDatabaseUrl: Boolean(env.DATABASE_URL),
       },
     });
@@ -266,10 +295,20 @@ export async function exchangeGoogleAuthCodeEndpoint(req, res, next) {
     // a different machine (where server/.env is not reachable).
     await saveDriveRefreshToken(accountIndex, tokens.refresh_token);
 
+    // Refresh cached profile and persist connected Google Drive email (best-effort)
+    invalidateDriveProfileCache(accountIndex);
+    const { email } = await getDriveAccountInfo(accountIndex);
+    if (email) {
+      await saveDriveAccountEmail(accountIndex, email);
+    }
+
     return res.status(200).json({
       success: true,
-      message: `Google Drive Account ${accountIndex} connected successfully! Refresh token updated.`,
+      message: email
+        ? `Google Drive Account ${accountIndex} (${email}) connected successfully! Refresh token updated.`
+        : `Google Drive Account ${accountIndex} connected successfully! Refresh token updated.`,
       account: accountIndex,
+      email: email || null,
     });
   } catch (err) {
     next(err);
