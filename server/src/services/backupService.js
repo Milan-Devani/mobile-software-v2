@@ -392,7 +392,7 @@ export async function cleanupLocalBackups(backupsDir, retentionDays = env.BACKUP
     const files = await fs.promises.readdir(backupsDir);
     const backupFiles = [];
     for (const file of files) {
-      if (file.endsWith('.enc')) {
+      if (file.endsWith('.sql') || file.endsWith('.enc')) {
         const filePath = path.join(backupsDir, file);
         const stats = await fs.promises.stat(filePath);
         const parsedDate = parseDateFromBackupFilename(file) || stats.mtime;
@@ -580,9 +580,6 @@ export async function runBackup({ backupType = 'MANUAL', userId = null } = {}) {
     // Clean up temporary files on failure
     if (fs.existsSync(rawSqlPath)) {
       try { await fs.promises.unlink(rawSqlPath); } catch (_) {}
-    }
-    if (fs.existsSync(encFilePath)) {
-      try { await fs.promises.unlink(encFilePath); } catch (_) {}
     }
 
     // Sanitize error message (remove potential passwords or credentials)

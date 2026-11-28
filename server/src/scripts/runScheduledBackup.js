@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { runBackup } from '../services/backupService.js';
 import { initDb } from '../db/db.js';
+import { hydrateDriveTokensFromDb } from '../services/driveTokenStore.js';
 
 async function main() {
   console.log('====================================================');
@@ -11,6 +12,9 @@ async function main() {
   try {
     // Initialize database connectivity (local cache & Supabase)
     await initDb();
+
+    // Load DB-persisted Google Drive refresh tokens (Account 1 & Account 2)
+    await hydrateDriveTokensFromDb();
 
     const result = await runBackup({
       backupType: 'SCHEDULED',

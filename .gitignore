@@ -84,3 +84,7 @@ Thumbs.db
 
 # Puppeteer-downloaded Chrome binary (too large for GitHub)
 server/chrome/
+
+# Local database backup dumps (synced to Google Drive, never commit DB dumps to Git)
+server/backups/*.sql
+server/backups/*.enc

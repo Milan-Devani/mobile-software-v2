@@ -80,7 +80,10 @@ export const env = {
   BACKUP_RETENTION_DAYS: parseInt(process.env.BACKUP_RETENTION_DAYS || '30', 10),
   BACKUP_TEMP_DIR: process.env.BACKUP_TEMP_DIR || '',
   BACKUP_TIMEOUT_MS: parseInt(process.env.BACKUP_TIMEOUT_MS || '300000', 10),
-  BACKUP_SCHEDULE: process.env.BACKUP_SCHEDULE || '0 2 * * *',
+  BACKUP_SCHEDULE: process.env.BACKUP_SCHEDULE || '30 9 * * *',
+  AUTO_BACKUP_ENABLED: String(process.env.AUTO_BACKUP_ENABLED || 'true').toLowerCase() !== 'false',
+  BACKUP_HOUR_IST: parseInt(process.env.BACKUP_HOUR_IST ?? '15', 10),
+  BACKUP_MINUTE_IST: parseInt(process.env.BACKUP_MINUTE_IST ?? '0', 10),
 
   // AI Review Assistant Providers & Priority
   AI_PRIMARY_PROVIDER: process.env.AI_PRIMARY_PROVIDER || 'gemini',

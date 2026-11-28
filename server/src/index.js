@@ -195,6 +195,14 @@ const startServer = async () => {
       console.warn('Birthday scheduler start warning:', err.message);
     }
 
+    // Daily automatic database backup (Google Drive Account 1 & 2) — checks every 5 min, runs at 3:00 PM IST
+    try {
+      const { startBackupScheduler } = await import('./services/backupSchedulerService.js');
+      startBackupScheduler();
+    } catch (err) {
+      console.warn('Backup scheduler start warning:', err.message);
+    }
+
     // Auto-connect Baileys WhatsApp session if saved auth credentials exist
     try {
       const { initBaileys } = await import('./services/baileysService.js');

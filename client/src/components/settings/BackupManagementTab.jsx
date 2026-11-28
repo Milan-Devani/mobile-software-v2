@@ -1086,24 +1086,35 @@ export const BackupManagementTab = () => {
           </div>
         )}
 
-        {/* Card 4: Automation & Render Schedule */}
+        {/* Card 4: Automation & Built-in Daily Schedule */}
         <div className="p-4 rounded-xl bg-[var(--spatial-bg-card)] border border-[var(--spatial-border)] shadow-sm space-y-2 hover:border-[var(--spatial-border-hover)] transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-[var(--spatial-text-muted)] uppercase tracking-wider flex items-center gap-1.5">
               <Clock className="w-4 h-4 text-slate-500 dark:text-slate-400" />
               Daily Schedule
             </span>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 font-mono">
-              {status?.schedule || "0 2 * * *"}
-            </span>
+            {status?.scheduler?.enabled === false ? (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                Disabled
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                Active (IST)
+              </span>
+            )}
           </div>
           <p className="text-xs font-semibold text-[var(--spatial-text-title)]">
-            2:00 AM UTC Daily
+            {status?.scheduler?.timeLabel || "3:00 PM IST"} Daily
           </p>
           <p className="text-[11px] text-[var(--spatial-text-muted)] leading-relaxed">
-            Runs via Render Cron Job independently of web service sleep cycles
-            on free tier.
+            Runs automatically via built-in server scheduler (free-tier friendly)
+            with auto catch-up and duplicate protection.
           </p>
+          {status?.scheduler?.completedToday && (
+            <p className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+              ✓ Today&apos;s scheduled backup completed
+            </p>
+          )}
         </div>
       </div>
 

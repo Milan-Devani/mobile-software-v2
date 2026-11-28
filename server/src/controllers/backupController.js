@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { runBackup } from '../services/backupService.js';
+import { getBackupSchedulerStatus } from '../services/backupSchedulerService.js';
 import { restoreDatabase } from '../services/restoreService.js';
 import {
   testDriveAuth,
@@ -103,9 +104,10 @@ export async function getBackupStatus(req, res, next) {
       await db.backup_logs.clearStaleJobs(10);
     } catch (_) {}
 
-    const [runningJob, latestBackup] = await Promise.all([
+    const [runningJob, latestBackup, scheduler] = await Promise.all([
       db.backup_logs.getRunningJob(),
       db.backup_logs.getLatest(),
+      getBackupSchedulerStatus(),
     ]);
 
     // Ensure DB-persisted refresh tokens are loaded into runtime env (survives restarts)
@@ -143,7 +145,8 @@ export async function getBackupStatus(req, res, next) {
         isRunning: Boolean(runningJob),
         currentJob: runningJob || null,
         latestBackup: latestBackup || null,
-        schedule: env.BACKUP_SCHEDULE || '0 2 * * *',
+        schedule: scheduler?.cronUtc || env.BACKUP_SCHEDULE || '30 9 * * *',
+        scheduler,
         retentionDays: env.BACKUP_RETENTION_DAYS || 30,
         hasEncryptionKey: Boolean(env.BACKUP_ENCRYPTION_KEY),
         hasShopkeeperKey: Boolean(env.SHOPKEEPER_KEY),
